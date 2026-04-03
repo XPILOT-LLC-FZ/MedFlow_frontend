@@ -1,0 +1,64 @@
+"use client";
+
+import React, { useState } from "react";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { AppointmentCard } from "@/components/shared/AppointmentCard";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { useTranslation } from "@/hooks/useTranslation";
+import { useBookingStore } from "@/stores/useBookingStore";
+
+export default function DoctorAppointmentsPage() {
+  const { t, locale } = useTranslation();
+  const [search, setSearch] = useState("");
+  const { appointments } = useBookingStore();
+
+  const doctorAppts = appointments.filter(
+    (a) => a.doctorName.toLowerCase().includes("mitchell") &&
+    (a.patientName.toLowerCase().includes(search.toLowerCase()) || search === "")
+  );
+
+  return (
+    <div className="space-y-6 max-w-5xl">
+      <PageHeader
+        title={t("appointments")}
+        description={locale === "ar" ? "إدارة مواعيد المرضى" : "Manage your patient appointments"}
+      />
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={locale === "ar" ? "ابحث عن مريض..." : "Search patients..."}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10 rtl:pl-3 rtl:pr-10"
+        />
+      </div>
+
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all">{t("all")}</TabsTrigger>
+          <TabsTrigger value="scheduled">{t("scheduled")}</TabsTrigger>
+          <TabsTrigger value="completed">{t("completed")}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-4 space-y-3">
+          {doctorAppts.map((apt, i) => (
+            <AppointmentCard key={apt.id} appointment={apt} delay={i * 0.05} />
+          ))}
+        </TabsContent>
+        <TabsContent value="scheduled" className="mt-4 space-y-3">
+          {doctorAppts.filter((a) => a.status === "scheduled" || a.status === "confirmed").map((apt, i) => (
+            <AppointmentCard key={apt.id} appointment={apt} delay={i * 0.05} />
+          ))}
+        </TabsContent>
+        <TabsContent value="completed" className="mt-4 space-y-3">
+          {doctorAppts.filter((a) => a.status === "completed").map((apt, i) => (
+            <AppointmentCard key={apt.id} appointment={apt} delay={i * 0.05} />
+          ))}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
