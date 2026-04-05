@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { PatientChat } from "@/components/shared/PatientChat";
 import { useStore } from "@/stores/useStore";
 import { ToastContainer } from "@/components/shared/ToastContainer";
 
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
+      <PatientChat />
       <ToastContainer />
     </>
   );

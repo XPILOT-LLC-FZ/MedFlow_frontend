@@ -14,9 +14,9 @@ export const doctors: Doctor[] = [
     experience: 15,
     bio: "Board-certified cardiologist with 15 years of experience in interventional cardiology.",
     schedule: [
-      { day: "Monday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "11:00", available: false }, { time: "14:00", available: true }, { time: "15:00", available: true }] },
-      { day: "Wednesday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: false }, { time: "11:00", available: true }, { time: "14:00", available: true }] },
-      { day: "Friday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "14:00", available: true }] },
+      { day: "Monday", slots: [{ time: "09:00", available: true }, { time: "09:30", available: true }, { time: "10:30", available: true }, { time: "11:30", available: false }, { time: "14:00", available: true }, { time: "15:30", available: true }] },
+      { day: "Wednesday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: false }, { time: "10:30", available: true }, { time: "14:00", available: true }, { time: "14:30", available: true }] },
+      { day: "Friday", slots: [{ time: "09:30", available: true }, { time: "10:00", available: true }, { time: "13:30", available: true }, { time: "15:00", available: true }] },
     ],
   },
   {
@@ -32,8 +32,8 @@ export const doctors: Doctor[] = [
     experience: 12,
     bio: "Expert dermatologist specializing in cosmetic and medical dermatology.",
     schedule: [
-      { day: "Tuesday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "11:00", available: true }, { time: "14:00", available: false }] },
-      { day: "Thursday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "14:00", available: true }, { time: "15:00", available: true }] },
+      { day: "Tuesday", slots: [{ time: "09:00", available: true }, { time: "09:30", available: true }, { time: "10:30", available: true }, { time: "11:30", available: true }, { time: "14:30", available: false }] },
+      { day: "Thursday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "13:30", available: true }, { time: "14:30", available: true }, { time: "15:30", available: true }] },
     ],
   },
   {
@@ -49,9 +49,9 @@ export const doctors: Doctor[] = [
     experience: 10,
     bio: "Compassionate pediatrician dedicated to providing comprehensive care for children.",
     schedule: [
-      { day: "Monday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "11:00", available: true }] },
-      { day: "Wednesday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "14:00", available: true }] },
-      { day: "Friday", slots: [{ time: "09:00", available: true }, { time: "14:00", available: true }, { time: "15:00", available: true }] },
+      { day: "Monday", slots: [{ time: "08:30", available: true }, { time: "09:00", available: true }, { time: "09:30", available: true }, { time: "10:30", available: true }] },
+      { day: "Wednesday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "13:30", available: true }, { time: "14:30", available: true }] },
+      { day: "Friday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "14:00", available: true }, { time: "15:30", available: true }] },
     ],
   },
   {
@@ -67,8 +67,8 @@ export const doctors: Doctor[] = [
     experience: 18,
     bio: "Orthopedic surgeon specializing in sports medicine and joint reconstruction.",
     schedule: [
-      { day: "Tuesday", slots: [{ time: "10:00", available: true }, { time: "11:00", available: true }, { time: "14:00", available: true }] },
-      { day: "Thursday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "14:00", available: false }] },
+      { day: "Tuesday", slots: [{ time: "09:30", available: true }, { time: "10:30", available: true }, { time: "11:30", available: true }, { time: "14:30", available: true }] },
+      { day: "Thursday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "13:30", available: true }, { time: "15:00", available: false }] },
     ],
   },
   {
@@ -84,9 +84,9 @@ export const doctors: Doctor[] = [
     experience: 14,
     bio: "Leading ophthalmologist with expertise in LASIK and cataract surgery.",
     schedule: [
-      { day: "Monday", slots: [{ time: "09:00", available: true }, { time: "11:00", available: true }] },
-      { day: "Wednesday", slots: [{ time: "10:00", available: true }, { time: "14:00", available: true }] },
-      { day: "Friday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }] },
+      { day: "Monday", slots: [{ time: "09:00", available: true }, { time: "10:30", available: true }, { time: "11:30", available: true }] },
+      { day: "Wednesday", slots: [{ time: "10:00", available: true }, { time: "11:00", available: true }, { time: "14:30", available: true }] },
+      { day: "Friday", slots: [{ time: "09:30", available: true }, { time: "10:30", available: true }, { time: "12:00", available: true }] },
     ],
   },
   {
@@ -102,8 +102,44 @@ export const doctors: Doctor[] = [
     experience: 20,
     bio: "Renowned neurologist specializing in movement disorders and epilepsy treatment.",
     schedule: [
-      { day: "Tuesday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }] },
-      { day: "Thursday", slots: [{ time: "14:00", available: true }, { time: "15:00", available: true }] },
+      { day: "Tuesday", slots: [{ time: "09:30", available: true }, { time: "10:30", available: true }, { time: "11:30", available: true }] },
+      { day: "Thursday", slots: [{ time: "13:30", available: true }, { time: "14:30", available: true }, { time: "15:30", available: true }] },
+    ],
+  },
+  {
+    id: "dr-7",
+    name: "Dr. Noor El-Sayed",
+    nameAr: "د. نور السيد",
+    specialty: "Endocrinology",
+    specialtyAr: "الغدد الصماء",
+    image: "https://api.dicebear.com/9.x/avataaars/svg?seed=Noor&backgroundColor=fde68a",
+    rating: 4.8,
+    reviewCount: 141,
+    available: true,
+    experience: 11,
+    bio: "Endocrinologist focused on diabetes, thyroid disorders, and hormonal balance.",
+    schedule: [
+      { day: "Sunday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "11:00", available: true }, { time: "14:00", available: true }] },
+      { day: "Tuesday", slots: [{ time: "09:30", available: true }, { time: "10:30", available: true }, { time: "13:30", available: true }] },
+      { day: "Thursday", slots: [{ time: "10:00", available: true }, { time: "11:30", available: true }, { time: "15:00", available: true }] },
+    ],
+  },
+  {
+    id: "dr-8",
+    name: "Dr. Youssef Nabil",
+    nameAr: "د. يوسف نبيل",
+    specialty: "ENT",
+    specialtyAr: "أنف وأذن وحنجرة",
+    image: "https://api.dicebear.com/9.x/avataaars/svg?seed=Youssef&backgroundColor=bfdbfe",
+    rating: 4.7,
+    reviewCount: 128,
+    available: true,
+    experience: 9,
+    bio: "ENT specialist treating sinus issues, hearing concerns, and throat conditions.",
+    schedule: [
+      { day: "Monday", slots: [{ time: "10:00", available: true }, { time: "10:30", available: true }, { time: "12:00", available: true }] },
+      { day: "Wednesday", slots: [{ time: "09:30", available: true }, { time: "11:00", available: true }, { time: "14:00", available: true }] },
+      { day: "Saturday", slots: [{ time: "09:00", available: true }, { time: "10:00", available: true }, { time: "11:30", available: true }] },
     ],
   },
 ];

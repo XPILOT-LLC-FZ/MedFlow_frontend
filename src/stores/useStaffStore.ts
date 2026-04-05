@@ -2,7 +2,6 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Role } from "@/types";
 
 export interface StaffMember {
   id: string;
@@ -118,6 +117,36 @@ const initialStaff: StaffMember[] = [
     avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=Lisa&backgroundColor=ffd5dc",
     joinDate: "2024-01-10",
   },
+  {
+    id: "staff-8",
+    name: "Dr. Noor El-Sayed",
+    nameAr: "د. نور السيد",
+    email: "noor.elsayed@clinic.com",
+    phone: "+1 555-0205",
+    role: "DOCTOR",
+    specialty: "Endocrinology",
+    specialtyAr: "الغدد الصماء",
+    status: "active",
+    experience: 11,
+    rating: 4.8,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=Noor&backgroundColor=fde68a",
+    joinDate: "2024-02-14",
+  },
+  {
+    id: "staff-9",
+    name: "Dr. Youssef Nabil",
+    nameAr: "د. يوسف نبيل",
+    email: "youssef.nabil@clinic.com",
+    phone: "+1 555-0206",
+    role: "DOCTOR",
+    specialty: "ENT",
+    specialtyAr: "أنف وأذن وحنجرة",
+    status: "active",
+    experience: 9,
+    rating: 4.7,
+    avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=Youssef&backgroundColor=bfdbfe",
+    joinDate: "2024-06-08",
+  },
 ];
 
 interface StaffState {
@@ -146,35 +175,36 @@ export const useStaffStore = create<StaffState>()(
 
       updateStaff: (id, updates) => {
         set((state) => ({
-          staff: state.staff.map((s) => (s.id === id ? { ...s, ...updates } : s)),
-        }));
-      },
-
-      deleteStaff: (id) => {
-        set((state) => ({ staff: state.staff.filter((s) => s.id !== id) }));
-      },
-
-      changeRole: (id, newRole) => {
-        set((state) => ({
-          staff: state.staff.map((s) =>
-            s.id === id
-              ? {
-                  ...s,
-                  role: newRole,
-                  // Clear role-specific fields when switching
-                  specialty: newRole === "RECEPTION" ? undefined : s.specialty,
-                  specialtyAr: newRole === "RECEPTION" ? undefined : s.specialtyAr,
-                  experience: newRole === "RECEPTION" ? undefined : s.experience,
-                  rating: newRole === "RECEPTION" ? undefined : s.rating,
-                  shift: newRole === "DOCTOR" ? undefined : s.shift,
-                }
-              : s
+          staff: state.staff.map((staffMember) =>
+            staffMember.id === id ? { ...staffMember, ...updates } : staffMember
           ),
         }));
       },
 
-      getDoctors: () => get().staff.filter((s) => s.role === "DOCTOR"),
-      getReception: () => get().staff.filter((s) => s.role === "RECEPTION"),
+      deleteStaff: (id) => {
+        set((state) => ({ staff: state.staff.filter((staffMember) => staffMember.id !== id) }));
+      },
+
+      changeRole: (id, newRole) => {
+        set((state) => ({
+          staff: state.staff.map((staffMember) =>
+            staffMember.id === id
+              ? {
+                  ...staffMember,
+                  role: newRole,
+                  specialty: newRole === "RECEPTION" ? undefined : staffMember.specialty,
+                  specialtyAr: newRole === "RECEPTION" ? undefined : staffMember.specialtyAr,
+                  experience: newRole === "RECEPTION" ? undefined : staffMember.experience,
+                  rating: newRole === "RECEPTION" ? undefined : staffMember.rating,
+                  shift: newRole === "DOCTOR" ? undefined : staffMember.shift,
+                }
+              : staffMember
+          ),
+        }));
+      },
+
+      getDoctors: () => get().staff.filter((staffMember) => staffMember.role === "DOCTOR"),
+      getReception: () => get().staff.filter((staffMember) => staffMember.role === "RECEPTION"),
     }),
     { name: "clinic-os-staff" }
   )
