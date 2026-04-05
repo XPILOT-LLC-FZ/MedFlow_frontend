@@ -5,7 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { ChatBot } from "@/components/shared/ChatBot";
 import { FloatingChatButton } from "@/components/shared/FloatingChatButton";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useChatStore } from "@/stores/useChatStore";
+import { useChatStore, type ChatMessage } from "@/stores/useChatStore";
 import type { Locale } from "@/types";
 
 export function PatientChat() {
@@ -16,7 +16,11 @@ export function PatientChat() {
   const participantId = user?.id ?? "guest";
 
   const unreadCount = useMemo(
-    () => messages.filter((message) => message.patientId === participantId && message.sender === "clinic").length,
+    () =>
+      messages.filter(
+        (message: ChatMessage) =>
+          message.patientId === participantId && message.sender === "clinic"
+      ).length,
     [messages, participantId]
   );
 

@@ -554,7 +554,7 @@ export function ChatBot({
             )}
 
             {chatLocale &&
-              participantMessages.map((message) => (
+              participantMessages.map((message: ChatMessage) => (
                 <MessageBubble key={message.id} message={message} locale={conversationLocale} />
               ))}
 

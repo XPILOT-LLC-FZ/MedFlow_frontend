@@ -6,7 +6,7 @@ import { useChatStore, type ChatMessage } from "@/stores/useChatStore";
 
 export const chatService = {
   getMessages(patientId: string): ChatMessage[] {
-    return useChatStore.getState().messages.filter((m) => m.patientId === patientId);
+    return useChatStore.getState().messages.filter((message: ChatMessage) => message.patientId === patientId);
   },
 
   send(patientId: string, text: string): void {
@@ -15,7 +15,7 @@ export const chatService = {
 
   getUnreadCount(patientId: string): number {
     return useChatStore.getState().messages.filter(
-      (m) => m.patientId === patientId && m.sender === "clinic"
+      (message: ChatMessage) => message.patientId === patientId && message.sender === "clinic"
     ).length;
   },
 };

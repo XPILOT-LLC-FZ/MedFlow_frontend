@@ -21,7 +21,7 @@ interface ChatState {
 export const useChatStore = create<ChatState>()(
   persist(
     (set) => ({
-      messages: [],
+      messages: [] as ChatMessage[],
 
       addMessage: (message) => {
         const nextMessage: ChatMessage = {
@@ -34,14 +34,20 @@ export const useChatStore = create<ChatState>()(
         return nextMessage;
       },
 
-      sendMessage: (patientId, text) =>
-        useChatStore.getState().addMessage({
+      sendMessage: (patientId: string, text: string): ChatMessage => {
+        const nextMessage: ChatMessage = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           patientId,
           sender: "patient",
           text,
-        }),
+          timestamp: new Date().toISOString(),
+        };
 
-      clearMessages: (patientId) => {
+        set((state) => ({ messages: [...state.messages, nextMessage] }));
+        return nextMessage;
+      },
+
+      clearMessages: (patientId: string) => {
         set((state) => ({
           messages: state.messages.filter((message) => message.patientId !== patientId),
         }));
