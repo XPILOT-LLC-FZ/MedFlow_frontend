@@ -227,7 +227,7 @@ export function ChatBot({
   );
 
   const participantMessages = useMemo(
-    () => messages.filter((message) => message.patientId === participantId),
+    () => messages.filter((message: ChatMessage) => message.patientId === participantId),
     [messages, participantId]
   );
 
