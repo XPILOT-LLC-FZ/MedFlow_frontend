@@ -14,6 +14,10 @@ This document describes the current frontend data model and the backend contract
 - Auth state: `src/stores/useAuthStore.ts`
 - Staff state: `src/stores/useStaffStore.ts`
 - Booking state: `src/stores/useBookingStore.ts`
+- Chat message state: `src/stores/useChatStore.ts`
+- Floating chatbot UI: `src/components/shared/PatientChat.tsx`
+- Chatbot popup flow: `src/components/shared/ChatBot.tsx`
+- Global mount point: `src/components/shared/Providers.tsx`
 
 ## Main Entities
 
@@ -478,6 +482,115 @@ Example:
 
 `GET /logs`
 
+## Chatbot Backend Handoff
+
+The frontend now includes a floating chatbot that is mounted globally and can be opened by both guests and authenticated users.
+
+### Current Chatbot Behavior
+
+- First step is always language selection:
+  - Arabic
+  - English
+- If the user is not logged in:
+  - chatbot blocks booking flow
+  - chatbot shows login/register actions
+  - no appointment is created
+- If the user is logged in:
+  - chatbot offers quick replies for specialties, doctors, and time slots
+  - chatbot can interpret simple typed input
+  - chatbot currently creates an appointment directly through `useBookingStore.addAppointment(...)`
+- Current chat messages are browser-local only and stored in `useChatStore`
+
+### Important Frontend Files
+
+- `src/components/shared/ChatBot.tsx`
+  - main conversational logic
+  - language gate
+  - auth-aware branching
+  - quick replies and fallback suggestions
+  - currently books through local Zustand store
+- `src/components/shared/PatientChat.tsx`
+  - floating button open/close state
+  - unread-count display
+- `src/stores/useChatStore.ts`
+  - local message persistence
+- `src/stores/useAuthStore.ts`
+  - current auth/session source used by the chatbot
+- `src/stores/useBookingStore.ts`
+  - current appointment creation source used by the chatbot
+- `src/stores/useStaffStore.ts`
+  - source for doctors and specialties shown by the chatbot
+
+### Recommended Backend API Surface for Chatbot
+
+Minimum useful contract:
+
+- `GET /auth/me`
+  - returns current authenticated user/session
+- `GET /doctors`
+  - returns doctors with bilingual names and specialties
+- `GET /specialties`
+  - optional, can be derived from doctors if backend prefers
+- `GET /doctors/:id/slots?date=YYYY-MM-DD`
+  - returns available time slots
+- `POST /appointments`
+  - creates a booking
+- `POST /chatbot/message`
+  - optional if real assistant logic moves to backend later
+
+### Suggested Response Shapes
+
+Doctor records should continue to support frontend bilingual rendering:
+
+```json
+{
+  "id": "staff-1",
+  "name": "Dr. Sarah Mitchell",
+  "nameAr": "د. سارة ميتشل",
+  "specialty": "Cardiology",
+  "specialtyAr": "أمراض القلب",
+  "status": "active",
+  "rating": 4.9,
+  "experience": 15
+}
+```
+
+Slots endpoint can stay simple:
+
+```json
+{
+  "doctorId": "staff-1",
+  "date": "2026-04-12",
+  "slots": [
+    { "time": "09:00", "available": true },
+    { "time": "09:30", "available": true },
+    { "time": "10:00", "available": false }
+  ]
+}
+```
+
+### Frontend Integration Notes
+
+- The chatbot currently assumes doctor IDs match staff IDs.
+- The chatbot currently uses tomorrow's date plus a selected slot when creating a mock booking.
+- When backend is wired in, the safest replacement path is:
+  - replace local doctor/specialty reads with API reads
+  - replace local slot generation with real availability API
+  - replace local `addAppointment(...)` call with `POST /appointments`
+  - optionally replace rule-based replies with backend chatbot responses
+- If backend adds a real chat endpoint later, the frontend can still keep:
+  - language selection in UI
+  - auth gate in UI
+  - quick replies in UI
+  - message persistence locally or via backend thread IDs
+
+### What the Backend Dev Should Not Assume
+
+- Current chatbot text is not backed by LLM or server logic yet.
+- Current quick replies are UI-driven and derived from local doctor data.
+- Current authentication is mock Zustand state, not cookies or tokens yet.
+- Current unread counts are just counts of local clinic-side messages in browser storage.
+
 ## Known Frontend Gaps the Backend Dev Should Know
 
 1. There is no dedicated patient profile entity yet in the frontend model.
@@ -512,4 +625,3 @@ The safest backend path is:
 - keep doctors as staff records
 - keep appointments as the central entity
 - ensure doctor IDs in auth and appointments stay aligned with staff IDs
-
