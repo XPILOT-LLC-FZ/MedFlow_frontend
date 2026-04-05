@@ -21,7 +21,6 @@ import { useFilesStore, fileToMedicalFile, type MedicalFile } from "@/stores/use
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { FileDropZone } from "@/components/shared/FileDropZone";
 
 export default function PatientDashboard() {
   const { t, locale } = useTranslation();
@@ -33,10 +32,11 @@ export default function PatientDashboard() {
   const patientId = user?.id ?? "guest";
   const files = getFilesByPatient(patientId);
 
-  const upcoming = appointments
+  const patientAppointments = appointments.filter((a) => a.patientId === patientId);
+  const upcoming = patientAppointments
     .filter((a) => a.status === "scheduled" || a.status === "confirmed")
     .slice(0, 3);
-  const highlightDates = appointments.map((a) => a.date);
+  const highlightDates = patientAppointments.map((a) => a.date);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -132,9 +132,9 @@ export default function PatientDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title={t("upcomingAppointments")} value={3} change={12} icon={<Calendar className="h-5 w-5" />} delay={0} />
-        <StatsCard title={t("completed")} value={12} change={8} icon={<Clock className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={4} icon={<User className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={t("upcomingAppointments")} value={upcoming.length} change={12} icon={<Calendar className="h-5 w-5" />} delay={0} />
+        <StatsCard title={t("completed")} value={patientAppointments.filter((a) => a.status === "completed").length} change={8} icon={<Clock className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={new Set(patientAppointments.map((a) => a.doctorId)).size} icon={<User className="h-5 w-5" />} delay={0.2} />
         <StatsCard title={locale === "ar" ? "النتائج الصحية" : "Health Score"} value="92%" change={5} icon={<Activity className="h-5 w-5" />} delay={0.3} />
       </div>
 

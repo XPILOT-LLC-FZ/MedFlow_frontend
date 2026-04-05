@@ -179,7 +179,7 @@ export default function BookingPage() {
                 variant="success"
                 onClick={() => {
                   const phone = patientPhone.replace(/\D/g, "");
-                  if (phone) window.open(`https://wa.me/${phone}?text=${encodeURIComponent("Your appointment has been confirmed! - ClinicOS")}`, "_blank");
+                  if (phone) window.open(`https://wa.me/${phone}?text=${encodeURIComponent("Your appointment has been confirmed! - MedFlow")}`, "_blank");
                 }}
               >
                 {locale === "ar" ? "إرسال واتساب" : "Send WhatsApp"}

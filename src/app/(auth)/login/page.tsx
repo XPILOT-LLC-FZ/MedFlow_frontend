@@ -4,10 +4,11 @@ import React, { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Heart, Mail, Lock, ArrowRight, Eye, EyeOff, Globe, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, ArrowRight, Eye, EyeOff, Globe, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useStore } from "@/stores/useStore";
@@ -73,17 +74,21 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex" dir={locale === "ar" ? "rtl" : "ltr"}>
       {/* Left panel - branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-blue-700 relative items-center justify-center p-12">
-        <div className="absolute inset-0 bg-black/10" />
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.28),transparent_30%),linear-gradient(135deg,#0f172a_0%,#075985_52%,#0ea5e9_100%)] p-12">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.3))]" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2780%27 height=%2780%27 viewBox=%270 0 80 80%27 xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cg fill=%27none%27 fill-rule=%27evenodd%27%3E%3Cg fill=%27%23ffffff%27 fill-opacity=%270.06%27%3E%3Ccircle cx=%2740%27 cy=%2740%27 r=%272%27/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')]" />
         <div className="relative text-white max-w-md space-y-6">
-          <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
-            <Heart className="h-6 w-6" />
-          </div>
-          <h1 className="text-4xl font-bold">ClinicOS</h1>
+          <BrandLogo
+            iconClassName="h-14 w-14 rounded-[1.25rem]"
+            textClassName="text-4xl"
+            captionClassName="text-[11px] tracking-[0.34em]"
+            showCaption
+            theme="dark"
+          />
           <p className="text-blue-100 text-lg leading-relaxed">
             {locale === "ar"
               ? "منصة إدارة رعاية صحية حديثة. احجز مواعيد، أدر سجلاتك الصحية، وتواصل مع أفضل المتخصصين."
-              : "Modern healthcare management platform. Book appointments, manage your health records, and connect with top specialists."}
+              : "A smarter clinic experience for modern care teams and patients. Book visits, manage records, and move through care with less friction."}
           </p>
           <div className="flex gap-6 pt-4">
             <div>
@@ -119,11 +124,8 @@ export default function LoginPage() {
           className="w-full max-w-md"
         >
           <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-                <Heart className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-xl">ClinicOS</span>
+            <Link href="/main" className="inline-flex items-center mb-6">
+              <BrandLogo iconClassName="h-10 w-10 rounded-xl" textClassName="text-xl" />
             </Link>
             <h2 className="text-2xl font-bold">{t("welcomeBack")}</h2>
             <p className="text-muted-foreground mt-1">{t("loginSubtitle")}</p>

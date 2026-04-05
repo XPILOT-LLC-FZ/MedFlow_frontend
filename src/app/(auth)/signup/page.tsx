@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, type FormEvent } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowRight, ArrowLeft, User, Phone, Mail, Lock, MapPin, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, User, Phone, Mail, Lock, MapPin, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
@@ -121,17 +122,21 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex" dir={locale === "ar" ? "rtl" : "ltr"}>
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-blue-700 relative items-center justify-center p-12">
-        <div className="absolute inset-0 bg-black/10" />
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.28),transparent_30%),linear-gradient(135deg,#0f172a_0%,#075985_52%,#0ea5e9_100%)] p-12">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.3))]" />
         <div className="relative text-white max-w-md space-y-6">
-          <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
-            <Heart className="h-6 w-6" />
-          </div>
+          <BrandLogo
+            iconClassName="h-14 w-14 rounded-[1.25rem]"
+            textClassName="text-3xl"
+            captionClassName="text-[11px] tracking-[0.34em]"
+            showCaption
+            theme="dark"
+          />
           <h1 className="text-4xl font-bold">{t("createAccount")}</h1>
           <p className="text-blue-100 text-lg leading-relaxed">
             {locale === "ar"
-              ? "انضم لآلاف المرضى الذين يثقون بـ ClinicOS. أكمل الخطوات لإنشاء حسابك."
-              : "Join thousands of patients who trust ClinicOS. Complete the steps to set up your account."}
+              ? "انضم لآلاف المرضى الذين يثقون بـ MedFlow. أكمل الخطوات لإنشاء حسابك."
+              : "Join patients and care teams using MedFlow to move through registration, booking, and follow-up with less friction."}
           </p>
           {/* Step indicators */}
           <div className="space-y-3 pt-4">
@@ -157,11 +162,8 @@ export default function SignupPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
           <div className="text-center mb-6">
-            <Link href="/" className="inline-flex items-center gap-2 mb-4 lg:hidden">
-              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-                <Heart className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-bold text-xl">ClinicOS</span>
+            <Link href="/main" className="inline-flex items-center mb-4 lg:hidden">
+              <BrandLogo iconClassName="h-10 w-10 rounded-xl" textClassName="text-xl" />
             </Link>
             <h2 className="text-2xl font-bold">{stepLabels[currentStep]}</h2>
             <p className="text-muted-foreground text-sm mt-1">

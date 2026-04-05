@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Users, Shield, Activity, Server, Globe, BarChart3, AlertTriangle } from "lucide-react";
+import { Users, Activity, Server, BarChart3 } from "lucide-react";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { ChartCard } from "@/components/shared/ChartCard";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -16,7 +16,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { mockUsers } from "@/data/mockUsers";
 
 export default function SuperAdminDashboard() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const { staff } = useStaffStore();
   const { appointments } = useBookingStore();
   const { payments } = usePaymentsStore();

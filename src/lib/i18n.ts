@@ -60,9 +60,9 @@ export const translations = {
     yearsExp: "years exp.",
     reviews: "reviews",
     ctaTitle: "Ready to Take Control of Your Health?",
-    ctaSubtitle: "Join thousands of patients who trust ClinicOS for their healthcare needs.",
+    ctaSubtitle: "Join thousands of patients who trust MedFlow for their healthcare needs.",
     ctaBtn: "Get Started Today",
-    footer: "ClinicOS. All rights reserved.",
+    footer: "MedFlow. All rights reserved.",
 
     // Auth
     welcomeBack: "Welcome Back",
@@ -73,7 +73,7 @@ export const translations = {
     noAccount: "Don't have an account?",
     hasAccount: "Already have an account?",
     createAccount: "Create Account",
-    signupSubtitle: "Join ClinicOS and start managing your health",
+    signupSubtitle: "Join MedFlow and start managing your health",
     fullName: "Full Name",
     phone: "Phone Number",
     dateOfBirth: "Date of Birth",
@@ -264,9 +264,9 @@ export const translations = {
     yearsExp: "سنوات خبرة",
     reviews: "تقييم",
     ctaTitle: "مستعد للسيطرة على صحتك؟",
-    ctaSubtitle: "انضم لآلاف المرضى الذين يثقون بـ ClinicOS لاحتياجاتهم الصحية.",
+    ctaSubtitle: "انضم لآلاف المرضى الذين يثقون بـ MedFlow لاحتياجاتهم الصحية.",
     ctaBtn: "ابدأ اليوم",
-    footer: "ClinicOS. جميع الحقوق محفوظة.",
+    footer: "MedFlow. جميع الحقوق محفوظة.",
 
     // Auth
     welcomeBack: "مرحبًا بعودتك",
@@ -277,7 +277,7 @@ export const translations = {
     noAccount: "ليس لديك حساب؟",
     hasAccount: "لديك حساب بالفعل؟",
     createAccount: "إنشاء حساب",
-    signupSubtitle: "انضم إلى ClinicOS وابدأ في إدارة صحتك",
+    signupSubtitle: "انضم إلى MedFlow وابدأ في إدارة صحتك",
     fullName: "الاسم الكامل",
     phone: "رقم الهاتف",
     dateOfBirth: "تاريخ الميلاد",

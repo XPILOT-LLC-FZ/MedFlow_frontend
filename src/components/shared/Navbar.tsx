@@ -11,6 +11,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import type { Role } from "@/types";
 
 const roleLabels: Record<Role, { en: string; ar: string }> = {
@@ -59,11 +60,12 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
         )}
 
         {!showSidebarToggle && (
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground text-sm font-bold">C</span>
-            </div>
-            <span className="hidden sm:inline">ClinicOS</span>
+          <Link href="/main" className="flex items-center">
+            <BrandLogo
+              className="gap-2"
+              iconClassName="h-9 w-9 rounded-xl"
+              textClassName="hidden text-lg sm:inline"
+            />
           </Link>
         )}
 

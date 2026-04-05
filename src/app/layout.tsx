@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ClinicOS - Modern Healthcare Management",
+  title: "MedFlow - Modern Healthcare Management",
   description: "A modern multi-role healthcare platform for managing clinic operations, appointments, and patient care.",
 };
 

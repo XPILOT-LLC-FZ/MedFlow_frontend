@@ -13,7 +13,7 @@ export interface MockUser {
 
 export const mockUsers: MockUser[] = [
   {
-    id: "usr_patient_01",
+    id: "p-1",
     name: "Sarah Johnson",
     nameAr: "سارة جونسون",
     email: "patient@test.com",
@@ -31,8 +31,8 @@ export const mockUsers: MockUser[] = [
     phone: "+1 555-0102",
   },
   {
-    id: "usr_doctor_01",
-    name: "Dr. Lina Khalil",
+    id: "staff-1",
+    name: "Dr. Sarah Mitchell",
     nameAr: "د. لينا خليل",
     email: "doctor@clinic.com",
     password: "123456",
@@ -40,8 +40,8 @@ export const mockUsers: MockUser[] = [
     phone: "+1 555-0103",
   },
   {
-    id: "usr_reception_01",
-    name: "Nour Ali",
+    id: "staff-5",
+    name: "Emma Wilson",
     nameAr: "نور علي",
     email: "reception@clinic.com",
     password: "123456",

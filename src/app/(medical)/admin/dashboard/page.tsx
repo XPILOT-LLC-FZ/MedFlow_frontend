@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Users, Calendar, DollarSign, Stethoscope, ArrowRight,
+  Calendar, DollarSign, Stethoscope,
   UserCog, Shield, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ export default function MedicalAdminDashboard() {
         <StatsCard title={t("totalAppointments")} value={appointments.length} change={appointments.length > 0 ? 8 : 0} icon={<Calendar className="h-5 w-5" />} delay={0} />
         <StatsCard title={t("totalDoctors")} value={doctors.length} icon={<Stethoscope className="h-5 w-5" />} delay={0.1} />
         <StatsCard title={locale === "ar" ? "موظفو الاستقبال" : "Reception Staff"} value={receptionists.length} icon={<UserCog className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={t("totalRevenue")} value={`$${getYearIncome().toLocaleString()}`} change={18} icon={<DollarSign className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={t("totalRevenue")} value={`$${getYearIncome().toLocaleString()}`} change={lowStockCount > 0 ? -lowStockCount : 18} icon={<DollarSign className="h-5 w-5" />} delay={0.3} />
       </div>
 
       {/* Charts */}

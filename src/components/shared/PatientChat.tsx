@@ -111,7 +111,7 @@ export function PatientChat() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold">
-                    {locale === "ar" ? "دعم ClinicOS" : "ClinicOS Support"}
+                    {locale === "ar" ? "دعم MedFlow" : "MedFlow Support"}
                   </p>
                   <p className="text-xs opacity-80">
                     {isTyping

@@ -6,7 +6,6 @@ import { Clock, User, Stethoscope } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { Appointment } from "@/types";
-import { cn } from "@/lib/utils";
 
 const statusVariant: Record<string, "success" | "info" | "warning" | "destructive" | "secondary"> = {
   scheduled: "info",

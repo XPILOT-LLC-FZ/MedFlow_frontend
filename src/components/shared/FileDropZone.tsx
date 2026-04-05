@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Upload, FileImage, FileText, X } from "lucide-react";
+import { Upload, FileText } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,16 @@ export function FileDropZone({
   const [preview, setPreview] = useState<{ name: string; type: string; url?: string }[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const showPreview = useCallback((files: File[]) => {
+    const previews = files.map((f) => ({
+      name: f.name,
+      type: f.type,
+      url: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
+    }));
+    setPreview(previews);
+    setTimeout(() => setPreview([]), 3000);
+  }, []);
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -40,7 +50,7 @@ export function FileDropZone({
         onFiles(files);
       }
     },
-    [disabled, uploading, onFiles]
+    [disabled, uploading, onFiles, showPreview]
   );
 
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,16 +60,6 @@ export function FileDropZone({
       onFiles(files);
     }
     if (inputRef.current) inputRef.current.value = "";
-  };
-
-  const showPreview = (files: File[]) => {
-    const previews = files.map((f) => ({
-      name: f.name,
-      type: f.type,
-      url: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
-    }));
-    setPreview(previews);
-    setTimeout(() => setPreview([]), 3000);
   };
 
   return (

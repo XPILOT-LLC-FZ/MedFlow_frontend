@@ -6,13 +6,13 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
-  Package, BarChart3, Clock, CreditCard, Shield, FileText, Settings,
-  ChevronLeft, ChevronRight, X, Heart,
+  Package, BarChart3, Clock, FileText, Settings, X,
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import type { Role } from "@/types";
 
 interface NavItem {
@@ -92,14 +92,13 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-md">
-              <Heart className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <span className="font-bold text-base">ClinicOS</span>
-              <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Healthcare Platform</p>
-            </div>
+          <Link href="/main" className="flex items-center">
+            <BrandLogo
+              iconClassName="h-9 w-9 rounded-xl"
+              textClassName="text-base"
+              captionClassName="text-[9px] tracking-[0.22em]"
+              showCaption
+            />
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-muted">
             <X className="h-4 w-4" />

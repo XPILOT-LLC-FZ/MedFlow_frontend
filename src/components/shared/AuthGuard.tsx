@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import type { Role } from "@/types";
@@ -14,7 +14,7 @@ interface AuthGuardProps {
 export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
-  const [checked, setChecked] = useState(false);
+  const hasAccess = !!user && (!allowedRoles || allowedRoles.length === 0 || allowedRoles.includes(user.role));
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -29,10 +29,9 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
       return;
     }
 
-    setChecked(true);
   }, [isAuthenticated, user, allowedRoles, router]);
 
-  if (!checked) {
+  if (!isAuthenticated || !user || !hasAccess) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />

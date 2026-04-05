@@ -34,7 +34,7 @@ const messages: Message[] = [
   {
     id: "wa-3",
     type: "feedback",
-    text: "Thank you for visiting ClinicOS! How was your experience with Dr. Ahmed Hassan? Rate 1-5 stars by replying with a number.",
+    text: "Thank you for visiting MedFlow! How was your experience with Dr. Ahmed Hassan? Rate 1-5 stars by replying with a number.",
     time: "5:00 PM",
     status: "sent",
   },
@@ -67,7 +67,7 @@ export function WhatsAppSimulator() {
             <MessageCircle className="h-5 w-5" />
           </div>
           <div>
-            <CardTitle className="text-white text-base">ClinicOS Notifications</CardTitle>
+            <CardTitle className="text-white text-base">MedFlow Notifications</CardTitle>
             <p className="text-emerald-100 text-xs">WhatsApp Business</p>
           </div>
         </div>
@@ -104,7 +104,7 @@ export function WhatsAppSimulator() {
             variant="outline"
             size="sm"
             className="flex-1 gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-            onClick={() => openWhatsApp("Please confirm your upcoming appointment at ClinicOS. Reply YES to confirm.")}
+            onClick={() => openWhatsApp("Please confirm your upcoming appointment at MedFlow. Reply YES to confirm.")}
           >
             <Send className="h-3 w-3" />
             {locale === "ar" ? "تأكيد الموعد" : "Confirm Appt"}
@@ -113,7 +113,7 @@ export function WhatsAppSimulator() {
             variant="outline"
             size="sm"
             className="flex-1 gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-            onClick={() => openWhatsApp("Reminder: You have an appointment tomorrow at ClinicOS. Please arrive 15 minutes early.")}
+            onClick={() => openWhatsApp("Reminder: You have an appointment tomorrow at MedFlow. Please arrive 15 minutes early.")}
           >
             <Bell className="h-3 w-3" />
             {locale === "ar" ? "إرسال تذكير" : "Send Reminder"}

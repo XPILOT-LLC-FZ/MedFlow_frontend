@@ -1,21 +1,50 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AppointmentCard } from "@/components/shared/AppointmentCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
+import { useStaffStore } from "@/stores/useStaffStore";
 
 export default function DoctorAppointmentsPage() {
   const { t, locale } = useTranslation();
   const [search, setSearch] = useState("");
+  const { user } = useAuthStore();
   const { appointments } = useBookingStore();
+  const { staff } = useStaffStore();
+
+  useEffect(() => {
+    const syncBookings = () => {
+      useBookingStore.persist.rehydrate();
+    };
+
+    window.addEventListener("focus", syncBookings);
+    window.addEventListener("storage", syncBookings);
+
+    return () => {
+      window.removeEventListener("focus", syncBookings);
+      window.removeEventListener("storage", syncBookings);
+    };
+  }, []);
+  const doctorRecord = staff.find((member) =>
+    member.role === "DOCTOR" && (
+      member.id === user?.id ||
+      member.email.toLowerCase() === user?.email?.toLowerCase() ||
+      member.name === user?.name
+    )
+  );
+  const doctorId = doctorRecord?.id ?? user?.id ?? "staff-1";
+  const doctorNames = new Set(
+    [doctorRecord?.name, user?.name].filter((value): value is string => Boolean(value))
+  );
 
   const doctorAppts = appointments.filter(
-    (a) => a.doctorName.toLowerCase().includes("mitchell") &&
+    (a) => (a.doctorId === doctorId || doctorNames.has(a.doctorName)) &&
     (a.patientName.toLowerCase().includes(search.toLowerCase()) || search === "")
   );
 

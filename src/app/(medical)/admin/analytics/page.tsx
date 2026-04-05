@@ -12,12 +12,14 @@ import { useStaffStore } from "@/stores/useStaffStore";
 
 export default function AnalyticsPage() {
   const { t, locale } = useTranslation();
-  const { getMonthlyBreakdown, getYearIncome, payments } = usePaymentsStore();
+  const { getMonthlyBreakdown, getYearIncome } = usePaymentsStore();
   const { appointments } = useBookingStore();
   const { staff } = useStaffStore();
 
   const monthlyRevenue = getMonthlyBreakdown();
   const yearIncome = getYearIncome();
+  const doctorCount = staff.filter((s) => s.role === "DOCTOR").length;
+  const uniquePatients = new Set(appointments.map((a) => a.patientId)).size;
 
   // Patient growth (from appointment count per month)
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -41,9 +43,18 @@ export default function AnalyticsPage() {
 
   // Department revenue from staff specialties
   const specialties = [...new Set(staff.filter((s) => s.specialty).map((s) => s.specialty!))];
-  const departmentRevenue = specialties.map((name) => ({
+  const specialtyAppointmentCounts = specialties.map((name) => ({
     name,
-    value: Math.round(yearIncome / Math.max(specialties.length, 1) * (0.5 + Math.random())),
+    count: appointments.filter((a) => a.specialty === name).length,
+  }));
+  const totalSpecialtyAppointments = specialtyAppointmentCounts.reduce((sum, item) => sum + item.count, 0);
+  const departmentRevenue = specialtyAppointmentCounts.map(({ name, count }) => ({
+    name,
+    value: Math.round(
+      totalSpecialtyAppointments > 0
+        ? (yearIncome * count) / totalSpecialtyAppointments
+        : yearIncome / Math.max(specialties.length, 1)
+    ),
   }));
 
   return (
@@ -55,9 +66,9 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title={t("totalRevenue")} value={`$${yearIncome.toLocaleString()}`} change={22} icon={<DollarSign className="h-5 w-5" />} delay={0} />
-        <StatsCard title={t("totalPatients")} value={payments.length} change={15} icon={<Users className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={t("totalPatients")} value={uniquePatients} change={15} icon={<Users className="h-5 w-5" />} delay={0.1} />
         <StatsCard title={t("totalAppointments")} value={appointments.length} change={18} icon={<Calendar className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={locale === "ar" ? "الأطباء" : "Doctors"} value={staff.filter((s) => s.role === "DOCTOR").length} icon={<TrendingUp className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={locale === "ar" ? "الأطباء" : "Doctors"} value={doctorCount} icon={<TrendingUp className="h-5 w-5" />} delay={0.3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
