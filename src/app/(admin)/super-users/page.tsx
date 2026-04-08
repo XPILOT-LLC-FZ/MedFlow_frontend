@@ -104,7 +104,6 @@ export default function UsersPage() {
     setIsSaving(true);
     try {
       await usersService.update(editId, {
-        fullName: form.name.trim(),
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
