@@ -6,7 +6,6 @@ import { Check, CheckCheck, MessageCircle, Send, Bell } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
-import { cn } from "@/lib/utils";
 
 interface Message {
   id: string;
@@ -57,7 +56,7 @@ function openWhatsApp(text: string) {
 }
 
 export function WhatsAppSimulator() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
 
   return (
     <Card className="overflow-hidden">

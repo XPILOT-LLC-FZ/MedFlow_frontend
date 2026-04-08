@@ -27,7 +27,7 @@ export const mockUsers: MockUser[] = [
     nameAr: "د. أحمد حسن",
     email: "admin@clinic.com",
     password: "123456",
-    role: "MEDICAL_ADMIN",
+    role: "ADMIN",
     phone: "+1 555-0102",
   },
   {
@@ -45,7 +45,7 @@ export const mockUsers: MockUser[] = [
     nameAr: "نور علي",
     email: "reception@clinic.com",
     password: "123456",
-    role: "RECEPTION",
+    role: "STAFF",
     phone: "+1 555-0104",
   },
   {
@@ -62,8 +62,8 @@ export const mockUsers: MockUser[] = [
 /** Map each role to its dashboard path */
 export const roleDashboardMap: Record<Role, string> = {
   PATIENT: "/dashboard",
-  MEDICAL_ADMIN: "/admin/dashboard",
+  ADMIN: "/admin/dashboard",
   DOCTOR: "/doctor/dashboard",
-  RECEPTION: "/reception/dashboard",
+  STAFF: "/reception/dashboard",
   SUPER_ADMIN: "/super-dashboard",
 };

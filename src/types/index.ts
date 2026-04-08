@@ -1,4 +1,8 @@
-export type Role = "PATIENT" | "MEDICAL_ADMIN" | "DOCTOR" | "RECEPTION" | "SUPER_ADMIN";
+export type Role = "PATIENT" | "ADMIN" | "DOCTOR" | "STAFF" | "SUPER_ADMIN";
+
+export interface TokenPair {
+  accessToken: string;
+}
 
 export interface User {
   id: string;
@@ -7,6 +11,12 @@ export interface User {
   role: Role;
   avatar?: string;
   phone?: string;
+}
+
+export interface ApiUser extends User {
+  clinicId?: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface Doctor {
@@ -22,6 +32,21 @@ export interface Doctor {
   experience: number;
   bio: string;
   schedule: DaySchedule[];
+}
+
+export interface ApiDoctor {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  specialization?: string;
+  bio?: string;
+  experienceYears: number;
+  consultationFee: number;
+  branchId?: string;
+  services: string[];
+  status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+  rating: number;
 }
 
 export interface DaySchedule {
@@ -43,9 +68,50 @@ export interface Appointment {
   specialty: string;
   date: string;
   time: string;
-  status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress";
+  status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress" | "no-show" | "rescheduled";
   type: string;
   notes?: string;
+}
+
+export interface ApiAppointment {
+  id: string;
+  patientId?: string;
+  patientName: string;
+  doctorId?: string;
+  doctorName?: string;
+  serviceId?: string;
+  serviceName?: string;
+  date: string;
+  startTime: string;
+  durationMinutes: number;
+  status: "SCHEDULED" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED";
+  type: "CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY" | "VIRTUAL";
+  mode: "ONSITE" | "ONLINE" | "PHONE_CALL";
+  notes?: string;
+  branchId?: string;
+}
+
+export interface Patient {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+}
+
+export interface ApiPatient {
+  id: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  bloodType?: string;
+  allergies: string[];
+  medicalHistory?: Record<string, unknown>;
+  notes?: string;
+  clinicId?: string;
 }
 
 export interface Service {
@@ -58,6 +124,56 @@ export interface Service {
   duration: number;
   category: string;
   icon: string;
+}
+
+export interface ApiService {
+  id: string;
+  name: string;
+  description?: string;
+  category: "CONSULTATION" | "DENTAL" | "DERMATOLOGY" | "LASER" | "AESTHETIC" | "SURGICAL" | "DIAGNOSTIC" | "WELLNESS" | "OTHER";
+  price: number;
+  duration: number; // minutes
+  isActive: boolean;
+  requiresSessions: boolean;
+  totalSessions?: number;
+}
+
+export interface ApiPromotion {
+  id: string;
+  title: string;
+  description?: string;
+  type: "PERCENTAGE" | "FIXED";
+  value: number;
+  code: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  applicableRole: Role;
+  minAppointmentValue?: number;
+  clinicId?: string;
+}
+
+export interface ApiClinic {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  description?: string;
+  logoUrl?: string;
+  workingHours?: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+}
+
+export interface ApiBranch {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  imageUrl?: string;
+  isMain: boolean;
+  isActive: boolean;
 }
 
 export interface InventoryItem {

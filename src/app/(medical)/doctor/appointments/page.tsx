@@ -15,32 +15,22 @@ export default function DoctorAppointmentsPage() {
   const { t, locale } = useTranslation();
   const [search, setSearch] = useState("");
   const { user } = useAuthStore();
-  const { appointments } = useBookingStore();
-  const { staff } = useStaffStore();
+  const { appointments, fetchAppointments } = useBookingStore();
+  const { doctors, fetchDoctors } = useStaffStore();
 
   useEffect(() => {
-    const syncBookings = () => {
-      useBookingStore.persist.rehydrate();
-    };
+    fetchAppointments();
+    fetchDoctors();
+  }, [fetchAppointments, fetchDoctors]);
 
-    window.addEventListener("focus", syncBookings);
-    window.addEventListener("storage", syncBookings);
-
-    return () => {
-      window.removeEventListener("focus", syncBookings);
-      window.removeEventListener("storage", syncBookings);
-    };
-  }, []);
-  const doctorRecord = staff.find((member) =>
-    member.role === "DOCTOR" && (
-      member.id === user?.id ||
-      member.email.toLowerCase() === user?.email?.toLowerCase() ||
-      member.name === user?.name
-    )
+  const doctorRecord = doctors.find((member) =>
+    member.id === user?.id ||
+    member.email.toLowerCase() === user?.email?.toLowerCase() ||
+    member.fullName === user?.name
   );
   const doctorId = doctorRecord?.id ?? user?.id ?? "staff-1";
   const doctorNames = new Set(
-    [doctorRecord?.name, user?.name].filter((value): value is string => Boolean(value))
+    [doctorRecord?.fullName, user?.name].filter((value): value is string => Boolean(value))
   );
 
   const doctorAppts = appointments.filter(

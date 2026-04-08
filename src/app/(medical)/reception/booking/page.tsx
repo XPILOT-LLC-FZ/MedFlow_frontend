@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, Calendar, Clock, User, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,19 +13,64 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
+import { bookingService } from "@/services/bookingService";
 
 export default function BookingPage() {
   const { t, locale } = useTranslation();
-  const { staff } = useStaffStore();
+  const { doctors, fetchDoctors } = useStaffStore();
   const { addAppointment } = useBookingStore();
   const toast = useToastStore();
+  
   const [step, setStep] = useState(0);
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
   const [patientName, setPatientName] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const doctors = staff.filter((s) => s.role === "DOCTOR" && s.status === "active");
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
+
+  const activeDoctors = doctors.filter((s) => s.status === "ACTIVE");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSlots = async () => {
+      if (!selectedDoctor || !selectedDate || step !== 2) {
+        setAvailableSlots([]);
+        return;
+      }
+
+      setSlotsLoading(true);
+      try {
+        const slots = await bookingService.getAvailableSlots(
+          selectedDoctor,
+          selectedDate.toISOString().split("T")[0]
+        );
+        if (active) {
+          setAvailableSlots(slots);
+        }
+      } catch {
+        if (active) {
+          setAvailableSlots([]);
+        }
+      } finally {
+        if (active) {
+          setSlotsLoading(false);
+        }
+      }
+    };
+
+    loadSlots();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDoctor, selectedDate, step]);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -81,17 +126,17 @@ export default function BookingPage() {
       {step === 1 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {doctors.map((doc) => (
+            {activeDoctors.map((doc) => (
               <Card
                 key={doc.id}
                 className={`cursor-pointer transition-all ${selectedDoctor === doc.id ? "ring-2 ring-primary shadow-md" : "hover:shadow-md"}`}
                 onClick={() => setSelectedDoctor(doc.id)}
               >
                 <CardContent className="p-4 flex items-center gap-3">
-                  <img src={doc.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.email}`} alt={doc.name} className="h-12 w-12 rounded-xl" />
+                  <img src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.email}`} alt={doc.fullName} className="h-12 w-12 rounded-xl object-cover" />
                   <div>
-                    <p className="font-medium text-sm">{locale === "ar" ? doc.nameAr : doc.name}</p>
-                    <p className="text-xs text-primary">{locale === "ar" ? (doc.specialtyAr || "") : (doc.specialty || "")}</p>
+                    <p className="font-medium text-sm">{locale === "ar" ? (doc.fullName) : doc.fullName}</p>
+                    <p className="text-xs text-primary">{doc.specialization || "General"}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -106,11 +151,16 @@ export default function BookingPage() {
 
       {step === 2 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MiniCalendar locale={locale} />
+          <MiniCalendar locale={locale} selectedDate={selectedDate} onDateSelect={(date) => setSelectedDate(date)} />
           <Card>
             <CardHeader><CardTitle className="text-base">{locale === "ar" ? "الأوقات المتاحة" : "Available Times"}</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-3 gap-2">
-              {["09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00", "15:30"].map((time) => (
+              {slotsLoading && (
+                <p className="col-span-3 text-sm text-muted-foreground">
+                  {locale === "ar" ? "جاري تحميل الأوقات المتاحة..." : "Loading available slots..."}
+                </p>
+              )}
+              {!slotsLoading && availableSlots.map((time) => (
                 <Button
                   key={time}
                   variant={selectedTime === time ? "default" : "outline"}
@@ -121,28 +171,37 @@ export default function BookingPage() {
                   <Clock className="h-3 w-3" /> {time}
                 </Button>
               ))}
+              {!slotsLoading && availableSlots.length === 0 && (
+                <p className="col-span-3 text-sm text-muted-foreground">
+                  {locale === "ar" ? "لا توجد أوقات متاحة لهذا اليوم" : "No slots available for this date"}
+                </p>
+              )}
             </CardContent>
           </Card>
           <div className="lg:col-span-2 flex justify-between">
             <Button variant="outline" onClick={() => setStep(1)}>{t("back")}</Button>
             <Button
-              onClick={() => {
-                const doc = doctors.find((d) => d.id === selectedDoctor);
-                if (doc && patientName) {
-                  addAppointment({
-                    patientId: `p-${Date.now()}`,
-                    patientName: patientName || "Walk-in Patient",
-                    doctorId: doc.id,
-                    doctorName: doc.name,
-                    specialty: doc.specialty || "General",
-                    date: new Date().toISOString().split("T")[0],
-                    time: selectedTime || "09:00",
-                    status: "scheduled",
-                    type: "Consultation",
-                  });
-                  toast.success(locale === "ar" ? "تم حجز الموعد بنجاح" : "Appointment booked successfully");
+              onClick={async () => {
+                const doc = activeDoctors.find((d) => d.id === selectedDoctor);
+                if (doc && patientName && selectedDate && selectedTime) {
+                  try {
+                    await addAppointment({
+                      patientId: `p-${Date.now()}`,
+                      patientName: patientName || "Walk-in Patient",
+                      doctorId: doc.id,
+                      doctorName: doc.fullName,
+                      specialty: doc.specialization || "General",
+                      date: selectedDate.toISOString().split("T")[0],
+                      time: selectedTime,
+                      status: "scheduled",
+                      type: "Consultation",
+                    });
+                    toast.success(locale === "ar" ? "تم حجز الموعد بنجاح" : "Appointment booked successfully");
+                    setStep(3);
+                  } catch (err) {
+                    toast.error("Failed to book appointment");
+                  }
                 }
-                setStep(3);
               }}
               disabled={!selectedTime}
             >

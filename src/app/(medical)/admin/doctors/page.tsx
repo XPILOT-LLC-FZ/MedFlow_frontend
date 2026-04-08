@@ -1,31 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Star, Clock, MoreVertical, Edit3, Trash2, UserCog } from "lucide-react";
+import { Search, Plus, Star, Clock, MoreVertical, Edit3, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useStaffStore, type StaffMember } from "@/stores/useStaffStore";
+import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
+import type { ApiDoctor } from "@/types";
 
 const emptyForm = {
-  name: "", nameAr: "", email: "", phone: "",
-  specialty: "", specialtyAr: "", experience: "",
-  status: "active" as StaffMember["status"],
+  fullName: "", email: "", phone: "",
+  specialization: "", experienceYears: "",
+  consultationFee: "",
+  status: "ACTIVE" as ApiDoctor["status"],
 };
 
 export default function DoctorsPage() {
   const { t, locale } = useTranslation();
-  const { staff, addStaff, updateStaff, deleteStaff, changeRole } = useStaffStore();
-  const toast = useToastStore();
-  const doctors = staff.filter((s) => s.role === "DOCTOR");
+  const { doctors, fetchDoctors, addDoctor, updateDoctor, removeDoctor } = useStaffStore();
+  const { success, error } = useToastStore();
+
+  useEffect(() => {
+    fetchDoctors();
+  }, []);
 
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
@@ -35,56 +40,46 @@ export default function DoctorsPage() {
 
   const filtered = doctors.filter(
     (d) =>
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      (d.specialty || "").toLowerCase().includes(search.toLowerCase())
+      d.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      (d.specialization || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleSave = () => {
-    if (!form.name || !form.email) {
-      toast.error(locale === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill in required fields");
+  const handleSave = async () => {
+    if (!form.fullName || !form.email) {
+      error(locale === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill in required fields");
       return;
     }
-    if (editId) {
-      updateStaff(editId, {
-        name: form.name,
-        nameAr: form.nameAr || form.name,
-        email: form.email,
-        phone: form.phone,
-        specialty: form.specialty,
-        specialtyAr: form.specialtyAr,
-        experience: form.experience ? parseInt(form.experience) : undefined,
-        status: form.status,
-      });
-      toast.success(locale === "ar" ? "تم تحديث الطبيب" : "Doctor updated");
-    } else {
-      addStaff({
-        name: form.name,
-        nameAr: form.nameAr || form.name,
-        email: form.email,
-        phone: form.phone,
-        role: "DOCTOR",
-        specialty: form.specialty,
-        specialtyAr: form.specialtyAr,
-        experience: form.experience ? parseInt(form.experience) : undefined,
-        status: form.status,
-        avatar: `https://api.dicebear.com/9.x/avataaars/svg?seed=${form.email}`,
-      });
-      toast.success(locale === "ar" ? "تم إضافة الطبيب" : "Doctor added");
+    
+    const data = {
+      ...form,
+      experienceYears: parseInt(form.experienceYears) || 0,
+      consultationFee: parseFloat(form.consultationFee) || 0,
+    };
+
+    try {
+      if (editId) {
+        await updateDoctor(editId, data);
+        success(locale === "ar" ? "تم تحديث الطبيب" : "Doctor updated");
+      } else {
+        await addDoctor(data);
+        success(locale === "ar" ? "تم إضافة الطبيب" : "Doctor added");
+      }
+      setForm(emptyForm);
+      setEditId(null);
+      setDialogOpen(false);
+    } catch (err) {
+      error("Failed to save doctor");
     }
-    setForm(emptyForm);
-    setEditId(null);
-    setDialogOpen(false);
   };
 
-  const openEdit = (doc: StaffMember) => {
+  const openEdit = (doc: ApiDoctor) => {
     setForm({
-      name: doc.name,
-      nameAr: doc.nameAr,
+      fullName: doc.fullName,
       email: doc.email,
-      phone: doc.phone,
-      specialty: doc.specialty || "",
-      specialtyAr: doc.specialtyAr || "",
-      experience: doc.experience?.toString() || "",
+      phone: doc.phone || "",
+      specialization: doc.specialization || "",
+      experienceYears: doc.experienceYears.toString(),
+      consultationFee: doc.consultationFee.toString(),
       status: doc.status,
     });
     setEditId(doc.id);
@@ -92,16 +87,15 @@ export default function DoctorsPage() {
     setMenuOpen(null);
   };
 
-  const handleDelete = (id: string) => {
-    deleteStaff(id);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure?")) return;
+    try {
+      await removeDoctor(id);
+      success(locale === "ar" ? "تم حذف الطبيب" : "Doctor removed");
+    } catch (err) {
+      error("Failed to delete doctor");
+    }
     setMenuOpen(null);
-    toast.success(locale === "ar" ? "تم حذف الطبيب" : "Doctor removed");
-  };
-
-  const handleSwitchToReception = (id: string) => {
-    changeRole(id, "RECEPTION");
-    setMenuOpen(null);
-    toast.info(locale === "ar" ? "تم تغيير الدور إلى استقبال" : "Role changed to Reception");
   };
 
   return (
@@ -123,24 +117,18 @@ export default function DoctorsPage() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{t("fullName")} (EN)</label>
-                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Dr. ..." />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{t("fullName")} (AR)</label>
-                    <Input value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} placeholder="د. ..." dir="rtl" />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("fullName")}</label>
+                  <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Dr. ..." />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{t("specialty")} (EN)</label>
-                    <Input value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} placeholder="e.g. Cardiology" />
+                    <label className="text-sm font-medium">{t("specialty")}</label>
+                    <Input value={form.specialization} onChange={(e) => setForm({ ...form, specialization: e.target.value })} placeholder="e.g. Cardiology" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{t("specialty")} (AR)</label>
-                    <Input value={form.specialtyAr} onChange={(e) => setForm({ ...form, specialtyAr: e.target.value })} placeholder="مثال: أمراض القلب" dir="rtl" />
+                    <label className="text-sm font-medium">{t("experience")}</label>
+                    <Input value={form.experienceYears} onChange={(e) => setForm({ ...form, experienceYears: e.target.value })} placeholder="10" type="number" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -153,20 +141,20 @@ export default function DoctorsPage() {
                     <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 555-0000" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{t("experience")}</label>
-                    <Input value={form.experience} onChange={(e) => setForm({ ...form, experience: e.target.value })} placeholder="10" type="number" />
+                    <label className="text-sm font-medium">Consultation Fee</label>
+                    <Input value={form.consultationFee} onChange={(e) => setForm({ ...form, consultationFee: e.target.value })} placeholder="50" type="number" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">{t("status")}</label>
                   <select
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as StaffMember["status"] })}
+                    onChange={(e) => setForm({ ...form, status: e.target.value as ApiDoctor["status"] })}
                     className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
                   >
-                    <option value="active">{locale === "ar" ? "نشط" : "Active"}</option>
-                    <option value="on-leave">{locale === "ar" ? "إجازة" : "On Leave"}</option>
-                    <option value="inactive">{locale === "ar" ? "غير نشط" : "Inactive"}</option>
+                    <option value="ACTIVE">{locale === "ar" ? "نشط" : "Active"}</option>
+                    <option value="ON_LEAVE">{locale === "ar" ? "إجازة" : "On Leave"}</option>
+                    <option value="INACTIVE">{locale === "ar" ? "غير نشط" : "Inactive"}</option>
                   </select>
                 </div>
                 <Button className="w-full" onClick={handleSave}>{t("save")}</Button>
@@ -186,12 +174,6 @@ export default function DoctorsPage() {
         />
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          {t("noResults")}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((doc, i) => (
           <motion.div
@@ -200,18 +182,18 @@ export default function DoctorsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
           >
-            <Card className="hover:shadow-md transition-shadow">
+            <Card className="hover:shadow-md transition-shadow relative">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex gap-3">
                     <img
-                      src={doc.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.email}`}
-                      alt={doc.name}
+                      src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.email}`}
+                      alt={doc.fullName}
                       className="h-14 w-14 rounded-xl"
                     />
                     <div>
-                      <h3 className="font-semibold">{locale === "ar" ? doc.nameAr : doc.name}</h3>
-                      <p className="text-sm text-primary">{locale === "ar" ? doc.specialtyAr : doc.specialty}</p>
+                      <h3 className="font-semibold">{doc.fullName}</h3>
+                      <p className="text-sm text-primary">{doc.specialization}</p>
                     </div>
                   </div>
                   <div className="relative">
@@ -223,9 +205,6 @@ export default function DoctorsPage() {
                         <button onClick={() => openEdit(doc)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted">
                           <Edit3 className="h-3.5 w-3.5" /> {t("edit")}
                         </button>
-                        <button onClick={() => handleSwitchToReception(doc.id)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted text-primary">
-                          <UserCog className="h-3.5 w-3.5" /> {locale === "ar" ? "تحويل لاستقبال" : "Switch to Reception"}
-                        </button>
                         <button onClick={() => handleDelete(doc.id)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted text-destructive">
                           <Trash2 className="h-3.5 w-3.5" /> {t("delete")}
                         </button>
@@ -236,14 +215,14 @@ export default function DoctorsPage() {
                 <div className="mt-4 flex items-center justify-between text-sm">
                   <div className="flex items-center gap-1">
                     <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    <span className="font-medium">{doc.rating ?? "—"}</span>
+                    <span className="font-medium">{doc.rating}</span>
                   </div>
                   <div className="flex items-center gap-1 text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>{doc.experience ?? 0} {t("yearsExp")}</span>
+                    <span>{doc.experienceYears} {t("yearsExp")}</span>
                   </div>
-                  <Badge variant={doc.status === "active" ? "success" : doc.status === "on-leave" ? "warning" : "secondary"} className="text-xs">
-                    {doc.status === "active" ? t("available") : doc.status === "on-leave" ? (locale === "ar" ? "إجازة" : "On Leave") : t("unavailable")}
+                  <Badge variant={doc.status === "ACTIVE" ? "success" : doc.status === "ON_LEAVE" ? "warning" : "secondary"} className="text-xs">
+                    {doc.status === "ACTIVE" ? t("available") : doc.status === "ON_LEAVE" ? (locale === "ar" ? "إجازة" : "On Leave") : t("unavailable")}
                   </Badge>
                 </div>
               </CardContent>

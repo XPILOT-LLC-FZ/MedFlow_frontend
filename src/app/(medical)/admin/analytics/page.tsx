@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Users, Calendar, DollarSign, TrendingUp } from "lucide-react";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { ChartCard } from "@/components/shared/ChartCard";
@@ -13,12 +13,17 @@ import { useStaffStore } from "@/stores/useStaffStore";
 export default function AnalyticsPage() {
   const { t, locale } = useTranslation();
   const { getMonthlyBreakdown, getYearIncome } = usePaymentsStore();
-  const { appointments } = useBookingStore();
-  const { staff } = useStaffStore();
+  const { appointments, fetchAppointments } = useBookingStore();
+  const { doctors, fetchDoctors } = useStaffStore();
+
+  useEffect(() => {
+    fetchDoctors();
+    fetchAppointments();
+  }, [fetchDoctors, fetchAppointments]);
 
   const monthlyRevenue = getMonthlyBreakdown();
   const yearIncome = getYearIncome();
-  const doctorCount = staff.filter((s) => s.role === "DOCTOR").length;
+  const doctorCount = doctors.length;
   const uniquePatients = new Set(appointments.map((a) => a.patientId)).size;
 
   // Patient growth (from appointment count per month)
@@ -42,7 +47,7 @@ export default function AnalyticsPage() {
   }));
 
   // Department revenue from staff specialties
-  const specialties = [...new Set(staff.filter((s) => s.specialty).map((s) => s.specialty!))];
+  const specialties = [...new Set(doctors.filter((d) => d.specialization).map((d) => d.specialization!))];
   const specialtyAppointmentCounts = specialties.map((name) => ({
     name,
     count: appointments.filter((a) => a.specialty === name).length,

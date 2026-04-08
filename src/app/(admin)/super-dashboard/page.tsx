@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Users, Activity, Server, BarChart3 } from "lucide-react";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { ChartCard } from "@/components/shared/ChartCard";
@@ -8,34 +8,45 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useStaffStore } from "@/stores/useStaffStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { usePaymentsStore } from "@/stores/usePaymentsStore";
 import { useInventoryStore } from "@/stores/useInventoryStore";
-import { useAuthStore } from "@/stores/useAuthStore";
-import { mockUsers } from "@/data/mockUsers";
+import { userService } from "@/services/userService";
 
 export default function SuperAdminDashboard() {
   const { locale } = useTranslation();
-  const { staff } = useStaffStore();
   const { appointments } = useBookingStore();
-  const { payments } = usePaymentsStore();
+  const { getYearIncome } = usePaymentsStore();
   const { items: inventoryItems } = useInventoryStore();
-  const { registeredUsers } = useAuthStore();
 
-  const totalUsers = mockUsers.length + staff.length + registeredUsers.length;
-  const activeStaff = staff.filter((s) => s.status === "active").length;
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const s = await userService.getStats();
+        setStats(s);
+      } catch (err) {
+        console.error("Failed to load global stats", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadStats();
+  }, []);
+
+  const totalUsers = (stats?.total as number) || 0;
+  const activeUsers = (stats?.active as number) || 0;
   const lowStockItems = inventoryItems.filter((i) => i.status === "low" || i.status === "out-of-stock").length;
 
-  // Dynamic role distribution
   const roleDistribution = [
-    { name: locale === "ar" ? "مرضى" : "Patients", value: mockUsers.filter((u) => u.role === "PATIENT").length + registeredUsers.length },
-    { name: locale === "ar" ? "أطباء" : "Doctors", value: staff.filter((s) => s.role === "DOCTOR").length },
-    { name: locale === "ar" ? "استقبال" : "Reception", value: staff.filter((s) => s.role === "RECEPTION").length },
-    { name: locale === "ar" ? "إدارة" : "Admins", value: mockUsers.filter((u) => u.role === "MEDICAL_ADMIN" || u.role === "SUPER_ADMIN").length },
+    { name: locale === "ar" ? "مرضى" : "Patients", value: (stats?.byRole as Record<string, number>)?.PATIENT || 0 },
+    { name: locale === "ar" ? "أطباء" : "Doctors", value: (stats?.byRole as Record<string, number>)?.DOCTOR || 0 },
+    { name: locale === "ar" ? "استقبال" : "Reception", value: (stats?.byRole as Record<string, number>)?.STAFF || 0 },
+    { name: locale === "ar" ? "إدارة" : "Admins", value: ((stats?.byRole as Record<string, number>)?.ADMIN || 0) + ((stats?.byRole as Record<string, number>)?.SUPER_ADMIN || 0) },
   ];
 
-  // Monthly user growth (simulated from real counts)
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
   const userGrowth = months.map((name, i) => ({
     name,
@@ -50,10 +61,10 @@ export default function SuperAdminDashboard() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title={locale === "ar" ? "إجمالي المستخدمين" : "Total Users"} value={totalUsers} change={15} icon={<Users className="h-5 w-5" />} delay={0} />
-        <StatsCard title={locale === "ar" ? "الموظفون النشطون" : "Active Staff"} value={activeStaff} change={8} icon={<Activity className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={locale === "ar" ? "إجمالي المستخدمين" : "Total Users"} value={isLoading ? "..." : totalUsers} change={15} icon={<Users className="h-5 w-5" />} delay={0} />
+        <StatsCard title={locale === "ar" ? "الموظفون نشطون" : "Active Users"} value={isLoading ? "..." : activeUsers} change={8} icon={<Activity className="h-5 w-5" />} delay={0.1} />
         <StatsCard title={locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"} value={appointments.length} icon={<BarChart3 className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={locale === "ar" ? "إجمالي المعاملات" : "Total Payments"} value={payments.length} icon={<Server className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={locale === "ar" ? "إجمالي الإيرادات" : "Total Revenue"} value={`$${getYearIncome().toLocaleString()}`} icon={<Server className="h-5 w-5" />} delay={0.3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -61,7 +72,6 @@ export default function SuperAdminDashboard() {
         <ChartCard title={locale === "ar" ? "توزيع الأدوار" : "Role Distribution"} type="pie" data={roleDistribution} dataKey="value" delay={0.3} />
       </div>
 
-      {/* System status */}
       <Card>
         <CardHeader><CardTitle className="text-base">{locale === "ar" ? "حالة النظام" : "System Status"}</CardTitle></CardHeader>
         <CardContent>
@@ -69,7 +79,7 @@ export default function SuperAdminDashboard() {
             {[
               { name: "API Server", status: "operational" as const, uptime: "99.99%" },
               { name: "Database", status: "operational" as const, uptime: "99.95%" },
-              { name: locale === "ar" ? "المخزون" : "Inventory Alerts", status: lowStockItems > 0 ? "degraded" as const : "operational" as const, uptime: `${lowStockItems} alerts` },
+              { name: locale === "ar" ? "تنبيهات المخزون" : "Inventory Alerts", status: lowStockItems > 0 ? "degraded" as const : "operational" as const, uptime: `${lowStockItems} alerts` },
             ].map((svc) => (
               <div key={svc.name} className="flex items-center justify-between p-3 rounded-lg border">
                 <div>

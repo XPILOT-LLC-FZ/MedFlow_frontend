@@ -23,6 +23,7 @@ const steps = [
 
 interface FormData {
   fullName: string;
+  role: "PATIENT" | "ADMIN";
   dateOfBirth: string;
   gender: string;
   email: string;
@@ -35,7 +36,7 @@ interface FormData {
 }
 
 const emptyForm: FormData = {
-  fullName: "", dateOfBirth: "", gender: "",
+  fullName: "", role: "PATIENT", dateOfBirth: "", gender: "",
   email: "", phone: "", address: "", password: "",
   emergencyContact: "", medicalHistory: "", allergies: "",
 };
@@ -43,7 +44,7 @@ const emptyForm: FormData = {
 export default function SignupPage() {
   const { t, locale } = useTranslation();
   const router = useRouter();
-  const { signup, isAuthenticated, getDashboardPath } = useAuthStore();
+  const { signup, isAuthenticated } = useAuthStore();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -57,9 +58,9 @@ export default function SignupPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(getDashboardPath());
+      router.replace(useAuthStore.getState().getDashboardPath());
     }
-  }, [isAuthenticated, getDashboardPath, router]);
+  }, [isAuthenticated, router]);
 
   const update = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -78,8 +79,8 @@ export default function SignupPage() {
         setError(t("emailRequired"));
         return false;
       }
-      if (!form.password || form.password.length < 6) {
-        setError(t("passwordTooShort"));
+      if (!form.password || form.password.length < 8) {
+        setError(locale === "ar" ? "كلمة المرور يجب أن تكون 8 أحرف على الأقل" : "Password must be at least 8 characters");
         return false;
       }
     }
@@ -98,23 +99,18 @@ export default function SignupPage() {
     setIsLoading(true);
     setError("");
 
-    // Simulate network
-    await new Promise((r) => setTimeout(r, 800));
-
-    const result = signup({
+    const result = await signup({
       name: form.fullName,
       email: form.email,
-      phone: form.phone,
       password: form.password,
+      role: form.role,
     });
 
     if (result.success) {
       setSuccess(true);
-      setTimeout(() => {
-        router.replace(getDashboardPath());
-      }, 600);
+      router.push("/onboarding");
     } else {
-      setError(t(result.error as "emailAlreadyExists"));
+      setError(result.error || "Registration failed");
       setIsLoading(false);
     }
   };
@@ -246,6 +242,27 @@ export default function SignupPage() {
                           </Button>
                         </div>
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">{locale === "ar" ? "نوع الحساب" : "Account Type"}</label>
+                        <div className="flex gap-3">
+                          <Button
+                            type="button"
+                            variant={form.role === "PATIENT" ? "default" : "outline"}
+                            className="flex-1"
+                            onClick={() => update("role", "PATIENT")}
+                          >
+                            {locale === "ar" ? "مريض" : "Patient"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={form.role === "ADMIN" ? "default" : "outline"}
+                            className="flex-1"
+                            onClick={() => update("role", "ADMIN")}
+                          >
+                            {locale === "ar" ? "إدارة عيادة" : "Clinic Admin"}
+                          </Button>
+                        </div>
+                      </div>
                     </>
                   )}
                   {currentStep === 1 && (
@@ -300,7 +317,7 @@ export default function SignupPage() {
                           />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {locale === "ar" ? "6 أحرف على الأقل" : "At least 6 characters"}
+                          {locale === "ar" ? "8 أحرف على الأقل" : "At least 8 characters"}
                         </p>
                       </div>
                     </>

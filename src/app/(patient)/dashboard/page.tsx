@@ -28,8 +28,13 @@ export default function PatientDashboard() {
   const { addFile, deleteFile, getFilesByPatient } = useFilesStore();
   const { appointments } = useBookingStore();
   const toast = useToastStore();
-
   const patientId = user?.id ?? "guest";
+
+  React.useEffect(() => {
+    if (user?.id) {
+       useBookingStore.getState().fetchAppointments({ patientId: user.id });
+    }
+  }, [user?.id]);
   const files = getFilesByPatient(patientId);
 
   const patientAppointments = appointments.filter((a) => a.patientId === patientId);

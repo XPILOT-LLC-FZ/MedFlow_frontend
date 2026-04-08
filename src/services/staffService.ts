@@ -1,50 +1,48 @@
 /**
- * Staff Service — wraps useStaffStore.
- * Swap internals to fetch() when backend is ready.
+ * Staff Service — handles Doctor-related API calls.
  */
-import { useStaffStore, type StaffMember } from "@/stores/useStaffStore";
+import { apiClient } from "@/lib/apiClient";
+import type { ApiDoctor } from "@/types";
 
 export const staffService = {
-  getAll(): StaffMember[] {
-    return useStaffStore.getState().staff;
+  async getDoctors(filters?: Record<string, unknown>): Promise<ApiDoctor[]> {
+    const qs = filters ? `?${new URLSearchParams(filters as Record<string, string>).toString()}` : "";
+    return apiClient.get(`/doctors${qs}`);
   },
 
-  getDoctors(): StaffMember[] {
-    return useStaffStore.getState().getDoctors();
+  async getDoctorById(id: string): Promise<ApiDoctor> {
+    return apiClient.get(`/doctors/${id}`);
   },
 
-  getReception(): StaffMember[] {
-    return useStaffStore.getState().getReception();
+  async createDoctor(data: Partial<ApiDoctor>): Promise<ApiDoctor> {
+    return apiClient.post("/doctors", data);
   },
 
-  getById(id: string): StaffMember | undefined {
-    return useStaffStore.getState().staff.find((s) => s.id === id);
+  async updateDoctor(id: string, data: Partial<ApiDoctor>): Promise<ApiDoctor> {
+    return apiClient.patch(`/doctors/${id}`, data);
   },
 
-  add(member: Omit<StaffMember, "id" | "joinDate">): void {
-    useStaffStore.getState().addStaff(member);
+  async removeDoctor(id: string): Promise<void> {
+    return apiClient.delete(`/doctors/${id}`);
   },
 
-  update(id: string, updates: Partial<StaffMember>): void {
-    useStaffStore.getState().updateStaff(id, updates);
+  async updateDoctorShifts(id: string, shifts: unknown): Promise<void> {
+    return apiClient.patch(`/doctors/${id}/shifts`, { shifts });
   },
 
-  remove(id: string): void {
-    useStaffStore.getState().deleteStaff(id);
+  async getDoctorAvailability(id: string, date: string, serviceId?: string): Promise<unknown> {
+    const params = new URLSearchParams({ date });
+    if (serviceId) params.append("serviceId", serviceId);
+    return apiClient.get(`/doctors/${id}/availability?${params.toString()}`);
   },
 
-  changeRole(id: string, newRole: "DOCTOR" | "RECEPTION"): void {
-    useStaffStore.getState().changeRole(id, newRole);
-  },
-
-  getStats() {
-    const staff = useStaffStore.getState().staff;
+  async getStats() {
+    // This might need a specialized endpoint or client-side aggregation
+    const doctors = await this.getDoctors();
     return {
-      totalStaff: staff.length,
-      totalDoctors: staff.filter((s) => s.role === "DOCTOR").length,
-      totalReception: staff.filter((s) => s.role === "RECEPTION").length,
-      activeStaff: staff.filter((s) => s.status === "active").length,
-      onLeave: staff.filter((s) => s.status === "on-leave").length,
+      totalDoctors: doctors.length,
+      activeDoctors: doctors.filter((d) => d.status === "ACTIVE").length,
+      onLeave: doctors.filter((d) => d.status === "ON_LEAVE").length,
     };
   },
 };

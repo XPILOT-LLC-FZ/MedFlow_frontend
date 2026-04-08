@@ -1,59 +1,45 @@
 /**
- * Booking Service — wraps useBookingStore.
- * Swap internals to fetch() when backend is ready.
+ * Booking Service — handles Appointment-related API calls.
  */
-import { useBookingStore } from "@/stores/useBookingStore";
-import type { Appointment } from "@/types";
+import { apiClient } from "@/lib/apiClient";
+import type { ApiAppointment } from "@/types";
 
 export const bookingService = {
-  getAll(): Appointment[] {
-    return useBookingStore.getState().appointments;
+  async getAll(filters?: Record<string, unknown>): Promise<ApiAppointment[]> {
+    const qs = filters ? `?${new URLSearchParams(filters as Record<string, string>).toString()}` : "";
+    return apiClient.get(`/appointments${qs}`);
   },
 
-  getById(id: string): Appointment | undefined {
-    return useBookingStore.getState().appointments.find((a) => a.id === id);
+  async getById(id: string): Promise<ApiAppointment> {
+    return apiClient.get(`/appointments/${id}`);
   },
 
-  getByPatient(patientId: string): Appointment[] {
-    return useBookingStore.getState().appointments.filter((a) => a.patientId === patientId);
+  async create(data: Partial<ApiAppointment>): Promise<ApiAppointment> {
+    return apiClient.post("/appointments", data);
   },
 
-  getByDoctor(doctorId: string): Appointment[] {
-    return useBookingStore.getState().appointments.filter((a) => a.doctorId === doctorId);
+  async updateStatus(id: string, status: string, notes?: string): Promise<ApiAppointment> {
+    return apiClient.patch(`/appointments/${id}/status`, { status, notes });
   },
 
-  getUpcoming(): Appointment[] {
-    return useBookingStore.getState().appointments.filter(
-      (a) => a.status === "scheduled" || a.status === "confirmed"
-    );
+  async getAvailableSlots(doctorId: string, date: string): Promise<string[]> {
+    const params = new URLSearchParams({ doctorId, date });
+    const response = await apiClient.get(`/appointments/slots?${params.toString()}`);
+
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.slots)) return response.slots;
+    if (Array.isArray(response?.availableSlots)) return response.availableSlots;
+    return [];
   },
 
-  getToday(): Appointment[] {
+  async getStats() {
     const today = new Date().toISOString().split("T")[0];
-    return useBookingStore.getState().appointments.filter((a) => a.date === today);
-  },
-
-  create(apt: Omit<Appointment, "id">): Appointment {
-    return useBookingStore.getState().addAppointment(apt);
-  },
-
-  update(id: string, updates: Partial<Appointment>): void {
-    useBookingStore.getState().updateAppointment(id, updates);
-  },
-
-  cancel(id: string): void {
-    useBookingStore.getState().cancelAppointment(id);
-  },
-
-  getStats() {
-    const apts = useBookingStore.getState().appointments;
-    const today = new Date().toISOString().split("T")[0];
+    const appointments = await this.getAll({ startDate: today, endDate: today });
+    // This is a simplified client-side aggregation for stats
     return {
-      total: apts.length,
-      today: apts.filter((a) => a.date === today).length,
-      upcoming: apts.filter((a) => a.status === "scheduled" || a.status === "confirmed").length,
-      completed: apts.filter((a) => a.status === "completed").length,
-      cancelled: apts.filter((a) => a.status === "cancelled").length,
+      totalToday: appointments.length,
+      pending: appointments.filter((a) => a.status === "SCHEDULED").length,
+      confirmed: appointments.filter((a) => a.status === "CONFIRMED").length,
     };
   },
 };

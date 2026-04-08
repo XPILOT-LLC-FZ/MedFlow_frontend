@@ -16,17 +16,17 @@ import type { Role } from "@/types";
 
 const roleLabels: Record<Role, { en: string; ar: string }> = {
   PATIENT: { en: "Patient", ar: "مريض" },
-  MEDICAL_ADMIN: { en: "Medical Admin", ar: "إدارة طبية" },
+  ADMIN: { en: "Admin", ar: "إدارة" },
   DOCTOR: { en: "Doctor", ar: "طبيب" },
-  RECEPTION: { en: "Reception", ar: "استقبال" },
+  STAFF: { en: "Reception", ar: "استقبال" },
   SUPER_ADMIN: { en: "Super Admin", ar: "مدير النظام" },
 };
 
 const rolePaths: Record<Role, string> = {
   PATIENT: "/dashboard",
-  MEDICAL_ADMIN: "/admin/dashboard",
+  ADMIN: "/admin/dashboard",
   DOCTOR: "/doctor/dashboard",
-  RECEPTION: "/reception/dashboard",
+  STAFF: "/reception/dashboard",
   SUPER_ADMIN: "/super-dashboard",
 };
 
@@ -37,9 +37,12 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
   const { t } = useTranslation();
   const [notifOpen, setNotifOpen] = React.useState(false);
 
-  const handleLogout = () => {
-    logout();
-    router.replace("/login");
+  const handleLogout = async () => {
+    await logout();
+    if (typeof document !== "undefined") {
+      document.cookie = "clinic-os-auth=; path=/; max-age=0;";
+    }
+    window.location.href = "/login";
   };
 
   const displayName = user

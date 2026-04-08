@@ -179,7 +179,7 @@ export function ChatBot({
   const { user, isAuthenticated } = useAuthStore();
   const { addAppointment } = useBookingStore();
   const { addMessage, messages } = useChatStore();
-  const { staff } = useStaffStore();
+  const { doctors } = useStaffStore();
   const toast = useToastStore();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -193,17 +193,15 @@ export function ChatBot({
 
   const doctorDirectory = useMemo(
     () =>
-      staff
-        .filter((member) => member.role === "DOCTOR")
-        .map((member) => ({
+      doctors.map((member) => ({
           id: member.id,
-          name: member.name,
-          nameAr: member.nameAr,
-          specialty: member.specialty ?? "",
-          specialtyAr: member.specialtyAr ?? "",
-          available: member.status === "active",
+          name: member.fullName,
+          nameAr: member.fullName,
+          specialty: member.specialization ?? "",
+          specialtyAr: member.specialization ?? "",
+          available: member.status === "ACTIVE",
         })),
-    [staff]
+    [doctors]
   );
 
   const specialties = useMemo(

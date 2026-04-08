@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -15,27 +15,18 @@ import { StatsCard } from "@/components/shared/StatsCard";
 import { ChartCard } from "@/components/shared/ChartCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useStaffStore, type StaffMember } from "@/stores/useStaffStore";
+import { useStaffStore } from "@/stores/useStaffStore";
 import { usePaymentsStore } from "@/stores/usePaymentsStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useInventoryStore } from "@/stores/useInventoryStore";
+import type { ApiDoctor } from "@/types";
 
-function RoleBadge({ role, locale }: { role: StaffMember["role"]; locale: string }) {
-  return (
-    <Badge variant={role === "DOCTOR" ? "info" : "secondary"} className="text-xs">
-      {role === "DOCTOR"
-        ? locale === "ar" ? "طبيب" : "Doctor"
-        : locale === "ar" ? "استقبال" : "Reception"}
-    </Badge>
-  );
-}
-
-function StatusBadge({ status, locale }: { status: StaffMember["status"]; locale: string }) {
-  const v = status === "active" ? "success" : status === "on-leave" ? "warning" : "secondary";
+function StatusBadge({ status, locale }: { status: ApiDoctor["status"]; locale: string }) {
+  const v = status === "ACTIVE" ? "success" : status === "ON_LEAVE" ? "warning" : "secondary";
   const label =
-    status === "active"
+    status === "ACTIVE"
       ? locale === "ar" ? "نشط" : "Active"
-      : status === "on-leave"
+      : status === "ON_LEAVE"
       ? locale === "ar" ? "إجازة" : "On Leave"
       : locale === "ar" ? "غير نشط" : "Inactive";
   return <Badge variant={v} className="text-xs">{label}</Badge>;
@@ -43,13 +34,16 @@ function StatusBadge({ status, locale }: { status: StaffMember["status"]; locale
 
 export default function MedicalAdminDashboard() {
   const { t, locale } = useTranslation();
-  const { staff, changeRole } = useStaffStore();
+  const { doctors, fetchDoctors } = useStaffStore();
   const { getMonthlyBreakdown, getYearIncome } = usePaymentsStore();
-  const { appointments } = useBookingStore();
+  const { appointments, fetchAppointments } = useBookingStore();
   const { items: inventoryItems } = useInventoryStore();
 
-  const doctors = staff.filter((s) => s.role === "DOCTOR");
-  const receptionists = staff.filter((s) => s.role === "RECEPTION");
+  useEffect(() => {
+    fetchDoctors();
+    fetchAppointments();
+  }, []);
+
   const revenueData = getMonthlyBreakdown();
 
   // Dynamic weekly appointment counts
@@ -73,7 +67,7 @@ export default function MedicalAdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title={t("totalAppointments")} value={appointments.length} change={appointments.length > 0 ? 8 : 0} icon={<Calendar className="h-5 w-5" />} delay={0} />
         <StatsCard title={t("totalDoctors")} value={doctors.length} icon={<Stethoscope className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "موظفو الاستقبال" : "Reception Staff"} value={receptionists.length} icon={<UserCog className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={locale === "ar" ? "موظفو الاستقبال" : "Reception Staff"} value={"Real-time"} icon={<UserCog className="h-5 w-5" />} delay={0.2} />
         <StatsCard title={t("totalRevenue")} value={`$${getYearIncome().toLocaleString()}`} change={lowStockCount > 0 ? -lowStockCount : 18} icon={<DollarSign className="h-5 w-5" />} delay={0.3} />
       </div>
 
@@ -83,25 +77,20 @@ export default function MedicalAdminDashboard() {
         <ChartCard title={locale === "ar" ? "المواعيد الأسبوعية" : "Weekly Appointments"} type="bar" data={appointmentsData} dataKey="count" delay={0.3} />
       </div>
 
-      {/* Staff table with role management */}
+      {/* Doctors table */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
               <CardTitle className="text-base">
-                {locale === "ar" ? "إدارة الموظفين والأدوار" : "Staff & Role Management"}
+                {locale === "ar" ? "إدارة الأطباء" : "Doctor Management"}
               </CardTitle>
             </div>
             <div className="flex gap-2">
               <Link href="/admin/doctors">
                 <Button variant="outline" size="sm" className="gap-1 text-xs">
                   {t("manageDoctors")} <ChevronRight className="h-3 w-3" />
-                </Button>
-              </Link>
-              <Link href="/admin/reception">
-                <Button variant="outline" size="sm" className="gap-1 text-xs">
-                  {t("manageReception")} <ChevronRight className="h-3 w-3" />
                 </Button>
               </Link>
             </div>
@@ -111,45 +100,39 @@ export default function MedicalAdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{locale === "ar" ? "الموظف" : "Staff"}</TableHead>
+                    <TableHead>{locale === "ar" ? "الطبيب" : "Doctor"}</TableHead>
                     <TableHead>{t("email")}</TableHead>
-                    <TableHead>{t("role")}</TableHead>
+                    <TableHead>{t("specialty")}</TableHead>
                     <TableHead>{t("status")}</TableHead>
-                    <TableHead className="text-right rtl:text-left">{locale === "ar" ? "تغيير الدور" : "Change Role"}</TableHead>
+                    <TableHead className="text-right rtl:text-left">{t("actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {staff.slice(0, 7).map((member) => (
-                    <TableRow key={member.id}>
+                  {doctors.slice(0, 7).map((doctor) => (
+                    <TableRow key={doctor.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <img
-                            src={member.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${member.email}`}
-                            alt={member.name}
+                            src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doctor.email}`}
+                            alt={doctor.fullName}
                             className="h-8 w-8 rounded-lg"
                           />
                           <div>
-                            <p className="font-medium text-sm">{locale === "ar" ? member.nameAr : member.name}</p>
-                            {member.specialty && (
-                              <p className="text-xs text-muted-foreground">
-                                {locale === "ar" ? member.specialtyAr : member.specialty}
-                              </p>
-                            )}
+                            <p className="font-medium text-sm">{doctor.fullName}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{member.email}</TableCell>
-                      <TableCell><RoleBadge role={member.role} locale={locale} /></TableCell>
-                      <TableCell><StatusBadge status={member.status} locale={locale} /></TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{doctor.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {doctor.specialization || "General"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell><StatusBadge status={doctor.status} locale={locale} /></TableCell>
                       <TableCell className="text-right rtl:text-left">
-                        <select
-                          value={member.role}
-                          onChange={(e) => changeRole(member.id, e.target.value as "DOCTOR" | "RECEPTION")}
-                          className="text-xs border rounded-md px-2 py-1 bg-background hover:bg-muted transition-colors cursor-pointer"
-                        >
-                          <option value="DOCTOR">{locale === "ar" ? "طبيب" : "Doctor"}</option>
-                          <option value="RECEPTION">{locale === "ar" ? "استقبال" : "Reception"}</option>
-                        </select>
+                        <Link href={`/admin/doctors?id=${doctor.id}`}>
+                           <Button variant="ghost" size="sm" className="h-8 text-xs">View Profile</Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   ))}

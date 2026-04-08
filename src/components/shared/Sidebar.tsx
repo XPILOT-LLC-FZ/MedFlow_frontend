@@ -28,7 +28,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Appointments", labelAr: "المواعيد", href: "/appointments", icon: Calendar },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/profile", icon: User },
   ],
-  MEDICAL_ADMIN: [
+  ADMIN: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Doctors", labelAr: "الأطباء", href: "/admin/doctors", icon: Stethoscope },
     { label: "Reception", labelAr: "الاستقبال", href: "/admin/reception", icon: Users },
@@ -41,7 +41,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Schedule", labelAr: "الجدول", href: "/doctor/schedule", icon: Calendar },
     { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: ClipboardList },
   ],
-  RECEPTION: [
+  STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
     { label: "Booking", labelAr: "الحجز", href: "/reception/booking", icon: Calendar },
     { label: "Waiting Room", labelAr: "غرفة الانتظار", href: "/reception/waiting-room", icon: Clock },

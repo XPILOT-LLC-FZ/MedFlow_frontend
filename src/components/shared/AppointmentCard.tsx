@@ -13,6 +13,8 @@ const statusVariant: Record<string, "success" | "info" | "warning" | "destructiv
   completed: "secondary",
   cancelled: "destructive",
   "in-progress": "warning",
+  "no-show": "destructive",
+  rescheduled: "warning",
 };
 
 export function AppointmentCard({
