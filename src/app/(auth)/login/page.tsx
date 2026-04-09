@@ -9,14 +9,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { GoogleSignInButton } from "@/components/shared/GoogleSignInButton";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useStore } from "@/stores/useStore";
 
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const tokenCookie = document.cookie
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(`${name}=`));
+  return tokenCookie ? tokenCookie.slice(name.length + 1) : null;
+}
+
+function isJwtValid(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return false;
+
+    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payloadBase64.padEnd(Math.ceil(payloadBase64.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+
+    if (!payload.exp) return false;
+    const now = Math.floor(Date.now() / 1000);
+    return payload.exp > now + 5;
+  } catch {
+    return false;
+  }
+}
+
 export default function LoginPage() {
   const { t, locale } = useTranslation();
   const router = useRouter();
-  const { login, isAuthenticated, getDashboardPath } = useAuthStore();
+  const { login, isAuthenticated, user, getDashboardPath } = useAuthStore();
   const { setLocale } = useStore();
 
   const [email, setEmail] = useState("");
@@ -28,10 +55,35 @@ export default function LoginPage() {
 
   // Auto-redirect if already logged in
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace(getDashboardPath());
+    if (!isAuthenticated || !user) {
+      return;
     }
-  }, [isAuthenticated, getDashboardPath, router]);
+
+    const sessionToken = getCookie("clinic-os-auth");
+    if (!sessionToken) {
+      return;
+    }
+
+    if (!isJwtValid(sessionToken)) {
+      document.cookie = "clinic-os-auth=; path=/; max-age=0;";
+      document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
+      useAuthStore.setState({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      });
+      return;
+    }
+
+    const requiresOnboarding = user.role === "PATIENT" || user.role === "ADMIN";
+    if (requiresOnboarding && !user.isOnboarded) {
+      router.replace("/onboarding");
+      return;
+    }
+
+    router.replace(getDashboardPath());
+  }, [isAuthenticated, user, getDashboardPath, router]);
 
   const toggleLanguage = () => {
     setLocale(locale === "en" ? "ar" : "en");
@@ -233,6 +285,27 @@ export default function LoginPage() {
                     </>
                   )}
                 </Button>
+
+                <div className="relative my-6 text-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      {t("or")}
+                    </span>
+                  </div>
+                </div>
+
+                <GoogleSignInButton
+                  onSuccess={(isNewUser) => {
+                    setSuccess(true);
+                    setTimeout(() => {
+                      router.replace(isNewUser ? "/onboarding" : useAuthStore.getState().getDashboardPath());
+                    }, 600);
+                  }}
+                  onError={(err) => setError(err)}
+                />
 
                 <p className="text-center text-sm text-muted-foreground mt-4">
                   {t("noAccount")}{" "}

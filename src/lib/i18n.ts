@@ -170,6 +170,9 @@ export const translations = {
     passwordTooShort: "Password must be at least 6 characters.",
     signingUp: "Creating account...",
     signupSuccess: "Account created! Redirecting...",
+    or: "Or",
+    signup_with: "Sign up with Google",
+    continue_with: "Continue with Google",
 
     // Toast / Feedback
     itemAdded: "Item added successfully",
@@ -375,6 +378,9 @@ export const translations = {
     passwordTooShort: "كلمة المرور يجب أن تكون 6 أحرف على الأقل.",
     signingUp: "جارٍ إنشاء الحساب...",
     signupSuccess: "تم إنشاء الحساب! جارٍ التحويل...",
+    or: "أو",
+    signup_with: "إنشاء حساب باستخدام Google",
+    continue_with: "المتابعة باستخدام Google",
 
     // Toast / Feedback
     itemAdded: "تم إضافة العنصر بنجاح",

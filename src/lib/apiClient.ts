@@ -54,6 +54,15 @@ class ApiClient {
     }
   }
 
+  private isAuthEndpoint(endpointOrUrl: string): boolean {
+    return (
+      endpointOrUrl.includes("/auth/login") ||
+      endpointOrUrl.includes("/auth/register") ||
+      endpointOrUrl.includes("/auth/oauth/google") ||
+      endpointOrUrl.includes("/auth/refresh")
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async request<T = any>(endpoint: string, method: HttpMethod, options: RequestOptions = {}, attempt = 0): Promise<T> {
     const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
@@ -103,14 +112,29 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
 
-      if (response.status === 401) {
+      if (response.status === 401 && !this.isAuthEndpoint(endpoint)) {
         // Handle 401 Unauthorized - attempt to refresh token
         return this.handleUnauthorized(url, method, options);
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const code = typeof errorData?.code === "string" ? errorData.code : "";
         const message = errorData.message || `Request failed with status ${response.status}`;
+
+        if (
+          typeof window !== "undefined" &&
+          response.status === 403 &&
+          (code === "ONBOARDING_REQUIRED" ||
+            (typeof message === "string" && message.toLowerCase().includes("onboarding")))
+        ) {
+          const path = window.location.pathname;
+          const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
+          if (!isAuthPage && !path.startsWith("/onboarding")) {
+            window.location.href = "/onboarding";
+          }
+          throw new Error("Onboarding required");
+        }
 
         // Recovery path: if clinic context is missing, try to hydrate clinicId from /auth/me once.
         if (
@@ -231,7 +255,11 @@ class ApiClient {
         }
         useAuthStore.setState({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          const path = window.location.pathname;
+          const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
+          if (!isAuthPage) {
+            window.location.href = "/login";
+          }
         }
         throw refreshError;
       }

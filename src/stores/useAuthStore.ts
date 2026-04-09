@@ -13,6 +13,7 @@ export interface AuthUser {
   role: Role;
   phone?: string;
   clinicId?: string;
+  isOnboarded?: boolean;
 }
 
 export interface SignupData {
@@ -61,7 +62,8 @@ interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (data: SignupData) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: (token: string, role?: "PATIENT" | "ADMIN") => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
+  signup: (data: SignupData) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   bootSession: () => Promise<void>;
@@ -90,16 +92,34 @@ function mapUser(raw: any, fallback?: Partial<SignupData>): AuthUser {
     role: normalizeRole(raw.role),
     phone: raw.phone ?? fallback?.phone,
     clinicId: raw.clinicId ?? raw.clinic_id ?? raw.clinic?.id ?? raw.tenantId ?? raw.tenant_id ?? raw.cid,
+    isOnboarded: raw.isOnboarded ?? false,
   };
 }
 
 /** Helper: sync the clinic-os-auth cookie for Next.js middleware */
-function syncCookie(token: string | null | undefined) {
+function syncCookies(token: string | null | undefined, user?: AuthUser) {
   if (typeof document === "undefined") return;
   if (token) {
     document.cookie = `clinic-os-auth=${token}; path=/; max-age=604800; SameSite=Lax`;
+    
+    // Only PATIENT and ADMIN are gated by onboarding
+    let isCleared = true;
+    if (user) {
+      if (user.role === 'PATIENT' || user.role === 'ADMIN') {
+        isCleared = !!user.isOnboarded;
+      } else {
+        isCleared = true; // DOCTOR, STAFF, SUPER_ADMIN don't need onboarding
+      }
+    }
+
+    if (isCleared) {
+      document.cookie = `clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax`;
+    } else {
+      document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
+    }
   } else {
     document.cookie = "clinic-os-auth=; path=/; max-age=0;";
+    document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
   }
 }
 
@@ -121,8 +141,6 @@ export const useAuthStore = create<AuthState>()(
             throw new Error("No access token received from server");
           }
 
-          syncCookie(accessToken);
-
           // If the response includes a user object, use it; otherwise fetch /auth/me
           let userData = response.user;
           if (!userData) {
@@ -130,8 +148,11 @@ export const useAuthStore = create<AuthState>()(
             userData = await apiClient.get("/auth/me");
           }
 
+          const parsedUser = mapUser(userData);
+          syncCookies(accessToken, parsedUser);
+
           set({
-            user: mapUser(userData),
+            user: parsedUser,
             accessToken,
             refreshToken,
             isAuthenticated: true,
@@ -139,6 +160,39 @@ export const useAuthStore = create<AuthState>()(
           return { success: true };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Invalid credentials";
+          return { success: false, error: message };
+        }
+      },
+
+      // ─── GOOGLE LOGIN ─────────────────────────────────────────
+      loginWithGoogle: async (token, role) => {
+        try {
+          const payload: Record<string, unknown> = { token };
+          if (role) payload.role = role;
+          
+          const response = await apiClient.post("/auth/oauth/google", payload);
+          const { accessToken, refreshToken } = extractTokens(response);
+          let userData = response.user;
+
+          if (!accessToken) throw new Error("No access token received from server");
+
+          if (!userData) {
+            set({ accessToken, refreshToken });
+            userData = await apiClient.get("/auth/me");
+          }
+
+          const parsedUser = mapUser(userData);
+          syncCookies(accessToken, parsedUser);
+
+          set({
+            user: parsedUser,
+            accessToken,
+            refreshToken,
+            isAuthenticated: true,
+          });
+          return { success: true, isNewUser: !parsedUser.isOnboarded };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "OAuth login failed";
           return { success: false, error: message };
         }
       },
@@ -173,19 +227,20 @@ export const useAuthStore = create<AuthState>()(
             throw new Error("Registration succeeded but could not obtain session");
           }
 
-          syncCookie(accessToken);
-
           // Get user profile
           set({ accessToken, refreshToken });
           const userData = await apiClient.get("/auth/me");
+          const parsedUser = mapUser(userData, data);
+          
+          syncCookies(accessToken, parsedUser);
 
           set({
-            user: mapUser(userData, data),
+            user: parsedUser,
             accessToken,
             refreshToken,
             isAuthenticated: true,
           });
-          return { success: true };
+          return { success: true, isNewUser: true };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Registration failed";
           return { success: false, error: message };
@@ -200,7 +255,7 @@ export const useAuthStore = create<AuthState>()(
             await apiClient.post("/auth/logout", { refreshToken }).catch(() => {});
           }
         } finally {
-          syncCookie(null);
+          syncCookies(null);
           set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
         }
       },
@@ -217,7 +272,8 @@ export const useAuthStore = create<AuthState>()(
           const { accessToken, refreshToken } = extractTokens(response);
 
           if (accessToken) {
-            syncCookie(accessToken);
+            const currentUser = get().user;
+            syncCookies(accessToken, currentUser ?? undefined);
             set({
               accessToken,
               refreshToken: refreshToken ?? currentRefreshToken,
@@ -225,7 +281,7 @@ export const useAuthStore = create<AuthState>()(
             });
           }
         } catch {
-          syncCookie(null);
+          syncCookies(null);
           set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
         }
       },
@@ -261,9 +317,10 @@ export const useAuthStore = create<AuthState>()(
               try {
                 set({ accessToken: token });
                 const userData = await apiClient.get("/auth/me");
-                syncCookie(token);
+                const parsedUser = mapUser(userData);
+                syncCookies(token, parsedUser);
                 set({
-                  user: mapUser(userData),
+                  user: parsedUser,
                   accessToken: token,
                   isAuthenticated: true,
                 });
@@ -294,10 +351,11 @@ export const useAuthStore = create<AuthState>()(
 
             set({ accessToken: token });
             const userData = await apiClient.get("/auth/me");
-            syncCookie(token);
+            const parsedUser = mapUser(userData);
+            syncCookies(token, parsedUser);
 
             set({
-              user: mapUser(userData),
+              user: parsedUser,
               accessToken: token,
               isAuthenticated: true,
             });
@@ -311,7 +369,7 @@ export const useAuthStore = create<AuthState>()(
               return;
             }
 
-            syncCookie(null);
+            syncCookies(null);
             set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
           } finally {
             bootSessionInFlight = null;

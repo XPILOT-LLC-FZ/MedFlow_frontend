@@ -24,10 +24,19 @@ export default function OnboardingPage() {
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const requiresOnboarding = user?.role === "PATIENT" || user?.role === "ADMIN";
 
   useEffect(() => {
     if (!user) {
       router.push("/login");
+      return;
+    }
+
+    if (user.isOnboarded) {
+      const dashboardPath = user.role === "ADMIN" ? "/admin/dashboard" : 
+                            user.role === "STAFF" ? "/reception/dashboard" : 
+                            user.role === "DOCTOR" ? "/doctor/dashboard" : "/dashboard";
+      router.push(dashboardPath);
       return;
     }
 
@@ -49,7 +58,11 @@ export default function OnboardingPage() {
   const currentQuestion = questions[currentIndex];
   const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
   const isLastStep = currentIndex === questions.length - 1;
-  const canSkip = user?.role !== "PATIENT"; // Patients must complete onboarding
+  const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
+  const hasCurrentAnswer =
+    currentAnswer !== undefined &&
+    currentAnswer !== null &&
+    String(currentAnswer).trim().length > 0;
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
@@ -65,19 +78,42 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleSkip = () => {
-    const dashboardPath = user?.role === "ADMIN" ? "/admin/dashboard" : 
-                          user?.role === "STAFF" ? "/reception/dashboard" : 
-                          user?.role === "DOCTOR" ? "/doctor/dashboard" : "/dashboard";
-    router.push(dashboardPath);
+  const redirectToDashboard = () => {
+    const dashboardPath = user?.role === "ADMIN" ? "/admin/dashboard" :
+      user?.role === "STAFF" ? "/reception/dashboard" :
+      user?.role === "DOCTOR" ? "/doctor/dashboard" : "/dashboard";
+    if (typeof window !== "undefined") {
+      window.location.href = dashboardPath;
+      return;
+    }
+    router.replace(dashboardPath);
   };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      await onboardingService.submitAnswers(answers);
+      if (!user) return;
+      await onboardingService.submitAnswers(user.role, answers);
+
+      // Keep local profile in sync first so refresh syncCookies won't clear onboarding state.
+      useAuthStore.setState((state) => ({
+        user: state.user ? { ...state.user, isOnboarded: true } : null,
+      }));
+
+      // Middleware fallback hint until refreshed token claims are observed.
+      if (typeof document !== "undefined") {
+        document.cookie = "clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax";
+      }
+
+      await useAuthStore.getState().refreshAccessToken();
+
+      // Re-assert hint cookie after refresh in case other cookie writes happened.
+      if (typeof document !== "undefined") {
+        document.cookie = "clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax";
+      }
+      
       success("Welcome aboard!");
-      handleSkip(); // Reuse skip logic for redirect
+      redirectToDashboard();
     } catch (err) {
       error("Failed to save onboarding data");
     } finally {
@@ -105,11 +141,23 @@ export default function OnboardingPage() {
       <div className="min-h-screen flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Welcome to MedFlow</CardTitle>
-            <CardDescription>We&apos;re setting up your account. No extra information needed right now.</CardDescription>
+            <CardTitle>{requiresOnboarding ? "Preparing onboarding" : "Welcome to MedFlow"}</CardTitle>
+            <CardDescription>
+              {requiresOnboarding
+                ? "Your required onboarding questions could not be loaded. Please retry."
+                : "We&apos;re setting up your account. No extra information needed right now."}
+            </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button onClick={handleSkip} className="w-full">Go to Dashboard</Button>
+            {requiresOnboarding ? (
+              <Button onClick={() => window.location.reload()} className="w-full" disabled={isSubmitting}>
+                Retry loading questions
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Completing..." : "Complete Setup"}
+              </Button>
+            )}
           </CardFooter>
         </Card>
       </div>
@@ -137,11 +185,6 @@ export default function OnboardingPage() {
               <span className="text-xs font-semibold text-primary uppercase tracking-wider">
                 Step {currentIndex + 1} of {questions.length}
               </span>
-              {canSkip && (
-                <Button variant="ghost" size="sm" onClick={handleSkip} className="text-muted-foreground hover:text-foreground">
-                  Skip for now
-                </Button>
-              )}
             </div>
             <CardTitle className="text-2xl md:text-3xl font-bold">
               {currentQuestion.text}
@@ -157,13 +200,33 @@ export default function OnboardingPage() {
                 exit={{ x: -20, opacity: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                {currentQuestion.type === "TEXT" && (
+                {(currentQuestion.type === "TEXT" || currentQuestion.type === "PHONE") && (
                   <Input 
-                    placeholder="Type your answer here..."
+                    type={currentQuestion.type === "PHONE" ? "tel" : "text"}
+                    placeholder={currentQuestion.type === "PHONE" ? "Enter phone number" : "Type your answer here..."}
                     className="h-14 text-lg"
-                    value={(answers[currentQuestion.id] as string) || ""}
+                    value={(currentAnswer as string) || ""}
                     onChange={(e) => updateAnswer(e.target.value)}
                     autoFocus
+                  />
+                )}
+
+                {currentQuestion.type === "DATE" && (
+                  <Input
+                    type="date"
+                    className="h-14 text-lg"
+                    value={(currentAnswer as string) || ""}
+                    onChange={(e) => updateAnswer(e.target.value)}
+                  />
+                )}
+
+                {currentQuestion.type === "TEXTAREA" && (
+                  <textarea
+                    className="min-h-40 w-full rounded-md border border-input bg-background px-3 py-3 text-base shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder="Type your answer here..."
+                    value={(currentAnswer as string) || ""}
+                    onChange={(e) => updateAnswer(e.target.value)}
+                    rows={5}
                   />
                 )}
 
@@ -220,7 +283,7 @@ export default function OnboardingPage() {
             
             <Button 
               onClick={handleNext} 
-              disabled={isSubmitting || (currentQuestion.required && !answers[currentQuestion.id])}
+              disabled={isSubmitting || (currentQuestion.required && !hasCurrentAnswer)}
               className="px-8 gap-2"
             >
               {isLastStep ? (isSubmitting ? "Completing..." : "Complete Setup") : (

@@ -5,51 +5,15 @@ import { useAuthStore, roleDashboardMap, normalizeRole, type AuthUser, type Sign
 import { apiClient } from "@/lib/apiClient";
 import type { Role } from "@/types";
 
-export interface LoginResult { success: boolean; error?: string }
+export interface LoginResult { success: boolean; isNewUser?: boolean; error?: string }
 
 export const authService = {
   async login(email: string, password: string): Promise<LoginResult> {
     return useAuthStore.getState().login(email, password);
   },
 
-  async loginWithGoogle(token: string): Promise<LoginResult> {
-    try {
-      const response = await apiClient.post("/auth/oauth/google", { token });
-      const accessToken = response.access_token || response.accessToken;
-      const refreshToken = response.refresh_token || response.refreshToken;
-      const user = response.user;
-
-      if (!accessToken) throw new Error("No access token received");
-
-      // Sync cookie
-      if (typeof document !== "undefined") {
-        document.cookie = `clinic-os-auth=${accessToken}; path=/; max-age=604800; SameSite=Lax`;
-      }
-
-      let userData = user;
-      if (!userData) {
-        useAuthStore.setState({ accessToken, refreshToken });
-        userData = await apiClient.get("/auth/me");
-      }
-
-      useAuthStore.setState({ 
-        user: {
-          id: userData.id,
-          name: userData.fullName || userData.name,
-          nameAr: userData.nameAr,
-          email: userData.email,
-          role: normalizeRole(userData.role),
-          phone: userData.phone,
-        }, 
-        accessToken,
-        refreshToken,
-        isAuthenticated: true 
-      });
-      return { success: true };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "OAuth login failed";
-      return { success: false, error: message };
-    }
+  async loginWithGoogle(token: string, role?: "PATIENT" | "ADMIN"): Promise<LoginResult> {
+    return useAuthStore.getState().loginWithGoogle(token, role);
   },
 
   async signup(data: SignupData): Promise<LoginResult> {
