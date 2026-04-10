@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Star, Clock, MoreVertical, Edit3, Trash2 } from "lucide-react";
+import { Search, Plus, Star, Clock, MoreVertical, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,22 +14,41 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
-import type { ApiDoctor } from "@/types";
+import { clinicService } from "@/services/clinicService";
+import { servicesCatalogService } from "@/services/servicesCatalogService";
+import type { ApiBranch, ApiDoctor, ApiService, CreateDoctorPayload, UpdateDoctorPayload } from "@/types";
 
 const emptyForm = {
   fullName: "", email: "", phone: "",
-  specialization: "", experienceYears: "",
+  specialization: "", bio: "", experienceYears: "",
   consultationFee: "",
+  branchId: "",
+  services: [] as string[],
   status: "ACTIVE" as ApiDoctor["status"],
 };
 
 export default function DoctorsPage() {
   const { t, locale } = useTranslation();
-  const { doctors, fetchDoctors, addDoctor, updateDoctor, removeDoctor } = useStaffStore();
+  const { doctors, fetchDoctors, addDoctor, updateDoctor } = useStaffStore();
   const { success, error } = useToastStore();
+  const [branches, setBranches] = useState<ApiBranch[]>([]);
+  const [availableServices, setAvailableServices] = useState<ApiService[]>([]);
+
+  async function loadReferences() {
+    try {
+      const [branchData, serviceData] = await Promise.all([
+        clinicService.getBranches().catch(() => [] as ApiBranch[]),
+        servicesCatalogService.getAll({ isActive: "true" }).catch(() => [] as ApiService[]),
+      ]);
+      setBranches(branchData);
+      setAvailableServices(serviceData);
+    } catch {
+      // Non-blocking metadata for form selectors.
+    }
+  }
 
   useEffect(() => {
-    fetchDoctors();
+    void fetchDoctors();
   }, []);
 
   const [search, setSearch] = useState("");
@@ -37,6 +56,22 @@ export default function DoctorsPage() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const toggleService = (serviceId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      services: prev.services.includes(serviceId)
+        ? prev.services.filter((id) => id !== serviceId)
+        : [...prev.services, serviceId],
+    }));
+  };
+
+  const openCreate = () => {
+    setEditId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+    void loadReferences();
+  };
 
   const filtered = doctors.filter(
     (d) =>
@@ -49,19 +84,30 @@ export default function DoctorsPage() {
       error(locale === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill in required fields");
       return;
     }
-    
-    const data = {
-      ...form,
+
+    const normalized = {
+      fullName: form.fullName.trim(),
+      phone: form.phone.trim() || undefined,
+      specialization: form.specialization.trim() || undefined,
+      bio: form.bio.trim() || undefined,
       experienceYears: parseInt(form.experienceYears) || 0,
       consultationFee: parseFloat(form.consultationFee) || 0,
+      branchId: form.branchId || undefined,
+      services: form.services,
+      status: form.status,
     };
 
     try {
       if (editId) {
-        await updateDoctor(editId, data);
+        const updatePayload: UpdateDoctorPayload = normalized;
+        await updateDoctor(editId, updatePayload);
         success(locale === "ar" ? "تم تحديث الطبيب" : "Doctor updated");
       } else {
-        await addDoctor(data);
+        const createPayload: CreateDoctorPayload = {
+          ...normalized,
+          email: form.email.trim(),
+        };
+        await addDoctor(createPayload);
         success(locale === "ar" ? "تم إضافة الطبيب" : "Doctor added");
       }
       setForm(emptyForm);
@@ -78,24 +124,17 @@ export default function DoctorsPage() {
       email: doc.email,
       phone: doc.phone || "",
       specialization: doc.specialization || "",
+      bio: doc.bio || "",
       experienceYears: doc.experienceYears.toString(),
       consultationFee: doc.consultationFee.toString(),
+      branchId: doc.branchId || "",
+      services: Array.isArray(doc.services) ? doc.services : [],
       status: doc.status,
     });
     setEditId(doc.id);
     setDialogOpen(true);
     setMenuOpen(null);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure?")) return;
-    try {
-      await removeDoctor(id);
-      success(locale === "ar" ? "تم حذف الطبيب" : "Doctor removed");
-    } catch (err) {
-      error("Failed to delete doctor");
-    }
-    setMenuOpen(null);
+    void loadReferences();
   };
 
   return (
@@ -106,7 +145,7 @@ export default function DoctorsPage() {
         action={
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm(emptyForm); setEditId(null); } }}>
             <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" /> {locale === "ar" ? "إضافة طبيب" : "Add Doctor"}</Button>
+              <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> {locale === "ar" ? "إضافة طبيب" : "Add Doctor"}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -121,6 +160,16 @@ export default function DoctorsPage() {
                   <label className="text-sm font-medium">{t("fullName")}</label>
                   <Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Dr. ..." />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("email")}</label>
+                  <Input
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    placeholder="doctor@clinic.com"
+                    type="email"
+                    disabled={Boolean(editId)}
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">{t("specialty")}</label>
@@ -132,8 +181,13 @@ export default function DoctorsPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">{t("email")}</label>
-                  <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="doctor@clinic.com" type="email" />
+                  <label className="text-sm font-medium">Bio</label>
+                  <textarea
+                    value={form.bio}
+                    onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-background min-h-20"
+                    placeholder="Short doctor biography"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -143,6 +197,40 @@ export default function DoctorsPage() {
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Consultation Fee</label>
                     <Input value={form.consultationFee} onChange={(e) => setForm({ ...form, consultationFee: e.target.value })} placeholder="50" type="number" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Branch</label>
+                  <select
+                    value={form.branchId}
+                    onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+                  >
+                    <option value="">{locale === "ar" ? "بدون فرع" : "No branch"}</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Services</label>
+                  <div className="max-h-36 overflow-y-auto rounded-lg border p-2 space-y-2">
+                    {availableServices.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 py-2">No services available yet</p>
+                    ) : (
+                      availableServices.map((service) => (
+                        <label key={service.id} className="flex items-center gap-2 text-sm px-1 py-1">
+                          <input
+                            type="checkbox"
+                            checked={form.services.includes(service.id)}
+                            onChange={() => toggleService(service.id)}
+                          />
+                          <span>{service.name}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -202,11 +290,8 @@ export default function DoctorsPage() {
                     </Button>
                     {menuOpen === doc.id && (
                       <div className="absolute right-0 rtl:right-auto rtl:left-0 top-full mt-1 w-44 rounded-lg border bg-popover p-1 shadow-lg z-10">
-                        <button onClick={() => openEdit(doc)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted">
+                        <button onClick={() => void openEdit(doc)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted">
                           <Edit3 className="h-3.5 w-3.5" /> {t("edit")}
-                        </button>
-                        <button onClick={() => handleDelete(doc.id)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" /> {t("delete")}
                         </button>
                       </div>
                     )}

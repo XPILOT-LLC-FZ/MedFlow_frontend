@@ -1,57 +1,71 @@
 /**
- * Inventory Service — wraps useInventoryStore.
- * Swap internals to fetch() when backend is ready.
+ * Inventory Service — backend API wrapper for inventory and restock operations.
  */
-import { useInventoryStore } from "@/stores/useInventoryStore";
-import type { InventoryItem } from "@/types";
+import { apiClient } from "@/lib/apiClient";
+import type {
+  ApiInventoryItem,
+  ApiRestockRequest,
+  CreateInventoryItemPayload,
+  CreateRestockRequestPayload,
+  RestockStatus,
+  UpdateInventoryItemPayload,
+  UpdateRestockStatusPayload,
+} from "@/types";
+
+export interface InventoryFilters {
+  category?: string;
+  status?: string;
+  branchId?: string;
+  search?: string;
+}
+
+export interface RestockRequestFilters {
+  status?: RestockStatus;
+  itemId?: string;
+}
 
 export const inventoryService = {
-  getAll(): InventoryItem[] {
-    return useInventoryStore.getState().items;
+  async getAll(filters?: InventoryFilters): Promise<ApiInventoryItem[]> {
+    const qs = filters
+      ? `?${new URLSearchParams(filters as Record<string, string>).toString()}`
+      : "";
+    return apiClient.get(`/inventory${qs}`);
   },
 
-  getById(id: string): InventoryItem | undefined {
-    return useInventoryStore.getState().items.find((i) => i.id === id);
+  async getById(id: string): Promise<ApiInventoryItem> {
+    return apiClient.get(`/inventory/${id}`);
   },
 
-  add(item: Omit<InventoryItem, "id" | "status" | "lastUpdated">): void {
-    useInventoryStore.getState().addItem(item);
+  async create(data: CreateInventoryItemPayload): Promise<ApiInventoryItem> {
+    return apiClient.post("/inventory", data);
   },
 
-  update(id: string, updates: Partial<InventoryItem>): void {
-    useInventoryStore.getState().updateItem(id, updates);
+  async update(id: string, data: UpdateInventoryItemPayload): Promise<ApiInventoryItem> {
+    return apiClient.patch(`/inventory/${id}`, data);
   },
 
-  remove(id: string): void {
-    useInventoryStore.getState().deleteItem(id);
+  async remove(id: string): Promise<void> {
+    return apiClient.delete(`/inventory/${id}`);
   },
 
-  adjustStock(id: string, delta: number): void {
-    useInventoryStore.getState().adjustStock(id, delta);
+  async getLowStock(branchId?: string): Promise<ApiInventoryItem[]> {
+    const qs = branchId ? `?${new URLSearchParams({ branchId }).toString()}` : "";
+    return apiClient.get(`/inventory/low-stock${qs}`);
   },
 
-  search(query: string, category?: string): InventoryItem[] {
-    const items = useInventoryStore.getState().items;
-    return items.filter((item) => {
-      const matchSearch = !query || item.name.toLowerCase().includes(query.toLowerCase());
-      const matchCat = !category || category === "All" || item.category === category;
-      return matchSearch && matchCat;
-    });
+  async listRestockRequests(filters?: RestockRequestFilters): Promise<ApiRestockRequest[]> {
+    const qs = filters
+      ? `?${new URLSearchParams(filters as unknown as Record<string, string>).toString()}`
+      : "";
+    return apiClient.get(`/inventory/restock-requests${qs}`);
   },
 
-  getStats() {
-    const items = useInventoryStore.getState().items;
-    return {
-      totalItems: items.length,
-      inStock: items.filter((i) => i.status === "in-stock").length,
-      lowStock: items.filter((i) => i.status === "low").length,
-      outOfStock: items.filter((i) => i.status === "out-of-stock").length,
-      totalValue: items.reduce((sum, i) => sum + i.price * i.stock, 0),
-    };
+  async createRestockRequest(id: string, payload: CreateRestockRequestPayload): Promise<ApiRestockRequest> {
+    return apiClient.post(`/inventory/${id}/restock-requests`, payload);
   },
 
-  getCategories(): string[] {
-    const items = useInventoryStore.getState().items;
-    return [...new Set(items.map((i) => i.category))];
+  async updateRestockStatus(id: string, status: RestockStatus): Promise<ApiRestockRequest> {
+    const payload: UpdateRestockStatusPayload = { status };
+    return apiClient.patch(`/inventory/restock-requests/${id}/status`, payload);
   },
 };

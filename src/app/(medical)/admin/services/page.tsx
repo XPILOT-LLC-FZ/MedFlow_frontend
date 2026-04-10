@@ -7,21 +7,55 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
-import type { ApiService } from "@/types";
+import type { ApiService, CreateServicePayload, UpdateServicePayload } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
+
+const SERVICE_CATEGORIES: ApiService["category"][] = [
+  "CONSULTATION",
+  "DENTAL",
+  "DERMATOLOGY",
+  "LASER",
+  "AESTHETIC",
+  "SURGICAL",
+  "DIAGNOSTIC",
+  "WELLNESS",
+  "OTHER",
+];
+
+const emptyForm = {
+  name: "",
+  description: "",
+  category: "CONSULTATION" as ApiService["category"],
+  price: "",
+  durationMinutes: "30",
+  isActive: true,
+  requiresSessions: false,
+  totalSessions: "",
+};
 
 export default function ServicesManagementPage() {
   const { t, locale } = useTranslation();
   const { success, error } = useToastStore();
   const [services, setServices] = useState<ApiService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadServices();
+    void loadServices();
   }, []);
 
   const loadServices = async () => {
@@ -41,9 +75,72 @@ export default function ServicesManagementPage() {
     try {
       await servicesCatalogService.remove(id);
       success("Service deleted");
-      loadServices();
+      await loadServices();
     } catch (err) {
       error("Failed to delete service");
+    }
+  };
+
+  const openCreate = () => {
+    setEditId(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (service: ApiService) => {
+    setEditId(service.id);
+    setForm({
+      name: service.name,
+      description: service.description || "",
+      category: service.category,
+      price: String(service.price),
+      durationMinutes: String(service.durationMinutes),
+      isActive: service.isActive,
+      requiresSessions: service.requiresSessions,
+      totalSessions: service.totalSessions ? String(service.totalSessions) : "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      error("Service name is required");
+      return;
+    }
+
+    const payloadBase = {
+      name: form.name.trim(),
+      description: form.description.trim() || undefined,
+      category: form.category,
+      price: parseFloat(form.price) || 0,
+      durationMinutes: Math.max(5, parseInt(form.durationMinutes) || 30),
+      isActive: form.isActive,
+      requiresSessions: form.requiresSessions,
+      totalSessions: form.requiresSessions
+        ? Math.max(1, parseInt(form.totalSessions) || 1)
+        : null,
+    };
+
+    setIsSaving(true);
+    try {
+      if (editId) {
+        const updatePayload: UpdateServicePayload = payloadBase;
+        await servicesCatalogService.update(editId, updatePayload);
+        success("Service updated");
+      } else {
+        const createPayload: CreateServicePayload = payloadBase;
+        await servicesCatalogService.create(createPayload);
+        success("Service created");
+      }
+
+      setDialogOpen(false);
+      setForm(emptyForm);
+      setEditId(null);
+      await loadServices();
+    } catch {
+      error("Failed to save service");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -59,10 +156,85 @@ export default function ServicesManagementPage() {
           title={locale === "ar" ? "كتالوج الخدمات" : "Services Catalog"}
           description={locale === "ar" ? "إدارة التخصصات الطبية والخدمات والأسعار" : "Manage medical specialties, services, and pricing."}
         />
-        <Button className="w-full md:w-auto gap-2 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-          <Plus className="h-4 w-4" /> 
-          {locale === "ar" ? "إضافة خدمة جديدة" : "Add New Service"}
-        </Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openCreate} className="w-full md:w-auto gap-2 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+              <Plus className="h-4 w-4" />
+              {locale === "ar" ? "إضافة خدمة جديدة" : "Add New Service"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editId ? "Edit Service" : "Create Service"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 mt-2">
+              <Input
+                placeholder="Service name"
+                value={form.name}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <textarea
+                className="w-full rounded-lg border px-3 py-2 text-sm bg-background min-h-20"
+                placeholder="Description"
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
+              <select
+                value={form.category}
+                onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value as ApiService["category"] }))}
+                className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
+              >
+                {SERVICE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="Price"
+                  value={form.price}
+                  onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+                />
+                <Input
+                  type="number"
+                  min={5}
+                  placeholder="Duration (minutes)"
+                  value={form.durationMinutes}
+                  onChange={(e) => setForm((prev) => ({ ...prev, durationMinutes: e.target.value }))}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                />
+                Active
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.requiresSessions}
+                  onChange={(e) => setForm((prev) => ({ ...prev, requiresSessions: e.target.checked }))}
+                />
+                Requires multiple sessions
+              </label>
+              {form.requiresSessions && (
+                <Input
+                  type="number"
+                  min={1}
+                  placeholder="Total sessions"
+                  value={form.totalSessions}
+                  onChange={(e) => setForm((prev) => ({ ...prev, totalSessions: e.target.value }))}
+                />
+              )}
+              <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card className="border-none shadow-xl bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
@@ -122,7 +294,7 @@ export default function ServicesManagementPage() {
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-sm font-medium">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {service.duration} min
+                          {service.durationMinutes} min
                         </div>
                       </TableCell>
                       <TableCell>
@@ -132,11 +304,18 @@ export default function ServicesManagementPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="success" className="rounded-full">Active</Badge>
+                        <Badge variant={service.isActive ? "success" : "secondary"} className="rounded-full">
+                          {service.isActive ? "Active" : "Inactive"}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                            onClick={() => openEdit(service)}
+                          >
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button 

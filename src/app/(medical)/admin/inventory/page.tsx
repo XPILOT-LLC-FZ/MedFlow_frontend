@@ -1,33 +1,72 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Package, Edit3, Trash2, AlertTriangle, Minus } from "lucide-react";
+import { Search, Plus, Package, Edit3, Trash2, AlertTriangle, Minus, Truck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useInventoryStore } from "@/stores/useInventoryStore";
 import { useToastStore } from "@/stores/useToastStore";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { clinicService } from "@/services/clinicService";
 import { cn } from "@/lib/utils";
+import type { ApiBranch, ApiInventoryItem, InventoryCategory } from "@/types";
 
-const statusVariant: Record<string, "success" | "warning" | "destructive"> = {
-  "in-stock": "success",
-  low: "warning",
-  "out-of-stock": "destructive",
+const statusVariant: Record<ApiInventoryItem["status"], "success" | "warning" | "destructive" | "secondary"> = {
+  IN_STOCK: "success",
+  LOW_STOCK: "warning",
+  OUT_OF_STOCK: "destructive",
+  EXPIRED: "secondary",
 };
 
-const emptyForm = { name: "", category: "", stock: "", minStock: "", unit: "", supplier: "", price: "" };
+const inventoryCategories: InventoryCategory[] = [
+  "MEDICAL_SUPPLY",
+  "COSMETIC",
+  "EQUIPMENT",
+  "PHARMACEUTICAL",
+  "CONSUMABLE",
+  "OTHER",
+];
+
+const emptyForm = {
+  name: "",
+  category: "MEDICAL_SUPPLY" as InventoryCategory,
+  quantity: "0",
+  minQuantity: "5",
+  unitPrice: "0",
+  supplierName: "",
+  expiryDate: "",
+  branchId: "",
+};
+
+function getDefaultBranchId(branches: ApiBranch[]): string {
+  return branches.find((branch) => branch.isMain)?.id || branches[0]?.id || "";
+}
 
 export default function InventoryPage() {
   const { t, locale } = useTranslation();
-  const { items, addItem, updateItem, deleteItem, adjustStock } = useInventoryStore();
+  const router = useRouter();
+  const {
+    items,
+    lowStockItems,
+    isLoading,
+    fetchItems,
+    fetchLowStock,
+    createItem,
+    updateItem,
+    deleteItem,
+    adjustQuantity,
+    createRestockRequest,
+  } = useInventoryStore();
+  const [branches, setBranches] = useState<ApiBranch[]>([]);
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false);
 
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -35,55 +74,170 @@ export default function InventoryPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const categories = ["All", ...new Set(items.map((i) => i.category))];
+  const loadBranches = async (): Promise<ApiBranch[]> => {
+    setIsLoadingBranches(true);
+    try {
+      const data = await clinicService.getBranches();
+      setBranches(data);
+      return data;
+    } catch {
+      setBranches([]);
+      return [];
+    } finally {
+      setIsLoadingBranches(false);
+    }
+  };
+
+  async function loadInventory() {
+    const results = await Promise.all([
+      fetchItems(),
+      fetchLowStock(),
+      loadBranches(),
+    ]);
+
+    const loadedBranches = results[2];
+    if (loadedBranches.length > 0) {
+      setForm((prev) => {
+        if (prev.branchId) return prev;
+        return { ...prev, branchId: getDefaultBranchId(loadedBranches) };
+      });
+    }
+  }
+
+  useEffect(() => {
+    void loadInventory();
+  }, []);
+
+  const categories = [
+    "All",
+    ...new Set([...inventoryCategories, ...items.map((i) => i.category)]),
+  ];
 
   const filtered = items.filter((item) => {
-    const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
+    const supplier = item.supplierName || "";
+    const matchSearch =
+      !search ||
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      supplier.toLowerCase().includes(search.toLowerCase());
     const matchCat = selectedCategory === "All" || item.category === selectedCategory;
     return matchSearch && matchCat;
   });
 
-  const inStockCount = items.filter((i) => i.status === "in-stock").length;
-  const lowCount = items.filter((i) => i.status === "low").length;
-  const outCount = items.filter((i) => i.status === "out-of-stock").length;
+  const inStockCount = items.filter((i) => i.status === "IN_STOCK").length;
+  const lowCount = items.filter((i) => i.status === "LOW_STOCK").length;
+  const outCount = items.filter((i) => i.status === "OUT_OF_STOCK").length;
 
   const toast = useToastStore();
 
-  const handleSave = () => {
-    if (!form.name || !form.category) {
+  const handleOpenCreateDialog = async () => {
+    const loadedBranches = await loadBranches();
+    setEditId(null);
+    setForm({
+      ...emptyForm,
+      branchId: getDefaultBranchId(loadedBranches),
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.category) {
       toast.error(locale === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill in required fields");
       return;
     }
-    const stock = parseInt(form.stock) || 0;
-    const minStock = parseInt(form.minStock) || 0;
-    const price = parseFloat(form.price) || 0;
 
-    if (editId) {
-      updateItem(editId, {
-        name: form.name, category: form.category, stock, minStock,
-        unit: form.unit, supplier: form.supplier, price,
-      });
-      toast.success(locale === "ar" ? "تم تحديث العنصر" : "Item updated successfully");
-    } else {
-      addItem({
-        name: form.name, category: form.category, stock, minStock,
-        unit: form.unit || "units", supplier: form.supplier, price,
-      });
-      toast.success(locale === "ar" ? "تم إضافة العنصر" : "Item added successfully");
+    if (!form.branchId) {
+      if (branches.length === 0) {
+        toast.error(
+          locale === "ar"
+            ? "لا توجد فروع متاحة. أضف فرعاً أولاً من صفحة العيادة."
+            : "No branches available. Create a branch first from the Clinic page."
+        );
+      } else {
+        toast.error(locale === "ar" ? "يرجى اختيار الفرع" : "Please select a branch");
+      }
+      return;
     }
-    setForm(emptyForm);
-    setEditId(null);
-    setDialogOpen(false);
+
+    const quantity = parseInt(form.quantity) || 0;
+    const minQuantity = parseInt(form.minQuantity) || 0;
+    const unitPrice = parseFloat(form.unitPrice) || 0;
+
+    const payload = {
+      name: form.name.trim(),
+      category: form.category,
+      quantity,
+      minQuantity,
+      unitPrice,
+      supplierName: form.supplierName.trim() || undefined,
+      expiryDate: form.expiryDate || undefined,
+      branchId: form.branchId,
+    };
+
+    try {
+      if (editId) {
+        await updateItem(editId, payload);
+        toast.success(locale === "ar" ? "تم تحديث العنصر" : "Item updated successfully");
+      } else {
+        await createItem(payload);
+        toast.success(locale === "ar" ? "تم إضافة العنصر" : "Item added successfully");
+      }
+
+      setForm(emptyForm);
+      setEditId(null);
+      setDialogOpen(false);
+      await fetchLowStock();
+    } catch {
+      toast.error(locale === "ar" ? "فشل حفظ العنصر" : "Failed to save item");
+    }
   };
 
-  const openEdit = (item: typeof items[0]) => {
+  const openEdit = async (item: ApiInventoryItem) => {
+    const loadedBranches = await loadBranches();
     setForm({
-      name: item.name, category: item.category, stock: String(item.stock),
-      minStock: String(item.minStock), unit: item.unit, supplier: item.supplier,
-      price: String(item.price),
+      name: item.name,
+      category: item.category,
+      quantity: String(item.quantity),
+      minQuantity: String(item.minQuantity),
+      unitPrice: String(item.unitPrice),
+      supplierName: item.supplierName || "",
+      expiryDate: item.expiryDate || "",
+      branchId: item.branchId || getDefaultBranchId(loadedBranches),
     });
     setEditId(item.id);
     setDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteItem(id);
+      toast.success(locale === "ar" ? "تم حذف العنصر" : "Item deleted");
+      await fetchLowStock();
+    } catch {
+      toast.error(locale === "ar" ? "فشل حذف العنصر" : "Failed to delete item");
+    }
+  };
+
+  const handleRequestRestock = async (item: ApiInventoryItem) => {
+    const raw = window.prompt("Requested quantity", String(Math.max(item.minQuantity * 2, 1)));
+    const requestedQuantity = raw ? parseInt(raw) : 0;
+    if (!requestedQuantity || requestedQuantity < 1) return;
+
+    try {
+      await createRestockRequest(item.id, {
+        requestedQuantity,
+        supplierName: item.supplierName || undefined,
+      });
+      toast.success(locale === "ar" ? "تم إرسال طلب إعادة التوريد" : "Restock request submitted");
+    } catch {
+      toast.error(locale === "ar" ? "فشل إرسال طلب التوريد" : "Failed to submit restock request");
+    }
+  };
+
+  const getStatusLabel = (status: ApiInventoryItem["status"]) => {
+    if (status === "IN_STOCK") return t("inStock");
+    if (status === "LOW_STOCK") return t("lowStock");
+    if (status === "OUT_OF_STOCK") return t("outOfStock");
+    return locale === "ar" ? "منتهي الصلاحية" : "Expired";
   };
 
   return (
@@ -93,9 +247,9 @@ export default function InventoryPage() {
         description={locale === "ar" ? "تتبع وإدارة مخزون العيادة" : "Track and manage clinic inventory"}
         action={
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm(emptyForm); setEditId(null); } }}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="h-4 w-4" /> {t("addItem")}</Button>
-            </DialogTrigger>
+            <Button className="gap-2" onClick={() => void handleOpenCreateDialog()}>
+              <Plus className="h-4 w-4" /> {t("addItem")}
+            </Button>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
@@ -106,15 +260,67 @@ export default function InventoryPage() {
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <Input placeholder={t("itemName")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                <Input placeholder={t("category")} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value as InventoryCategory })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+                >
+                  {inventoryCategories.map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+                <select
+                  value={form.branchId}
+                  onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+                  disabled={isLoadingBranches || branches.length === 0}
+                >
+                  <option value="">
+                    {isLoadingBranches
+                      ? (locale === "ar" ? "جارٍ تحميل الفروع..." : "Loading branches...")
+                      : branches.length === 0
+                        ? (locale === "ar" ? "لا توجد فروع" : "No branches available")
+                        : "Select branch"}
+                  </option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>{branch.name}</option>
+                  ))}
+                </select>
+                {branches.length === 0 && !isLoadingBranches && (
+                  <div className="rounded-md border border-amber-300/60 bg-amber-50/60 p-2 text-xs text-amber-800 space-y-2">
+                    <p>
+                      {locale === "ar"
+                        ? "لإنشاء عنصر مخزون، أضف فرعاً أولاً من صفحة العيادة."
+                        : "To create an inventory item, add a branch first from the Clinic page."}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => void loadBranches()}>
+                        {locale === "ar" ? "تحديث" : "Refresh"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setDialogOpen(false);
+                          router.push("/admin/clinic");
+                        }}
+                      >
+                        {locale === "ar" ? "الذهاب إلى العيادة" : "Go to Clinic"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
-                  <Input type="number" placeholder={t("stock")} value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-                  <Input placeholder={t("unit")} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                  <Input type="number" placeholder={t("stock")} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+                  <Input type="number" placeholder={t("minStock")} value={form.minQuantity} onChange={(e) => setForm({ ...form, minQuantity: e.target.value })} />
                 </div>
-                <Input type="number" placeholder={t("minStock")} value={form.minStock} onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
-                <Input placeholder={t("supplier")} value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
-                <Input type="number" placeholder={t("price")} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-                <Button className="w-full" onClick={handleSave}>{t("save")}</Button>
+                <Input placeholder={t("supplier")} value={form.supplierName} onChange={(e) => setForm({ ...form, supplierName: e.target.value })} />
+                <Input type="number" placeholder={t("price")} value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} />
+                <Input type="date" placeholder="Expiry date" value={form.expiryDate} onChange={(e) => setForm({ ...form, expiryDate: e.target.value })} />
+                <Button className="w-full" onClick={handleSave} disabled={isLoadingBranches || (!form.branchId && branches.length === 0)}>
+                  {t("save")}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -178,31 +384,47 @@ export default function InventoryPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => adjustStock(item.id, -1)}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => void adjustQuantity(item.id, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className={cn("font-medium min-w-[3ch] text-center", item.stock <= item.minStock && "text-destructive")}>
-                        {item.stock}
+                      <span className={cn("font-medium min-w-[3ch] text-center", item.quantity <= item.minQuantity && "text-destructive")}>
+                        {item.quantity}
                       </span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => adjustStock(item.id, 1)}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => void adjustQuantity(item.id, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
-                      <span className="text-muted-foreground text-xs">/ {item.minStock} {item.unit}</span>
+                      <span className="text-muted-foreground text-xs">/ {item.minQuantity}</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[item.status]}>
-                      {item.status === "in-stock" ? t("inStock") : item.status === "low" ? t("lowStock") : t("outOfStock")}
+                      {getStatusLabel(item.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{item.supplier}</TableCell>
-                  <TableCell className="font-medium">${item.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs">{item.supplierName || "-"}</TableCell>
+                  <TableCell className="font-medium">${item.unitPrice.toFixed(2)}</TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(item)}>
+                    <div className="flex gap-1 items-center">
+                      {(item.status === "LOW_STOCK" || item.status === "OUT_OF_STOCK") && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-amber-600"
+                          onClick={() => void handleRequestRestock(item)}
+                          title="Request restock"
+                        >
+                          <Truck className="h-3 w-3" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => void openEdit(item)}>
                         <Edit3 className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { deleteItem(item.id); toast.success(locale === "ar" ? "تم حذف العنصر" : "Item deleted"); }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => void handleDelete(item.id)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -212,7 +434,7 @@ export default function InventoryPage() {
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {t("noResults")}
+                    {isLoading ? "Loading inventory..." : t("noResults")}
                   </TableCell>
                 </TableRow>
               )}
@@ -220,6 +442,14 @@ export default function InventoryPage() {
           </Table>
         </Card>
       </motion.div>
+
+      {lowStockItems.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {locale === "ar"
+            ? `عدد العناصر منخفضة المخزون: ${lowStockItems.length}`
+            : `Low-stock alerts: ${lowStockItems.length}`}
+        </p>
+      )}
     </div>
   );
 }

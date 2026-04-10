@@ -30,6 +30,7 @@ const navByRole: Record<Role, NavItem[]> = {
   ],
   ADMIN: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/admin/dashboard", icon: LayoutDashboard },
+    { label: "Clinic", labelAr: "العيادة", href: "/admin/clinic", icon: Settings },
     { label: "Doctors", labelAr: "الأطباء", href: "/admin/doctors", icon: Stethoscope },
     { label: "Reception", labelAr: "الاستقبال", href: "/admin/reception", icon: Users },
     { label: "Services", labelAr: "الخدمات", href: "/admin/services", icon: ClipboardList },

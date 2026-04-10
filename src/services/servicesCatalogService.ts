@@ -2,7 +2,7 @@
  * Services Catalog Service — handles Clinic Services management.
  */
 import { apiClient } from "@/lib/apiClient";
-import type { ApiService } from "@/types";
+import type { ApiService, CreateServicePayload, UpdateServicePayload } from "@/types";
 
 export const servicesCatalogService = {
   async getAll(filters?: Record<string, unknown>): Promise<ApiService[]> {
@@ -14,11 +14,11 @@ export const servicesCatalogService = {
     return apiClient.get(`/services/${id}`);
   },
 
-  async create(data: Partial<ApiService>): Promise<ApiService> {
+  async create(data: CreateServicePayload): Promise<ApiService> {
     return apiClient.post("/services", data);
   },
 
-  async update(id: string, data: Partial<ApiService>): Promise<ApiService> {
+  async update(id: string, data: UpdateServicePayload): Promise<ApiService> {
     return apiClient.patch(`/services/${id}`, data);
   },
 

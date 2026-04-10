@@ -37,11 +37,12 @@ export default function MedicalAdminDashboard() {
   const { doctors, fetchDoctors } = useStaffStore();
   const { getMonthlyBreakdown, getYearIncome } = usePaymentsStore();
   const { appointments, fetchAppointments } = useBookingStore();
-  const { items: inventoryItems } = useInventoryStore();
+  const { items: inventoryItems, fetchItems: fetchInventoryItems } = useInventoryStore();
 
   useEffect(() => {
-    fetchDoctors();
-    fetchAppointments();
+    void fetchDoctors();
+    void fetchAppointments();
+    void fetchInventoryItems();
   }, []);
 
   const revenueData = getMonthlyBreakdown();
@@ -54,7 +55,9 @@ export default function MedicalAdminDashboard() {
       try { return new Date(a.date).getDay() === i; } catch { return false; }
     }).length,
   }));
-  const lowStockCount = inventoryItems.filter((i) => i.status === "low" || i.status === "out-of-stock").length;
+  const lowStockCount = inventoryItems.filter(
+    (i) => i.status === "LOW_STOCK" || i.status === "OUT_OF_STOCK" || i.status === "EXPIRED"
+  ).length;
 
   return (
     <div className="space-y-6 max-w-7xl">

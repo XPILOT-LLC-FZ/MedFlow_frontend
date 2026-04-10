@@ -7,11 +7,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { clinicService } from "@/services/clinicService";
 import type { ApiClinic, ApiBranch } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
+
+const emptyBranchForm = {
+  name: "",
+  address: "",
+  phone: "",
+  isMain: false,
+};
 
 export default function ClinicManagementPage() {
   const { t, locale } = useTranslation();
@@ -20,6 +34,10 @@ export default function ClinicManagementPage() {
   const [branches, setBranches] = useState<ApiBranch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [branchDialogOpen, setBranchDialogOpen] = useState(false);
+  const [branchForm, setBranchForm] = useState(emptyBranchForm);
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [isBranchSaving, setIsBranchSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -52,6 +70,69 @@ export default function ClinicManagementPage() {
       error("Failed to update profile");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const openCreateBranch = () => {
+    setEditingBranchId(null);
+    setBranchForm(emptyBranchForm);
+    setBranchDialogOpen(true);
+  };
+
+  const openEditBranch = (branch: ApiBranch) => {
+    setEditingBranchId(branch.id);
+    setBranchForm({
+      name: branch.name,
+      address: branch.address || "",
+      phone: branch.phone || "",
+      isMain: branch.isMain,
+    });
+    setBranchDialogOpen(true);
+  };
+
+  const handleSaveBranch = async () => {
+    if (!branchForm.name.trim()) {
+      error("Branch name is required");
+      return;
+    }
+
+    setIsBranchSaving(true);
+    try {
+      const payload = {
+        name: branchForm.name.trim(),
+        address: branchForm.address.trim() || undefined,
+        phone: branchForm.phone.trim() || undefined,
+        isMain: branchForm.isMain,
+      };
+
+      if (editingBranchId) {
+        await clinicService.updateBranch(editingBranchId, payload);
+        success("Branch updated");
+      } else {
+        await clinicService.createBranch(payload);
+        success("Branch created");
+      }
+
+      setBranchDialogOpen(false);
+      setEditingBranchId(null);
+      setBranchForm(emptyBranchForm);
+      await loadData();
+    } catch {
+      error("Failed to save branch");
+    } finally {
+      setIsBranchSaving(false);
+    }
+  };
+
+  const handleDeleteBranch = async (branch: ApiBranch) => {
+    if (!window.confirm(`Delete branch \"${branch.name}\"?`)) return;
+
+    try {
+      await clinicService.deleteBranch(branch.id);
+      success("Branch deleted");
+      await loadData();
+    } catch {
+      error("Failed to delete branch");
     }
   };
 
@@ -188,9 +269,46 @@ export default function ClinicManagementPage() {
               <h3 className="text-xl font-bold">Manage Branches</h3>
               <p className="text-sm text-muted-foreground">Add and manage physical clinic locations</p>
             </div>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
-              <Plus className="h-4 w-4" /> Add Branch
-            </Button>
+            <Dialog open={branchDialogOpen} onOpenChange={setBranchDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openCreateBranch} className="gap-2 shadow-lg shadow-primary/20">
+                  <Plus className="h-4 w-4" /> Add Branch
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingBranchId ? "Edit Branch" : "Create Branch"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  <Input
+                    placeholder="Branch name"
+                    value={branchForm.name}
+                    onChange={(e) => setBranchForm((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Address"
+                    value={branchForm.address}
+                    onChange={(e) => setBranchForm((prev) => ({ ...prev, address: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Phone"
+                    value={branchForm.phone}
+                    onChange={(e) => setBranchForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={branchForm.isMain}
+                      onChange={(e) => setBranchForm((prev) => ({ ...prev, isMain: e.target.checked }))}
+                    />
+                    Main branch
+                  </label>
+                  <Button onClick={handleSaveBranch} disabled={isBranchSaving} className="w-full">
+                    {isBranchSaving ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -205,7 +323,7 @@ export default function ClinicManagementPage() {
                     </div>
                   )}
                   <div className="absolute top-4 right-4">
-                     <Badge className="shadow-lg backdrop-blur-md bg-white/90 text-primary hover:bg-white">{branch.isActive ? "Main" : "Secondary"}</Badge>
+                     <Badge className="shadow-lg backdrop-blur-md bg-white/90 text-primary hover:bg-white">{branch.isMain ? "Main" : "Secondary"}</Badge>
                   </div>
                 </div>
                 <CardContent className="p-6">
@@ -222,10 +340,20 @@ export default function ClinicManagementPage() {
                   </div>
                 </CardContent>
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="secondary" size="icon" className="h-9 w-9 bg-white shadow-xl hover:text-primary">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-9 w-9 bg-white shadow-xl hover:text-primary"
+                    onClick={() => openEditBranch(branch)}
+                  >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <Button variant="secondary" size="icon" className="h-9 w-9 bg-white shadow-xl hover:text-destructive">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-9 w-9 bg-white shadow-xl hover:text-destructive"
+                    onClick={() => handleDeleteBranch(branch)}
+                  >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

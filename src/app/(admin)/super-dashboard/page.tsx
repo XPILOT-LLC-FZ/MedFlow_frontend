@@ -10,14 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { usePaymentsStore } from "@/stores/usePaymentsStore";
-import { useInventoryStore } from "@/stores/useInventoryStore";
 import { userService } from "@/services/userService";
 
 export default function SuperAdminDashboard() {
   const { locale } = useTranslation();
   const { appointments } = useBookingStore();
   const { getYearIncome } = usePaymentsStore();
-  const { items: inventoryItems } = useInventoryStore();
 
   const [stats, setStats] = useState<Record<string, unknown> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +36,7 @@ export default function SuperAdminDashboard() {
 
   const totalUsers = (stats?.total as number) || 0;
   const activeUsers = (stats?.active as number) || 0;
-  const lowStockItems = inventoryItems.filter((i) => i.status === "low" || i.status === "out-of-stock").length;
+  const lowStockItems = null as number | null;
 
   const roleDistribution = [
     { name: locale === "ar" ? "مرضى" : "Patients", value: (stats?.byRole as Record<string, number>)?.PATIENT || 0 },
@@ -79,7 +77,11 @@ export default function SuperAdminDashboard() {
             {[
               { name: "API Server", status: "operational" as const, uptime: "99.99%" },
               { name: "Database", status: "operational" as const, uptime: "99.95%" },
-              { name: locale === "ar" ? "تنبيهات المخزون" : "Inventory Alerts", status: lowStockItems > 0 ? "degraded" as const : "operational" as const, uptime: `${lowStockItems} alerts` },
+              {
+                name: locale === "ar" ? "تنبيهات المخزون" : "Inventory Alerts",
+                status: "operational" as const,
+                uptime: lowStockItems === null ? "N/A (clinic-scoped)" : `${lowStockItems} alerts`,
+              },
             ].map((svc) => (
               <div key={svc.name} className="flex items-center justify-between p-3 rounded-lg border">
                 <div>

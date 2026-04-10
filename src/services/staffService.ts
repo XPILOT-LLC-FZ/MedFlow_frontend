@@ -2,7 +2,7 @@
  * Staff Service — handles Doctor-related API calls.
  */
 import { apiClient } from "@/lib/apiClient";
-import type { ApiDoctor } from "@/types";
+import type { ApiDoctor, CreateDoctorPayload, DoctorShift, UpdateDoctorPayload } from "@/types";
 
 export const staffService = {
   async getDoctors(filters?: Record<string, unknown>): Promise<ApiDoctor[]> {
@@ -14,20 +14,20 @@ export const staffService = {
     return apiClient.get(`/doctors/${id}`);
   },
 
-  async createDoctor(data: Partial<ApiDoctor>): Promise<ApiDoctor> {
+  async createDoctor(data: CreateDoctorPayload): Promise<ApiDoctor> {
     return apiClient.post("/doctors", data);
   },
 
-  async updateDoctor(id: string, data: Partial<ApiDoctor>): Promise<ApiDoctor> {
+  async updateDoctor(id: string, data: UpdateDoctorPayload): Promise<ApiDoctor> {
     return apiClient.patch(`/doctors/${id}`, data);
   },
 
-  async removeDoctor(id: string): Promise<void> {
-    return apiClient.delete(`/doctors/${id}`);
+  async getDoctorShifts(id: string): Promise<DoctorShift[]> {
+    return apiClient.get(`/doctors/${id}/shifts`);
   },
 
-  async updateDoctorShifts(id: string, shifts: unknown): Promise<void> {
-    return apiClient.patch(`/doctors/${id}/shifts`, { shifts });
+  async updateDoctorShifts(id: string, shifts: DoctorShift[]): Promise<DoctorShift[]> {
+    return apiClient.put(`/doctors/${id}/shifts`, shifts);
   },
 
   async getDoctorAvailability(id: string, date: string, serviceId?: string): Promise<unknown> {

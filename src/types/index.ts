@@ -36,6 +36,7 @@ export interface Doctor {
 
 export interface ApiDoctor {
   id: string;
+  userId?: string;
   fullName: string;
   email: string;
   phone?: string;
@@ -47,6 +48,52 @@ export interface ApiDoctor {
   services: string[];
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   rating: number;
+  shifts?: DoctorShift[];
+  user?: {
+    id: string;
+    email: string;
+    avatarUrl?: string | null;
+    isActive: boolean;
+  } | null;
+}
+
+export interface DoctorShift {
+  id?: string;
+  doctorId?: string;
+  dayOfWeek: number;
+  shiftStart: string;
+  shiftEnd: string;
+  lunchStart?: string | null;
+  lunchEnd?: string | null;
+  isAvailable: boolean;
+  branchId?: string | null;
+}
+
+export interface CreateDoctorPayload {
+  fullName: string;
+  email: string;
+  phone?: string;
+  specialization?: string;
+  bio?: string;
+  experienceYears: number;
+  consultationFee: number;
+  branchId?: string;
+  services: string[];
+  status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+  password?: string;
+  clinicId?: string | null;
+}
+
+export interface UpdateDoctorPayload {
+  fullName?: string;
+  phone?: string;
+  specialization?: string;
+  bio?: string;
+  experienceYears?: number;
+  consultationFee?: number;
+  branchId?: string;
+  services?: string[];
+  status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
 }
 
 export interface DaySchedule {
@@ -132,10 +179,32 @@ export interface ApiService {
   description?: string;
   category: "CONSULTATION" | "DENTAL" | "DERMATOLOGY" | "LASER" | "AESTHETIC" | "SURGICAL" | "DIAGNOSTIC" | "WELLNESS" | "OTHER";
   price: number;
-  duration: number; // minutes
+  durationMinutes: number;
   isActive: boolean;
   requiresSessions: boolean;
   totalSessions?: number;
+}
+
+export interface CreateServicePayload {
+  name: string;
+  description?: string;
+  category: ApiService["category"];
+  price: number;
+  durationMinutes: number;
+  isActive: boolean;
+  requiresSessions: boolean;
+  totalSessions?: number | null;
+}
+
+export interface UpdateServicePayload {
+  name?: string;
+  description?: string;
+  category?: ApiService["category"];
+  price?: number;
+  durationMinutes?: number;
+  isActive?: boolean;
+  requiresSessions?: boolean;
+  totalSessions?: number | null;
 }
 
 export interface ApiPromotion {
@@ -176,17 +245,74 @@ export interface ApiBranch {
   isActive: boolean;
 }
 
-export interface InventoryItem {
+export type InventoryCategory =
+  | "MEDICAL_SUPPLY"
+  | "COSMETIC"
+  | "EQUIPMENT"
+  | "PHARMACEUTICAL"
+  | "CONSUMABLE"
+  | "OTHER";
+
+export type StockStatus = "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "EXPIRED";
+
+export type RestockStatus = "PENDING" | "ORDERED" | "RECEIVED" | "CANCELLED";
+
+export interface ApiInventoryItem {
   id: string;
   name: string;
-  category: string;
-  stock: number;
-  minStock: number;
-  unit: string;
-  status: "in-stock" | "low" | "out-of-stock";
-  lastUpdated: string;
-  supplier: string;
-  price: number;
+  category: InventoryCategory;
+  quantity: number;
+  minQuantity: number;
+  unitPrice: number;
+  supplierName?: string | null;
+  expiryDate?: string | null;
+  status: StockStatus;
+  branchId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateInventoryItemPayload {
+  name: string;
+  category: InventoryCategory;
+  quantity: number;
+  minQuantity: number;
+  unitPrice: number;
+  supplierName?: string | null;
+  expiryDate?: string | null;
+  branchId: string;
+}
+
+export interface UpdateInventoryItemPayload {
+  name?: string;
+  category?: InventoryCategory;
+  quantity?: number;
+  minQuantity?: number;
+  unitPrice?: number;
+  supplierName?: string | null;
+  expiryDate?: string | null;
+  branchId?: string;
+}
+
+export interface ApiRestockRequest {
+  id: string;
+  itemId: string;
+  itemName: string;
+  requestedQuantity: number;
+  supplierName?: string | null;
+  estimatedTotal: number;
+  status: RestockStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRestockRequestPayload {
+  requestedQuantity: number;
+  supplierName?: string | null;
+}
+
+export interface UpdateRestockStatusPayload {
+  status: RestockStatus;
 }
 
 export interface WhatsAppMessage {

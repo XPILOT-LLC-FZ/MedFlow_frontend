@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ApiDoctor } from "@/types";
+import type { ApiDoctor, CreateDoctorPayload, UpdateDoctorPayload } from "@/types";
 import { staffService } from "@/services/staffService";
 
 interface StaffState {
@@ -9,9 +9,8 @@ interface StaffState {
   isLoading: boolean;
   error: string | null;
   fetchDoctors: (filters?: Record<string, unknown>) => Promise<void>;
-  addDoctor: (data: Partial<ApiDoctor>) => Promise<void>;
-  updateDoctor: (id: string, data: Partial<ApiDoctor>) => Promise<void>;
-  removeDoctor: (id: string) => Promise<void>;
+  addDoctor: (data: CreateDoctorPayload) => Promise<void>;
+  updateDoctor: (id: string, data: UpdateDoctorPayload) => Promise<void>;
   updateDoctorLocal: (id: string, updates: Partial<ApiDoctor>) => void;
 }
 
@@ -39,6 +38,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to add doctor";
       set({ error: message, isLoading: false });
+      throw error;
     }
   },
 
@@ -50,17 +50,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to update doctor";
       set({ error: message, isLoading: false });
-    }
-  },
-
-  removeDoctor: async (id) => {
-    set({ isLoading: true });
-    try {
-      await staffService.removeDoctor(id);
-      await get().fetchDoctors();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to remove doctor";
-      set({ error: message, isLoading: false });
+      throw error;
     }
   },
 
