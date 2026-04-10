@@ -5,11 +5,12 @@
 
 import { useAuthStore } from "@/stores/useAuthStore";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_BASE_URL) {
-  console.warn("NEXT_PUBLIC_API_URL is not defined in environment variables.");
+function resolveApiBaseUrl(): string {
+  // API calls are always same-origin and proxied via Next.js rewrites.
+  return "/api";
 }
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -35,7 +36,7 @@ class ApiClient {
   /** 
    * Simple JWT decoder to extract claims without heavy dependencies.
    */
-  private decodeToken(token: string): any {
+  private decodeToken(token: string): Record<string, unknown> | null {
     try {
       const base64Url = token.split(".")[1];
       const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -59,12 +60,12 @@ class ApiClient {
       endpointOrUrl.includes("/auth/login") ||
       endpointOrUrl.includes("/auth/register") ||
       endpointOrUrl.includes("/auth/oauth/google") ||
-      endpointOrUrl.includes("/auth/refresh")
+      endpointOrUrl.includes("/auth/refresh") ||
+      endpointOrUrl.includes("/auth/logout")
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async request<T = any>(endpoint: string, method: HttpMethod, options: RequestOptions = {}, attempt = 0): Promise<T> {
+  private async request<T = unknown>(endpoint: string, method: HttpMethod, options: RequestOptions = {}, attempt = 0): Promise<T> {
     const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
     
     // Get access token from Zustand store
@@ -83,7 +84,11 @@ class ApiClient {
     // Fallback: Try to extract from JWT if state.user is not yet hydrated or missing the ID
     if (!clinicId && token) {
       const decoded = this.decodeToken(token);
-      clinicId = decoded?.clinicId || decoded?.clinic_id || decoded?.tenantId || decoded?.cid;
+      const inferredClinicId =
+        decoded?.clinicId ?? decoded?.clinic_id ?? decoded?.tenantId ?? decoded?.cid;
+      if (typeof inferredClinicId === "string") {
+        clinicId = inferredClinicId;
+      }
     }
 
     // Demo/Development Fallback: If still missing, we might use a default if it's a known non-super-admin request
@@ -114,21 +119,32 @@ class ApiClient {
 
       if (response.status === 401 && !this.isAuthEndpoint(endpoint)) {
         // Handle 401 Unauthorized - attempt to refresh token
-        return this.handleUnauthorized(url, method, options);
+        return this.handleUnauthorized<T>(url, method, options);
       }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const code = typeof errorData?.code === "string" ? errorData.code : "";
-        const message = errorData.message || `Request failed with status ${response.status}`;
+        const message = Array.isArray(errorData?.message)
+          ? errorData.message.join(", ")
+          : errorData?.message || `Request failed with status ${response.status}`;
+
+        const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+        const isOnboardingEndpoint =
+          normalizedEndpoint.startsWith("/onboarding") ||
+          normalizedEndpoint.includes("/onboarding/answers");
+        const isOnboardingGateMessage =
+          typeof message === "string" &&
+          /complete onboarding before accessing/i.test(message);
 
         if (
           typeof window !== "undefined" &&
           response.status === 403 &&
-          (code === "ONBOARDING_REQUIRED" ||
-            (typeof message === "string" && message.toLowerCase().includes("onboarding")))
+          !isOnboardingEndpoint &&
+          (code === "ONBOARDING_REQUIRED" || isOnboardingGateMessage)
         ) {
           const path = window.location.pathname;
+          console.warn("[ApiClient] 403 Onboarding Required - Redirecting to /onboarding");
           const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
           if (!isAuthPage && !path.startsWith("/onboarding")) {
             window.location.href = "/onboarding";
@@ -201,7 +217,7 @@ class ApiClient {
     }
   }
 
-  private async handleUnauthorized(url: string, method: HttpMethod, options: RequestOptions) {
+  private async handleUnauthorized<T>(url: string, method: HttpMethod, options: RequestOptions): Promise<T> {
     if (!this.isRefreshing) {
       this.isRefreshing = true;
       
@@ -209,13 +225,16 @@ class ApiClient {
         const state = useAuthStore.getState();
         const currentRefreshToken = state.refreshToken;
 
-        if (!currentRefreshToken) throw new Error("No refresh token available");
+        const refreshPayload: Record<string, string> = {};
+        if (currentRefreshToken) {
+          refreshPayload.refreshToken = currentRefreshToken;
+        }
 
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ refreshToken: currentRefreshToken }),
+          body: JSON.stringify(refreshPayload),
         });
 
         if (refreshResponse.ok) {
@@ -234,16 +253,11 @@ class ApiClient {
             isAuthenticated: true,
           });
 
-          // Sync cookie for middleware
-          if (typeof document !== "undefined") {
-            document.cookie = `clinic-os-auth=${token}; path=/; max-age=604800; SameSite=Lax`;
-          }
-
           this.isRefreshing = false;
           this.onTokenRefreshed(token);
           
           // Retry the original request
-          return this.request(url, method, options);
+          return this.request<T>(url, method, options);
         } else {
           throw new Error("Session expired");
         }
@@ -251,13 +265,14 @@ class ApiClient {
         this.isRefreshing = false;
         // Clear auth state and redirect to login
         if (typeof document !== "undefined") {
-          document.cookie = "clinic-os-auth=; path=/; max-age=0;";
+          document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
         }
         useAuthStore.setState({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
         if (typeof window !== "undefined") {
           const path = window.location.pathname;
           const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
-          if (!isAuthPage) {
+          const isPublicLanding = path === "/" || path.startsWith("/main");
+          if (!isAuthPage && !isPublicLanding) {
             window.location.href = "/login";
           }
         }
@@ -266,9 +281,9 @@ class ApiClient {
     }
 
     // If already refreshing, wait for the token and retry
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       this.subscribeTokenRefresh(() => {
-        this.request(url, method, options).then(resolve).catch(reject);
+        this.request<T>(url, method, options).then(resolve).catch(reject);
       });
     });
   }
@@ -326,15 +341,18 @@ class ApiClient {
     this.refreshSubscribers = [];
   }
 
-  private findClinicId(obj: any): string | null {
+  private findClinicId(obj: unknown): string | null {
     if (!obj || typeof obj !== "object") return null;
+
+    const record = obj as Record<string, unknown>;
     
     // Check common fields
-    const id = obj.clinicId || obj.clinic_id || obj.tenantId || obj.tenant_id || obj.cid;
+    const id = record.clinicId || record.clinic_id || record.tenantId || record.tenant_id || record.cid;
     if (id && typeof id === "string") return id;
 
     // Check nested objects (limit depth)
-    if (obj.clinic && obj.clinic.id) return obj.clinic.id;
+    const clinic = record.clinic as Record<string, unknown> | undefined;
+    if (clinic?.id && typeof clinic.id === "string") return clinic.id;
 
     // If array, check first item
     if (Array.isArray(obj) && obj.length > 0) {
@@ -342,33 +360,28 @@ class ApiClient {
     }
     
     // Check data property for wrapped responses
-    if (obj.data) return this.findClinicId(obj.data);
+    if (record.data) return this.findClinicId(record.data);
 
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public get<T = any>(endpoint: string, options?: Omit<RequestOptions, "data">): Promise<T> {
+  public get<T = unknown>(endpoint: string, options?: Omit<RequestOptions, "data">): Promise<T> {
     return this.request<T>(endpoint, "GET", options);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public post<T = any>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
+  public post<T = unknown>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, "POST", { ...options, data });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public patch<T = any>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
+  public patch<T = unknown>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, "PATCH", { ...options, data });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public put<T = any>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
+  public put<T = unknown>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, "PUT", { ...options, data });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public delete<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+  public delete<T = unknown>(endpoint: string, options?: RequestOptions): Promise<T> {
     return this.request<T>(endpoint, "DELETE", options);
   }
 }

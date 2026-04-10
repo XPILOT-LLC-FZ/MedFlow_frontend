@@ -24,7 +24,7 @@ const ensureClinicContextReady = async (): Promise<boolean> => {
   const authState = useAuthStore.getState();
   if (!authState.isAuthenticated) return true;
   if (authState.user?.role === "SUPER_ADMIN") return true;
-  if (authState.user?.role === "PATIENT") return true;
+  if (authState.user?.role === "PATIENT") return Boolean(authState.user?.clinicId);
   if (authState.user?.clinicId) return true;
 
   if (clinicContextCheckInFlight) {
@@ -96,11 +96,18 @@ const inferClinicIdFromDoctor = async (doctorId?: string): Promise<string | null
 
   try {
     const doctor = await staffService.getDoctorById(doctorId);
+    const doctorRecord = doctor as unknown as Record<string, unknown>;
+    const nestedClinic =
+      typeof doctorRecord.clinic === "object" && doctorRecord.clinic !== null
+        ? (doctorRecord.clinic as Record<string, unknown>)
+        : undefined;
+
     const clinicId =
-      (doctor as any)?.clinicId ||
-      (doctor as any)?.clinic_id ||
-      (doctor as any)?.clinic?.id ||
+      doctorRecord.clinicId ||
+      doctorRecord.clinic_id ||
+      nestedClinic?.id ||
       null;
+
     return typeof clinicId === "string" ? clinicId : null;
   } catch {
     return null;
@@ -134,8 +141,9 @@ export const useBookingStore = create<BookingState>((set, get) => ({
            const apiAppointments = await bookingService.getAll(filters);
            set({ appointments: (apiAppointments || []).map(mapToLocal), isLoading: false });
            return;
-         } catch (retryError: any) {
-           set({ error: retryError.message, isLoading: false });
+         } catch (retryError: unknown) {
+           const retryMessage = retryError instanceof Error ? retryError.message : message;
+           set({ error: retryMessage, isLoading: false });
            return;
          }
       }

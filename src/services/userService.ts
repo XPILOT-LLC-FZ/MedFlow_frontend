@@ -20,17 +20,22 @@ export const userService = {
   async getAll(): Promise<SystemUser[]> {
     try {
       const apiUsers = await usersService.getAll();
-      return apiUsers.map(u => ({
-        id: u.id,
-        name: u.name || (u as any).fullName || "Unknown User",
-        email: u.email || "",
-        role: normalizeRole(u.role),
-        status: u.isActive ? "active" : "inactive",
-        phone: u.phone,
-        lastLogin: u.createdAt,
-      }));
-    } catch (error: any) {
-      if (error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
+      return apiUsers.map((u) => {
+        const raw = u as unknown as { fullName?: string };
+
+        return {
+          id: u.id,
+          name: u.name || raw.fullName || "Unknown User",
+          email: u.email || "",
+          role: normalizeRole(u.role),
+          status: u.isActive ? "active" : "inactive",
+          phone: u.phone,
+          lastLogin: u.createdAt,
+        };
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("403") || message.includes("Forbidden")) {
          console.warn("Global users access forbidden, falling back to staff-specific fetch");
          return this.getClinicStaff();
       }
@@ -44,15 +49,32 @@ export const userService = {
     
     // If doctors endpoint only returns doctors, we might need a fallback or a specific /staff endpoint
     // For now, mapping whatever we get back to SystemUser
-    return (apiUsers as any[]).map(u => ({
-      id: u.id,
-      name: u.fullName || u.name || "Unknown User",
-      email: u.email || "",
-      role: normalizeRole(u.role || "STAFF"),
-      status: u.status === "ACTIVE" ? "active" : "inactive",
-      phone: u.phone,
-      lastLogin: u.createdAt,
-    }));
+    return apiUsers.map((u) => {
+      const raw = u as unknown as Record<string, unknown>;
+
+      const fullName =
+        typeof raw.fullName === "string"
+          ? raw.fullName
+          : typeof raw.name === "string"
+            ? raw.name
+            : "Unknown User";
+
+      const email = typeof raw.email === "string" ? raw.email : "";
+      const phone = typeof raw.phone === "string" ? raw.phone : undefined;
+      const createdAt = typeof raw.createdAt === "string" ? raw.createdAt : undefined;
+      const rawRole = typeof raw.role === "string" ? raw.role : "STAFF";
+      const rawStatus = typeof raw.status === "string" ? raw.status : "INACTIVE";
+
+      return {
+        id: typeof raw.id === "string" ? raw.id : "",
+        name: fullName,
+        email,
+        role: normalizeRole(rawRole),
+        status: rawStatus === "ACTIVE" ? "active" : "inactive",
+        phone,
+        lastLogin: createdAt,
+      };
+    });
   },
 
   async getStats() {

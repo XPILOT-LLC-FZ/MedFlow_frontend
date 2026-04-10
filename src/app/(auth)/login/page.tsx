@@ -14,36 +14,10 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useStore } from "@/stores/useStore";
 
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const tokenCookie = document.cookie
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith(`${name}=`));
-  return tokenCookie ? tokenCookie.slice(name.length + 1) : null;
-}
-
-function isJwtValid(token: string): boolean {
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return false;
-
-    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = payloadBase64.padEnd(Math.ceil(payloadBase64.length / 4) * 4, "=");
-    const payload = JSON.parse(atob(padded)) as { exp?: number };
-
-    if (!payload.exp) return false;
-    const now = Math.floor(Date.now() / 1000);
-    return payload.exp > now + 5;
-  } catch {
-    return false;
-  }
-}
-
 export default function LoginPage() {
   const { t, locale } = useTranslation();
   const router = useRouter();
-  const { login, isAuthenticated, user, getDashboardPath } = useAuthStore();
+  const { login, isAuthenticated, user, getPostAuthPath } = useAuthStore();
   const { setLocale } = useStore();
 
   const [email, setEmail] = useState("");
@@ -59,31 +33,8 @@ export default function LoginPage() {
       return;
     }
 
-    const sessionToken = getCookie("clinic-os-auth");
-    if (!sessionToken) {
-      return;
-    }
-
-    if (!isJwtValid(sessionToken)) {
-      document.cookie = "clinic-os-auth=; path=/; max-age=0;";
-      document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
-      useAuthStore.setState({
-        user: null,
-        accessToken: null,
-        refreshToken: null,
-        isAuthenticated: false,
-      });
-      return;
-    }
-
-    const requiresOnboarding = user.role === "PATIENT" || user.role === "ADMIN";
-    if (requiresOnboarding && !user.isOnboarded) {
-      router.replace("/onboarding");
-      return;
-    }
-
-    router.replace(getDashboardPath());
-  }, [isAuthenticated, user, getDashboardPath, router]);
+    router.replace(getPostAuthPath(user));
+  }, [isAuthenticated, user, getPostAuthPath, router]);
 
   const toggleLanguage = () => {
     setLocale(locale === "en" ? "ar" : "en");
@@ -112,7 +63,7 @@ export default function LoginPage() {
       setSuccess(true);
       // Brief pause to show success message, then redirect using fresh store state
       setTimeout(() => {
-        router.replace(useAuthStore.getState().getDashboardPath());
+        router.replace(useAuthStore.getState().getPostAuthPath());
       }, 600);
     } else {
       setError(result.error || "Login failed");
@@ -301,7 +252,8 @@ export default function LoginPage() {
                   onSuccess={(isNewUser) => {
                     setSuccess(true);
                     setTimeout(() => {
-                      router.replace(isNewUser ? "/onboarding" : useAuthStore.getState().getDashboardPath());
+                      const targetPath = isNewUser ? "/onboarding" : useAuthStore.getState().getPostAuthPath();
+                      router.replace(targetPath);
                     }, 600);
                   }}
                   onError={(err) => setError(err)}

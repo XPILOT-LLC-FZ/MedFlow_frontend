@@ -7,13 +7,13 @@ import PublicPage from "./(public)/page";
 
 export default function RootPage() {
   const router = useRouter();
-  const { isAuthenticated, getDashboardPath } = useAuthStore();
+  const { isAuthenticated, getPostAuthPath } = useAuthStore();
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(getDashboardPath());
+      router.replace(getPostAuthPath());
     }
-  }, [isAuthenticated, getDashboardPath, router]);
+  }, [isAuthenticated, getPostAuthPath, router]);
 
   if (isAuthenticated) {
     return (

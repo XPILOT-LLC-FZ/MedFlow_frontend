@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Menu, Moon, Sun, Globe, Bell, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -31,7 +30,6 @@ const rolePaths: Record<Role, string> = {
 };
 
 export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: boolean }) {
-  const router = useRouter();
   const { theme, toggleTheme, locale, setLocale, toggleSidebar } = useStore();
   const { user, logout } = useAuthStore();
   const { t } = useTranslation();
@@ -39,9 +37,6 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
 
   const handleLogout = async () => {
     await logout();
-    if (typeof document !== "undefined") {
-      document.cookie = "clinic-os-auth=; path=/; max-age=0;";
-    }
     window.location.href = "/login";
   };
 

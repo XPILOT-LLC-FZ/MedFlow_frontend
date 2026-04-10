@@ -44,12 +44,13 @@ export const usePatientStore = create<PatientState>((set) => ({
       if (message.toLowerCase().includes("patient profile not found")) {
         const authUser = useAuthStore.getState().user;
 
-        if (authUser) {
+        if (authUser && authUser.role === "PATIENT" && authUser.isOnboarded && authUser.clinicId) {
           try {
             const createdPatient = await patientService.create({
               fullName: authUser.name,
               email: authUser.email,
               phone: authUser.phone,
+              clinicId: authUser.clinicId,
             } as Partial<ApiPatient>);
 
             set({ currentPatient: createdPatient, isLoading: false, error: null });

@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { Role } from "@/types";
 
+type PersistApi = {
+  hasHydrated?: () => boolean;
+  onFinishHydration?: (callback: () => void) => (() => void) | void;
+};
+
 interface RoleGuardProps {
   children: React.ReactNode;
   allowedRoles: Role[];
@@ -17,20 +22,21 @@ interface RoleGuardProps {
 export function RoleGuard({ children, allowedRoles, fallbackPath }: RoleGuardProps) {
   const router = useRouter();
   const { user, isAuthenticated, accessToken, refreshToken, bootSession } = useAuthStore();
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(() => {
+    const persistApi = (useAuthStore as unknown as { persist?: PersistApi }).persist;
+    return !persistApi?.hasHydrated || persistApi.hasHydrated();
+  });
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Wait for Zustand persist hydration before making redirect decisions.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const persistApi = (useAuthStore as any).persist;
-    if (!persistApi?.hasHydrated) {
-      setIsHydrated(true);
+    if (isHydrated) {
       return;
     }
 
-    if (persistApi.hasHydrated()) {
-      setIsHydrated(true);
+    // Wait for Zustand persist hydration before making redirect decisions.
+    const persistApi = (useAuthStore as unknown as { persist?: PersistApi }).persist;
+    if (!persistApi?.onFinishHydration) {
+      queueMicrotask(() => setIsHydrated(true));
       return;
     }
 
@@ -41,7 +47,7 @@ export function RoleGuard({ children, allowedRoles, fallbackPath }: RoleGuardPro
     return () => {
       if (typeof unsub === "function") unsub();
     };
-  }, []);
+  }, [isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;

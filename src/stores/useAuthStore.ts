@@ -24,6 +24,10 @@ export interface SignupData {
   role?: "PATIENT" | "ADMIN";
 }
 
+function requiresOnboarding(role: Role): boolean {
+  return role === "PATIENT" || role === "ADMIN";
+}
+
 let bootSessionInFlight: Promise<void> | null = null;
 let lastBootSessionAttemptAt = 0;
 const BOOT_SESSION_MIN_INTERVAL_MS = 5000;
@@ -65,9 +69,10 @@ interface AuthState {
   loginWithGoogle: (token: string, role?: "PATIENT" | "ADMIN") => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   signup: (data: SignupData) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   logout: () => Promise<void>;
-  refreshAccessToken: () => Promise<void>;
-  bootSession: () => Promise<void>;
+  refreshAccessToken: () => Promise<boolean>;
+  bootSession: (force?: boolean) => Promise<void>;
   getDashboardPath: () => string;
+  getPostAuthPath: (candidateUser?: AuthUser | null) => string;
   updateProfile: (data: Partial<AuthUser>) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -96,29 +101,23 @@ function mapUser(raw: any, fallback?: Partial<SignupData>): AuthUser {
   };
 }
 
-/** Helper: sync the clinic-os-auth cookie for Next.js middleware */
-function syncCookies(token: string | null | undefined, user?: AuthUser) {
+/** Helper: sync onboarding hint cookie for middleware stale-claim bridging. */
+function syncOnboardingHintCookie(user?: AuthUser | null) {
   if (typeof document === "undefined") return;
-  if (token) {
-    document.cookie = `clinic-os-auth=${token}; path=/; max-age=604800; SameSite=Lax`;
-    
-    // Only PATIENT and ADMIN are gated by onboarding
-    let isCleared = true;
-    if (user) {
-      if (user.role === 'PATIENT' || user.role === 'ADMIN') {
-        isCleared = !!user.isOnboarded;
-      } else {
-        isCleared = true; // DOCTOR, STAFF, SUPER_ADMIN don't need onboarding
-      }
-    }
 
-    if (isCleared) {
-      document.cookie = `clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax`;
-    } else {
-      document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
-    }
+  if (!user) {
+    document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
+    return;
+  }
+
+  let isOnboardingCleared = true;
+  if (requiresOnboarding(user.role)) {
+    isOnboardingCleared = Boolean(user.isOnboarded);
+  }
+
+  if (isOnboardingCleared) {
+    document.cookie = "clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax";
   } else {
-    document.cookie = "clinic-os-auth=; path=/; max-age=0;";
     document.cookie = "clinic-os-onboarded=; path=/; max-age=0;";
   }
 }
@@ -134,27 +133,31 @@ export const useAuthStore = create<AuthState>()(
       // ─── LOGIN ──────────────────────────────────────────────
       login: async (email, password) => {
         try {
-          const response = await apiClient.post("/auth/login", { email, password });
+          const response = await apiClient.post<Record<string, unknown>>(
+            "/auth/login",
+            { email, password },
+          );
           const { accessToken, refreshToken } = extractTokens(response);
-
-          if (!accessToken) {
-            throw new Error("No access token received from server");
-          }
 
           // If the response includes a user object, use it; otherwise fetch /auth/me
           let userData = response.user;
           if (!userData) {
-            set({ accessToken, refreshToken });
+            if (accessToken || refreshToken) {
+              set({
+                accessToken: accessToken ?? null,
+                refreshToken: refreshToken ?? null,
+              });
+            }
             userData = await apiClient.get("/auth/me");
           }
 
           const parsedUser = mapUser(userData);
-          syncCookies(accessToken, parsedUser);
+          syncOnboardingHintCookie(parsedUser);
 
           set({
             user: parsedUser,
-            accessToken,
-            refreshToken,
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? null,
             isAuthenticated: true,
           });
           return { success: true };
@@ -170,27 +173,33 @@ export const useAuthStore = create<AuthState>()(
           const payload: Record<string, unknown> = { token };
           if (role) payload.role = role;
           
-          const response = await apiClient.post("/auth/oauth/google", payload);
+          const response = await apiClient.post<Record<string, unknown>>(
+            "/auth/oauth/google",
+            payload,
+          );
           const { accessToken, refreshToken } = extractTokens(response);
           let userData = response.user;
 
-          if (!accessToken) throw new Error("No access token received from server");
-
           if (!userData) {
-            set({ accessToken, refreshToken });
+            if (accessToken || refreshToken) {
+              set({
+                accessToken: accessToken ?? null,
+                refreshToken: refreshToken ?? null,
+              });
+            }
             userData = await apiClient.get("/auth/me");
           }
 
           const parsedUser = mapUser(userData);
-          syncCookies(accessToken, parsedUser);
+          syncOnboardingHintCookie(parsedUser);
 
           set({
             user: parsedUser,
-            accessToken,
-            refreshToken,
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? null,
             isAuthenticated: true,
           });
-          return { success: true, isNewUser: !parsedUser.isOnboarded };
+          return { success: true, isNewUser: requiresOnboarding(parsedUser.role) && !parsedUser.isOnboarded };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "OAuth login failed";
           return { success: false, error: message };
@@ -209,38 +218,34 @@ export const useAuthStore = create<AuthState>()(
           };
           if (data.role) registerPayload.role = data.role;
 
-          const response = await apiClient.post("/auth/register", registerPayload);
-          let { accessToken, refreshToken } = extractTokens(response);
-
-          // If register doesn't return tokens, auto-login
-          if (!accessToken) {
-            const loginResp = await apiClient.post("/auth/login", {
-              email: data.email,
-              password: data.password,
+          const response = await apiClient.post<Record<string, unknown>>(
+            "/auth/register",
+            registerPayload,
+          );
+          const { accessToken, refreshToken } = extractTokens(response);
+          if (accessToken || refreshToken) {
+            set({
+              accessToken: accessToken ?? null,
+              refreshToken: refreshToken ?? null,
             });
-            const tokens = extractTokens(loginResp);
-            accessToken = tokens.accessToken;
-            refreshToken = tokens.refreshToken;
           }
 
-          if (!accessToken) {
-            throw new Error("Registration succeeded but could not obtain session");
-          }
+          const userData = response.user;
+          const fallbackUserData = userData ?? (await apiClient.get("/auth/me").catch(() => null));
+          const parsedUser = mapUser(fallbackUserData ?? {}, data);
 
-          // Get user profile
-          set({ accessToken, refreshToken });
-          const userData = await apiClient.get("/auth/me");
-          const parsedUser = mapUser(userData, data);
-          
-          syncCookies(accessToken, parsedUser);
+          syncOnboardingHintCookie(parsedUser);
 
           set({
             user: parsedUser,
-            accessToken,
-            refreshToken,
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? null,
             isAuthenticated: true,
           });
-          return { success: true, isNewUser: true };
+          return {
+            success: true,
+            isNewUser: requiresOnboarding(parsedUser.role) && !parsedUser.isOnboarded,
+          };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Registration failed";
           return { success: false, error: message };
@@ -250,12 +255,11 @@ export const useAuthStore = create<AuthState>()(
       // ─── LOGOUT ─────────────────────────────────────────────
       logout: async () => {
         try {
-          const { accessToken, refreshToken } = get();
-          if (accessToken && refreshToken) {
-            await apiClient.post("/auth/logout", { refreshToken }).catch(() => {});
-          }
+          const { refreshToken } = get();
+          const payload = refreshToken ? { refreshToken } : {};
+          await apiClient.post("/auth/logout", payload).catch(() => {});
         } finally {
-          syncCookies(null);
+          syncOnboardingHintCookie(null);
           set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
         }
       },
@@ -264,30 +268,34 @@ export const useAuthStore = create<AuthState>()(
       refreshAccessToken: async () => {
         try {
           const { refreshToken: currentRefreshToken } = get();
-          if (!currentRefreshToken) throw new Error("No refresh token");
-
-          const response = await apiClient.post("/auth/refresh", {
-            refreshToken: currentRefreshToken,
-          });
+          const payload = currentRefreshToken ? { refreshToken: currentRefreshToken } : {};
+          const response = await apiClient.post<Record<string, unknown>>(
+            "/auth/refresh",
+            payload,
+          );
           const { accessToken, refreshToken } = extractTokens(response);
 
-          if (accessToken) {
-            const currentUser = get().user;
-            syncCookies(accessToken, currentUser ?? undefined);
-            set({
-              accessToken,
-              refreshToken: refreshToken ?? currentRefreshToken,
-              isAuthenticated: true,
-            });
-          }
+          set({
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? currentRefreshToken ?? null,
+            isAuthenticated: true,
+          });
+
+          const me = await apiClient.get("/auth/me");
+          const parsedUser = mapUser(me);
+          syncOnboardingHintCookie(parsedUser);
+          set({ user: parsedUser, isAuthenticated: true });
+
+          return true;
         } catch {
-          syncCookies(null);
+          syncOnboardingHintCookie(null);
           set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+          throw new Error("Session refresh failed");
         }
       },
 
       // ─── BOOT SESSION ──────────────────────────────────────
-      bootSession: async () => {
+      bootSession: async (force = false) => {
         if (bootSessionInFlight) {
           return bootSessionInFlight;
         }
@@ -297,6 +305,7 @@ export const useAuthStore = create<AuthState>()(
 
         // Prevent noisy repeated boot attempts that can trigger backend throttling.
         if (
+          !force &&
           now - lastBootSessionAttemptAt < BOOT_SESSION_MIN_INTERVAL_MS &&
           stateBefore.isAuthenticated &&
           stateBefore.user
@@ -308,60 +317,29 @@ export const useAuthStore = create<AuthState>()(
 
         bootSessionInFlight = (async () => {
           try {
-            const { refreshToken: currentRefreshToken, accessToken: existingToken } = get();
-
-            let token = existingToken;
-
-            // 1) Try current access token first to avoid unnecessary refresh calls.
-            if (token) {
-              try {
-                set({ accessToken: token });
-                const userData = await apiClient.get("/auth/me");
-                const parsedUser = mapUser(userData);
-                syncCookies(token, parsedUser);
-                set({
-                  user: parsedUser,
-                  accessToken: token,
-                  isAuthenticated: true,
-                });
-                return;
-              } catch {
-                // Access token may be expired; continue to refresh path.
-              }
-            }
-
-            // 2) Refresh only when needed.
-            if (currentRefreshToken) {
-              const response = await apiClient.post("/auth/refresh", {
-                refreshToken: currentRefreshToken,
-              });
-              const tokens = extractTokens(response);
-              if (tokens.accessToken) {
-                token = tokens.accessToken;
-                set({
-                  accessToken: token,
-                  refreshToken: tokens.refreshToken ?? currentRefreshToken,
-                });
-              }
-            }
-
-            if (!token) {
-              throw new Error("No valid session");
-            }
-
-            set({ accessToken: token });
+            // Prefer cookie-backed identity check first.
             const userData = await apiClient.get("/auth/me");
             const parsedUser = mapUser(userData);
-            syncCookies(token, parsedUser);
+            syncOnboardingHintCookie(parsedUser);
 
             set({
               user: parsedUser,
-              accessToken: token,
               isAuthenticated: true,
             });
+            return;
+          } catch {
+            // Continue to refresh path.
+          }
+
+          try {
+            await get().refreshAccessToken();
+            return;
           } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "";
             const isThrottled = /too many requests|throttler/i.test(message);
+            const isForbiddenOrOnboarding = /forbidden|onboarding required|access denied|onboarding/i.test(message);
+
+            const currentState = get();
 
             if (isThrottled) {
               // Keep current auth state on transient backend throttling.
@@ -369,7 +347,18 @@ export const useAuthStore = create<AuthState>()(
               return;
             }
 
-            syncCookies(null);
+            if (
+              isForbiddenOrOnboarding &&
+              currentState.isAuthenticated &&
+              currentState.user
+            ) {
+              // Do not drop a valid local session when backend check temporarily rejects /auth/me.
+              syncOnboardingHintCookie(currentState.user);
+              console.warn("bootSession forbidden check; preserving existing local session.");
+              return;
+            }
+
+            syncOnboardingHintCookie(null);
             set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
           } finally {
             bootSessionInFlight = null;
@@ -386,17 +375,56 @@ export const useAuthStore = create<AuthState>()(
         return roleDashboardMap[user.role] ?? "/dashboard";
       },
 
+      getPostAuthPath: (candidateUser) => {
+        const effectiveUser = candidateUser ?? get().user;
+        if (!effectiveUser) return "/login";
+        if (requiresOnboarding(effectiveUser.role) && !effectiveUser.isOnboarded) {
+          return "/onboarding";
+        }
+        return roleDashboardMap[effectiveUser.role] ?? "/dashboard";
+      },
+
       // ─── UPDATE PROFILE ────────────────────────────────────
       updateProfile: async (data) => {
         try {
-          const updatedUser = await apiClient.patch("/auth/me", data);
+          const updatedUser = await apiClient.patch<Record<string, unknown>>(
+            "/auth/me",
+            data,
+          );
+          const currentUser = get().user;
+          if (!currentUser) {
+            return { success: false, error: "Not authenticated" };
+          }
+
+          const nextName =
+            typeof updatedUser.fullName === "string"
+              ? updatedUser.fullName
+              : typeof updatedUser.name === "string"
+                ? updatedUser.name
+                : currentUser.name;
+
+          const nextEmail =
+            typeof updatedUser.email === "string"
+              ? updatedUser.email
+              : currentUser.email;
+
+          const nextNameAr =
+            typeof updatedUser.nameAr === "string"
+              ? updatedUser.nameAr
+              : currentUser.nameAr;
+
+          const nextPhone =
+            typeof updatedUser.phone === "string"
+              ? updatedUser.phone
+              : currentUser.phone;
+
           set({
             user: {
-              ...get().user!,
-              name: updatedUser.fullName ?? updatedUser.name,
-              nameAr: updatedUser.nameAr,
-              email: updatedUser.email,
-              phone: updatedUser.phone,
+              ...currentUser,
+              name: nextName,
+              nameAr: nextNameAr,
+              email: nextEmail,
+              phone: nextPhone,
             },
           });
           return { success: true };
@@ -410,8 +438,6 @@ export const useAuthStore = create<AuthState>()(
       name: "clinic-os-auth",
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     }

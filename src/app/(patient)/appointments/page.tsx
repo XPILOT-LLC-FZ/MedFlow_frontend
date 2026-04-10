@@ -34,13 +34,18 @@ export default function AppointmentsPage() {
 
   useEffect(() => {
     if (user?.id) {
-      fetchAppointments({ patientId: user.id });
       fetchDoctors();
       fetchMe();
     }
   }, [user?.id, fetchAppointments, fetchDoctors, fetchMe]);
 
-  const patientAppointments = appointments.filter((a) => a.patientId === (user?.id ?? "guest"));
+  useEffect(() => {
+    if (currentPatient?.id) {
+      fetchAppointments({ patientId: currentPatient.id });
+    }
+  }, [currentPatient?.id, fetchAppointments]);
+
+  const patientAppointments = appointments.filter((a) => a.patientId === (currentPatient?.id ?? "guest"));
   const doctors = staffDoctors
     .map((s) => ({
       id: s.id,
@@ -139,12 +144,17 @@ export default function AppointmentsPage() {
       return;
     }
 
+    if (!currentPatient?.id) {
+      toast.error(locale === "ar" ? "يرجى إكمال ملف المريض أولاً" : "Please complete your patient profile first");
+      return;
+    }
+
     if (!doctor || !selectedDate || !selectedTime) return;
 
     try {
       const createdAppointment = await addAppointment({
-        patientId: currentPatient?.id || user.id,
-        patientName: currentPatient?.fullName || user.name || "Patient",
+        patientId: currentPatient.id,
+        patientName: currentPatient.fullName || user.name || "Patient",
         doctorId: doctor.id,
         doctorName: doctor.name,
         specialty: doctor.specialty,
@@ -158,7 +168,7 @@ export default function AppointmentsPage() {
       setPaymentCompleted(false);
       setPaymentMethod(null);
       toast.success(locale === "ar" ? "تم حجز الموعد بنجاح" : "Appointment booked successfully");
-      await fetchAppointments({ patientId: user.id });
+      await fetchAppointments({ patientId: currentPatient.id });
       setBookingStep(2);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to book appointment";

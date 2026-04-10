@@ -46,17 +46,25 @@ export const onboardingService = {
   async getQuestions(role: Role): Promise<OnboardingQuestion[]> {
     const params = new URLSearchParams({ role });
     const response = await apiClient.get(`/onboarding/questions?${params.toString()}`);
-    const questions = Array.isArray(response) ? response : response?.questions;
+    const questions = Array.isArray(response) ? response : (response as Record<string, unknown>)?.questions;
     return (Array.isArray(questions) ? questions : []).map((question) =>
       normalizeQuestion(question as Record<string, unknown>)
     );
   },
 
   async submitAnswers(role: Role, answersMap: Record<string, unknown>): Promise<void> {
-    const answers = Object.entries(answersMap).map(([questionId, answer]) => ({
+    const clinicId = typeof answersMap["clinicId"] === "string" ? (answersMap["clinicId"] as string) : undefined;
+    const answers = Object.entries(answersMap)
+      .filter(([questionId]) => questionId !== "clinicId")
+      .map(([questionId, answer]) => ({
       questionId,
-      answer: String(answer), // The backend expects a string, primitive types are cast or stringified if needed
-    }));
-    return apiClient.post("/onboarding/answers", { role, answers });
+      answer:
+        answer === null || answer === undefined
+          ? ""
+          : Array.isArray(answer) || typeof answer === "object"
+            ? JSON.stringify(answer)
+            : String(answer),
+      }));
+    return apiClient.post("/onboarding/answers", { role, answers, clinicId });
   },
 };

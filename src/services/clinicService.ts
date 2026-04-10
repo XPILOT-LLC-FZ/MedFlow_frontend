@@ -5,6 +5,10 @@ import { apiClient } from "@/lib/apiClient";
 import type { ApiClinic, ApiBranch } from "@/types";
 
 export const clinicService = {
+  async getPublicClinics(): Promise<Pick<ApiClinic, "id" | "name" | "logoUrl">[]> {
+    return apiClient.get("/clinic/public");
+  },
+
   // Clinic Management
   async getClinic(): Promise<ApiClinic> {
     return apiClient.get("/clinic");

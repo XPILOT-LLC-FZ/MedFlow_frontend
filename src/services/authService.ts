@@ -44,7 +44,7 @@ export const authService = {
     return roleDashboardMap[role];
   },
 
-  async bootSession(): Promise<void> {
-    return useAuthStore.getState().bootSession();
+  async bootSession(force?: boolean): Promise<void> {
+    return useAuthStore.getState().bootSession(force);
   }
 };

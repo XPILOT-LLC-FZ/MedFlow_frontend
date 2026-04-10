@@ -60,15 +60,29 @@ export default function UsersPage() {
     setIsLoading(true);
     try {
       const data = await usersService.getAll();
-      const mapped = (data || []).map((u: any) => ({
-        id: u.id,
-        name: u.name || u.fullName || "Unknown User",
-        email: u.email || "",
-        role: (u.role || "PATIENT") as Role,
-        status: u.isActive === false ? "inactive" : "active",
-        phone: u.phone,
-        lastLogin: u.updatedAt || u.createdAt,
-      })) as SystemUser[];
+      const mapped = (data || []).map((u) => {
+        const raw = u as {
+          id?: string;
+          name?: string;
+          fullName?: string;
+          email?: string;
+          role?: Role;
+          isActive?: boolean;
+          phone?: string;
+          updatedAt?: string;
+          createdAt?: string;
+        };
+
+        return {
+          id: raw.id ?? "",
+          name: raw.name || raw.fullName || "Unknown User",
+          email: raw.email || "",
+          role: (raw.role || "PATIENT") as Role,
+          status: raw.isActive === false ? "inactive" : "active",
+          phone: raw.phone,
+          lastLogin: raw.updatedAt || raw.createdAt,
+        };
+      }) as SystemUser[];
       setUsers(mapped);
     } catch (err) {
       console.error("Failed to load users", err);

@@ -1,5 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment Configuration
+
+Create a `.env.local` file (or deploy environment variables) with:
+
+```bash
+BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+```
+
+- `BACKEND_URL` is used by Next.js rewrites so browser requests go to same-origin `/api/*`.
+- In production (Vercel + Railway), set `BACKEND_URL=https://<your-railway-backend-domain>`.
+
 ## Getting Started
 
 First, run the development server:

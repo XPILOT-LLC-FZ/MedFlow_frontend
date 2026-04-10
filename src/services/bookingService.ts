@@ -24,11 +24,27 @@ export const bookingService = {
 
   async getAvailableSlots(doctorId: string, date: string): Promise<string[]> {
     const params = new URLSearchParams({ doctorId, date });
-    const response = await apiClient.get(`/appointments/slots?${params.toString()}`);
+    const response = await apiClient.get<unknown>(
+      `/appointments/slots?${params.toString()}`,
+    );
 
-    if (Array.isArray(response)) return response;
-    if (Array.isArray(response?.slots)) return response.slots;
-    if (Array.isArray(response?.availableSlots)) return response.availableSlots;
+    if (Array.isArray(response)) {
+      return response.map((slot) => String(slot));
+    }
+
+    const responseRecord =
+      typeof response === "object" && response !== null
+        ? (response as Record<string, unknown>)
+        : {};
+
+    if (Array.isArray(responseRecord.slots)) {
+      return responseRecord.slots.map((slot) => String(slot));
+    }
+
+    if (Array.isArray(responseRecord.availableSlots)) {
+      return responseRecord.availableSlots.map((slot) => String(slot));
+    }
+
     return [];
   },
 

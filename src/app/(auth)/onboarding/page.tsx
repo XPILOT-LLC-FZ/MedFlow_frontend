@@ -6,20 +6,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, CheckCircle2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { onboardingService, type OnboardingQuestion } from "@/services/onboardingService";
+import { clinicService } from "@/services/clinicService";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { t, locale } = useTranslation();
   const { success, error } = useToastStore();
+  const [isAuthHydrated, setIsAuthHydrated] = useState(false);
   
   const [questions, setQuestions] = useState<OnboardingQuestion[]>([]);
+  const [clinicOptions, setClinicOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -27,33 +27,105 @@ export default function OnboardingPage() {
   const requiresOnboarding = user?.role === "PATIENT" || user?.role === "ADMIN";
 
   useEffect(() => {
-    if (!user) {
-      router.push("/login");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const persistApi = (useAuthStore as any).persist;
+
+    if (!persistApi?.hasHydrated || persistApi.hasHydrated()) {
+      setIsAuthHydrated(true);
       return;
     }
 
-    if (user.isOnboarded) {
-      const dashboardPath = user.role === "ADMIN" ? "/admin/dashboard" : 
-                            user.role === "STAFF" ? "/reception/dashboard" : 
-                            user.role === "DOCTOR" ? "/doctor/dashboard" : "/dashboard";
-      router.push(dashboardPath);
+    const unsub = persistApi.onFinishHydration(() => {
+      setIsAuthHydrated(true);
+    });
+
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthHydrated) {
       return;
     }
 
-    const loadQuestions = async () => {
+    let cancelled = false;
+
+    const init = async () => {
       try {
-        const data = await onboardingService.getQuestions(user.role);
-        setQuestions(data.sort((a, b) => a.order - b.order));
+        await useAuthStore.getState().bootSession(true);
+        if (cancelled) return;
+        const effectiveUser = useAuthStore.getState().user;
+
+        if (!effectiveUser) {
+          router.replace("/login");
+          return;
+        }
+
+        if (effectiveUser.isOnboarded) {
+          const dashboardPath =
+            effectiveUser.role === "ADMIN"
+              ? "/admin/dashboard"
+              : effectiveUser.role === "STAFF"
+                ? "/reception/dashboard"
+                : effectiveUser.role === "DOCTOR"
+                  ? "/doctor/dashboard"
+                  : "/dashboard";
+          router.replace(dashboardPath);
+          return;
+        }
+
+        const data = await onboardingService.getQuestions(effectiveUser.role);
+        const isPatientWithoutClinic =
+          effectiveUser.role === "PATIENT" && !effectiveUser.clinicId;
+
+        let clinicQuestion: OnboardingQuestion | null = null;
+
+        if (isPatientWithoutClinic) {
+          const clinics = await clinicService.getPublicClinics();
+
+          if (!clinics.length) {
+            throw new Error("No clinics available for onboarding");
+          }
+
+          const options = clinics.map((clinic) => ({
+            label: clinic.name,
+            value: clinic.id,
+          }));
+          setClinicOptions(options);
+
+          clinicQuestion = {
+            id: "clinicId",
+            fieldKey: "clinicId",
+            text: "Select your clinic",
+            type: "SELECT",
+            options: options.map((option) => option.label),
+            required: true,
+            order: -1,
+          };
+        } else {
+          setClinicOptions([]);
+        }
+
+        if (cancelled) return;
+        const combined = clinicQuestion ? [clinicQuestion, ...data] : data;
+        setQuestions(combined.sort((a, b) => a.order - b.order));
       } catch (err) {
         console.error("Failed to load onboarding questions", err);
         error("Failed to load onboarding");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
-    loadQuestions();
-  }, [user, router]);
+    init();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthHydrated, router, error]);
 
   const currentQuestion = questions[currentIndex];
   const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
@@ -62,7 +134,11 @@ export default function OnboardingPage() {
   const hasCurrentAnswer =
     currentAnswer !== undefined &&
     currentAnswer !== null &&
-    String(currentAnswer).trim().length > 0;
+    (Array.isArray(currentAnswer)
+      ? currentAnswer.length > 0
+      : typeof currentAnswer === "boolean"
+        ? true
+        : String(currentAnswer).trim().length > 0);
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
@@ -78,51 +154,64 @@ export default function OnboardingPage() {
     }
   };
 
-  const redirectToDashboard = () => {
-    const dashboardPath = user?.role === "ADMIN" ? "/admin/dashboard" :
-      user?.role === "STAFF" ? "/reception/dashboard" :
-      user?.role === "DOCTOR" ? "/doctor/dashboard" : "/dashboard";
-    if (typeof window !== "undefined") {
-      window.location.href = dashboardPath;
-      return;
-    }
-    router.replace(dashboardPath);
-  };
-
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      if (!user) return;
-      await onboardingService.submitAnswers(user.role, answers);
+      const state = useAuthStore.getState();
+      const effectiveUser = state.user;
+
+      if (!effectiveUser) {
+        router.replace("/login");
+        return;
+      }
+
+      await onboardingService.submitAnswers(effectiveUser.role, answers);
+
+      const selectedClinicId =
+        typeof answers["clinicId"] === "string" ? (answers["clinicId"] as string) : undefined;
 
       // Keep local profile in sync first so refresh syncCookies won't clear onboarding state.
       useAuthStore.setState((state) => ({
-        user: state.user ? { ...state.user, isOnboarded: true } : null,
+        user: state.user
+          ? {
+              ...state.user,
+              isOnboarded: true,
+              clinicId: state.user.clinicId ?? selectedClinicId,
+            }
+          : null,
       }));
+
+      await useAuthStore.getState().refreshAccessToken();
 
       // Middleware fallback hint until refreshed token claims are observed.
       if (typeof document !== "undefined") {
         document.cookie = "clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax";
       }
-
-      await useAuthStore.getState().refreshAccessToken();
-
-      // Re-assert hint cookie after refresh in case other cookie writes happened.
-      if (typeof document !== "undefined") {
-        document.cookie = "clinic-os-onboarded=1; path=/; max-age=604800; SameSite=Lax";
-      }
       
       success("Welcome aboard!");
-      redirectToDashboard();
+      const targetPath = useAuthStore.getState().getPostAuthPath(useAuthStore.getState().user);
+      router.replace(targetPath);
     } catch (err) {
-      error("Failed to save onboarding data");
+      const message = err instanceof Error ? err.message : "Failed to save onboarding data";
+      error(message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const updateAnswer = (val: unknown) => {
+    if (!currentQuestion) return;
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: val }));
+  };
+
+  const toggleMultiSelectOption = (option: string) => {
+    if (!currentQuestion) return;
+    const current = answers[currentQuestion.id];
+    const currentValues = Array.isArray(current) ? current.map((value) => String(value)) : [];
+    const nextValues = currentValues.includes(option)
+      ? currentValues.filter((value) => value !== option)
+      : [...currentValues, option];
+    updateAnswer(nextValues);
   };
 
   if (isLoading) {
@@ -232,20 +321,52 @@ export default function OnboardingPage() {
 
                 {currentQuestion.type === "SELECT" && (
                   <div className="grid grid-cols-1 gap-3">
-                    {currentQuestion.options?.map((option) => (
+                    {(currentQuestion.fieldKey === "clinicId"
+                      ? clinicOptions
+                      : (currentQuestion.options || []).map((option) => ({
+                          label: option,
+                          value: option,
+                        }))
+                    ).map((option) => (
                       <button
-                        key={option}
-                        onClick={() => updateAnswer(option)}
+                        key={option.value}
+                        onClick={() => updateAnswer(option.value)}
                         className={`text-left p-4 rounded-xl border-2 transition-all hover:border-primary/50 flex items-center justify-between ${
-                          answers[currentQuestion.id] === option 
+                          answers[currentQuestion.id] === option.value 
                             ? "border-primary bg-primary/5" 
                             : "border-muted bg-background/50"
                         }`}
                       >
-                        <span className="font-medium">{option}</span>
-                        {answers[currentQuestion.id] === option && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                        <span className="font-medium">{option.label}</span>
+                        {answers[currentQuestion.id] === option.value && <CheckCircle2 className="h-5 w-5 text-primary" />}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {currentQuestion.type === "MULTI_SELECT" && (
+                  <div className="grid grid-cols-1 gap-3">
+                    {currentQuestion.options?.map((option) => {
+                      const selectedValues = Array.isArray(answers[currentQuestion.id])
+                        ? (answers[currentQuestion.id] as unknown[]).map((value) => String(value))
+                        : [];
+                      const isSelected = selectedValues.includes(option);
+
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => toggleMultiSelectOption(option)}
+                          className={`text-left p-4 rounded-xl border-2 transition-all hover:border-primary/50 flex items-center justify-between ${
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-muted bg-background/50"
+                          }`}
+                        >
+                          <span className="font-medium">{option}</span>
+                          {isSelected && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 

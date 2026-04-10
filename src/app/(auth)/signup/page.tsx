@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { cn } from "@/lib/utils";
 
 interface FormData {
   fullName: string;
@@ -30,7 +29,7 @@ const emptyForm: FormData = {
 export default function SignupPage() {
   const { t, locale } = useTranslation();
   const router = useRouter();
-  const { signup, isAuthenticated } = useAuthStore();
+  const { signup, isAuthenticated, getPostAuthPath } = useAuthStore();
 
   const [form, setForm] = useState<FormData>(emptyForm);
   const [error, setError] = useState("");
@@ -40,9 +39,9 @@ export default function SignupPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace(useAuthStore.getState().getDashboardPath());
+      router.replace(useAuthStore.getState().getPostAuthPath());
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, getPostAuthPath]);
 
   const update = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -83,9 +82,11 @@ export default function SignupPage() {
 
     if (result.success) {
       setSuccess(true);
-      router.push("/onboarding");
+      const targetPath = result.isNewUser ? "/onboarding" : useAuthStore.getState().getPostAuthPath();
+      router.push(targetPath);
     } else {
-      setError(result.error || "Registration failed");
+      const errorMsg = result.error || "Registration failed";
+      setError(errorMsg);
       setIsLoading(false);
     }
   };
@@ -132,10 +133,20 @@ export default function SignupPage() {
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-destructive/10 text-destructive text-sm"
+                  className="flex flex-col gap-2 p-3 mb-4 rounded-lg bg-destructive/10 text-destructive text-sm"
                 >
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{error}</span>
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                  {error.toLowerCase().includes("email") && error.toLowerCase().includes("use") && (
+                    <Link 
+                      href="/login" 
+                      className="text-xs font-semibold mt-1 inline-flex items-center gap-1 text-current hover:underline"
+                    >
+                      Try logging in instead →
+                    </Link>
+                  )}
                 </motion.div>
               )}
 

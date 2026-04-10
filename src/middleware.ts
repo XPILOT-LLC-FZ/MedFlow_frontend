@@ -18,6 +18,8 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const isAuthPath = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  const isOnboardingPath = pathname.startsWith("/onboarding");
   
   // Define protected paths
   const isProtectedPath = 
@@ -42,11 +44,42 @@ export function middleware(request: NextRequest) {
   // Backend authorization remains the source of truth.
   const payload = sessionToken?.value ? decodeJwtPayload(sessionToken.value) : null;
   const role = String(payload?.role ?? "").toUpperCase();
+  const hasRole = role.length > 0;
   const requiresOnboarding = role === "PATIENT" || role === "ADMIN";
   const onboardingCookie = request.cookies.get("clinic-os-onboarded")?.value;
-  const isOnboarded = Boolean(payload?.isOnboarded) || onboardingCookie === "1";
+  const tokenIsOnboarded = payload?.isOnboarded;
+  // Only use cookie fallback when token does not carry an explicit onboarding claim.
+  // This avoids redirect loops when token says false but a stale cookie says true.
+  const isOnboarded =
+    typeof tokenIsOnboarded === "boolean"
+      ? tokenIsOnboarded
+      : onboardingCookie === "1";
 
-  if (sessionToken && pathname.startsWith("/onboarding") && (!requiresOnboarding || isOnboarded)) {
+  if (sessionToken && isAuthPath && hasRole) {
+    const url = request.nextUrl.clone();
+    if (requiresOnboarding && !isOnboarded) {
+      url.pathname = "/onboarding";
+    } else if (role === "ADMIN") {
+      url.pathname = "/admin/dashboard";
+    } else if (role === "STAFF") {
+      url.pathname = "/reception/dashboard";
+    } else if (role === "DOCTOR") {
+      url.pathname = "/doctor/dashboard";
+    } else if (role === "SUPER_ADMIN") {
+      url.pathname = "/super-dashboard";
+    } else {
+      url.pathname = "/dashboard";
+    }
+    return NextResponse.redirect(url);
+  }
+
+  if (sessionToken && requiresOnboarding && !isOnboarded && isProtectedPath && !isOnboardingPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/onboarding";
+    return NextResponse.redirect(url);
+  }
+
+  if (sessionToken && isOnboardingPath && hasRole && (!requiresOnboarding || isOnboarded)) {
     const url = request.nextUrl.clone();
     if (role === "ADMIN") url.pathname = "/admin/dashboard";
     else if (role === "STAFF") url.pathname = "/reception/dashboard";
