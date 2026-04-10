@@ -18,6 +18,12 @@ interface RequestOptions extends RequestInit {
   data?: unknown;
 }
 
+type ApiClientError = Error & {
+  status?: number;
+  code?: string;
+  endpoint?: string;
+};
+
 class ApiClient {
   private static instance: ApiClient;
   private isRefreshing = false;
@@ -149,7 +155,11 @@ class ApiClient {
           if (!isAuthPage && !path.startsWith("/onboarding")) {
             window.location.href = "/onboarding";
           }
-          throw new Error("Onboarding required");
+          const onboardingError = new Error("Onboarding required") as ApiClientError;
+          onboardingError.status = 403;
+          onboardingError.code = "ONBOARDING_REQUIRED";
+          onboardingError.endpoint = normalizedEndpoint;
+          throw onboardingError;
         }
 
         // Recovery path: if clinic context is missing, try to hydrate clinicId from /auth/me once.
@@ -165,7 +175,11 @@ class ApiClient {
           }
         }
 
-        throw new Error(message);
+        const apiError = new Error(message) as ApiClientError;
+        apiError.status = response.status;
+        apiError.code = code;
+        apiError.endpoint = normalizedEndpoint;
+        throw apiError;
       }
 
       // Handle 204 No Content
@@ -191,6 +205,9 @@ class ApiClient {
       
       return rawJson as T;
     } catch (error) {
+      const typedError = error as ApiClientError;
+      const status = typedError?.status;
+      const code = typedError?.code;
       const isClinicContextError =
         error instanceof Error &&
         typeof error.message === "string" &&
@@ -201,6 +218,13 @@ class ApiClient {
         typeof error.message === "string" &&
         error.message.toLowerCase().includes("patient profile not found");
 
+      const isExpectedClientError =
+        typeof status === "number" && status >= 400 && status < 500;
+
+      const isDuplicateEmailError =
+        code === "EMAIL_ALREADY_IN_USE" ||
+        (error instanceof Error && /email already in use/i.test(error.message));
+
       if (endpoint === "/auth/refresh" || endpoint === "/auth/me") {
         // Silently log boot session failures to reduce console noise
         console.warn(`Session check skipped [${method} ${url}]`);
@@ -210,6 +234,8 @@ class ApiClient {
       } else if (isMissingPatientProfile && endpoint === "/patients/me") {
         // Normal for first-time patient accounts before patient profile materialization.
         console.warn(`Patient profile not initialized yet [${method} ${url}]`);
+      } else if (isExpectedClientError || isDuplicateEmailError) {
+        // Expected user-facing validation/auth errors should not flood the browser console.
       } else {
         console.error(`API Request Error [${method} ${url}]:`, error);
       }
