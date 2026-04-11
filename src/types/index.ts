@@ -80,7 +80,7 @@ export interface CreateDoctorPayload {
   branchId?: string;
   services: string[];
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
-  password?: string;
+  password: string;
   clinicId?: string | null;
 }
 
@@ -94,6 +94,10 @@ export interface UpdateDoctorPayload {
   branchId?: string;
   services?: string[];
   status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+}
+
+export interface ResetDoctorPasswordPayload {
+  password: string;
 }
 
 export interface DaySchedule {

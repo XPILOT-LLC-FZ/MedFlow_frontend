@@ -74,6 +74,10 @@ interface AuthState {
   getDashboardPath: () => string;
   getPostAuthPath: (candidateUser?: AuthUser | null) => string;
   updateProfile: (data: Partial<AuthUser>) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -387,9 +391,15 @@ export const useAuthStore = create<AuthState>()(
       // ─── UPDATE PROFILE ────────────────────────────────────
       updateProfile: async (data) => {
         try {
+          const payload: Record<string, unknown> = {};
+
+          if (typeof data.name === "string") {
+            payload.fullName = data.name.trim();
+          }
+
           const updatedUser = await apiClient.patch<Record<string, unknown>>(
             "/auth/me",
-            data,
+            payload,
           );
           const currentUser = get().user;
           if (!currentUser) {
@@ -430,6 +440,20 @@ export const useAuthStore = create<AuthState>()(
           return { success: true };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Update failed";
+          return { success: false, error: message };
+        }
+      },
+
+      changePassword: async (currentPassword, newPassword) => {
+        try {
+          await apiClient.patch("/auth/me/password", {
+            currentPassword,
+            newPassword,
+          });
+          return { success: true };
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : "Password change failed";
           return { success: false, error: message };
         }
       },

@@ -1,96 +1,389 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, User, Stethoscope, CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, PlayCircle, RefreshCw, User, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useBookingStore } from "@/stores/useBookingStore";
+import { useToastStore } from "@/stores/useToastStore";
+import type { Appointment } from "@/types";
 
-const waitingPatients = [
-  { id: 1, name: "John Smith", doctor: "Dr. Sarah Mitchell", specialty: "Cardiology", arrivalTime: "8:45 AM", appointmentTime: "9:00 AM", waitTime: "5 min", status: "next", priority: "normal" },
-  { id: 2, name: "Maria Garcia", doctor: "Dr. Emily Chen", specialty: "Pediatrics", arrivalTime: "9:10 AM", appointmentTime: "9:30 AM", waitTime: "15 min", status: "waiting", priority: "normal" },
-  { id: 3, name: "Ali Mohammed", doctor: "Dr. Ahmed Hassan", specialty: "Dermatology", arrivalTime: "9:25 AM", appointmentTime: "10:00 AM", waitTime: "30 min", status: "waiting", priority: "normal" },
-  { id: 4, name: "Lisa Anderson", doctor: "Dr. Michael Roberts", specialty: "Orthopedics", arrivalTime: "9:40 AM", appointmentTime: "10:30 AM", waitTime: "45 min", status: "waiting", priority: "urgent" },
-  { id: 5, name: "Omar Khalil", doctor: "Dr. Sarah Mitchell", specialty: "Cardiology", arrivalTime: "9:50 AM", appointmentTime: "11:00 AM", waitTime: "1 hr", status: "waiting", priority: "normal" },
+const QUEUE_STATUSES: Appointment["status"][] = [
+  "scheduled",
+  "confirmed",
+  "in-progress",
 ];
+
+const RESOLVED_STATUSES: Appointment["status"][] = [
+  "completed",
+  "cancelled",
+  "no-show",
+];
+
+const formatDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const toMinutes = (value: string): number | null => {
+  const [hours, minutes] = value.split(":").map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return (hours * 60) + minutes;
+};
+
+const getStatusVariant = (status: Appointment["status"]) => {
+  if (status === "scheduled") return "info" as const;
+  if (status === "confirmed") return "success" as const;
+  if (status === "in-progress") return "warning" as const;
+  if (status === "completed") return "success" as const;
+  if (status === "cancelled") return "destructive" as const;
+  return "secondary" as const;
+};
+
+const getStatusLabel = (
+  status: Appointment["status"],
+  locale: string,
+  t: (key: "scheduled" | "confirmed" | "inProgress" | "completed" | "cancelled") => string,
+) => {
+  if (status === "scheduled") return t("scheduled");
+  if (status === "confirmed") return t("confirmed");
+  if (status === "in-progress") return t("inProgress");
+  if (status === "completed") return t("completed");
+  if (status === "cancelled") return t("cancelled");
+  if (status === "no-show") return locale === "ar" ? "لم يحضر" : "No Show";
+  return locale === "ar" ? "أعيدت الجدولة" : "Rescheduled";
+};
+
+const formatWait = (minutes: number, locale: string) => {
+  if (minutes < 60) {
+    return locale === "ar" ? `${minutes} د` : `${minutes} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+
+  if (locale === "ar") {
+    return remainder === 0 ? `${hours} س` : `${hours} س ${remainder} د`;
+  }
+
+  return remainder === 0 ? `${hours} hr` : `${hours} hr ${remainder} min`;
+};
 
 export default function WaitingRoomPage() {
   const { t, locale } = useTranslation();
+  const toast = useToastStore();
+  const { appointments, fetchAppointments, updateAppointment, isLoading, error } =
+    useBookingStore();
+
+  const [processingKey, setProcessingKey] = useState<string | null>(null);
+
+  const todayKey = useMemo(() => formatDateKey(new Date()), []);
+
+  const loadQueue = useCallback(async () => {
+    await fetchAppointments({ date: todayKey });
+  }, [fetchAppointments, todayKey]);
+
+  useEffect(() => {
+    void loadQueue();
+
+    const interval = setInterval(() => {
+      void loadQueue();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [loadQueue]);
+
+  const queue = useMemo(() => {
+    return appointments
+      .filter((appointment) => QUEUE_STATUSES.includes(appointment.status))
+      .sort((left, right) => (toMinutes(left.time) ?? 9999) - (toMinutes(right.time) ?? 9999));
+  }, [appointments]);
+
+  const waiting = useMemo(
+    () =>
+      queue.filter(
+        (appointment) =>
+          appointment.status === "scheduled" || appointment.status === "confirmed",
+      ),
+    [queue],
+  );
+
+  const inProgress = useMemo(
+    () => queue.filter((appointment) => appointment.status === "in-progress"),
+    [queue],
+  );
+
+  const nextPatient = waiting[0] ?? queue[0] ?? null;
+
+  const avgWaitMinutes = useMemo(() => {
+    if (waiting.length === 0) return 0;
+
+    const now = new Date();
+    const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+
+    const totalWait = waiting.reduce((sum, appointment) => {
+      const apptMinutes = toMinutes(appointment.time);
+      if (apptMinutes === null) return sum;
+      return sum + Math.max(0, nowMinutes - apptMinutes);
+    }, 0);
+
+    return Math.round(totalWait / waiting.length);
+  }, [waiting]);
+
+  const resolved = useMemo(() => {
+    return appointments
+      .filter((appointment) => RESOLVED_STATUSES.includes(appointment.status))
+      .sort((left, right) => (toMinutes(right.time) ?? 0) - (toMinutes(left.time) ?? 0));
+  }, [appointments]);
+
+  const getPrimaryAction = (status: Appointment["status"]) => {
+    if (status === "scheduled") {
+      return {
+        label: t("checkIn"),
+        icon: CheckCircle2,
+        nextStatus: "confirmed" as Appointment["status"],
+        variant: "default" as const,
+      };
+    }
+
+    if (status === "confirmed") {
+      return {
+        label: locale === "ar" ? "بدء الزيارة" : "Start Visit",
+        icon: PlayCircle,
+        nextStatus: "in-progress" as Appointment["status"],
+        variant: "default" as const,
+      };
+    }
+
+    if (status === "in-progress") {
+      return {
+        label: locale === "ar" ? "إنهاء" : "Complete",
+        icon: CheckCircle2,
+        nextStatus: "completed" as Appointment["status"],
+        variant: "success" as const,
+      };
+    }
+
+    return null;
+  };
+
+  const applyTransition = async (
+    appointment: Appointment,
+    nextStatus: Appointment["status"],
+  ) => {
+    const operationKey = `${appointment.id}:${nextStatus}`;
+    setProcessingKey(operationKey);
+
+    try {
+      await updateAppointment(appointment.id, { status: nextStatus });
+      toast.success(
+        locale === "ar" ? "تم تحديث الحالة" : "Appointment status updated",
+      );
+    } catch (transitionError) {
+      const message =
+        transitionError instanceof Error
+          ? transitionError.message
+          : locale === "ar"
+            ? "فشل تحديث الحالة"
+            : "Failed to update status";
+      toast.error(message);
+    } finally {
+      setProcessingKey(null);
+    }
+  };
+
+  const handleCancel = async (appointment: Appointment) => {
+    const confirmMessage =
+      locale === "ar"
+        ? `هل تريد إلغاء موعد ${appointment.patientName}؟`
+        : `Cancel appointment for ${appointment.patientName}?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    await applyTransition(appointment, "cancelled");
+  };
 
   return (
     <div className="space-y-6 max-w-5xl">
       <PageHeader
         title={t("waitingRoom")}
-        description={locale === "ar" ? "إدارة قائمة الانتظار في الوقت الفعلي" : "Real-time waiting room management"}
+        description={
+          locale === "ar"
+            ? "إدارة قائمة الانتظار في الوقت الفعلي"
+            : "Real-time waiting room management"
+        }
+        action={
+          <Button variant="outline" className="gap-2" onClick={() => void loadQueue()}>
+            <RefreshCw className="h-4 w-4" />
+            {locale === "ar" ? "تحديث" : "Refresh"}
+          </Button>
+        }
       />
 
-      {/* Summary */}
       <div className="flex gap-4 flex-wrap">
         <Badge variant="info" className="text-sm px-3 py-1">
-          {locale === "ar" ? "في الانتظار" : "Waiting"}: {waitingPatients.length}
-        </Badge>
-        <Badge variant="success" className="text-sm px-3 py-1">
-          {locale === "ar" ? "التالي" : "Next"}: {waitingPatients.find((p) => p.status === "next")?.name}
+          {locale === "ar" ? "قيد الانتظار" : "Waiting"}: {waiting.length}
         </Badge>
         <Badge variant="warning" className="text-sm px-3 py-1">
-          {locale === "ar" ? "متوسط الانتظار" : "Avg. Wait"}: 20 min
+          {locale === "ar" ? "جارٍ التنفيذ" : "In Progress"}: {inProgress.length}
+        </Badge>
+        <Badge variant="success" className="text-sm px-3 py-1">
+          {locale === "ar" ? "التالي" : "Next"}: {nextPatient?.patientName || (locale === "ar" ? "لا يوجد" : "None")}
+        </Badge>
+        <Badge variant="warning" className="text-sm px-3 py-1">
+          {locale === "ar" ? "متوسط الانتظار" : "Avg. Wait"}: {formatWait(avgWaitMinutes, locale)}
         </Badge>
       </div>
 
-      {/* Patient list */}
       <div className="space-y-3">
-        {waitingPatients.map((patient, i) => (
-          <motion.div
-            key={patient.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-          >
-            <Card className={patient.status === "next" ? "ring-2 ring-emerald-500/50 shadow-md" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-4">
-                    <div className={`h-3 w-3 rounded-full shrink-0 ${patient.status === "next" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{patient.name}</p>
-                        {patient.priority === "urgent" && <Badge variant="destructive" className="text-[10px]">Urgent</Badge>}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                        <span className="flex items-center gap-1"><Stethoscope className="h-3 w-3" /> {patient.doctor}</span>
-                        <span>{patient.specialty}</span>
-                      </div>
-                    </div>
-                  </div>
+        {isLoading && queue.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            {locale === "ar" ? "جارٍ تحميل قائمة الانتظار..." : "Loading queue..."}
+          </p>
+        )}
 
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">{locale === "ar" ? "وقت الموعد" : "Appt"}: {patient.appointmentTime}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                        <Clock className="h-3 w-3" /> {locale === "ar" ? "انتظار" : "Wait"}: {patient.waitTime}
-                      </p>
+        {error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
+
+        {!isLoading && queue.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t("noResults")}</p>
+        )}
+
+        {queue.map((appointment, index) => {
+          const primaryAction = getPrimaryAction(appointment.status);
+          const isNext = nextPatient?.id === appointment.id;
+          const appointmentMinutes = toMinutes(appointment.time);
+          const now = new Date();
+          const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+          const waitMinutes = appointmentMinutes === null
+            ? 0
+            : Math.max(0, nowMinutes - appointmentMinutes);
+
+          return (
+            <motion.div
+              key={appointment.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <Card className={isNext ? "ring-2 ring-emerald-500/50 shadow-md" : ""}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`h-3 w-3 rounded-full shrink-0 ${
+                          appointment.status === "in-progress"
+                            ? "bg-blue-500"
+                            : isNext
+                              ? "bg-emerald-500 animate-pulse"
+                              : "bg-amber-500"
+                        }`}
+                      />
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm">{appointment.patientName}</p>
+                          {isNext && appointment.status !== "in-progress" && (
+                            <Badge variant="success" className="text-[10px]">
+                              {locale === "ar" ? "التالي" : "Next"}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          <span className="flex items-center gap-1">
+                            {appointment.doctorName}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {appointment.time}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {locale === "ar" ? "انتظار" : "Wait"}: {formatWait(waitMinutes, locale)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="default" className="text-xs h-8 gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> {t("checkIn")}
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-xs h-8 gap-1 text-destructive">
-                        <XCircle className="h-3 w-3" /> {t("cancel")}
-                      </Button>
+
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <Badge variant={getStatusVariant(appointment.status)}>
+                        {getStatusLabel(appointment.status, locale, t)}
+                      </Badge>
+
+                      {primaryAction && (
+                        <Button
+                          size="sm"
+                          variant={primaryAction.variant}
+                          className="text-xs h-8 gap-1"
+                          disabled={processingKey === `${appointment.id}:${primaryAction.nextStatus}`}
+                          onClick={() => void applyTransition(appointment, primaryAction.nextStatus)}
+                        >
+                          <primaryAction.icon className="h-3 w-3" />
+                          {primaryAction.label}
+                        </Button>
+                      )}
+
+                      {(appointment.status === "scheduled" ||
+                        appointment.status === "confirmed") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-8 gap-1 text-destructive"
+                          disabled={processingKey === `${appointment.id}:cancelled`}
+                          onClick={() => void handleCancel(appointment)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                          {t("cancel")}
+                        </Button>
+                      )}
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {locale === "ar" ? "الحالات المنتهية (اليوم)" : "Resolved Today"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {resolved.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar" ? "لا توجد حالات منتهية بعد" : "No resolved appointments yet"}
+            </p>
+          ) : (
+            resolved.slice(0, 8).map((appointment) => (
+              <div
+                key={appointment.id}
+                className="rounded-lg border p-3 flex items-center justify-between gap-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">{appointment.patientName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {appointment.doctorName} • {appointment.time}
+                  </p>
+                </div>
+                <Badge variant={getStatusVariant(appointment.status)}>
+                  {getStatusLabel(appointment.status, locale, t)}
+                </Badge>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

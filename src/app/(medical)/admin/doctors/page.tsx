@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Star, Clock, MoreVertical, Edit3 } from "lucide-react";
+import { Search, Plus, Star, Clock, MoreVertical, Edit3, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { clinicService } from "@/services/clinicService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
+import { staffService } from "@/services/staffService";
 import type { ApiBranch, ApiDoctor, ApiService, CreateDoctorPayload, UpdateDoctorPayload } from "@/types";
 
 const emptyForm = {
@@ -25,6 +26,8 @@ const emptyForm = {
   branchId: "",
   services: [] as string[],
   status: "ACTIVE" as ApiDoctor["status"],
+  password: "",
+  confirmPassword: "",
 };
 
 export default function DoctorsPage() {
@@ -49,13 +52,19 @@ export default function DoctorsPage() {
 
   useEffect(() => {
     void fetchDoctors();
-  }, []);
+  }, [fetchDoctors]);
 
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetDoctorId, setResetDoctorId] = useState<string | null>(null);
+  const [resetDoctorName, setResetDoctorName] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const toggleService = (serviceId: string) => {
     setForm((prev) => ({
@@ -73,6 +82,15 @@ export default function DoctorsPage() {
     void loadReferences();
   };
 
+  const openResetPassword = (doc: ApiDoctor) => {
+    setResetDoctorId(doc.id);
+    setResetDoctorName(doc.fullName);
+    setResetPassword("");
+    setResetConfirmPassword("");
+    setResetDialogOpen(true);
+    setMenuOpen(null);
+  };
+
   const filtered = doctors.filter(
     (d) =>
       d.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -83,6 +101,26 @@ export default function DoctorsPage() {
     if (!form.fullName || !form.email) {
       error(locale === "ar" ? "يرجى ملء الحقول المطلوبة" : "Please fill in required fields");
       return;
+    }
+
+    if (!editId) {
+      if (!form.password || form.password.length < 8) {
+        error(
+          locale === "ar"
+            ? "كلمة المرور المؤقتة يجب أن تكون 8 أحرف على الأقل"
+            : "Temporary password must be at least 8 characters",
+        );
+        return;
+      }
+
+      if (form.password !== form.confirmPassword) {
+        error(
+          locale === "ar"
+            ? "تأكيد كلمة المرور غير متطابق"
+            : "Password confirmation does not match",
+        );
+        return;
+      }
     }
 
     const normalized = {
@@ -106,6 +144,7 @@ export default function DoctorsPage() {
         const createPayload: CreateDoctorPayload = {
           ...normalized,
           email: form.email.trim(),
+          password: form.password,
         };
         await addDoctor(createPayload);
         success(locale === "ar" ? "تم إضافة الطبيب" : "Doctor added");
@@ -114,7 +153,53 @@ export default function DoctorsPage() {
       setEditId(null);
       setDialogOpen(false);
     } catch (err) {
-      error("Failed to save doctor");
+      const message = err instanceof Error ? err.message : "Failed to save doctor";
+      error(message);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetDoctorId) {
+      error(locale === "ar" ? "تعذر تحديد الطبيب" : "Doctor context missing");
+      return;
+    }
+
+    if (!resetPassword || resetPassword.length < 8) {
+      error(
+        locale === "ar"
+          ? "كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل"
+          : "New password must be at least 8 characters",
+      );
+      return;
+    }
+
+    if (resetPassword !== resetConfirmPassword) {
+      error(
+        locale === "ar"
+          ? "تأكيد كلمة المرور غير متطابق"
+          : "Password confirmation does not match",
+      );
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      await staffService.resetDoctorPassword(resetDoctorId, { password: resetPassword });
+      success(
+        locale === "ar"
+          ? "تم إعادة تعيين كلمة المرور بنجاح"
+          : "Doctor password reset successfully",
+      );
+      setResetDialogOpen(false);
+      setResetDoctorId(null);
+      setResetDoctorName("");
+      setResetPassword("");
+      setResetConfirmPassword("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to reset doctor password";
+      error(message);
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -130,6 +215,8 @@ export default function DoctorsPage() {
       branchId: doc.branchId || "",
       services: Array.isArray(doc.services) ? doc.services : [],
       status: doc.status,
+      password: "",
+      confirmPassword: "",
     });
     setEditId(doc.id);
     setDialogOpen(true);
@@ -170,6 +257,32 @@ export default function DoctorsPage() {
                     disabled={Boolean(editId)}
                   />
                 </div>
+                {!editId && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">
+                        {locale === "ar" ? "كلمة المرور المؤقتة" : "Temporary Password"}
+                      </label>
+                      <Input
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        placeholder="Doctor@2026"
+                        type="password"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">
+                        {locale === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}
+                      </label>
+                      <Input
+                        value={form.confirmPassword}
+                        onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                        placeholder="Doctor@2026"
+                        type="password"
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">{t("specialty")}</label>
@@ -293,6 +406,13 @@ export default function DoctorsPage() {
                         <button onClick={() => void openEdit(doc)} className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted">
                           <Edit3 className="h-3.5 w-3.5" /> {t("edit")}
                         </button>
+                        <button
+                          onClick={() => openResetPassword(doc)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md hover:bg-muted"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                          {locale === "ar" ? "إعادة تعيين كلمة المرور" : "Reset Password"}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -315,6 +435,72 @@ export default function DoctorsPage() {
           </motion.div>
         ))}
       </div>
+
+      <Dialog
+        open={resetDialogOpen}
+        onOpenChange={(open) => {
+          setResetDialogOpen(open);
+          if (!open) {
+            setResetDoctorId(null);
+            setResetDoctorName("");
+            setResetPassword("");
+            setResetConfirmPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {locale === "ar" ? "إعادة تعيين كلمة مرور الطبيب" : "Reset Doctor Password"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar"
+                ? `سيتم تعيين كلمة مرور جديدة للطبيب: ${resetDoctorName || "-"}`
+                : `Set a new temporary password for: ${resetDoctorName || "-"}`}
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                {locale === "ar" ? "كلمة المرور الجديدة" : "New Password"}
+              </label>
+              <Input
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                placeholder="Doctor@2026"
+                type="password"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                {locale === "ar" ? "تأكيد كلمة المرور" : "Confirm Password"}
+              </label>
+              <Input
+                value={resetConfirmPassword}
+                onChange={(e) => setResetConfirmPassword(e.target.value)}
+                placeholder="Doctor@2026"
+                type="password"
+              />
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={() => void handleResetPassword()}
+              disabled={isResettingPassword}
+            >
+              {isResettingPassword
+                ? locale === "ar"
+                  ? "جارٍ إعادة التعيين..."
+                  : "Resetting..."
+                : locale === "ar"
+                  ? "تأكيد إعادة التعيين"
+                  : "Confirm Reset"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

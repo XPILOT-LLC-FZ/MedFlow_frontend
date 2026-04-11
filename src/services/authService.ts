@@ -1,8 +1,7 @@
 /**
  * Auth Service — wraps useAuthStore.
  */
-import { useAuthStore, roleDashboardMap, normalizeRole, type AuthUser, type SignupData } from "@/stores/useAuthStore";
-import { apiClient } from "@/lib/apiClient";
+import { useAuthStore, roleDashboardMap, type AuthUser, type SignupData } from "@/stores/useAuthStore";
 import type { Role } from "@/types";
 
 export interface LoginResult { success: boolean; isNewUser?: boolean; error?: string }
@@ -26,6 +25,10 @@ export const authService = {
 
   async updateProfile(data: Partial<AuthUser>): Promise<LoginResult> {
     return useAuthStore.getState().updateProfile(data);
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<LoginResult> {
+    return useAuthStore.getState().changePassword(currentPassword, newPassword);
   },
 
   getUser(): AuthUser | null {

@@ -2,7 +2,13 @@
  * Staff Service — handles Doctor-related API calls.
  */
 import { apiClient } from "@/lib/apiClient";
-import type { ApiDoctor, CreateDoctorPayload, DoctorShift, UpdateDoctorPayload } from "@/types";
+import type {
+  ApiDoctor,
+  CreateDoctorPayload,
+  DoctorShift,
+  ResetDoctorPasswordPayload,
+  UpdateDoctorPayload,
+} from "@/types";
 
 export const staffService = {
   async getDoctors(filters?: Record<string, unknown>): Promise<ApiDoctor[]> {
@@ -28,6 +34,13 @@ export const staffService = {
 
   async updateDoctorShifts(id: string, shifts: DoctorShift[]): Promise<DoctorShift[]> {
     return apiClient.put(`/doctors/${id}/shifts`, shifts);
+  },
+
+  async resetDoctorPassword(
+    id: string,
+    payload: ResetDoctorPasswordPayload,
+  ): Promise<{ success: boolean; message: string }> {
+    return apiClient.patch(`/doctors/${id}/password`, payload);
   },
 
   async getDoctorAvailability(id: string, date: string, serviceId?: string): Promise<unknown> {

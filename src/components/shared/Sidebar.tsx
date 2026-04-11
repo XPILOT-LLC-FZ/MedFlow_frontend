@@ -41,11 +41,13 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/doctor/dashboard", icon: LayoutDashboard },
     { label: "Schedule", labelAr: "الجدول", href: "/doctor/schedule", icon: Calendar },
     { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: ClipboardList },
+    { label: "Profile", labelAr: "الملف الشخصي", href: "/doctor/profile", icon: User },
   ],
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
     { label: "Booking", labelAr: "الحجز", href: "/reception/booking", icon: Calendar },
     { label: "Waiting Room", labelAr: "غرفة الانتظار", href: "/reception/waiting-room", icon: Clock },
+    { label: "Profile", labelAr: "الملف الشخصي", href: "/reception/profile", icon: User },
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/super-dashboard", icon: LayoutDashboard },
