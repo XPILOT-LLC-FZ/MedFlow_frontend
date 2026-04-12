@@ -32,6 +32,27 @@ class ApiClient {
 
   private constructor() {}
 
+  private normalizeEndpointPath(endpoint: string): string {
+    const trimmed = endpoint.trim();
+
+    if (trimmed.startsWith("http")) {
+      return trimmed;
+    }
+
+    const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+
+    // Accept accidental caller inputs like /api/users and normalize to /users.
+    if (withLeadingSlash === "/api") {
+      return "/";
+    }
+
+    if (withLeadingSlash.startsWith("/api/")) {
+      return withLeadingSlash.slice(4);
+    }
+
+    return withLeadingSlash;
+  }
+
   public static getInstance(): ApiClient {
     if (!ApiClient.instance) {
       ApiClient.instance = new ApiClient();
@@ -72,7 +93,10 @@ class ApiClient {
   }
 
   private async request<T = unknown>(endpoint: string, method: HttpMethod, options: RequestOptions = {}, attempt = 0): Promise<T> {
-    const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
+    const normalizedEndpoint = this.normalizeEndpointPath(endpoint);
+    const url = normalizedEndpoint.startsWith("http")
+      ? normalizedEndpoint
+      : `${API_BASE_URL}${normalizedEndpoint}`;
     
     // Get access token from Zustand store
     const state = useAuthStore.getState();
@@ -123,7 +147,7 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
 
-      if (response.status === 401 && !this.isAuthEndpoint(endpoint)) {
+      if (response.status === 401 && !this.isAuthEndpoint(normalizedEndpoint)) {
         // Handle 401 Unauthorized - attempt to refresh token
         return this.handleUnauthorized<T>(url, method, options);
       }
@@ -135,7 +159,6 @@ class ApiClient {
           ? errorData.message.join(", ")
           : errorData?.message || `Request failed with status ${response.status}`;
 
-        const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
         const isOnboardingEndpoint =
           normalizedEndpoint.startsWith("/onboarding") ||
           normalizedEndpoint.includes("/onboarding/answers");
@@ -167,11 +190,11 @@ class ApiClient {
           attempt === 0 &&
           typeof message === "string" &&
           message.toLowerCase().includes("clinic context missing") &&
-          endpoint !== "/auth/me"
+          normalizedEndpoint !== "/auth/me"
         ) {
           const recovered = await this.hydrateClinicContext(token);
           if (recovered) {
-            return this.request<T>(endpoint, method, options, attempt + 1);
+            return this.request<T>(normalizedEndpoint, method, options, attempt + 1);
           }
         }
 
@@ -225,13 +248,13 @@ class ApiClient {
         code === "EMAIL_ALREADY_IN_USE" ||
         (error instanceof Error && /email already in use/i.test(error.message));
 
-      if (endpoint === "/auth/refresh" || endpoint === "/auth/me") {
+      if (normalizedEndpoint === "/auth/refresh" || normalizedEndpoint === "/auth/me") {
         // Silently log boot session failures to reduce console noise
         console.warn(`Session check skipped [${method} ${url}]`);
       } else if (isClinicContextError) {
         // This can happen transiently before clinic assignment/onboarding is complete.
         console.warn(`Clinic context not ready [${method} ${url}]`);
-      } else if (isMissingPatientProfile && endpoint === "/patients/me") {
+      } else if (isMissingPatientProfile && normalizedEndpoint === "/patients/me") {
         // Normal for first-time patient accounts before patient profile materialization.
         console.warn(`Patient profile not initialized yet [${method} ${url}]`);
       } else if (isExpectedClientError || isDuplicateEmailError) {

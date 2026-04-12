@@ -17,8 +17,10 @@ import { useBookingStore } from "@/stores/useBookingStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { usePatientStore } from "@/stores/usePatientStore";
 import { useToastStore } from "@/stores/useToastStore";
-import { cn } from "@/lib/utils";
 import { bookingService } from "@/services/bookingService";
+import { servicesCatalogService } from "@/services/servicesCatalogService";
+import { formatDateKey } from "@/lib/dateUtils";
+import type { ApiService } from "@/types";
 
 const specialtiesList = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"];
 
@@ -30,14 +32,18 @@ export default function AppointmentsPage() {
   const { currentPatient, fetchMe } = usePatientStore();
   const toast = useToastStore();
 
-  const fallbackSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00"];
+  const [services, setServices] = useState<ApiService[]>([]);
 
   useEffect(() => {
     if (user?.id) {
-      fetchDoctors();
       fetchMe();
+
+      void servicesCatalogService
+        .getAll({ isActive: "true" })
+        .then((data) => setServices(data))
+        .catch(() => setServices([]));
     }
-  }, [user?.id, fetchAppointments, fetchDoctors, fetchMe]);
+  }, [user?.id, fetchAppointments, fetchMe]);
 
   useEffect(() => {
     if (currentPatient?.id) {
@@ -46,7 +52,8 @@ export default function AppointmentsPage() {
   }, [currentPatient?.id, fetchAppointments]);
 
   const patientAppointments = appointments.filter((a) => a.patientId === (currentPatient?.id ?? "guest"));
-  const doctors = staffDoctors
+  const selectableDoctors = staffDoctors
+    .filter((doctor) => doctor.status === "ACTIVE")
     .map((s) => ({
       id: s.id,
       name: s.fullName,
@@ -56,7 +63,6 @@ export default function AppointmentsPage() {
       image: `https://api.dicebear.com/9.x/avataaars/svg?seed=${s.email}`,
       rating: s.rating || 4.8, 
       reviewCount: 12,
-      available: s.status === "ACTIVE",
       experience: s.experienceYears || 5,
       bio: s.bio || "",
       schedule: [],
@@ -64,6 +70,7 @@ export default function AppointmentsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("All");
+  const [selectedServiceId, setSelectedServiceId] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -73,16 +80,51 @@ export default function AppointmentsPage() {
   const [bookingStep, setBookingStep] = useState(0); // 0=browse, 1=select time, 2=confirm
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotLoadFailed, setSlotLoadFailed] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
-  const filteredDoctors = doctors.filter((d) => {
-    const matchSearch =
-      d.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.specialty?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchSpecialty = selectedSpecialty === "All" || d.specialty === selectedSpecialty;
-    return matchSearch && matchSpecialty;
-  });
+  useEffect(() => {
+    if (!selectedDoctor) return;
 
-  const doctor = doctors.find((d) => d.id === selectedDoctor);
+    const stillSelectable = selectableDoctors.some((doctor) => doctor.id === selectedDoctor);
+    if (!stillSelectable) {
+      setSelectedDoctor(null);
+      setSelectedDate(undefined);
+      setSelectedTime(null);
+      setAvailableSlots([]);
+      if (bookingStep > 0) {
+        setBookingStep(0);
+      }
+    }
+  }, [selectedDoctor, selectableDoctors, bookingStep]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const timeout = setTimeout(() => {
+      const filters: Record<string, string> = {
+        status: "ACTIVE",
+      };
+
+      if (searchQuery.trim().length > 0) {
+        filters.search = searchQuery.trim();
+      }
+
+      if (selectedSpecialty !== "All") {
+        filters.specialization = selectedSpecialty;
+      }
+
+      if (selectedServiceId) {
+        filters.serviceId = selectedServiceId;
+      }
+
+      void fetchDoctors(filters);
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [user?.id, searchQuery, selectedSpecialty, selectedServiceId, fetchDoctors]);
+
+  const doctor = selectableDoctors.find((d) => d.id === selectedDoctor);
 
   useEffect(() => {
     let active = true;
@@ -90,21 +132,26 @@ export default function AppointmentsPage() {
     const loadSlots = async () => {
       if (!selectedDoctor || !selectedDate) {
         setAvailableSlots([]);
+        setSlotLoadFailed(false);
         return;
       }
 
       setSlotsLoading(true);
+      setSlotLoadFailed(false);
       try {
         const slots = await bookingService.getAvailableSlots(
           selectedDoctor,
-          selectedDate.toISOString().split("T")[0]
+          formatDateKey(selectedDate),
+          selectedServiceId ? { serviceId: selectedServiceId } : undefined,
         );
         if (active) {
-          setAvailableSlots(slots.length > 0 ? slots : fallbackSlots);
+          setAvailableSlots(slots);
+          setSlotLoadFailed(false);
         }
       } catch {
         if (active) {
-          setAvailableSlots(fallbackSlots);
+          setAvailableSlots([]);
+          setSlotLoadFailed(true);
         }
       } finally {
         if (active) {
@@ -113,12 +160,12 @@ export default function AppointmentsPage() {
       }
     };
 
-    loadSlots();
+    void loadSlots();
 
     return () => {
       active = false;
     };
-  }, [selectedDoctor, selectedDate]);
+  }, [selectedDoctor, selectedDate, selectedServiceId]);
   const formatSelectedDate = (date?: Date) =>
     date
       ? date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
@@ -139,6 +186,8 @@ export default function AppointmentsPage() {
   };
 
   const handleConfirmBooking = async () => {
+    if (isBooking) return;
+
     if (!user?.id) {
       toast.error(locale === "ar" ? "يرجى تسجيل الدخول أولاً" : "Please log in first");
       return;
@@ -151,6 +200,7 @@ export default function AppointmentsPage() {
 
     if (!doctor || !selectedDate || !selectedTime) return;
 
+    setIsBooking(true);
     try {
       const createdAppointment = await addAppointment({
         patientId: currentPatient.id,
@@ -158,7 +208,7 @@ export default function AppointmentsPage() {
         doctorId: doctor.id,
         doctorName: doctor.name,
         specialty: doctor.specialty,
-        date: selectedDate.toISOString().split("T")[0],
+        date: formatDateKey(selectedDate),
         time: selectedTime,
         status: "scheduled",
         type: "Consultation",
@@ -173,6 +223,8 @@ export default function AppointmentsPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to book appointment";
       toast.error(message);
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -210,6 +262,14 @@ export default function AppointmentsPage() {
         </TabsList>
 
         <TabsContent value="book" className="mt-4 space-y-6">
+          {!currentPatient?.id && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              {locale === "ar"
+                ? "لا يمكن إكمال الحجز قبل إتمام ملف المريض. أكمل بيانات ملفك ثم حاول مرة أخرى."
+                : "You need a completed patient profile before booking. Please finish your patient profile and try again."}
+            </div>
+          )}
+
           {bookingStep === 0 && (
             <>
               <div className="flex flex-col gap-3 sm:flex-row">
@@ -222,6 +282,18 @@ export default function AppointmentsPage() {
                     className="pl-10 rtl:pl-3 rtl:pr-10"
                   />
                 </div>
+                <select
+                  value={selectedServiceId}
+                  onChange={(e) => setSelectedServiceId(e.target.value)}
+                  className="h-10 rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="">{locale === "ar" ? "كل الخدمات" : "All services"}</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -239,7 +311,7 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredDoctors.map((doc, i) => (
+                {selectableDoctors.map((doc, i) => (
                   <motion.div
                     key={doc.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -247,17 +319,12 @@ export default function AppointmentsPage() {
                     transition={{ delay: i * 0.05 }}
                   >
                     <Card
-                      className={cn(
-                        "cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg",
-                        !doc.available && "opacity-60"
-                      )}
+                      className="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                       onClick={() => {
-                        if (doc.available) {
-                          setSelectedDoctor(doc.id);
-                          setSelectedDate(undefined);
-                          setSelectedTime(null);
-                          setBookingStep(1);
-                        }
+                        setSelectedDoctor(doc.id);
+                        setSelectedDate(undefined);
+                        setSelectedTime(null);
+                        setBookingStep(1);
                       }}
                     >
                       <CardContent className="p-4">
@@ -284,14 +351,21 @@ export default function AppointmentsPage() {
                               </span>
                             </div>
                           </div>
-                          <Badge variant={doc.available ? "success" : "secondary"} className="self-start">
-                            {doc.available ? t("available") : t("unavailable")}
+                          <Badge variant="success" className="self-start">
+                            {t("available")}
                           </Badge>
                         </div>
                       </CardContent>
                     </Card>
                   </motion.div>
                 ))}
+                {selectableDoctors.length === 0 && (
+                  <div className="col-span-full rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    {locale === "ar"
+                      ? "لا يوجد أطباء متاحون حالياً بهذه الفلاتر. جرّب تغيير البحث أو التخصص أو الخدمة."
+                      : "No available doctors match your current filters. Try changing your search, specialty, or service."}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -321,6 +395,7 @@ export default function AppointmentsPage() {
                     locale={locale}
                     selectedDate={selectedDate}
                     onDateSelect={(d) => setSelectedDate(d)}
+                    minDate={new Date()}
                   />
                 </div>
 
@@ -346,16 +421,27 @@ export default function AppointmentsPage() {
                     ))}
                     {!slotsLoading && availableSlots.length === 0 && (
                       <p className="col-span-2 text-sm text-muted-foreground">
-                        {locale === "ar" ? "لا توجد أوقات متاحة لهذا اليوم" : "No slots available for this date"}
+                        {slotLoadFailed
+                          ? locale === "ar"
+                            ? "تعذر تحميل المواعيد حالياً. أعد المحاولة بعد لحظات."
+                            : "We could not load available slots right now. Please try again shortly."
+                          : locale === "ar"
+                            ? "لا توجد أوقات متاحة لهذا اليوم"
+                            : "No slots available for this date"}
                       </p>
                     )}
                   </div>
                   <Button
                     className="mt-4 w-full gap-2"
                     onClick={handleConfirmBooking}
-                    disabled={!selectedDate || !selectedTime}
+                    disabled={!selectedDate || !selectedTime || isBooking}
                   >
-                    {t("confirm")} <ChevronRight className="h-4 w-4" />
+                    {isBooking
+                      ? locale === "ar"
+                        ? "جارٍ تأكيد الحجز..."
+                        : "Confirming booking..."
+                      : t("confirm")}
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

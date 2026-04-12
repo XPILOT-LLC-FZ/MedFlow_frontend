@@ -2,7 +2,13 @@
  * Booking Service — handles Appointment-related API calls.
  */
 import { apiClient } from "@/lib/apiClient";
-import type { ApiAppointment } from "@/types";
+import { formatDateKey } from "@/lib/dateUtils";
+import type {
+  ApiAppointment,
+  AppointmentSummaryResponse,
+  RescheduleAppointmentPayload,
+  UpsertMedicalSummaryPayload,
+} from "@/types";
 
 export const bookingService = {
   async getAll(filters?: Record<string, unknown>): Promise<ApiAppointment[]> {
@@ -22,8 +28,40 @@ export const bookingService = {
     return apiClient.patch(`/appointments/${id}/status`, { status, notes });
   },
 
-  async getAvailableSlots(doctorId: string, date: string): Promise<string[]> {
+  async rescheduleAppointment(
+    id: string,
+    payload: RescheduleAppointmentPayload,
+  ): Promise<ApiAppointment> {
+    return apiClient.patch(`/appointments/${id}/reschedule`, payload);
+  },
+
+  async saveManualSummary(
+    id: string,
+    payload: UpsertMedicalSummaryPayload,
+  ): Promise<{ appointmentId: string; summary: string; mode: string; sendToPatient: boolean }> {
+    return apiClient.post(`/appointments/${id}/summary/manual`, payload);
+  },
+
+  async getSummary(id: string): Promise<AppointmentSummaryResponse> {
+    return apiClient.get(`/appointments/${id}/summary`);
+  },
+
+  async getAvailableSlots(
+    doctorId: string,
+    date: string,
+    options?: { serviceId?: string; durationMinutes?: number },
+  ): Promise<string[]> {
     const params = new URLSearchParams({ doctorId, date });
+    if (options?.serviceId) {
+      params.set("serviceId", options.serviceId);
+    }
+    if (
+      typeof options?.durationMinutes === "number" &&
+      Number.isFinite(options.durationMinutes)
+    ) {
+      params.set("durationMinutes", String(options.durationMinutes));
+    }
+
     const response = await apiClient.get<unknown>(
       `/appointments/slots?${params.toString()}`,
     );
@@ -49,7 +87,7 @@ export const bookingService = {
   },
 
   async getStats() {
-    const today = new Date().toISOString().split("T")[0];
+    const today = formatDateKey(new Date());
     const appointments = await this.getAll({ startDate: today, endDate: today });
     // This is a simplified client-side aggregation for stats
     return {

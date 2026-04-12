@@ -64,7 +64,10 @@ const mapToLocal = (api: ApiAppointment): Appointment => ({
   time: api.startTime,
   status: api.status.toLowerCase().replace("_", "-") as Appointment["status"],
   type: api.type.charAt(0) + api.type.slice(1).toLowerCase(),
-  notes: api.notes,
+  notes:
+    api.consultationSession?.savedToPatient && api.consultationSession?.notes
+      ? api.consultationSession.notes
+      : api.notes,
 });
 
 const mapToApi = (local: Partial<Appointment>): Partial<ApiAppointment> => {

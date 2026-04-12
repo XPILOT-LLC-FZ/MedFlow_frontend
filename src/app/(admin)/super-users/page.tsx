@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { usersService } from "@/services/usersService";
 import { useToastStore } from "@/stores/useToastStore";
-import type { Role } from "@/types";
+import type { ApiUser, Role } from "@/types";
 
 type SystemUser = {
   id: string;
@@ -62,18 +62,15 @@ export default function UsersPage() {
     setIsLoading(true);
     try {
       const data = await usersService.getAll();
-      const mapped = (data || []).map((u) => {
-        const raw = u as any;
-        return {
-          id: raw.id ?? "",
-          name: raw.name || raw.fullName || "Unknown User",
-          email: raw.email || "",
-          role: (raw.role || "PATIENT") as Role,
-          status: raw.isActive === false ? "inactive" : "active",
-          phone: raw.phone,
-          lastLogin: raw.updatedAt || raw.createdAt,
-        };
-      }) as SystemUser[];
+      const mapped = (data || []).map((user: ApiUser): SystemUser => ({
+        id: user.id ?? "",
+        name: user.name || "Unknown User",
+        email: user.email || "",
+        role: user.role || "PATIENT",
+        status: user.isActive === false ? "inactive" : "active",
+        phone: user.phone,
+        lastLogin: user.createdAt,
+      }));
       setUsers(mapped);
     } catch (err) {
       console.error("Failed to load users", err);

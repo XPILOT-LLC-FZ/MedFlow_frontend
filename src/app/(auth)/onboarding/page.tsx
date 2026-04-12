@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { onboardingService, type OnboardingQuestion } from "@/services/onboardingService";
-import { clinicService } from "@/services/clinicService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useToastStore } from "@/stores/useToastStore";
 
@@ -19,7 +18,6 @@ export default function OnboardingPage() {
   const [isAuthHydrated, setIsAuthHydrated] = useState(false);
   
   const [questions, setQuestions] = useState<OnboardingQuestion[]>([]);
-  const [clinicOptions, setClinicOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -76,40 +74,9 @@ export default function OnboardingPage() {
         }
 
         const data = await onboardingService.getQuestions(effectiveUser.role);
-        const isPatientWithoutClinic =
-          effectiveUser.role === "PATIENT" && !effectiveUser.clinicId;
-
-        let clinicQuestion: OnboardingQuestion | null = null;
-
-        if (isPatientWithoutClinic) {
-          const clinics = await clinicService.getPublicClinics();
-
-          if (!clinics.length) {
-            throw new Error("No clinics available for onboarding");
-          }
-
-          const options = clinics.map((clinic) => ({
-            label: clinic.name,
-            value: clinic.id,
-          }));
-          setClinicOptions(options);
-
-          clinicQuestion = {
-            id: "clinicId",
-            fieldKey: "clinicId",
-            text: "Select your clinic",
-            type: "SELECT",
-            options: options.map((option) => option.label),
-            required: true,
-            order: -1,
-          };
-        } else {
-          setClinicOptions([]);
-        }
 
         if (cancelled) return;
-        const combined = clinicQuestion ? [clinicQuestion, ...data] : data;
-        setQuestions(combined.sort((a, b) => a.order - b.order));
+        setQuestions(data.sort((a, b) => a.order - b.order));
       } catch (err) {
         console.error("Failed to load onboarding questions", err);
         error("Failed to load onboarding");
@@ -321,13 +288,10 @@ export default function OnboardingPage() {
 
                 {currentQuestion.type === "SELECT" && (
                   <div className="grid grid-cols-1 gap-3">
-                    {(currentQuestion.fieldKey === "clinicId"
-                      ? clinicOptions
-                      : (currentQuestion.options || []).map((option) => ({
-                          label: option,
-                          value: option,
-                        }))
-                    ).map((option) => (
+                    {(currentQuestion.options || []).map((option) => ({
+                      label: option,
+                      value: option,
+                    })).map((option) => (
                       <button
                         key={option.value}
                         onClick={() => updateAnswer(option.value)}

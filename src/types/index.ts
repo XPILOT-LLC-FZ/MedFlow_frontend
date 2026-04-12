@@ -37,11 +37,14 @@ export interface Doctor {
 export interface ApiDoctor {
   id: string;
   userId?: string;
+  clinicId?: string | null;
   fullName: string;
   email: string;
   phone?: string;
   specialization?: string;
   bio?: string;
+  ministryOfHealthId?: string | null;
+  experienceStartDate?: string | null;
   experienceYears: number;
   consultationFee: number;
   branchId?: string;
@@ -54,6 +57,7 @@ export interface ApiDoctor {
     email: string;
     avatarUrl?: string | null;
     isActive: boolean;
+    clinicId?: string | null;
   } | null;
 }
 
@@ -75,13 +79,14 @@ export interface CreateDoctorPayload {
   phone?: string;
   specialization?: string;
   bio?: string;
-  experienceYears: number;
+  ministryOfHealthId?: string | null;
+  experienceStartDate?: string | null;
   consultationFee: number;
   branchId?: string;
   services: string[];
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   password: string;
-  clinicId?: string | null;
+  clinicId: string;
 }
 
 export interface UpdateDoctorPayload {
@@ -89,7 +94,9 @@ export interface UpdateDoctorPayload {
   phone?: string;
   specialization?: string;
   bio?: string;
-  experienceYears?: number;
+  clinicId?: string;
+  ministryOfHealthId?: string | null;
+  experienceStartDate?: string | null;
   consultationFee?: number;
   branchId?: string;
   services?: string[];
@@ -140,6 +147,34 @@ export interface ApiAppointment {
   mode: "ONSITE" | "ONLINE" | "PHONE_CALL";
   notes?: string;
   branchId?: string;
+  consultationSession?: {
+    id: string;
+    notes?: string | null;
+    savedToPatient: boolean;
+    chatLog?: Record<string, unknown> | null;
+    endedAt?: string | null;
+  } | null;
+}
+
+export interface RescheduleAppointmentPayload {
+  date: string;
+  startTime: string;
+  durationMinutes?: number;
+  reason?: string;
+}
+
+export interface UpsertMedicalSummaryPayload {
+  mode: "NORMAL" | "AI";
+  content: string;
+  sendToPatient?: boolean;
+}
+
+export interface AppointmentSummaryResponse {
+  appointmentId: string;
+  summary: string | null;
+  mode: string | null;
+  sendToPatient: boolean;
+  savedAt?: string;
 }
 
 export interface Patient {

@@ -10,14 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
+import { formatDateKey } from "@/lib/dateUtils";
 import { useBookingStore } from "@/stores/useBookingStore";
-
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 const toMinutes = (value: string) => {
   const [hours, minutes] = value.split(":").map(Number);

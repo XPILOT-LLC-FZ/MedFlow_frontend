@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Calendar, Clock, User, Plus, ArrowRight, Activity,
-  Upload, FileText, Trash2, Eye, AlertCircle,
+  Upload, FileText, Trash2, Eye, AlertCircle, Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,20 +20,49 @@ import { useFilesStore, fileToMedicalFile, type MedicalFile } from "@/stores/use
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useStaffStore } from "@/stores/useStaffStore";
+import { servicesCatalogService } from "@/services/servicesCatalogService";
+import type { ApiService } from "@/types";
 
 export default function PatientDashboard() {
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { addFile, deleteFile, getFilesByPatient } = useFilesStore();
   const { appointments } = useBookingStore();
+  const { doctors: discoverDoctors, fetchDoctors } = useStaffStore();
   const toast = useToastStore();
   const patientId = user?.id ?? "guest";
+  const [discoverQuery, setDiscoverQuery] = useState("");
+  const [discoverSpecialization, setDiscoverSpecialization] = useState("All");
+  const [discoverServiceId, setDiscoverServiceId] = useState("");
+  const [discoverServices, setDiscoverServices] = useState<ApiService[]>([]);
 
   React.useEffect(() => {
     if (user?.id) {
        useBookingStore.getState().fetchAppointments({ patientId: user.id });
+
+      void servicesCatalogService
+        .getAll({ isActive: "true" })
+        .then((services) => setDiscoverServices(services))
+        .catch(() => setDiscoverServices([]));
     }
   }, [user?.id]);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+
+    const timeout = setTimeout(() => {
+      const filters: Record<string, string> = {};
+
+      if (discoverQuery.trim()) filters.search = discoverQuery.trim();
+      if (discoverSpecialization !== "All") filters.specialization = discoverSpecialization;
+      if (discoverServiceId) filters.serviceId = discoverServiceId;
+
+      void fetchDoctors(filters);
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [user?.id, discoverQuery, discoverSpecialization, discoverServiceId, fetchDoctors]);
   const files = getFilesByPatient(patientId);
 
   const patientAppointments = appointments.filter((a) => a.patientId === patientId);
@@ -141,6 +170,62 @@ export default function PatientDashboard() {
         <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={new Set(patientAppointments.map((a) => a.doctorId)).size} icon={<User className="h-5 w-5" />} delay={0.2} />
         <StatsCard title={locale === "ar" ? "النتائج الصحية" : "Health Score"} value="92%" change={5} icon={<Activity className="h-5 w-5" />} delay={0.3} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{locale === "ar" ? "اكتشف الأطباء" : "Discover Doctors"}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            <div className="relative lg:col-span-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={discoverQuery}
+                onChange={(e) => setDiscoverQuery(e.target.value)}
+                className="h-10 w-full rounded-md border bg-background pl-10 pr-3 text-sm"
+                placeholder={locale === "ar" ? "ابحث باسم الطبيب أو التخصص" : "Search doctor or specialization"}
+              />
+            </div>
+            <select
+              value={discoverSpecialization}
+              onChange={(e) => setDiscoverSpecialization(e.target.value)}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="All">{locale === "ar" ? "كل التخصصات" : "All specializations"}</option>
+              {["Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"].map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+            <select
+              value={discoverServiceId}
+              onChange={(e) => setDiscoverServiceId(e.target.value)}
+              className="h-10 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">{locale === "ar" ? "كل الخدمات" : "All services"}</option>
+              {discoverServices.map((service) => (
+                <option key={service.id} value={service.id}>{service.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {discoverDoctors.slice(0, 4).map((doctor) => (
+              <div key={doctor.id} className="rounded-lg border p-3">
+                <p className="font-medium">{doctor.fullName}</p>
+                <p className="text-sm text-muted-foreground">{doctor.specialization || (locale === "ar" ? "تخصص عام" : "General")}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {doctor.experienceYears} {t("yearsExp")}
+                </p>
+              </div>
+            ))}
+            {discoverDoctors.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                {locale === "ar" ? "لا توجد نتائج حالياً" : "No doctors matched your filters"}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Upcoming appointments */}

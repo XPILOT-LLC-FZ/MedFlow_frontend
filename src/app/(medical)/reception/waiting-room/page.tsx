@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
+import { formatDateKey } from "@/lib/dateUtils";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import type { Appointment } from "@/types";
@@ -23,13 +24,6 @@ const RESOLVED_STATUSES: Appointment["status"][] = [
   "cancelled",
   "no-show",
 ];
-
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 const toMinutes = (value: string): number | null => {
   const [hours, minutes] = value.split(":").map(Number);

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { isDateBefore } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -14,6 +15,7 @@ interface MiniCalendarProps {
   selectedDate?: Date;
   onDateSelect?: (date: Date) => void;
   highlightDates?: string[];
+  minDate?: Date;
 }
 
 export function MiniCalendar({
@@ -21,6 +23,7 @@ export function MiniCalendar({
   selectedDate,
   onDateSelect,
   highlightDates = [],
+  minDate,
 }: MiniCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const today = new Date();
@@ -53,6 +56,11 @@ export function MiniCalendar({
     month === selectedDate.getMonth() &&
     year === selectedDate.getFullYear();
 
+  const isBlockedByMinDate = (day: number) => {
+    if (!minDate) return false;
+    return isDateBefore(new Date(year, month, day), minDate);
+  };
+
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -84,12 +92,15 @@ export function MiniCalendar({
         {days.map((day, i) => (
           <button
             key={i}
-            disabled={!day}
-            onClick={() => day && onDateSelect?.(new Date(year, month, day))}
+            disabled={!day || isBlockedByMinDate(day)}
+            onClick={() =>
+              day && !isBlockedByMinDate(day) && onDateSelect?.(new Date(year, month, day))
+            }
             className={cn(
               "h-8 w-8 rounded-lg text-xs font-medium transition-all duration-150 mx-auto flex items-center justify-center",
               !day && "invisible",
-              day && "hover:bg-muted cursor-pointer",
+              day && !isBlockedByMinDate(day) && "hover:bg-muted cursor-pointer",
+              day && isBlockedByMinDate(day) && "cursor-not-allowed text-muted-foreground/50",
               day && isToday(day) && "ring-1 ring-primary",
               day && isSelected(day) && "bg-primary text-primary-foreground hover:bg-primary/90",
               day && isHighlighted(day) && !isSelected(day) && "bg-primary/10 text-primary font-semibold"

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Mail, Phone, ShieldCheck, UserRound, KeyRound } from "lucide-react";
+import { Mail, Phone, ShieldCheck, UserRound, KeyRound, IdCard, Clock3, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ export default function DoctorProfilePage() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [ministryOfHealthId, setMinistryOfHealthId] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -46,7 +47,8 @@ export default function DoctorProfilePage() {
   useEffect(() => {
     setFullName(user?.name ?? doctorRecord?.fullName ?? "");
     setPhone(doctorRecord?.phone ?? "");
-  }, [doctorRecord?.fullName, doctorRecord?.phone, user?.name]);
+    setMinistryOfHealthId(doctorRecord?.ministryOfHealthId ?? "");
+  }, [doctorRecord?.fullName, doctorRecord?.phone, doctorRecord?.ministryOfHealthId, user?.name]);
 
   const handleSaveProfile = async () => {
     if (!fullName || fullName.trim().length < 2) {
@@ -72,6 +74,7 @@ export default function DoctorProfilePage() {
         const doctorPayload: UpdateDoctorPayload = {
           fullName: fullName.trim(),
           phone: phone.trim() || undefined,
+          ministryOfHealthId: ministryOfHealthId.trim() || null,
         };
 
         await updateDoctor(doctorRecord.id, doctorPayload);
@@ -176,6 +179,49 @@ export default function DoctorProfilePage() {
                 onChange={(e) => setPhone(e.target.value)}
                 className="pl-10"
                 placeholder={locale === "ar" ? "+2010XXXXXXX" : "+2010XXXXXXX"}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                {locale === "ar" ? "رقم وزارة الصحة" : "Ministry of Health ID"}
+              </label>
+              <div className="relative">
+                <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={ministryOfHealthId}
+                  onChange={(e) => setMinistryOfHealthId(e.target.value)}
+                  className="pl-10"
+                  placeholder="MOH-2026-009871"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                {locale === "ar" ? "سنوات الخبرة" : "Experience Years"}
+              </label>
+              <div className="relative">
+                <Clock3 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={String(doctorRecord?.experienceYears ?? 0)}
+                  className="pl-10"
+                  disabled
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">{locale === "ar" ? "العيادة" : "Clinic"}</label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={doctorRecord?.clinicId ?? user?.clinicId ?? ""}
+                className="pl-10"
+                disabled
+                placeholder={locale === "ar" ? "غير محدد" : "Not assigned"}
               />
             </div>
           </div>

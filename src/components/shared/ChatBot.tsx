@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bot, Calendar, Loader2, Send, Sparkles, Stethoscope, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatDateKey } from "@/lib/dateUtils";
+import { bookingService } from "@/services/bookingService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useChatStore, type ChatMessage } from "@/stores/useChatStore";
@@ -186,10 +188,16 @@ export function ChatBot({
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+  const [slotCache, setSlotCache] = useState<Record<string, string[]>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationLocale = chatLocale ?? "en";
   const copy = COPY[conversationLocale];
   const participantId = user?.id ?? "guest";
+  const bookingDateKey = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    return formatDateKey(date);
+  }, []);
 
   const doctorDirectory = useMemo(
     () =>
@@ -303,14 +311,21 @@ export function ChatBot({
         (!specialty || doctor.specialty.toLowerCase() === specialty.toLowerCase())
     );
 
-  const getDoctorSlots = (doctorId?: string | null) => {
-    const seededSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "14:00", "14:30", "15:00", "15:30"];
-    if (!doctorId) {
-      return seededSlots.slice(0, 4);
+  const getCachedDoctorSlots = (doctorId: string): string[] =>
+    slotCache[doctorId] ?? [];
+
+  const loadDoctorSlots = async (doctorId: string): Promise<string[]> => {
+    const cached = getCachedDoctorSlots(doctorId);
+    if (cached.length > 0) {
+      return cached;
     }
 
-    const shift = Number.parseInt(doctorId.replace(/\D/g, "").slice(-1) || "0", 10) % 3;
-    return seededSlots.slice(shift, shift + 4);
+    const slots = await bookingService.getAvailableSlots(doctorId, bookingDateKey);
+    setSlotCache((prev) => ({
+      ...prev,
+      [doctorId]: slots,
+    }));
+    return slots;
   };
 
   const displayedQuickReplies = chatLocale && isAuthenticated
@@ -358,28 +373,45 @@ export function ChatBot({
     pushBotReply(heading, replies);
   };
 
-  const showSlots = (doctorId?: string | null) => {
-    const slots = getDoctorSlots(doctorId);
+  const showSlots = async (doctorId?: string | null) => {
+    const fallbackDoctor =
+      (selectedSpecialty ? getAvailableDoctors(selectedSpecialty)[0] : null) ??
+      getAvailableDoctors()[0];
+    const doctor = doctorId ? doctorMap.get(doctorId) : fallbackDoctor;
+
+    if (!doctor) {
+      pushBotReply(copy.noDoctors, baseQuickReplies);
+      return;
+    }
+
+    setSelectedDoctorId(doctor.id);
+
+    let slots: string[] = [];
+    try {
+      slots = await loadDoctorSlots(doctor.id);
+    } catch {
+      pushBotReply(copy.noSlots, baseQuickReplies);
+      return;
+    }
+
     if (slots.length === 0) {
       pushBotReply(copy.noSlots, baseQuickReplies);
       return;
     }
 
     const replies = slots.map((slot) => ({
-      id: `slot-${doctorId ?? "general"}-${slot}`,
+      id: `slot-${doctor.id}-${slot}`,
       label: slot,
       type: "slot" as const,
       value: slot,
     }));
 
-    const heading = doctorId
-      ? `${copy.slotPrompt}\n${getDoctorLabel(doctorId)}`
-      : `${copy.slotPrompt}\n${copy.suggestionsTitle}`;
+    const heading = `${copy.slotPrompt}\n${getDoctorLabel(doctor.id)}`;
 
     pushBotReply(heading, replies);
   };
 
-  const completeBooking = (slot: string) => {
+  const completeBooking = async (slot: string) => {
     const fallbackDoctor = getAvailableDoctors(selectedSpecialty)[0] ?? getAvailableDoctors()[0];
     const doctor = selectedDoctorId ? doctorMap.get(selectedDoctorId) : fallbackDoctor;
 
@@ -388,32 +420,52 @@ export function ChatBot({
       return;
     }
 
-    const appointmentDate = new Date();
-    appointmentDate.setDate(appointmentDate.getDate() + 1);
+    try {
+      const latestSlots = await bookingService.getAvailableSlots(doctor.id, bookingDateKey);
+      setSlotCache((prev) => ({
+        ...prev,
+        [doctor.id]: latestSlots,
+      }));
 
-    addAppointment({
-      patientId: participantId,
-      patientName: user?.name ?? "Guest Patient",
-      doctorId: doctor.id,
-      doctorName: doctor.name,
-      specialty: doctor.specialty,
-      date: appointmentDate.toISOString().split("T")[0],
-      time: slot,
-      status: "scheduled",
-      type: "Consultation",
-    });
+      if (!latestSlots.includes(slot)) {
+        toast.error(copy.noSlots);
+        await showSlots(doctor.id);
+        return;
+      }
 
-    toast.success(copy.bookingToast);
-    setSelectedDoctorId(doctor.id);
-    setSelectedSpecialty(doctor.specialty);
+      await addAppointment({
+        patientId: participantId,
+        patientName: user?.name ?? "Guest Patient",
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        specialty: doctor.specialty,
+        date: bookingDateKey,
+        time: slot,
+        status: "scheduled",
+        type: "Consultation",
+      });
 
-    const doctorName = conversationLocale === "ar" ? doctor.nameAr : doctor.name;
-    const specialtyName = conversationLocale === "ar" ? doctor.specialtyAr : doctor.specialty;
+      toast.success(copy.bookingToast);
+      setSelectedDoctorId(doctor.id);
+      setSelectedSpecialty(doctor.specialty);
 
-    pushBotReply(
-      `${copy.bookingDone}\n${copy.specialtyBooked} ${doctorName} (${specialtyName}) - ${slot}`,
-      baseQuickReplies
-    );
+      const doctorName = conversationLocale === "ar" ? doctor.nameAr : doctor.name;
+      const specialtyName = conversationLocale === "ar" ? doctor.specialtyAr : doctor.specialty;
+
+      pushBotReply(
+        `${copy.bookingDone}\n${copy.specialtyBooked} ${doctorName} (${specialtyName}) - ${slot}`,
+        baseQuickReplies
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : conversationLocale === "ar"
+            ? "تعذر إكمال الحجز حالياً"
+            : "Unable to complete booking right now";
+      toast.error(message);
+      await showSlots(doctor.id);
+    }
   };
 
   const handleQuickReply = (reply: QuickReply) => {
@@ -425,7 +477,10 @@ export function ChatBot({
 
     if (reply.type === "specialties") return showSpecialties();
     if (reply.type === "doctors") return showDoctors(selectedSpecialty);
-    if (reply.type === "slots") return showSlots(selectedDoctorId);
+    if (reply.type === "slots") {
+      void showSlots(selectedDoctorId);
+      return;
+    }
 
     if (reply.type === "specialty" && reply.value) {
       setSelectedSpecialty(reply.value);
@@ -435,11 +490,12 @@ export function ChatBot({
 
     if (reply.type === "doctor" && reply.value) {
       setSelectedDoctorId(reply.value);
-      return showSlots(reply.value);
+      void showSlots(reply.value);
+      return;
     }
 
     if (reply.type === "slot" && reply.value) {
-      completeBooking(reply.value);
+      void completeBooking(reply.value);
     }
   };
 
@@ -466,7 +522,8 @@ export function ChatBot({
     if (normalized.includes("special") || normalized.includes("تخصص")) return showSpecialties();
     if (normalized.includes("doctor") || normalized.includes("طبيب")) return showDoctors(selectedSpecialty);
     if (normalized.includes("time") || normalized.includes("slot") || normalized.includes("موعد") || normalized.includes("وقت")) {
-      return showSlots(selectedDoctorId);
+      void showSlots(selectedDoctorId);
+      return;
     }
 
     const matchedSpecialty = specialties.find(
@@ -487,12 +544,15 @@ export function ChatBot({
     if (matchedDoctor) {
       setSelectedDoctorId(matchedDoctor.id);
       setSelectedSpecialty(matchedDoctor.specialty);
-      return showSlots(matchedDoctor.id);
+      void showSlots(matchedDoctor.id);
+      return;
     }
 
-    const matchedSlot = getDoctorSlots(selectedDoctorId).find((slot) => normalized.includes(slot.toLowerCase()));
+    const cachedSlots = selectedDoctorId ? getCachedDoctorSlots(selectedDoctorId) : [];
+    const matchedSlot = cachedSlots.find((slot) => normalized.includes(slot.toLowerCase()));
     if (matchedSlot) {
-      return completeBooking(matchedSlot);
+      void completeBooking(matchedSlot);
+      return;
     }
 
     pushBotReply(`${copy.unclear}\n${copy.suggestionsTitle}`, baseQuickReplies);

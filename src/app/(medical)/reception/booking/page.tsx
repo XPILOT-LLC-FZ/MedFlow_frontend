@@ -14,14 +14,8 @@ import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { bookingService } from "@/services/bookingService";
 import { patientService } from "@/services/patientService";
+import { formatDateKey } from "@/lib/dateUtils";
 import type { ApiPatient } from "@/types";
-
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 export default function BookingPage() {
   const { locale } = useTranslation();
@@ -56,7 +50,7 @@ export default function BookingPage() {
     let isAlive = true;
 
     const loadSlots = async () => {
-      if (!selectedDoctor || !selectedDate || step !== 2) {
+      if (!selectedDoctor || !selectedDate) {
         setAvailableSlots([]);
         return;
       }
@@ -87,7 +81,7 @@ export default function BookingPage() {
     return () => {
       isAlive = false;
     };
-  }, [selectedDoctor, selectedDate, step]);
+  }, [selectedDoctor, selectedDate]);
 
   const searchPatients = async () => {
     const query = patientSearch.trim();
@@ -227,13 +221,26 @@ export default function BookingPage() {
       );
       setStep(3);
     } catch (error) {
-      const message =
+      const rawMessage =
         error instanceof Error
           ? error.message
           : locale === "ar"
             ? "فشل حجز الموعد"
             : "Failed to book appointment";
-      toast.error(message);
+
+      const lowered = rawMessage.toLowerCase();
+      const isDuplicateEmail = lowered.includes("email") && lowered.includes("already exists");
+      const isDuplicatePhone = lowered.includes("phone") && lowered.includes("already exists");
+
+      if (isDuplicateEmail || isDuplicatePhone) {
+        toast.error(
+          locale === "ar"
+            ? "بيانات المريض موجودة بالفعل. اختر المريض من نتائج البحث بدل إنشاء سجل جديد."
+            : "A matching patient already exists. Select the patient from search results instead of creating a new record.",
+        );
+      } else {
+        toast.error(rawMessage);
+      }
 
       // In case of conflict, refresh slots so reception can pick another slot quickly.
       if (selectedDoctor && selectedDate) {
@@ -323,6 +330,7 @@ export default function BookingPage() {
                     className="pl-9"
                     value={patientSearch}
                     onChange={(event) => setPatientSearch(event.target.value)}
+                    disabled={isSearchingPatients}
                     placeholder={
                       locale === "ar"
                         ? "ابحث بالاسم أو الهاتف أو البريد"
@@ -468,7 +476,12 @@ export default function BookingPage() {
 
       {step === 2 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <MiniCalendar locale={locale} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
+          <MiniCalendar
+            locale={locale}
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+            minDate={new Date()}
+          />
 
           <Card>
             <CardHeader>

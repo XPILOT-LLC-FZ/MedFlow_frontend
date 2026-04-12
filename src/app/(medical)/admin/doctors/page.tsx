@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { clinicService } from "@/services/clinicService";
@@ -21,8 +22,9 @@ import type { ApiBranch, ApiDoctor, ApiService, CreateDoctorPayload, UpdateDocto
 
 const emptyForm = {
   fullName: "", email: "", phone: "",
-  specialization: "", bio: "", experienceYears: "",
+  specialization: "", bio: "", ministryOfHealthId: "", experienceStartDate: "",
   consultationFee: "",
+  clinicId: "",
   branchId: "",
   services: [] as string[],
   status: "ACTIVE" as ApiDoctor["status"],
@@ -32,9 +34,12 @@ const emptyForm = {
 
 export default function DoctorsPage() {
   const { t, locale } = useTranslation();
+  const { user } = useAuthStore();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const { doctors, fetchDoctors, addDoctor, updateDoctor } = useStaffStore();
   const { success, error } = useToastStore();
   const [branches, setBranches] = useState<ApiBranch[]>([]);
+  const [clinics, setClinics] = useState<Array<{ id: string; name: string }>>([]);
   const [availableServices, setAvailableServices] = useState<ApiService[]>([]);
 
   async function loadReferences() {
@@ -43,8 +48,14 @@ export default function DoctorsPage() {
         clinicService.getBranches().catch(() => [] as ApiBranch[]),
         servicesCatalogService.getAll({ isActive: "true" }).catch(() => [] as ApiService[]),
       ]);
+
+      const clinicData = await clinicService
+        .getPublicClinics()
+        .catch(() => [] as Array<{ id: string; name: string }>);
+
       setBranches(branchData);
       setAvailableServices(serviceData);
+      setClinics(clinicData.map((clinic) => ({ id: clinic.id, name: clinic.name })));
     } catch {
       // Non-blocking metadata for form selectors.
     }
@@ -77,7 +88,10 @@ export default function DoctorsPage() {
 
   const openCreate = () => {
     setEditId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      clinicId: isSuperAdmin ? "" : (user?.clinicId ?? ""),
+    });
     setDialogOpen(true);
     void loadReferences();
   };
@@ -123,12 +137,26 @@ export default function DoctorsPage() {
       }
     }
 
+    const effectiveClinicId =
+      user?.role === "SUPER_ADMIN" ? form.clinicId : (user?.clinicId ?? "");
+
+    if (!effectiveClinicId) {
+      error(
+        locale === "ar"
+          ? "يرجى تحديد العيادة للطبيب"
+          : "Doctor clinic assignment is required",
+      );
+      return;
+    }
+
     const normalized = {
       fullName: form.fullName.trim(),
       phone: form.phone.trim() || undefined,
       specialization: form.specialization.trim() || undefined,
       bio: form.bio.trim() || undefined,
-      experienceYears: parseInt(form.experienceYears) || 0,
+      clinicId: effectiveClinicId,
+      ministryOfHealthId: form.ministryOfHealthId.trim() || null,
+      experienceStartDate: form.experienceStartDate || null,
       consultationFee: parseFloat(form.consultationFee) || 0,
       branchId: form.branchId || undefined,
       services: form.services,
@@ -210,7 +238,12 @@ export default function DoctorsPage() {
       phone: doc.phone || "",
       specialization: doc.specialization || "",
       bio: doc.bio || "",
-      experienceYears: doc.experienceYears.toString(),
+      clinicId:
+        doc.clinicId ??
+        doc.user?.clinicId ??
+        (isSuperAdmin ? "" : (user?.clinicId ?? "")),
+      ministryOfHealthId: doc.ministryOfHealthId || "",
+      experienceStartDate: doc.experienceStartDate ? doc.experienceStartDate.split("T")[0] : "",
       consultationFee: doc.consultationFee.toString(),
       branchId: doc.branchId || "",
       services: Array.isArray(doc.services) ? doc.services : [],
@@ -234,7 +267,7 @@ export default function DoctorsPage() {
             <DialogTrigger asChild>
               <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> {locale === "ar" ? "إضافة طبيب" : "Add Doctor"}</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>
                   {editId
@@ -289,9 +322,25 @@ export default function DoctorsPage() {
                     <Input value={form.specialization} onChange={(e) => setForm({ ...form, specialization: e.target.value })} placeholder="e.g. Cardiology" />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{t("experience")}</label>
-                    <Input value={form.experienceYears} onChange={(e) => setForm({ ...form, experienceYears: e.target.value })} placeholder="10" type="number" />
+                    <label className="text-sm font-medium">
+                      {locale === "ar" ? "تاريخ بداية الخبرة" : "Experience Start Date"}
+                    </label>
+                    <Input
+                      value={form.experienceStartDate}
+                      onChange={(e) => setForm({ ...form, experienceStartDate: e.target.value })}
+                      type="date"
+                    />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">
+                    {locale === "ar" ? "رقم وزارة الصحة" : "Ministry of Health ID"}
+                  </label>
+                  <Input
+                    value={form.ministryOfHealthId}
+                    onChange={(e) => setForm({ ...form, ministryOfHealthId: e.target.value })}
+                    placeholder="MOH-2026-009871"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Bio</label>
@@ -312,20 +361,64 @@ export default function DoctorsPage() {
                     <Input value={form.consultationFee} onChange={(e) => setForm({ ...form, consultationFee: e.target.value })} placeholder="50" type="number" />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Branch</label>
-                  <select
-                    value={form.branchId}
-                    onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-                    className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
-                  >
-                    <option value="">{locale === "ar" ? "بدون فرع" : "No branch"}</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="rounded-lg border p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {locale === "ar" ? "تعيين العيادة والفرع" : "Clinic & Branch Assignment"}
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">
+                        {locale === "ar" ? "العيادة" : "Clinic"}
+                      </label>
+                      {isSuperAdmin ? (
+                        <select
+                          value={form.clinicId}
+                          onChange={(e) =>
+                            setForm({ ...form, clinicId: e.target.value, branchId: "" })
+                          }
+                          className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+                        >
+                          <option value="">{locale === "ar" ? "اختر العيادة" : "Select clinic"}</option>
+                          {clinics.map((clinic) => (
+                            <option key={clinic.id} value={clinic.id}>
+                              {clinic.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Input
+                          value={
+                            clinics.find((clinic) => clinic.id === user?.clinicId)?.name ||
+                            (locale === "ar" ? "عيادة المشرف الحالية" : "Current admin clinic")
+                          }
+                          disabled
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">Branch</label>
+                      <select
+                        value={form.branchId}
+                        onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+                        disabled={isSuperAdmin}
+                      >
+                        <option value="">{locale === "ar" ? "بدون فرع" : "No branch"}</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id}>
+                            {branch.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {isSuperAdmin && (
+                    <p className="text-xs text-muted-foreground">
+                      {locale === "ar"
+                        ? "يمكنك تحديد العيادة للطبيب هنا. الفرع يبقى اختيارياً ويمكن تعيينه من مدير العيادة لاحقاً."
+                        : "You can assign the doctor clinic here. Branch remains optional and can be set later by the clinic admin."}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Services</label>
