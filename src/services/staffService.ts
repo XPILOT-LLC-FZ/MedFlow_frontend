@@ -5,15 +5,33 @@ import { apiClient } from "@/lib/apiClient";
 import type {
   ApiDoctor,
   CreateDoctorPayload,
+  DoctorListFilters,
   DoctorShift,
   ResetDoctorPasswordPayload,
   UpdateDoctorPayload,
 } from "@/types";
 
+const toQueryString = (filters?: DoctorListFilters) => {
+  if (!filters) {
+    return "";
+  }
+
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    params.set(key, String(value));
+  });
+
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+};
+
 export const staffService = {
-  async getDoctors(filters?: Record<string, unknown>): Promise<ApiDoctor[]> {
-    const qs = filters ? `?${new URLSearchParams(filters as Record<string, string>).toString()}` : "";
-    return apiClient.get(`/doctors${qs}`);
+  async getDoctors(filters?: DoctorListFilters): Promise<ApiDoctor[]> {
+    return apiClient.get(`/doctors${toQueryString(filters)}`);
   },
 
   async getDoctorById(id: string): Promise<ApiDoctor> {

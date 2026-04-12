@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock, Search, UserRoundPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,10 @@ import { useToastStore } from "@/stores/useToastStore";
 import { bookingService } from "@/services/bookingService";
 import { patientService } from "@/services/patientService";
 import { formatDateKey } from "@/lib/dateUtils";
-import type { ApiPatient } from "@/types";
+import type { ApiPatient, CreatePatientPayload } from "@/types";
 
 export default function BookingPage() {
+  const searchParams = useSearchParams();
   const { locale } = useTranslation();
   const { doctors, fetchDoctors } = useStaffStore();
   const { addAppointment } = useBookingStore();
@@ -40,11 +42,69 @@ export default function BookingPage() {
   const [patientPhone, setPatientPhone] = useState("");
   const [patientEmail, setPatientEmail] = useState("");
 
+  const prefilledPatientId = searchParams.get("patientId");
+  const prefilledDoctorId = searchParams.get("doctorId");
+
   useEffect(() => {
     void fetchDoctors();
   }, [fetchDoctors]);
 
+  useEffect(() => {
+    if (!prefilledPatientId) {
+      return;
+    }
+
+    let isAlive = true;
+
+    const loadPrefilledPatient = async () => {
+      try {
+        const patient = await patientService.getById(prefilledPatientId);
+        if (!isAlive) {
+          return;
+        }
+
+        setSelectedPatient(patient);
+        setPatientName(patient.fullName || "");
+        setPatientPhone(patient.phone || "");
+        setPatientEmail(patient.email || "");
+        setPatientSearch(patient.fullName || "");
+        setStep(1);
+      } catch {
+        if (isAlive) {
+          toast.error(
+            locale === "ar"
+              ? "تعذر تحميل بيانات المريض المحدد"
+              : "Could not load selected patient details",
+          );
+        }
+      }
+    };
+
+    void loadPrefilledPatient();
+
+    return () => {
+      isAlive = false;
+    };
+  }, [locale, prefilledPatientId, toast]);
+
   const activeDoctors = doctors.filter((doctor) => doctor.status === "ACTIVE");
+
+  useEffect(() => {
+    if (!prefilledDoctorId) {
+      return;
+    }
+
+    const matchedDoctor = activeDoctors.find((doctor) => doctor.id === prefilledDoctorId);
+    if (!matchedDoctor) {
+      return;
+    }
+
+    setSelectedDoctor(matchedDoctor.id);
+
+    if (selectedPatient) {
+      setStep((currentStep) => (currentStep > 2 ? currentStep : 2));
+    }
+  }, [activeDoctors, prefilledDoctorId, selectedPatient]);
 
   useEffect(() => {
     let isAlive = true;
@@ -179,7 +239,7 @@ export default function BookingPage() {
       fullName: normalizedName,
       phone: patientPhone.trim() || undefined,
       email: patientEmail.trim().toLowerCase() || undefined,
-    } as Partial<ApiPatient>);
+    } as CreatePatientPayload);
 
     setSelectedPatient(createdPatient);
     return createdPatient;

@@ -33,6 +33,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Clinic", labelAr: "العيادة", href: "/admin/clinic", icon: Settings },
     { label: "Doctors", labelAr: "الأطباء", href: "/admin/doctors", icon: Stethoscope },
+    { label: "Patients", labelAr: "المرضى", href: "/admin/patients", icon: User },
     { label: "Reception", labelAr: "الاستقبال", href: "/admin/reception", icon: Users },
     { label: "Services", labelAr: "الخدمات", href: "/admin/services", icon: ClipboardList },
     { label: "Inventory", labelAr: "المخزون", href: "/admin/inventory", icon: Package },
@@ -46,6 +47,7 @@ const navByRole: Record<Role, NavItem[]> = {
   ],
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
+    { label: "Patients", labelAr: "المرضى", href: "/reception/patients", icon: User },
     { label: "Booking", labelAr: "الحجز", href: "/reception/booking", icon: Calendar },
     { label: "Waiting Room", labelAr: "غرفة الانتظار", href: "/reception/waiting-room", icon: Clock },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/reception/profile", icon: User },

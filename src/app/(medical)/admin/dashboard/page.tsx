@@ -15,13 +15,10 @@ import { StatsCard } from "@/components/shared/StatsCard";
 import { ChartCard } from "@/components/shared/ChartCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useStaffStore } from "@/stores/useStaffStore";
-import { usePaymentsStore } from "@/stores/usePaymentsStore";
-import { useBookingStore } from "@/stores/useBookingStore";
-import { useInventoryStore } from "@/stores/useInventoryStore";
-import type { ApiDoctor } from "@/types";
+import { dashboardService } from "@/services/dashboardService";
+import type { DashboardAdminSummaryData } from "@/types";
 
-function StatusBadge({ status, locale }: { status: ApiDoctor["status"]; locale: string }) {
+function StatusBadge({ status, locale }: { status: "ACTIVE" | "ON_LEAVE" | "INACTIVE"; locale: string }) {
   const v = status === "ACTIVE" ? "success" : status === "ON_LEAVE" ? "warning" : "secondary";
   const label =
     status === "ACTIVE"
@@ -34,30 +31,32 @@ function StatusBadge({ status, locale }: { status: ApiDoctor["status"]; locale: 
 
 export default function MedicalAdminDashboard() {
   const { t, locale } = useTranslation();
-  const { doctors, fetchDoctors } = useStaffStore();
-  const { getMonthlyBreakdown, getYearIncome } = usePaymentsStore();
-  const { appointments, fetchAppointments } = useBookingStore();
-  const { items: inventoryItems, fetchItems: fetchInventoryItems } = useInventoryStore();
+  const [dashboardData, setDashboardData] = React.useState<DashboardAdminSummaryData | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   useEffect(() => {
-    void fetchDoctors();
-    void fetchAppointments();
-    void fetchInventoryItems();
+    const loadDashboard = async () => {
+      try {
+        const summary = await dashboardService.getAdminSummary({
+          period: "month",
+          topDoctorsLimit: 7,
+        });
+        setDashboardData(summary);
+      } catch (error) {
+        console.error("Failed to load admin dashboard summary", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadDashboard();
   }, []);
 
-  const revenueData = getMonthlyBreakdown();
-
-  // Dynamic weekly appointment counts
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const appointmentsData = days.map((name, i) => ({
-    name,
-    count: appointments.filter((a) => {
-      try { return new Date(a.date).getDay() === i; } catch { return false; }
-    }).length,
-  }));
-  const lowStockCount = inventoryItems.filter(
-    (i) => i.status === "LOW_STOCK" || i.status === "OUT_OF_STOCK" || i.status === "EXPIRED"
-  ).length;
+  const summaryCards = dashboardData?.summaryCards;
+  const revenueData = dashboardData?.charts.monthlyRevenue ?? [];
+  const appointmentsData = dashboardData?.charts.weeklyAppointments ?? [];
+  const topDoctors = dashboardData?.topDoctors ?? [];
+  const lowStockCount = summaryCards?.lowStockAlerts ?? 0;
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -68,10 +67,10 @@ export default function MedicalAdminDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title={t("totalAppointments")} value={appointments.length} change={appointments.length > 0 ? 8 : 0} icon={<Calendar className="h-5 w-5" />} delay={0} />
-        <StatsCard title={t("totalDoctors")} value={doctors.length} icon={<Stethoscope className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "موظفو الاستقبال" : "Reception Staff"} value={"Real-time"} icon={<UserCog className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={t("totalRevenue")} value={`$${getYearIncome().toLocaleString()}`} change={lowStockCount > 0 ? -lowStockCount : 18} icon={<DollarSign className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={t("totalAppointments")} value={isLoading ? "..." : (summaryCards?.totalAppointments ?? 0)} icon={<Calendar className="h-5 w-5" />} delay={0} />
+        <StatsCard title={t("totalDoctors")} value={isLoading ? "..." : (summaryCards?.totalDoctors ?? 0)} icon={<Stethoscope className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={locale === "ar" ? "موظفو الاستقبال" : "Reception Staff"} value={isLoading ? "..." : (summaryCards?.totalStaff ?? 0)} icon={<UserCog className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={t("totalRevenue")} value={isLoading ? "..." : `$${(summaryCards?.totalRevenue ?? 0).toLocaleString()}`} change={lowStockCount > 0 ? -lowStockCount : undefined} icon={<DollarSign className="h-5 w-5" />} delay={0.3} />
       </div>
 
       {/* Charts */}
@@ -111,12 +110,12 @@ export default function MedicalAdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {doctors.slice(0, 7).map((doctor) => (
-                    <TableRow key={doctor.id}>
+                  {topDoctors.map((doctor) => (
+                    <TableRow key={doctor.doctorId}>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <img
-                            src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doctor.email}`}
+                            src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doctor.email || doctor.doctorId}`}
                             alt={doctor.fullName}
                             className="h-8 w-8 rounded-lg"
                           />
@@ -133,7 +132,7 @@ export default function MedicalAdminDashboard() {
                       </TableCell>
                       <TableCell><StatusBadge status={doctor.status} locale={locale} /></TableCell>
                       <TableCell className="text-right rtl:text-left">
-                        <Link href={`/admin/doctors?id=${doctor.id}`}>
+                        <Link href={`/admin/doctors?id=${doctor.doctorId}`}>
                            <Button variant="ghost" size="sm" className="h-8 text-xs">View Profile</Button>
                         </Link>
                       </TableCell>

@@ -22,7 +22,8 @@ import { useToastStore } from "@/stores/useToastStore";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
-import type { ApiService } from "@/types";
+import { dashboardService } from "@/services/dashboardService";
+import type { ApiService, DashboardPatientSummaryData } from "@/types";
 
 export default function PatientDashboard() {
   const { t, locale } = useTranslation();
@@ -36,10 +37,16 @@ export default function PatientDashboard() {
   const [discoverSpecialization, setDiscoverSpecialization] = useState("All");
   const [discoverServiceId, setDiscoverServiceId] = useState("");
   const [discoverServices, setDiscoverServices] = useState<ApiService[]>([]);
+  const [summaryData, setSummaryData] = useState<DashboardPatientSummaryData | null>(null);
 
   React.useEffect(() => {
     if (user?.id) {
        useBookingStore.getState().fetchAppointments({ patientId: user.id });
+
+      void dashboardService
+        .getPatientSummary({ period: "month" })
+        .then((summary) => setSummaryData(summary))
+        .catch(() => setSummaryData(null));
 
       void servicesCatalogService
         .getAll({ isActive: "true" })
@@ -70,6 +77,7 @@ export default function PatientDashboard() {
     .filter((a) => a.status === "scheduled" || a.status === "confirmed")
     .slice(0, 3);
   const highlightDates = patientAppointments.map((a) => a.date);
+  const summaryCards = summaryData?.summaryCards;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -165,10 +173,10 @@ export default function PatientDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title={t("upcomingAppointments")} value={upcoming.length} change={12} icon={<Calendar className="h-5 w-5" />} delay={0} />
-        <StatsCard title={t("completed")} value={patientAppointments.filter((a) => a.status === "completed").length} change={8} icon={<Clock className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={new Set(patientAppointments.map((a) => a.doctorId)).size} icon={<User className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={locale === "ar" ? "النتائج الصحية" : "Health Score"} value="92%" change={5} icon={<Activity className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={t("upcomingAppointments")} value={summaryCards?.upcomingAppointments ?? upcoming.length} change={12} icon={<Calendar className="h-5 w-5" />} delay={0} />
+        <StatsCard title={t("completed")} value={summaryCards?.completedAppointments ?? patientAppointments.filter((a) => a.status === "completed").length} change={8} icon={<Clock className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={summaryCards?.myDoctors ?? new Set(patientAppointments.map((a) => a.doctorId)).size} icon={<User className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={locale === "ar" ? "النتائج الصحية" : "Health Score"} value={summaryCards?.healthScore === null || summaryCards?.healthScore === undefined ? "--" : `${summaryCards.healthScore}%`} icon={<Activity className="h-5 w-5" />} delay={0.3} />
       </div>
 
       <Card>

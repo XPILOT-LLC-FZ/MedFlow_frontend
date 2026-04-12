@@ -2,12 +2,96 @@
  * Patient Service — handles Patient-related API calls.
  */
 import { apiClient } from "@/lib/apiClient";
-import type { ApiPatient } from "@/types";
+import type {
+  ApiPatient,
+  CreatePatientPayload,
+  PaginatedPatientsResponse,
+  PatientListFilters,
+} from "@/types";
+
+const normalizePagedPatientsResponse = (
+  raw: unknown,
+  filters?: PatientListFilters,
+): PaginatedPatientsResponse => {
+  const requestedPage = filters?.page ?? 1;
+  const requestedTake = filters?.take ?? 20;
+
+  if (Array.isArray(raw)) {
+    const rows = raw as ApiPatient[];
+    return {
+      data: rows,
+      meta: {
+        page: requestedPage,
+        take: requestedTake,
+        total: rows.length,
+        totalPages: rows.length === 0 ? 0 : 1,
+      },
+    };
+  }
+
+  if (raw && typeof raw === "object") {
+    const record = raw as {
+      data?: unknown;
+      meta?: {
+        page?: number;
+        take?: number;
+        total?: number;
+        totalPages?: number;
+      };
+    };
+
+    const rows = Array.isArray(record.data) ? (record.data as ApiPatient[]) : [];
+    const total = record.meta?.total ?? rows.length;
+    const take = record.meta?.take ?? requestedTake;
+    const page = record.meta?.page ?? requestedPage;
+    const totalPages =
+      record.meta?.totalPages ?? (total === 0 ? 0 : Math.ceil(total / Math.max(1, take)));
+
+    return {
+      data: rows,
+      meta: {
+        page,
+        take,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  return {
+    data: [],
+    meta: {
+      page: requestedPage,
+      take: requestedTake,
+      total: 0,
+      totalPages: 0,
+    },
+  };
+};
+
+const toQueryString = (filters?: PatientListFilters) => {
+  if (!filters) return "";
+
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    params.set(key, String(value));
+  });
+
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+};
 
 export const patientService = {
-  async getAll(filters?: Record<string, unknown>): Promise<ApiPatient[]> {
-    const qs = filters ? `?${new URLSearchParams(filters as Record<string, string>).toString()}` : "";
-    return apiClient.get(`/patients${qs}`);
+  async getAll(filters?: PatientListFilters): Promise<ApiPatient[]> {
+    return apiClient.get(`/patients${toQueryString(filters)}`);
+  },
+
+  async getPage(filters?: PatientListFilters): Promise<PaginatedPatientsResponse> {
+    const raw = await apiClient.get<unknown>(`/patients/paged${toQueryString(filters)}`);
+    return normalizePagedPatientsResponse(raw, filters);
   },
 
   async getMe(): Promise<ApiPatient> {
@@ -18,7 +102,7 @@ export const patientService = {
     return apiClient.get(`/patients/${id}`);
   },
 
-  async create(data: Partial<ApiPatient>): Promise<ApiPatient> {
+  async create(data: CreatePatientPayload): Promise<ApiPatient> {
     return apiClient.post("/patients", data);
   },
 

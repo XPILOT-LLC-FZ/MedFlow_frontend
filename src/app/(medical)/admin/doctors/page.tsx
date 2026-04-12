@@ -18,7 +18,14 @@ import { useToastStore } from "@/stores/useToastStore";
 import { clinicService } from "@/services/clinicService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
 import { staffService } from "@/services/staffService";
-import type { ApiBranch, ApiDoctor, ApiService, CreateDoctorPayload, UpdateDoctorPayload } from "@/types";
+import type {
+  ApiBranch,
+  ApiDoctor,
+  ApiService,
+  CreateDoctorPayload,
+  DoctorListFilters,
+  UpdateDoctorPayload,
+} from "@/types";
 
 const emptyForm = {
   fullName: "", email: "", phone: "",
@@ -61,11 +68,10 @@ export default function DoctorsPage() {
     }
   }
 
-  useEffect(() => {
-    void fetchDoctors();
-  }, [fetchDoctors]);
-
-  const [search, setSearch] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | ApiDoctor["status"]>("ALL");
+  const [specializationFilter, setSpecializationFilter] = useState("ALL");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
@@ -76,6 +82,16 @@ export default function DoctorsPage() {
   const [resetPassword, setResetPassword] = useState("");
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  const buildDoctorFilters = (): DoctorListFilters => ({
+    search: searchTerm.trim() || undefined,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+    specialization: specializationFilter === "ALL" ? undefined : specializationFilter,
+  });
+
+  useEffect(() => {
+    void fetchDoctors(buildDoctorFilters());
+  }, [fetchDoctors, searchTerm, specializationFilter, statusFilter]);
 
   const toggleService = (serviceId: string) => {
     setForm((prev) => ({
@@ -105,11 +121,15 @@ export default function DoctorsPage() {
     setMenuOpen(null);
   };
 
-  const filtered = doctors.filter(
-    (d) =>
-      d.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-      (d.specialization || "").toLowerCase().includes(search.toLowerCase())
+  const specializationOptions = Array.from(
+    new Set(
+      doctors
+        .map((doctor) => (doctor.specialization || "").trim())
+        .filter((value) => value.length > 0),
+    ),
   );
+
+  const filtered = doctors;
 
   const handleSave = async () => {
     if (!form.fullName || !form.email) {
@@ -458,14 +478,48 @@ export default function DoctorsPage() {
         }
       />
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder={locale === "ar" ? "ابحث عن طبيب..." : "Search doctors..."}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 rtl:pl-3 rtl:pr-10"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-4xl">
+        <div className="md:col-span-1 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={locale === "ar" ? "ابحث عن طبيب..." : "Search doctors..."}
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setSearchTerm(searchDraft.trim());
+                }
+              }}
+              className="pl-10 rtl:pl-3 rtl:pr-10"
+            />
+          </div>
+          <Button variant="outline" onClick={() => setSearchTerm(searchDraft.trim())}>
+            {locale === "ar" ? "بحث" : "Search"}
+          </Button>
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "ALL" | ApiDoctor["status"])}
+          className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+        >
+          <option value="ALL">{locale === "ar" ? "كل الحالات" : "All Statuses"}</option>
+          <option value="ACTIVE">{locale === "ar" ? "نشط" : "Active"}</option>
+          <option value="ON_LEAVE">{locale === "ar" ? "إجازة" : "On Leave"}</option>
+          <option value="INACTIVE">{locale === "ar" ? "غير نشط" : "Inactive"}</option>
+        </select>
+        <select
+          value={specializationFilter}
+          onChange={(e) => setSpecializationFilter(e.target.value)}
+          className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
+        >
+          <option value="ALL">{locale === "ar" ? "كل التخصصات" : "All Specializations"}</option>
+          {specializationOptions.map((specialization) => (
+            <option key={specialization} value={specialization}>
+              {specialization}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

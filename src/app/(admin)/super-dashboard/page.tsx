@@ -8,22 +8,18 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/hooks/useTranslation";
-import { useBookingStore } from "@/stores/useBookingStore";
-import { usePaymentsStore } from "@/stores/usePaymentsStore";
-import { userService } from "@/services/userService";
+import { dashboardService } from "@/services/dashboardService";
+import type { DashboardSuperAdminSummaryData } from "@/types";
 
 export default function SuperAdminDashboard() {
   const { locale } = useTranslation();
-  const { appointments } = useBookingStore();
-  const { getYearIncome } = usePaymentsStore();
-
-  const [stats, setStats] = useState<Record<string, unknown> | null>(null);
+  const [stats, setStats] = useState<DashboardSuperAdminSummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const s = await userService.getStats();
+        const s = await dashboardService.getSuperAdminSummary({ period: "month" });
         setStats(s);
       } catch (err) {
         console.error("Failed to load global stats", err);
@@ -34,22 +30,19 @@ export default function SuperAdminDashboard() {
     loadStats();
   }, []);
 
-  const totalUsers = (stats?.total as number) || 0;
-  const activeUsers = (stats?.active as number) || 0;
+  const summaryCards = stats?.summaryCards;
+  const totalUsers = summaryCards?.totalUsers ?? 0;
+  const activeUsers = summaryCards?.activeUsers ?? 0;
   const lowStockItems = null as number | null;
 
   const roleDistribution = [
-    { name: locale === "ar" ? "مرضى" : "Patients", value: (stats?.byRole as Record<string, number>)?.PATIENT || 0 },
-    { name: locale === "ar" ? "أطباء" : "Doctors", value: (stats?.byRole as Record<string, number>)?.DOCTOR || 0 },
-    { name: locale === "ar" ? "استقبال" : "Reception", value: (stats?.byRole as Record<string, number>)?.STAFF || 0 },
-    { name: locale === "ar" ? "إدارة" : "Admins", value: ((stats?.byRole as Record<string, number>)?.ADMIN || 0) + ((stats?.byRole as Record<string, number>)?.SUPER_ADMIN || 0) },
+    { name: locale === "ar" ? "مرضى" : "Patients", value: stats?.roleDistribution.PATIENT ?? 0 },
+    { name: locale === "ar" ? "أطباء" : "Doctors", value: stats?.roleDistribution.DOCTOR ?? 0 },
+    { name: locale === "ar" ? "استقبال" : "Reception", value: stats?.roleDistribution.STAFF ?? 0 },
+    { name: locale === "ar" ? "إدارة" : "Admins", value: (stats?.roleDistribution.ADMIN ?? 0) + (stats?.roleDistribution.SUPER_ADMIN ?? 0) },
   ];
 
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-  const userGrowth = months.map((name, i) => ({
-    name,
-    users: Math.round(totalUsers * (0.4 + (i * 0.12))),
-  }));
+  const userGrowth = stats?.charts?.userGrowth ?? [];
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -61,8 +54,8 @@ export default function SuperAdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title={locale === "ar" ? "إجمالي المستخدمين" : "Total Users"} value={isLoading ? "..." : totalUsers} change={15} icon={<Users className="h-5 w-5" />} delay={0} />
         <StatsCard title={locale === "ar" ? "الموظفون نشطون" : "Active Users"} value={isLoading ? "..." : activeUsers} change={8} icon={<Activity className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"} value={appointments.length} icon={<BarChart3 className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={locale === "ar" ? "إجمالي الإيرادات" : "Total Revenue"} value={`$${getYearIncome().toLocaleString()}`} icon={<Server className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"} value={isLoading ? "..." : (summaryCards?.totalAppointments ?? 0)} icon={<BarChart3 className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={locale === "ar" ? "إجمالي الإيرادات" : "Total Revenue"} value={isLoading ? "..." : `$${(summaryCards?.totalRevenue ?? 0).toLocaleString()}`} icon={<Server className="h-5 w-5" />} delay={0.3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

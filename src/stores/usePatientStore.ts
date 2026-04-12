@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ApiPatient } from "@/types";
+import type { ApiPatient, CreatePatientPayload, PatientListFilters } from "@/types";
 import { patientService } from "@/services/patientService";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -10,7 +10,7 @@ interface PatientState {
   currentPatient: ApiPatient | null;
   isLoading: boolean;
   error: string | null;
-  fetchPatients: (filters?: Record<string, unknown>) => Promise<void>;
+  fetchPatients: (filters?: PatientListFilters) => Promise<void>;
   fetchMe: () => Promise<void>;
   updatePatientLocal: (id: string, updates: Partial<ApiPatient>) => void;
 }
@@ -51,7 +51,7 @@ export const usePatientStore = create<PatientState>((set) => ({
               email: authUser.email,
               phone: authUser.phone,
               clinicId: authUser.clinicId,
-            } as Partial<ApiPatient>);
+            } as CreatePatientPayload);
 
             set({ currentPatient: createdPatient, isLoading: false, error: null });
             return;

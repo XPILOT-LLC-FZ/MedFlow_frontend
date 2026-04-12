@@ -10,8 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
-import { formatDateKey } from "@/lib/dateUtils";
-import { useBookingStore } from "@/stores/useBookingStore";
+import { dashboardService } from "@/services/dashboardService";
+import type {
+  DashboardAppointmentStatus,
+  DashboardStaffSummaryData,
+} from "@/types";
 
 const toMinutes = (value: string) => {
   const [hours, minutes] = value.split(":").map(Number);
@@ -21,32 +24,64 @@ const toMinutes = (value: string) => {
 
 export default function ReceptionDashboard() {
   const { locale } = useTranslation();
-  const { appointments, fetchAppointments, isLoading, error } = useBookingStore();
+  const [dashboardData, setDashboardData] = React.useState<DashboardStaffSummaryData | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const todayKey = useMemo(() => formatDateKey(new Date()), []);
+  const refreshDashboard = React.useCallback(async () => {
+    try {
+      setError(null);
+      const summary = await dashboardService.getStaffSummary({ period: "day" });
+      setDashboardData(summary);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load reception dashboard";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    void fetchAppointments({ date: todayKey });
+    void refreshDashboard();
 
     const interval = setInterval(() => {
-      void fetchAppointments({ date: todayKey });
+      void refreshDashboard();
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [fetchAppointments, todayKey]);
+  }, [refreshDashboard]);
 
-  const scheduled = appointments.filter(
-    (appointment) =>
-      appointment.status === "scheduled" || appointment.status === "confirmed",
-  );
-  const inProgress = appointments.filter((appointment) => appointment.status === "in-progress");
-  const completed = appointments.filter((appointment) => appointment.status === "completed");
+  const summaryCards = dashboardData?.summaryCards;
+  const upcoming = useMemo(() => {
+    const queue = dashboardData?.queue.upcoming ?? [];
+    return [...queue].sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
+  }, [dashboardData?.queue.upcoming]);
+  const nextAppointment = dashboardData?.queue.nextAppointment ?? null;
 
-  const upcoming = [...scheduled]
-    .sort((a, b) => toMinutes(a.time) - toMinutes(b.time))
-    .slice(0, 8);
+  const statusVariant = (status: DashboardAppointmentStatus) => {
+    if (status === "CONFIRMED") return "success" as const;
+    if (status === "SCHEDULED") return "info" as const;
+    if (status === "IN_PROGRESS") return "warning" as const;
+    if (status === "COMPLETED") return "secondary" as const;
+    if (status === "NO_SHOW" || status === "CANCELLED") return "destructive" as const;
+    return "secondary" as const;
+  };
 
-  const nextAppointment = upcoming[0] ?? null;
+  const statusLabel = (status: DashboardAppointmentStatus) => {
+    if (locale === "ar") {
+      const labels: Record<DashboardAppointmentStatus, string> = {
+        SCHEDULED: "مجدول",
+        CONFIRMED: "مؤكد",
+        IN_PROGRESS: "جارٍ التنفيذ",
+        COMPLETED: "مكتمل",
+        CANCELLED: "ملغي",
+        NO_SHOW: "لم يحضر",
+        RESCHEDULED: "أعيد الجدولة",
+      };
+      return labels[status];
+    }
+    return status.replace("_", " ").toLowerCase();
+  };
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -62,7 +97,7 @@ export default function ReceptionDashboard() {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => void fetchAppointments({ date: todayKey })}
+              onClick={() => void refreshDashboard()}
             >
               <RefreshCw className="h-4 w-4" />
               {locale === "ar" ? "تحديث" : "Refresh"}
@@ -80,25 +115,25 @@ export default function ReceptionDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title={locale === "ar" ? "إجمالي مواعيد اليوم" : "Total Today"}
-          value={appointments.length}
+          value={isLoading ? "..." : (summaryCards?.totalToday ?? 0)}
           icon={<CalendarCheck2 className="h-5 w-5" />}
           delay={0}
         />
         <StatsCard
           title={locale === "ar" ? "قيد الانتظار" : "Scheduled / Confirmed"}
-          value={scheduled.length}
+          value={isLoading ? "..." : (summaryCards?.scheduledConfirmed ?? 0)}
           icon={<Clock3 className="h-5 w-5" />}
           delay={0.1}
         />
         <StatsCard
           title={locale === "ar" ? "جارٍ التنفيذ" : "In Progress"}
-          value={inProgress.length}
+          value={isLoading ? "..." : (summaryCards?.inProgress ?? 0)}
           icon={<PlayCircle className="h-5 w-5" />}
           delay={0.2}
         />
         <StatsCard
           title={locale === "ar" ? "مكتمل" : "Completed"}
-          value={completed.length}
+          value={isLoading ? "..." : (summaryCards?.completed ?? 0)}
           icon={<UserRound className="h-5 w-5" />}
           delay={0.3}
         />
@@ -140,17 +175,9 @@ export default function ReceptionDashboard() {
                       </p>
                     </div>
                     <Badge
-                      variant={
-                        appointment.status === "confirmed"
-                          ? "success"
-                          : appointment.status === "scheduled"
-                            ? "info"
-                            : appointment.status === "in-progress"
-                              ? "warning"
-                              : "secondary"
-                      }
+                      variant={statusVariant(appointment.status)}
                     >
-                      {appointment.status}
+                      {statusLabel(appointment.status)}
                     </Badge>
                   </div>
                 ))

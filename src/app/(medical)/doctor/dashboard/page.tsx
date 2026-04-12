@@ -11,46 +11,64 @@ import { ChartCard } from "@/components/shared/ChartCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useBookingStore } from "@/stores/useBookingStore";
-import { useStaffStore } from "@/stores/useStaffStore";
+import { dashboardService } from "@/services/dashboardService";
+import type { DashboardAppointmentStatus, DashboardDoctorSummaryData } from "@/types";
 import Link from "next/link";
-
-const weeklyData = [
-  { name: "Mon", patients: 8 }, { name: "Tue", patients: 6 }, { name: "Wed", patients: 10 },
-  { name: "Thu", patients: 9 }, { name: "Fri", patients: 7 },
-];
 
 export default function DoctorDashboard() {
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
-  const { appointments, fetchAppointments } = useBookingStore();
-  const { doctors, fetchDoctors } = useStaffStore();
+  const [dashboardData, setDashboardData] = React.useState<DashboardDoctorSummaryData | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   useEffect(() => {
-    fetchAppointments();
-    fetchDoctors();
-  }, [fetchAppointments, fetchDoctors]);
+    const loadDashboard = async () => {
+      try {
+        const summary = await dashboardService.getDoctorSummary({ period: "month" });
+        setDashboardData(summary);
+      } catch (error) {
+        console.error("Failed to load doctor dashboard summary", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadDashboard();
+  }, []);
 
   const displayName = user
     ? locale === "ar" ? user.nameAr : user.name
     : "Doctor";
 
-  const doctorRecord = doctors.find((member) =>
-    member.id === user?.id ||
-    member.email?.toLowerCase() === user?.email?.toLowerCase() ||
-    member.fullName === user?.name
-  );
-  const doctorId = doctorRecord?.id ?? user?.id ?? "staff-1";
-  const doctorNames = new Set(
-    [doctorRecord?.fullName, user?.name].filter((value): value is string => Boolean(value))
-  );
-  const doctorAppointments = appointments.filter(
-    (a) => a.doctorId === doctorId || doctorNames.has(a.doctorName)
-  );
-  const today = new Date().toISOString().split("T")[0];
-  const todayAppts = doctorAppointments.filter((a) => a.date === today);
-  const visibleAppointments = (todayAppts.length > 0 ? todayAppts : doctorAppointments).slice(0, 4);
-  const highlightDates = [...new Set(doctorAppointments.map((a) => a.date))];
+  const summaryCards = dashboardData?.summaryCards;
+  const schedule = dashboardData?.schedule;
+  const visibleAppointments = (schedule?.today ?? []).slice(0, 4);
+  const highlightDates = schedule?.highlightDates ?? [];
+  const weeklyData = dashboardData?.charts.weeklyPatients ?? [];
+
+  const statusVariant = (status: DashboardAppointmentStatus) => {
+    if (status === "COMPLETED" || status === "CONFIRMED") return "success" as const;
+    if (status === "IN_PROGRESS") return "warning" as const;
+    if (status === "CANCELLED" || status === "NO_SHOW") return "destructive" as const;
+    return "info" as const;
+  };
+
+  const statusLabel = (status: DashboardAppointmentStatus) => {
+    if (locale === "ar") {
+      const labels: Record<DashboardAppointmentStatus, string> = {
+        SCHEDULED: "مجدول",
+        CONFIRMED: "مؤكد",
+        IN_PROGRESS: "جارٍ التنفيذ",
+        COMPLETED: "مكتمل",
+        CANCELLED: "ملغي",
+        NO_SHOW: "لم يحضر",
+        RESCHEDULED: "أعيد الجدولة",
+      };
+      return labels[status];
+    }
+
+    return status.replace("_", " ").toLowerCase();
+  };
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -60,10 +78,10 @@ export default function DoctorDashboard() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title={t("todayAppointments")} value={todayAppts.length} icon={<Calendar className="h-5 w-5" />} delay={0} />
-        <StatsCard title={t("totalPatients")} value={new Set(doctorAppointments.map((a) => a.patientId)).size} change={8} icon={<Users className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "وقت الانتظار" : "Avg. Wait Time"} value="12 min" icon={<Clock className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={locale === "ar" ? "رضا المرضى" : "Satisfaction"} value="4.9/5" change={2} icon={<Activity className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={t("todayAppointments")} value={isLoading ? "..." : (summaryCards?.todayAppointments ?? 0)} icon={<Calendar className="h-5 w-5" />} delay={0} />
+        <StatsCard title={t("totalPatients")} value={isLoading ? "..." : (summaryCards?.totalPatients ?? 0)} change={summaryCards?.completionRate} icon={<Users className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={locale === "ar" ? "وقت الانتظار" : "Avg. Wait Time"} value={isLoading ? "..." : summaryCards?.averageWaitMinutes === null || summaryCards?.averageWaitMinutes === undefined ? "--" : `${summaryCards.averageWaitMinutes} min`} icon={<Clock className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={locale === "ar" ? "رضا المرضى" : "Satisfaction"} value={isLoading ? "..." : summaryCards?.satisfaction === null || summaryCards?.satisfaction === undefined ? "--" : `${summaryCards.satisfaction}/5`} icon={<Activity className="h-5 w-5" />} delay={0.3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -86,13 +104,13 @@ export default function DoctorDashboard() {
                     </div>
                     <div>
                       <p className="font-medium text-sm">{p.patientName}</p>
-                      <p className="text-xs text-muted-foreground">{p.type}</p>
+                      <p className="text-xs text-muted-foreground">{p.type.replace("_", " ")}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground">{p.time}</span>
-                    <Badge variant={p.status === "completed" ? "success" : p.status === "in-progress" ? "warning" : "info"} className="text-xs">
-                      {p.status}
+                    <Badge variant={statusVariant(p.status)} className="text-xs">
+                      {statusLabel(p.status)}
                     </Badge>
                   </div>
                 </div>
@@ -116,13 +134,13 @@ export default function DoctorDashboard() {
               {visibleAppointments.map((item, i) => (
                 <div key={i} className="flex gap-3">
                   <div className="flex flex-col items-center">
-                    <div className={`h-3 w-3 rounded-full ${item.status === "completed" || item.status === "confirmed" ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
+                    <div className={`h-3 w-3 rounded-full ${item.status === "COMPLETED" || item.status === "CONFIRMED" ? "bg-emerald-500" : "bg-muted-foreground/30"}`} />
                     {i < visibleAppointments.length - 1 && <div className="w-px flex-1 bg-border" />}
                   </div>
                   <div className="pb-3">
                     <p className="text-xs text-muted-foreground">{item.time}</p>
                     <p className="text-sm font-medium">{item.patientName}</p>
-                    <p className="text-xs text-muted-foreground">{item.type}</p>
+                    <p className="text-xs text-muted-foreground">{item.type.replace("_", " ")}</p>
                   </div>
                 </div>
               ))}

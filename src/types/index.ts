@@ -61,6 +61,15 @@ export interface ApiDoctor {
   } | null;
 }
 
+export interface DoctorListFilters {
+  status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+  branchId?: string;
+  specialization?: string;
+  search?: string;
+  serviceId?: string;
+  role?: string;
+}
+
 export interface DoctorShift {
   id?: string;
   doctorId?: string;
@@ -177,6 +186,127 @@ export interface AppointmentSummaryResponse {
   savedAt?: string;
 }
 
+export interface DashboardRange {
+  startDate: string;
+  endDate: string;
+}
+
+export type DashboardAppointmentStatus =
+  | "SCHEDULED"
+  | "CONFIRMED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW"
+  | "RESCHEDULED";
+
+export interface DashboardAdminTopDoctor {
+  doctorId: string;
+  fullName: string;
+  email: string;
+  specialization: string;
+  status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+  appointmentsCount: number;
+}
+
+export interface DashboardAdminSummaryData {
+  summaryCards: {
+    totalAppointments: number;
+    totalDoctors: number;
+    totalStaff: number;
+    totalRevenue: number;
+    lowStockAlerts: number;
+  };
+  statusBreakdown: Record<DashboardAppointmentStatus, number>;
+  charts: {
+    weeklyAppointments: Array<{ name: string; count: number }>;
+    monthlyRevenue: Array<{ name: string; revenue: number }>;
+  };
+  topDoctors: DashboardAdminTopDoctor[];
+}
+
+export interface DashboardStaffQueueItem {
+  id: string;
+  patientName: string;
+  doctorName: string;
+  time: string;
+  status: DashboardAppointmentStatus;
+}
+
+export interface DashboardStaffSummaryData {
+  summaryCards: {
+    totalToday: number;
+    scheduledConfirmed: number;
+    inProgress: number;
+    completed: number;
+  };
+  queue: {
+    upcoming: DashboardStaffQueueItem[];
+    nextAppointment: DashboardStaffQueueItem | null;
+  };
+}
+
+export interface DashboardDoctorScheduleItem {
+  id: string;
+  patientName: string;
+  type: string;
+  time: string;
+  status: DashboardAppointmentStatus;
+}
+
+export interface DashboardDoctorSummaryData {
+  summaryCards: {
+    todayAppointments: number;
+    totalPatients: number;
+    averageWaitMinutes: number | null;
+    satisfaction: number | null;
+    completionRate: number;
+  };
+  schedule: {
+    today: DashboardDoctorScheduleItem[];
+    highlightDates: string[];
+  };
+  charts: {
+    weeklyPatients: Array<{ name: string; patients: number }>;
+  };
+}
+
+export interface DashboardSuperAdminSummaryData {
+  summaryCards: {
+    totalUsers: number;
+    activeUsers: number;
+    totalAppointments: number;
+    totalClinics: number;
+    totalRevenue: number;
+  };
+  roleDistribution: {
+    PATIENT: number;
+    DOCTOR: number;
+    STAFF: number;
+    ADMIN: number;
+    SUPER_ADMIN: number;
+  };
+  charts?: {
+    userGrowth?: Array<{ name: string; users: number }>;
+  };
+}
+
+export interface DashboardPatientSummaryData {
+  summaryCards: {
+    upcomingAppointments: number;
+    completedAppointments: number;
+    myDoctors: number;
+    healthScore: number | null;
+  };
+}
+
+export interface DashboardSummaryResponse {
+  role: Role;
+  generatedAt: string;
+  range: DashboardRange;
+  data: Record<string, unknown>;
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -198,6 +328,63 @@ export interface ApiPatient {
   medicalHistory?: Record<string, unknown>;
   notes?: string;
   clinicId?: string;
+  branchId?: string;
+  vipTier?: "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
+  loyaltyPoints?: number;
+  totalVisits?: number;
+  totalSpent?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: {
+    id: string;
+    email: string;
+    isOnboarded: boolean;
+    isActive: boolean;
+    createdAt: string;
+  } | null;
+}
+
+export interface PatientListFilters {
+  search?: string;
+  vipTier?: "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
+  gender?: string;
+  portalStatus?:
+    | "all"
+    | "with_account"
+    | "without_account"
+    | "onboarding_pending"
+    | "onboarding_completed";
+  sortBy?: "fullName" | "createdAt" | "totalVisits" | "totalSpent";
+  sortOrder?: "asc" | "desc";
+  take?: number;
+  page?: number;
+}
+
+export interface PatientsPaginationMeta {
+  page: number;
+  take: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedPatientsResponse {
+  data: ApiPatient[];
+  meta: PatientsPaginationMeta;
+}
+
+export interface CreatePatientPayload {
+  fullName: string;
+  email?: string;
+  phone?: string;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  bloodType?: string | null;
+  allergies?: string[];
+  medicalHistory?: Record<string, unknown> | null;
+  notes?: string | null;
+  clinicId?: string;
+  createUserAccount?: boolean;
+  password?: string;
 }
 
 export interface Service {
