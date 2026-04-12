@@ -37,7 +37,7 @@ export default function DoctorDashboard() {
 
   const doctorRecord = doctors.find((member) =>
     member.id === user?.id ||
-    member.email.toLowerCase() === user?.email?.toLowerCase() ||
+    member.email?.toLowerCase() === user?.email?.toLowerCase() ||
     member.fullName === user?.name
   );
   const doctorId = doctorRecord?.id ?? user?.id ?? "staff-1";

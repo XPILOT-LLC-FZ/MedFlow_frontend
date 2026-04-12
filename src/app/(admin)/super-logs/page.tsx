@@ -30,9 +30,9 @@ export default function LogsPage() {
   const [levelFilter, setLevelFilter] = useState("All");
 
   const filtered = systemLogs.filter((log) => {
-    const matchSearch = log.action.toLowerCase().includes(search.toLowerCase()) ||
-      log.user.toLowerCase().includes(search.toLowerCase()) ||
-      log.details.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = log.action?.toLowerCase().includes(search.toLowerCase()) ||
+      log.user?.toLowerCase().includes(search.toLowerCase()) ||
+      log.details?.toLowerCase().includes(search.toLowerCase());
     const matchLevel = levelFilter === "All" || log.level === levelFilter;
     return matchSearch && matchLevel;
   });

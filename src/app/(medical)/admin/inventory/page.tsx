@@ -117,8 +117,8 @@ export default function InventoryPage() {
     const supplier = item.supplierName || "";
     const matchSearch =
       !search ||
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      supplier.toLowerCase().includes(search.toLowerCase());
+      item.name?.toLowerCase().includes(search.toLowerCase()) ||
+      supplier?.toLowerCase().includes(search.toLowerCase());
     const matchCat = selectedCategory === "All" || item.category === selectedCategory;
     return matchSearch && matchCat;
   });

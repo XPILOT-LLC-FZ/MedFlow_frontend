@@ -145,7 +145,7 @@ export default function ServicesManagementPage() {
   };
 
   const filteredServices = services.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 

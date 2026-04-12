@@ -40,9 +40,9 @@ export default function PatientPromotionsPage() {
   };
 
   const filteredPromotions = promotions.filter(p => 
-    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.code.toLowerCase().includes(searchQuery.toLowerCase())
+    p.code?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const container = {

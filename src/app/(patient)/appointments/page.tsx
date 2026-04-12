@@ -76,8 +76,8 @@ export default function AppointmentsPage() {
 
   const filteredDoctors = doctors.filter((d) => {
     const matchSearch =
-      d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.specialty.toLowerCase().includes(searchQuery.toLowerCase());
+      d.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.specialty?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchSpecialty = selectedSpecialty === "All" || d.specialty === selectedSpecialty;
     return matchSearch && matchSpecialty;
   });

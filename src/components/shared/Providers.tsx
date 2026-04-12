@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { PatientChat } from "@/components/shared/PatientChat";
+import { ChatWidget } from "@/components/ChatWidget";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { ToastContainer } from "@/components/shared/ToastContainer";
@@ -61,7 +61,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      {!isAuthPage && <PatientChat />}
+      {!isAuthPage && <ChatWidget />}
       <ToastContainer />
     </>
   );

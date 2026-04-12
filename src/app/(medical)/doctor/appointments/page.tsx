@@ -25,7 +25,7 @@ export default function DoctorAppointmentsPage() {
 
   const doctorRecord = doctors.find((member) =>
     member.id === user?.id ||
-    member.email.toLowerCase() === user?.email?.toLowerCase() ||
+    member.email?.toLowerCase() === user?.email?.toLowerCase() ||
     member.fullName === user?.name
   );
   const doctorId = doctorRecord?.id ?? user?.id ?? "staff-1";
@@ -35,7 +35,7 @@ export default function DoctorAppointmentsPage() {
 
   const doctorAppts = appointments.filter(
     (a) => (a.doctorId === doctorId || doctorNames.has(a.doctorName)) &&
-    (a.patientName.toLowerCase().includes(search.toLowerCase()) || search === "")
+    (a.patientName?.toLowerCase().includes(search.toLowerCase()) || search === "")
   );
 
   return (

@@ -88,8 +88,8 @@ export default function ReceptionManagementPage() {
 
     return staff.filter((member) => {
       return (
-        member.fullName.toLowerCase().includes(query) ||
-        member.email.toLowerCase().includes(query)
+        member.fullName?.toLowerCase().includes(query) ||
+        member.email?.toLowerCase().includes(query)
       );
     });
   }, [search, staff]);

@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/shared/StatsCard";
 import { AppointmentCard } from "@/components/shared/AppointmentCard";
-import { WhatsAppSimulator } from "@/components/shared/WhatsAppSimulator";
 import { MiniCalendar } from "@/components/shared/MiniCalendar";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -173,7 +172,6 @@ export default function PatientDashboard() {
         {/* Sidebar */}
         <div className="space-y-6">
           <MiniCalendar locale={locale} highlightDates={highlightDates} />
-          <WhatsAppSimulator />
         </div>
       </div>
 

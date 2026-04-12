@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
-  Package, BarChart3, Clock, FileText, Settings, X,
+  Package, BarChart3, Clock, FileText, Settings, X, MessageSquare
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -25,6 +25,7 @@ interface NavItem {
 const navByRole: Record<Role, NavItem[]> = {
   PATIENT: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/dashboard", icon: LayoutDashboard },
+    { label: "AI Chat", labelAr: "المساعد الذكي", href: "/chat", icon: MessageSquare },
     { label: "Appointments", labelAr: "المواعيد", href: "/appointments", icon: Calendar },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/profile", icon: User },
   ],

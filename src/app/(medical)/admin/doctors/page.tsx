@@ -93,7 +93,7 @@ export default function DoctorsPage() {
 
   const filtered = doctors.filter(
     (d) =>
-      d.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      d.fullName?.toLowerCase().includes(search.toLowerCase()) ||
       (d.specialization || "").toLowerCase().includes(search.toLowerCase())
   );
 

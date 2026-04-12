@@ -48,6 +48,7 @@ export default function UsersPage() {
     name: "",
     email: "",
     phone: "",
+    password: "",
     role: "PATIENT" as Role,
   });
 
@@ -57,22 +58,12 @@ export default function UsersPage() {
   };
 
   const loadUsers = async () => {
+    // ... logic remains same, we will preserve it
     setIsLoading(true);
     try {
       const data = await usersService.getAll();
       const mapped = (data || []).map((u) => {
-        const raw = u as {
-          id?: string;
-          name?: string;
-          fullName?: string;
-          email?: string;
-          role?: Role;
-          isActive?: boolean;
-          phone?: string;
-          updatedAt?: string;
-          createdAt?: string;
-        };
-
+        const raw = u as any;
         return {
           id: raw.id ?? "",
           name: raw.name || raw.fullName || "Unknown User",
@@ -102,6 +93,7 @@ export default function UsersPage() {
       name: user.name || "",
       email: user.email || "",
       phone: user.phone || "",
+      password: "", // do not populate password on edit
       role: user.role,
     });
     setDialogOpen(true);
@@ -109,28 +101,43 @@ export default function UsersPage() {
 
   const resetForm = () => {
     setEditId(null);
-    setForm({ name: "", email: "", phone: "", role: "PATIENT" });
+    setForm({ name: "", email: "", phone: "", password: "", role: "PATIENT" });
   };
 
   const handleSave = async () => {
-    if (!editId || !form.name.trim() || !form.email.trim()) return;
+    if (!form.name.trim() || !form.email.trim()) return;
+    if (!editId && !form.password) {
+      toast.error(locale === "ar" ? "كلمة المرور مطلوبة" : "Password is required");
+      return;
+    }
 
     setIsSaving(true);
     try {
-      await usersService.update(editId, {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
-        role: form.role,
-      });
-
-      toast.success(locale === "ar" ? "تم تحديث المستخدم" : "User updated");
+      if (editId) {
+        await usersService.update(editId, {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || undefined,
+          role: form.role,
+        });
+        toast.success(locale === "ar" ? "تم تحديث المستخدم" : "User updated");
+      } else {
+        await usersService.create({
+          fullName: form.name.trim(),
+          email: form.email.trim(),
+          password: form.password,
+          phone: form.phone.trim() || undefined,
+          role: form.role,
+        });
+        toast.success(locale === "ar" ? "تم إضافة المستخدم" : "User added successfully");
+      }
+      
       setDialogOpen(false);
       resetForm();
       await loadUsers();
     } catch (error) {
       toast.error(
-        extractErrorMessage(error, locale === "ar" ? "فشل تحديث المستخدم" : "Failed to update user")
+        extractErrorMessage(error, locale === "ar" ? "فشل حفظ المستخدم" : "Failed to save user")
       );
     } finally {
       setIsSaving(false);
@@ -150,7 +157,6 @@ export default function UsersPage() {
     try {
       await usersService.remove(user.id);
 
-      // DELETE is often a soft-delete (deactivate). Reflect immediately in UI.
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
       toast.success(locale === "ar" ? "تم حذف المستخدم" : "User deleted");
     } catch (error) {
@@ -185,13 +191,13 @@ export default function UsersPage() {
             }}
           >
             <DialogTrigger asChild>
-              <Button className="gap-2" disabled>
+              <Button className="gap-2" onClick={resetForm}>
                 <Plus className="h-4 w-4" /> {locale === "ar" ? "إضافة مستخدم" : "Add User"}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{locale === "ar" ? "تعديل المستخدم" : "Edit User"}</DialogTitle>
+                <DialogTitle>{editId ? (locale === "ar" ? "تعديل المستخدم" : "Edit User") : (locale === "ar" ? "إضافة مستخدم جديد" : "Add New User")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <Input
@@ -204,6 +210,14 @@ export default function UsersPage() {
                   value={form.email}
                   onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
                 />
+                {!editId && (
+                  <Input
+                    type="password"
+                    placeholder={locale === "ar" ? "كلمة المرور (٨ أحرف كحد أدنى)" : "Password (min 8 chars)"}
+                    value={form.password}
+                    onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                  />
+                )}
                 <Input
                   placeholder={t("phone")}
                   value={form.phone}
@@ -220,7 +234,7 @@ export default function UsersPage() {
                   <option value="ADMIN">ADMIN</option>
                   <option value="SUPER_ADMIN">SUPER_ADMIN</option>
                 </select>
-                <Button className="w-full" onClick={handleSave} disabled={!editId || isSaving}>
+                <Button className="w-full" onClick={handleSave} disabled={isSaving}>
                   {isSaving ? (locale === "ar" ? "جارٍ الحفظ..." : "Saving...") : t("save")}
                 </Button>
               </div>
