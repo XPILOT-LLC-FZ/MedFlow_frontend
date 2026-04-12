@@ -209,6 +209,113 @@ export interface DashboardAdminTopDoctor {
   appointmentsCount: number;
 }
 
+export interface DashboardAdminInventoryModule {
+  summaryCards: {
+    totalItems: number;
+    lowStock: number;
+    outOfStock: number;
+  };
+  needsRestockingCount: number;
+  itemsNeedingRestock: Array<{
+    itemId: string;
+    itemName: string;
+    quantity: number;
+    minQuantity: number;
+    status: StockStatus;
+    hasPendingRequest: boolean;
+  }>;
+  restockAdvisor: {
+    attentionCount: number;
+    pendingRequests: number;
+    generatedMessage: string;
+    suppliers: Array<{
+      supplierName: string;
+      totalEstimated: number;
+      itemsCount: number;
+      items: Array<{
+        itemId: string;
+        itemName: string;
+        currentStock: number;
+        minQuantity: number;
+        recommendedQuantity: number;
+        estimatedTotal: number;
+        status: StockStatus;
+      }>;
+    }>;
+  };
+}
+
+export interface DashboardAdminServicesModule {
+  summaryCards: {
+    totalServices: number;
+    activeServices: number;
+    inactiveServices: number;
+    averagePrice: number;
+  };
+  catalog: Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: ApiService["category"];
+    price: number;
+    durationMinutes: number;
+    requiresSessions: boolean;
+    totalSessions: number | null;
+    isActive: boolean;
+  }>;
+}
+
+export interface DashboardAdminStaffAvailabilityModule {
+  summaryCards: {
+    activeDoctors: number;
+    configuredShifts: number;
+    totalDoctors: number;
+    totalAppointments: number;
+  };
+  peakConsultationHours: Array<{
+    name: string;
+    count: number;
+  }>;
+  doctorSchedules: Array<{
+    doctorId: string;
+    fullName: string;
+    specialization: string;
+    status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+    appointmentsCount: number;
+    configuredDays: number[];
+  }>;
+}
+
+export interface DashboardAdminStaffPerformanceModule {
+  summaryCards: {
+    totalProviders: number;
+    patientsSeen: number;
+    avgSatisfaction: number | null;
+    totalRevenue: number;
+  };
+  providerRevenue: Array<{
+    name: string;
+    revenue: number;
+    patients: number;
+  }>;
+  providers: Array<{
+    doctorId: string;
+    fullName: string;
+    specialization: string;
+    status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+    patientsSeen: number;
+    avgDurationMinutes: number | null;
+    revenue: number;
+    surveysCount: number;
+    avgSatisfaction: number | null;
+    completionRate: number;
+    noShowRate: number;
+    alerts: {
+      highNoShow: boolean;
+    };
+  }>;
+}
+
 export interface DashboardAdminSummaryData {
   summaryCards: {
     totalAppointments: number;
@@ -223,6 +330,10 @@ export interface DashboardAdminSummaryData {
     monthlyRevenue: Array<{ name: string; revenue: number }>;
   };
   topDoctors: DashboardAdminTopDoctor[];
+  inventory?: DashboardAdminInventoryModule;
+  services?: DashboardAdminServicesModule;
+  staffAvailability?: DashboardAdminStaffAvailabilityModule;
+  staffPerformance?: DashboardAdminStaffPerformanceModule;
 }
 
 export interface DashboardStaffQueueItem {
