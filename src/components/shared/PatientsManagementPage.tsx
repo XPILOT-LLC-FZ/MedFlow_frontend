@@ -47,6 +47,7 @@ type Mode = "admin" | "reception";
 
 type Props = {
   mode: Mode;
+  hideTopSummary?: boolean;
 };
 
 const emptyForm = {
@@ -123,7 +124,7 @@ const renderPortalStatus = (patient: ApiPatient, locale: string) => {
   };
 };
 
-export function PatientsManagementPage({ mode }: Props) {
+export function PatientsManagementPage({ mode, hideTopSummary = false }: Props) {
   const { locale } = useTranslation();
   const { doctors, fetchDoctors } = useStaffStore();
   const toast = useToastStore();
@@ -378,29 +379,30 @@ export function PatientsManagementPage({ mode }: Props) {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <PageHeader
-        title={title}
-        description={description}
-        action={
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) setForm(getInitialForm(mode));
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                {locale === "ar" ? "إضافة مريض" : "Add Patient"}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
-              <DialogHeader>
-                <DialogTitle>{locale === "ar" ? "تسجيل مريض جديد" : "Register New Patient"}</DialogTitle>
-              </DialogHeader>
+      {!hideTopSummary && (
+        <PageHeader
+          title={title}
+          description={description}
+          action={
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) setForm(getInitialForm(mode));
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  {locale === "ar" ? "إضافة مريض" : "Add Patient"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>{locale === "ar" ? "تسجيل مريض جديد" : "Register New Patient"}</DialogTitle>
+                </DialogHeader>
 
-              <div className="space-y-3 mt-2">
+                <div className="space-y-3 mt-2">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">{locale === "ar" ? "الاسم الكامل" : "Full Name"}</label>
                   <Input
@@ -522,59 +524,62 @@ export function PatientsManagementPage({ mode }: Props) {
                   )}
                 </div>
 
-                <Button className="w-full" disabled={isSaving} onClick={() => void handleCreatePatient()}>
-                  {isSaving
-                    ? locale === "ar"
-                      ? "جار الحفظ..."
-                      : "Saving..."
-                    : locale === "ar"
-                      ? "حفظ المريض"
-                      : "Save Patient"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        }
-      />
+                  <Button className="w-full" disabled={isSaving} onClick={() => void handleCreatePatient()}>
+                    {isSaving
+                      ? locale === "ar"
+                        ? "جار الحفظ..."
+                        : "Saving..."
+                      : locale === "ar"
+                        ? "حفظ المريض"
+                        : "Save Patient"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          }
+        />
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{locale === "ar" ? "إجمالي المرضى" : "Total Patients"}</p>
-              <p className="text-2xl font-semibold">{stats.total}</p>
-            </div>
-            <UserRound className="h-5 w-5 text-primary" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{locale === "ar" ? "مع حساب" : "Portal Accounts"}</p>
-              <p className="text-2xl font-semibold">{stats.withPortal}</p>
-            </div>
-            <UserRoundCheck className="h-5 w-5 text-primary" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{locale === "ar" ? "بانتظار الإعداد" : "Onboarding Pending"}</p>
-              <p className="text-2xl font-semibold">{stats.onboardingPending}</p>
-            </div>
-            <ClipboardCheck className="h-5 w-5 text-primary" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{locale === "ar" ? "VIP ذهبي+" : "VIP Gold+"}</p>
-              <p className="text-2xl font-semibold">{stats.goldAndUp}</p>
-            </div>
-            <Stethoscope className="h-5 w-5 text-primary" />
-          </CardContent>
-        </Card>
-      </div>
+      {!hideTopSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{locale === "ar" ? "إجمالي المرضى" : "Total Patients"}</p>
+                <p className="text-2xl font-semibold">{stats.total}</p>
+              </div>
+              <UserRound className="h-5 w-5 text-primary" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{locale === "ar" ? "مع حساب" : "Portal Accounts"}</p>
+                <p className="text-2xl font-semibold">{stats.withPortal}</p>
+              </div>
+              <UserRoundCheck className="h-5 w-5 text-primary" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{locale === "ar" ? "بانتظار الإعداد" : "Onboarding Pending"}</p>
+                <p className="text-2xl font-semibold">{stats.onboardingPending}</p>
+              </div>
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{locale === "ar" ? "VIP ذهبي+" : "VIP Gold+"}</p>
+                <p className="text-2xl font-semibold">{stats.goldAndUp}</p>
+              </div>
+              <Stethoscope className="h-5 w-5 text-primary" />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">

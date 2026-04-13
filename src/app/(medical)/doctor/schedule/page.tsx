@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Save, RefreshCcw, CalendarDays } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Save, RefreshCcw, CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useBookingStore } from "@/stores/useBookingStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { staffService } from "@/services/staffService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
-import type { ApiService, DoctorShift } from "@/types";
+import type { ApiService, Appointment, DoctorShift } from "@/types";
 
 const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLabelsAr = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -134,11 +135,32 @@ export default function SchedulePage() {
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { fetchDoctors } = useStaffStore();
+  const { appointments, fetchAppointments, addAppointment } = useBookingStore();
   const { success, error } = useToastStore();
 
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [doctorName, setDoctorName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [scheduleSearch, setScheduleSearch] = useState("");
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [showConfirmed, setShowConfirmed] = useState(true);
+  const [showPending, setShowPending] = useState(true);
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false);
+  const [isSubmittingAppointment, setIsSubmittingAppointment] = useState(false);
+  const [visitTypeOpen, setVisitTypeOpen] = useState(false);
+  const [durationOpen, setDurationOpen] = useState(false);
+  const [newAppointmentForm, setNewAppointmentForm] = useState({
+    patientName: "",
+    age: "",
+    phoneNumber: "",
+    date: "",
+    time: "",
+    visitType: "New patient",
+    duration: "30",
+    reason: "",
+  });
   const [availabilityDate, setAvailabilityDate] = useState<string>(
     new Date().toISOString().split("T")[0],
   );
@@ -177,7 +199,7 @@ export default function SchedulePage() {
   const initialize = useCallback(async () => {
     setIsLoading(true);
     try {
-      await fetchDoctors();
+      await Promise.all([fetchDoctors(), fetchAppointments()]);
       const doctors = useStaffStore.getState().doctors;
       const doctor = doctors.find((entry) =>
         entry.userId === user?.id ||
@@ -192,6 +214,7 @@ export default function SchedulePage() {
       }
 
       setDoctorId(doctor.id);
+      setDoctorName(doctor.fullName ?? user?.name ?? null);
 
       const [fetchedShifts, fetchedServices] = await Promise.all([
         staffService.getDoctorShifts(doctor.id),
@@ -205,7 +228,7 @@ export default function SchedulePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [error, fetchDoctors, locale, user?.email, user?.id]);
+  }, [error, fetchAppointments, fetchDoctors, locale, user?.email, user?.id, user?.name]);
 
   useEffect(() => {
     void initialize();
@@ -264,8 +287,227 @@ export default function SchedulePage() {
     }
   };
 
+  const resetAppointmentForm = () => {
+    setNewAppointmentForm({
+      patientName: "",
+      age: "",
+      phoneNumber: "",
+      date: "",
+      time: "",
+      visitType: "New patient",
+      duration: "30",
+      reason: "",
+    });
+  };
+
+  const handleCreateAppointment = async () => {
+    if (!doctorId) {
+      error(locale === "ar" ? "ملف الطبيب غير متاح" : "Doctor profile is not available");
+      return;
+    }
+    if (!newAppointmentForm.patientName.trim() || !newAppointmentForm.date || !newAppointmentForm.time) {
+      error(locale === "ar" ? "الرجاء إدخال اسم المريض والتاريخ والوقت" : "Please enter patient name, date, and time");
+      return;
+    }
+
+    setIsSubmittingAppointment(true);
+    try {
+      await addAppointment({
+        patientName: newAppointmentForm.patientName.trim(),
+        patientId: newAppointmentForm.phoneNumber.trim() || `guest-${Date.now()}`,
+        doctorId,
+        doctorName: doctorName || user?.name || "Doctor",
+        date: newAppointmentForm.date,
+        time: newAppointmentForm.time,
+        status: "scheduled",
+        type: newAppointmentForm.visitType,
+        specialty: "General Consultation",
+        notes: `${newAppointmentForm.reason.trim()}${newAppointmentForm.age ? ` | Age: ${newAppointmentForm.age}` : ""}${newAppointmentForm.phoneNumber ? ` | Phone: ${newAppointmentForm.phoneNumber}` : ""}${newAppointmentForm.duration ? ` | Duration: ${newAppointmentForm.duration} min` : ""}`,
+      });
+      await fetchAppointments();
+      success(locale === "ar" ? "تمت إضافة الموعد بنجاح" : "Appointment added successfully");
+      setShowAddAppointmentModal(false);
+      resetAppointmentForm();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to add appointment";
+      error(message);
+    } finally {
+      setIsSubmittingAppointment(false);
+    }
+  };
+
+  const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
+  const timelineDates = useMemo(() => {
+    return Array.from({ length: 9 }).map((_, index) => {
+      const date = new Date(selectedDate);
+      date.setDate(selectedDate.getDate() - 7 + index);
+      return date;
+    });
+  }, [selectedDate]);
+
+  const doctorAppointments = useMemo(() => {
+    const aliases = new Set(
+      [doctorName, user?.name].filter((value): value is string => Boolean(value))
+    );
+    return appointments.filter((appointment) => {
+      return appointment.doctorId === doctorId || aliases.has(appointment.doctorName);
+    });
+  }, [appointments, doctorId, doctorName, user?.name]);
+
+  const dayAppointments = useMemo(() => {
+    const query = scheduleSearch.trim().toLowerCase();
+    return doctorAppointments
+      .filter((appointment) => appointment.date.slice(0, 10) === dateKey)
+      .filter((appointment) => {
+        if (!query) return true;
+        return (
+          appointment.patientName.toLowerCase().includes(query) ||
+          appointment.type.toLowerCase().includes(query) ||
+          (appointment.notes || "").toLowerCase().includes(query)
+        );
+      })
+      .filter((appointment) => {
+        if ((appointment.status === "confirmed" || appointment.status === "completed") && showConfirmed) return true;
+        if (
+          (appointment.status === "scheduled" || appointment.status === "in-progress" || appointment.status === "rescheduled") &&
+          showPending
+        ) return true;
+        if ((appointment.status === "cancelled" || appointment.status === "no-show") && showCancelled) return true;
+        return false;
+      })
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [dateKey, doctorAppointments, scheduleSearch, showCancelled, showConfirmed, showPending]);
+
+  const completedCount = dayAppointments.filter((appointment) => appointment.status === "completed").length;
+  const remainingCount = Math.max(0, dayAppointments.length - completedCount);
+
+  const getStatusTag = (appointment: Appointment) => {
+    if (appointment.status === "completed" || appointment.status === "confirmed") {
+      return { label: locale === "ar" ? "مؤكد" : "Confirmed", className: "bg-emerald-50 text-emerald-600" };
+    }
+    if (appointment.status === "cancelled" || appointment.status === "no-show") {
+      return { label: locale === "ar" ? "ملغي" : "Cancelled", className: "bg-slate-100 text-slate-500" };
+    }
+    return { label: locale === "ar" ? "متابعة" : "Follow-up", className: "bg-blue-50 text-blue-600" };
+  };
+
   return (
     <div className="space-y-6 max-w-7xl">
+      <section className="space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="flex items-center gap-2 text-[24px] font-semibold text-slate-900">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600">
+              <CalendarDays className="h-4 w-4" />
+            </span>
+            {locale === "ar" ? "المواعيد" : "Appointments"}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {locale === "ar" ? "إدارة جدولك اليومي" : "Manage your daily schedule"}
+          </p>
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder={
+                locale === "ar"
+                  ? "ابحث عن المواعيد باسم المريض أو الهاتف أو السبب..."
+                  : "Search appointments by patient name, phone, or reason..."
+              }
+              value={scheduleSearch}
+              onChange={(event) => setScheduleSearch(event.target.value)}
+              className="h-10 border-slate-200 pl-10"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <div className="space-y-3 xl:col-span-9">
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="grid grid-cols-9 items-center text-center text-xs text-slate-500">
+                {timelineDates.map((slot) => {
+                  const isActive = slot.toISOString().slice(0, 10) === dateKey;
+                  return (
+                    <button
+                      key={slot.toISOString()}
+                      type="button"
+                      onClick={() => setSelectedDate(slot)}
+                      className={`mx-0.5 rounded-lg py-2 ${isActive ? "bg-blue-600 text-white" : "hover:bg-slate-50"}`}
+                    >
+                      <p className="text-[10px]">{slot.toLocaleDateString("en-US", { weekday: "short" })}</p>
+                      <p className="text-lg font-semibold leading-5">{slot.getDate()}</p>
+                      <p className={`text-[10px] ${isActive ? "text-blue-100" : "text-slate-400"}`}>
+                        {slot.toLocaleDateString("en-US", { month: "short" })}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {dayAppointments.length === 0 && (
+                <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+                  {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments for this day"}
+                </p>
+              )}
+              {dayAppointments.map((item, index) => {
+                const statusTag = getStatusTag(item);
+                return (
+                <div key={item.id} className="grid grid-cols-[72px_1fr] gap-2">
+                  <p className="pt-4 text-[11px] font-medium text-slate-400">{item.time}</p>
+                  <article className={`rounded-xl border p-3 ${index === 2 ? "border-blue-300 bg-[linear-gradient(135deg,rgba(219,234,254,0.8),rgba(255,255,255,0.9))]" : "border-slate-200 bg-white"}`}>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-800">{item.patientName}</p>
+                        <p className="text-xs text-slate-500">{item.specialty}</p>
+                      </div>
+                      <MoreVertical className="h-4 w-4 text-slate-400" />
+                    </div>
+                    <div className="mt-2 space-y-1 text-xs text-slate-500">
+                      <p className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{item.time} • 30 min</p>
+                      <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{item.patientId}</p>
+                    </div>
+                    <p className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTag.className}`}>{statusTag.label}</p>
+                    <p className="mt-2 text-xs text-slate-500">Reason: {item.type}</p>
+                  </article>
+                </div>
+              )})}
+            </div>
+          </div>
+
+          <aside className="space-y-3 xl:col-span-3">
+            <section className="rounded-xl border border-slate-200 bg-white p-3">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                <Funnel className="h-3.5 w-3.5 text-sky-500" />
+                {locale === "ar" ? "فلاتر سريعة" : "Quick Filters"}
+              </p>
+              <div className="mt-2.5 space-y-2">
+                <label className="flex items-center justify-between rounded-md bg-emerald-50 px-2.5 py-2 text-xs"><span>{locale === "ar" ? "مؤكد" : "Confirmed"}</span><input type="checkbox" checked={showConfirmed} onChange={(event) => setShowConfirmed(event.target.checked)} /></label>
+                <label className="flex items-center justify-between rounded-md bg-amber-50 px-2.5 py-2 text-xs"><span>{locale === "ar" ? "معلق" : "Pending"}</span><input type="checkbox" checked={showPending} onChange={(event) => setShowPending(event.target.checked)} /></label>
+                <label className="flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-2 text-xs"><span>{locale === "ar" ? "ملغي" : "Cancelled"}</span><input type="checkbox" checked={showCancelled} onChange={(event) => setShowCancelled(event.target.checked)} /></label>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_-20px_rgba(30,64,175,0.55)]">
+              <p className="text-sm font-semibold text-slate-800">{locale === "ar" ? "ملخص اليوم" : "Today's Summary"}</p>
+              <div className="mt-2.5 space-y-1.5 text-xs text-slate-600">
+                <div className="flex items-center justify-between"><span>{locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"}</span><span className="font-semibold">{dayAppointments.length}</span></div>
+                <div className="flex items-center justify-between"><span>{locale === "ar" ? "مكتمل" : "Completed"}</span><span className="font-semibold text-emerald-600">{completedCount}</span></div>
+                <div className="flex items-center justify-between"><span>{locale === "ar" ? "متبقي" : "Remaining"}</span><span className="font-semibold text-sky-600">{remainingCount}</span></div>
+              </div>
+            </section>
+
+            <button
+              type="button"
+              aria-label="Add appointment"
+              onClick={() => setShowAddAppointmentModal(true)}
+              className="fixed right-6 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-2xl bg-[#1d72f3] text-white shadow-[0_14px_30px_-12px_rgba(29,114,243,0.9)] transition-all hover:bg-[#1867df] hover:shadow-[0_16px_34px_-12px_rgba(24,103,223,0.95)] active:scale-95"
+            >
+              <Plus className="h-5 w-5 stroke-[2.5]" />
+            </button>
+          </aside>
+        </div>
+      </section>
+
       <PageHeader
         title={t("schedule")}
         description={locale === "ar" ? "إدارة جدولك الأسبوعي" : "Manage your weekly schedule"}
@@ -439,6 +681,180 @@ export default function SchedulePage() {
           </div>
         </CardContent>
       </Card>
+
+      {showAddAppointmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <h3 className="flex items-center gap-2 text-2xl font-semibold text-slate-800">
+                <CalendarDays className="h-5 w-5 text-blue-600" />
+                {locale === "ar" ? "إضافة موعد جديد" : "Add New Appointment"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddAppointmentModal(false)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-6 py-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "اسم المريض" : "Patient Name"}</label>
+                  <Input
+                    value={newAppointmentForm.patientName}
+                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, patientName: event.target.value }))}
+                    placeholder={locale === "ar" ? "ادخل اسم المريض" : "Enter patient name"}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "العمر" : "Age"}</label>
+                  <Input
+                    value={newAppointmentForm.age}
+                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, age: event.target.value }))}
+                    placeholder={locale === "ar" ? "ادخل العمر" : "Enter age"}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "رقم الهاتف" : "Phone Number"}</label>
+                <Input
+                  value={newAppointmentForm.phoneNumber}
+                  onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "التاريخ" : "Date"}</label>
+                  <Input
+                    type="date"
+                    value={newAppointmentForm.date}
+                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, date: event.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "الوقت" : "Time"}</label>
+                  <Input
+                    type="time"
+                    value={newAppointmentForm.time}
+                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, time: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "نوع الزيارة" : "Visit Type"}</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVisitTypeOpen((prev) => !prev);
+                        setDurationOpen(false);
+                      }}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <span>{newAppointmentForm.visitType}</span>
+                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                    </button>
+                    {visitTypeOpen && (
+                      <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                        {["New patient", "Follow up", "Emergency", "Consultation"].map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setNewAppointmentForm((prev) => ({ ...prev, visitType: option }));
+                              setVisitTypeOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                          >
+                            <span className="w-4">
+                              {newAppointmentForm.visitType === option ? <Check className="h-4 w-4" /> : null}
+                            </span>
+                            <span>{option}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "المدة (بالدقائق)" : "Duration (minutes)"}</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDurationOpen((prev) => !prev);
+                        setVisitTypeOpen(false);
+                      }}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <span>{`${newAppointmentForm.duration} minutes`}</span>
+                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                    </button>
+                    {durationOpen && (
+                      <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                        {["10", "20", "30", "40", "50", "60"].map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => {
+                              setNewAppointmentForm((prev) => ({ ...prev, duration: option }));
+                              setDurationOpen(false);
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                          >
+                            <span className="w-4">
+                              {newAppointmentForm.duration === option ? <Check className="h-4 w-4" /> : null}
+                            </span>
+                            <span>{option} minutes</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "سبب الزيارة" : "Reason for Visit"}</label>
+                <textarea
+                  value={newAppointmentForm.reason}
+                  onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, reason: event.target.value }))}
+                  placeholder={locale === "ar" ? "ادخل سبب الزيارة" : "Enter reason for visit"}
+                  className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 px-6 pb-6 pt-1">
+              <Button
+                variant="secondary"
+                className="h-11 flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300"
+                onClick={() => setShowAddAppointmentModal(false)}
+                disabled={isSubmittingAppointment}
+              >
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button
+                className="h-11 flex-1 bg-blue-600 hover:bg-blue-700"
+                onClick={() => void handleCreateAppointment()}
+                disabled={isSubmittingAppointment}
+              >
+                {isSubmittingAppointment
+                  ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...")
+                  : (locale === "ar" ? "إضافة موعد" : "Add Appointment")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

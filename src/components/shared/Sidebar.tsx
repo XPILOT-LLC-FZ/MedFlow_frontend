@@ -2,17 +2,17 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
-  Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles
+  Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles,
+  LogOut, Activity
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
-import { BrandLogo } from "@/components/shared/BrandLogo";
 import type { Role } from "@/types";
 
 interface NavItem {
@@ -43,10 +43,11 @@ const navByRole: Record<Role, NavItem[]> = {
   ],
   DOCTOR: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/doctor/dashboard", icon: LayoutDashboard },
-    { label: "Schedule", labelAr: "الجدول", href: "/doctor/schedule", icon: Calendar },
-    { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: ClipboardList },
-    { label: "Treatment Timelines", labelAr: "الخطط العلاجية", href: "/doctor/treatment-timelines", icon: FileText },
-    { label: "Profile", labelAr: "الملف الشخصي", href: "/doctor/profile", icon: User },
+    { label: "My Schedule", labelAr: "جدولي", href: "/doctor/schedule", icon: Calendar },
+    { label: "Patients", labelAr: "المرضى", href: "/doctor/patients", icon: Users },
+    { label: "Analytics", labelAr: "التحليلات", href: "/doctor/treatment-timelines", icon: Activity },
+    { label: "Settings", labelAr: "الإعدادات", href: "/doctor/profile", icon: Settings },
+    { label: "Logout", labelAr: "تسجيل الخروج", href: "/logout", icon: LogOut },
   ],
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
@@ -64,14 +65,44 @@ const navByRole: Record<Role, NavItem[]> = {
 };
 
 export function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const { sidebarOpen, setSidebarOpen } = useStore();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { t, locale, isRTL } = useTranslation();
 
   // Use the authenticated user's role; fall back to PATIENT
   const role = user?.role ?? "PATIENT";
   const items = navByRole[role];
+  const isDoctorSidebar = role === "DOCTOR";
+  const doctorName = user?.name || "Dr. Sarah Mitchell";
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
+  const renderLogo = () => {
+    if (isDoctorSidebar) {
+      return (
+        <Link href="/doctor/dashboard" className="flex items-center gap-2">
+          <span className="text-base font-semibold tracking-tight text-slate-900">
+            Clinic
+            <span className="text-blue-600">Flow</span>
+          </span>
+        </Link>
+      );
+    }
+
+    return (
+      <Link href="/main" className="flex items-center">
+        <span className="text-base font-semibold tracking-tight text-slate-900">
+          Med
+          <span className="text-blue-600">Flow</span>
+        </span>
+      </Link>
+    );
+  };
 
   return (
     <>
@@ -91,7 +122,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <motion.aside
         className={cn(
-          "fixed top-0 z-50 h-full w-64 border-r bg-sidebar-bg text-sidebar-fg flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto",
+          "fixed top-0 z-50 h-full w-64 border-r bg-white text-sidebar-fg flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto",
           isRTL ? "right-0 border-l border-r-0" : "left-0",
           sidebarOpen
             ? "translate-x-0"
@@ -101,54 +132,81 @@ export function Sidebar() {
         )}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
-          <Link href="/main" className="flex items-center">
-            <BrandLogo
-              iconClassName="h-9 w-9 rounded-xl"
-              textClassName="text-base"
-              captionClassName="text-[9px] tracking-[0.22em]"
-              showCaption
-            />
-          </Link>
+        <div className={cn("flex items-center justify-between h-16 px-5 border-b border-slate-100", isDoctorSidebar && "h-[72px]")}>
+          {renderLogo()}
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-muted">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+        <nav className={cn("flex-1 overflow-y-auto p-3 space-y-1", isDoctorSidebar && "px-3 py-4")}>
           {items.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
+            const isLogout = isDoctorSidebar && item.label === "Logout";
+            const isSettings = isDoctorSidebar && item.label === "Settings";
             return (
-              <Link
-                key={`${role}:${item.href}:${item.label}`}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{locale === "ar" ? item.labelAr : item.label}</span>
-              </Link>
+              isLogout ? (
+                <button
+                  key={`${role}:${item.href}:${item.label}`}
+                  type="button"
+                  onClick={async () => {
+                    setSidebarOpen(false);
+                    await handleLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-rose-500 hover:bg-rose-50"
+                >
+                  <Icon className="h-[17px] w-[17px] shrink-0" />
+                  <span>{locale === "ar" ? item.labelAr : item.label}</span>
+                </button>
+              ) : (
+                <Link
+                  key={`${role}:${item.href}:${item.label}`}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                    isDoctorSidebar && "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    isDoctorSidebar && isActive && "bg-blue-600 text-white shadow-none",
+                    isDoctorSidebar && isSettings && !isActive && "text-slate-500"
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4 shrink-0", isDoctorSidebar && "h-[17px] w-[17px]")} />
+                  <span>{locale === "ar" ? item.labelAr : item.label}</span>
+                </Link>
+              )
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-sidebar-border">
-          <Link
-            href="/"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <Settings className="h-4 w-4" />
-            <span>{t("settings")}</span>
-          </Link>
-        </div>
+        {isDoctorSidebar ? (
+          <div className="p-3 border-t border-slate-100">
+            <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-600">
+                {doctorName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">{doctorName}</p>
+                <p className="truncate text-xs text-slate-500">Cardiologist</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 border-t border-sidebar-border">
+            <Link
+              href="/"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+              <span>{t("settings")}</span>
+            </Link>
+          </div>
+        )}
       </motion.aside>
     </>
   );
