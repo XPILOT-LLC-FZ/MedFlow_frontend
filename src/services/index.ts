@@ -9,5 +9,7 @@ export { paymentService } from "./paymentService";
 export { fileService } from "./fileService";
 export { inventoryService } from "./inventoryService";
 export { bookingService } from "./bookingService";
+export { treatmentPlanService } from "./treatmentPlanService";
+export { surveyService } from "./surveyService";
 export { chatService } from "./chatService";
 export { userService } from "./userService";

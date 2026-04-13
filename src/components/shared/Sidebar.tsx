@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
-  Package, BarChart3, Clock, FileText, Settings, X, MessageSquare
+  Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -27,6 +27,8 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/dashboard", icon: LayoutDashboard },
     { label: "AI Chat", labelAr: "المساعد الذكي", href: "/chat", icon: MessageSquare },
     { label: "Appointments", labelAr: "المواعيد", href: "/appointments", icon: Calendar },
+    { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/smart-scheduler", icon: Sparkles },
+    { label: "Feedback", labelAr: "التقييمات", href: "/feedback", icon: FileText },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/profile", icon: User },
   ],
   ADMIN: [
@@ -43,12 +45,14 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/doctor/dashboard", icon: LayoutDashboard },
     { label: "Schedule", labelAr: "الجدول", href: "/doctor/schedule", icon: Calendar },
     { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: ClipboardList },
+    { label: "Treatment Timelines", labelAr: "الخطط العلاجية", href: "/doctor/treatment-timelines", icon: FileText },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/doctor/profile", icon: User },
   ],
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
     { label: "Patients", labelAr: "المرضى", href: "/reception/patients", icon: User },
     { label: "Booking", labelAr: "الحجز", href: "/reception/booking", icon: Calendar },
+    { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/reception/smart-scheduler", icon: Sparkles },
     { label: "Waiting Room", labelAr: "غرفة الانتظار", href: "/reception/waiting-room", icon: Clock },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/reception/profile", icon: User },
   ],
@@ -118,7 +122,7 @@ export function Sidebar() {
             const Icon = item.icon;
             return (
               <Link
-                key={item.href}
+                key={`${role}:${item.href}:${item.label}`}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(

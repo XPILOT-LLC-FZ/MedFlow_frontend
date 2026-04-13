@@ -186,6 +186,135 @@ export interface AppointmentSummaryResponse {
   savedAt?: string;
 }
 
+export interface SmartRecommendation {
+  doctorId: string;
+  doctorName: string;
+  specialization: string | null;
+  date: string;
+  startTime: string;
+  score: number;
+  activeLoad: number;
+  continuityVisits: number;
+  reasons: string[];
+}
+
+export interface SmartRecommendationsResponse {
+  generatedAt: string;
+  horizonDays: number;
+  recommendations: SmartRecommendation[];
+}
+
+export type TreatmentPlanStatus = "ACTIVE" | "COMPLETED" | "PAUSED" | "CANCELLED";
+
+export interface TreatmentMilestone {
+  title: string;
+  dueDate?: string;
+  completed?: boolean;
+  notes?: string;
+}
+
+export interface ApiTreatmentPlan {
+  id: string;
+  patientId?: string | null;
+  patientName: string;
+  doctorId?: string | null;
+  doctorName?: string | null;
+  serviceName?: string | null;
+  title: string;
+  description?: string | null;
+  totalSessions: number;
+  completedSessions: number;
+  startDate?: string | null;
+  status: TreatmentPlanStatus;
+  milestones?: TreatmentMilestone[] | null;
+  predictedOutcome?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  patient?: {
+    id: string;
+    fullName: string;
+    clinicId?: string | null;
+  } | null;
+  doctor?: {
+    id: string;
+    fullName: string;
+    user?: {
+      clinicId?: string | null;
+    } | null;
+  } | null;
+}
+
+export interface CreateTreatmentPlanPayload {
+  patientId: string;
+  doctorId?: string;
+  serviceName?: string;
+  title: string;
+  description?: string;
+  totalSessions?: number;
+  startDate?: string;
+  status?: TreatmentPlanStatus;
+  milestones?: TreatmentMilestone[];
+  predictedOutcome?: string;
+}
+
+export interface UpdateTreatmentPlanPayload {
+  doctorId?: string;
+  serviceName?: string;
+  title?: string;
+  description?: string;
+  totalSessions?: number;
+  completedSessions?: number;
+  startDate?: string;
+  status?: TreatmentPlanStatus;
+  milestones?: TreatmentMilestone[];
+  predictedOutcome?: string;
+}
+
+export interface TreatmentPlanListFilters {
+  patientId?: string;
+  doctorId?: string;
+  status?: TreatmentPlanStatus;
+}
+
+export type SurveyStatus = "PENDING" | "COMPLETED";
+
+export interface ApiSurvey {
+  id: string;
+  patientId?: string | null;
+  patientName?: string | null;
+  appointmentId?: string | null;
+  doctorName?: string | null;
+  overallSatisfaction?: number | null;
+  doctorRating?: number | null;
+  wouldRecommend?: boolean | null;
+  feedback?: string | null;
+  status: SurveyStatus;
+  createdAt: string;
+  appointment?: {
+    id: string;
+    date: string;
+    startTime: string;
+    serviceName?: string | null;
+    doctorName?: string | null;
+  } | null;
+}
+
+export interface RequestSurveyPayload {
+  appointmentId: string;
+}
+
+export interface RequestSurveyResponse {
+  created: boolean;
+  survey: ApiSurvey;
+}
+
+export interface SubmitSurveyPayload {
+  overallSatisfaction: number;
+  doctorRating: number;
+  wouldRecommend: boolean;
+  feedback?: string;
+}
+
 export interface DashboardRange {
   startDate: string;
   endDate: string;

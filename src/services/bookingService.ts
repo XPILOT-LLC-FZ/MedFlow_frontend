@@ -7,6 +7,7 @@ import type {
   ApiAppointment,
   AppointmentSummaryResponse,
   RescheduleAppointmentPayload,
+  SmartRecommendationsResponse,
   UpsertMedicalSummaryPayload,
 } from "@/types";
 
@@ -84,6 +85,64 @@ export const bookingService = {
     }
 
     return [];
+  },
+
+  async getSmartRecommendations(options?: {
+    patientId?: string;
+    doctorId?: string;
+    serviceId?: string;
+    durationMinutes?: number;
+    horizonDays?: number;
+    limit?: number;
+  }): Promise<SmartRecommendationsResponse> {
+    const params = new URLSearchParams();
+
+    if (options?.patientId) params.set("patientId", options.patientId);
+    if (options?.doctorId) params.set("doctorId", options.doctorId);
+    if (options?.serviceId) params.set("serviceId", options.serviceId);
+
+    if (
+      typeof options?.durationMinutes === "number" &&
+      Number.isFinite(options.durationMinutes)
+    ) {
+      params.set("durationMinutes", String(options.durationMinutes));
+    }
+
+    if (
+      typeof options?.horizonDays === "number" &&
+      Number.isFinite(options.horizonDays)
+    ) {
+      params.set("horizonDays", String(options.horizonDays));
+    }
+
+    if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+      params.set("limit", String(options.limit));
+    }
+
+    const response = await apiClient.get<unknown>(
+      `/appointments/smart-recommendations?${params.toString()}`,
+    );
+
+    if (response && typeof response === "object") {
+      const payload = response as Partial<SmartRecommendationsResponse>;
+      return {
+        generatedAt:
+          typeof payload.generatedAt === "string"
+            ? payload.generatedAt
+            : new Date().toISOString(),
+        horizonDays:
+          typeof payload.horizonDays === "number" ? payload.horizonDays : 7,
+        recommendations: Array.isArray(payload.recommendations)
+          ? payload.recommendations
+          : [],
+      };
+    }
+
+    return {
+      generatedAt: new Date().toISOString(),
+      horizonDays: 7,
+      recommendations: [],
+    };
   },
 
   async getStats() {

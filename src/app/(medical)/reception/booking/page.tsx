@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock, Search, UserRoundPlus } from "lucide-react";
+import { CheckCircle2, Clock, Search, Sparkles, UserRoundPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { useToastStore } from "@/stores/useToastStore";
 import { bookingService } from "@/services/bookingService";
 import { patientService } from "@/services/patientService";
 import { formatDateKey } from "@/lib/dateUtils";
-import type { ApiPatient, CreatePatientPayload } from "@/types";
+import type { ApiPatient, CreatePatientPayload, SmartRecommendation } from "@/types";
 
 export default function BookingPage() {
   const searchParams = useSearchParams();
@@ -32,6 +32,8 @@ export default function BookingPage() {
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [smartRecommendations, setSmartRecommendations] = useState<SmartRecommendation[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
 
   const [patientSearch, setPatientSearch] = useState("");
   const [patientResults, setPatientResults] = useState<ApiPatient[]>([]);
@@ -41,9 +43,12 @@ export default function BookingPage() {
   const [patientName, setPatientName] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
   const [patientEmail, setPatientEmail] = useState("");
+  const prefilledScheduleAppliedRef = useRef(false);
 
   const prefilledPatientId = searchParams.get("patientId");
   const prefilledDoctorId = searchParams.get("doctorId");
+  const prefilledDate = searchParams.get("date");
+  const prefilledTime = searchParams.get("time");
 
   useEffect(() => {
     void fetchDoctors();
@@ -107,6 +112,29 @@ export default function BookingPage() {
   }, [activeDoctors, prefilledDoctorId, selectedPatient]);
 
   useEffect(() => {
+    if (prefilledScheduleAppliedRef.current || !selectedPatient) {
+      return;
+    }
+
+    if (prefilledDate) {
+      const [year, month, day] = prefilledDate.split("-").map(Number);
+      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+        setSelectedDate(new Date(year, month - 1, day));
+      }
+    }
+
+    if (prefilledTime) {
+      setSelectedTime(prefilledTime);
+    }
+
+    if (prefilledDate || prefilledTime) {
+      setStep((currentStep) => (currentStep > 2 ? currentStep : 2));
+    }
+
+    prefilledScheduleAppliedRef.current = true;
+  }, [prefilledDate, prefilledTime, selectedPatient]);
+
+  useEffect(() => {
     let isAlive = true;
 
     const loadSlots = async () => {
@@ -142,6 +170,67 @@ export default function BookingPage() {
       isAlive = false;
     };
   }, [selectedDoctor, selectedDate]);
+
+  useEffect(() => {
+    let isAlive = true;
+
+    const loadRecommendations = async () => {
+      if (step !== 2 || !selectedDoctor) {
+        setSmartRecommendations([]);
+        return;
+      }
+
+      setIsLoadingRecommendations(true);
+      try {
+        const response = await bookingService.getSmartRecommendations({
+          patientId: selectedPatient?.id,
+          doctorId: selectedDoctor,
+          horizonDays: 7,
+          limit: 8,
+        });
+
+        if (isAlive) {
+          setSmartRecommendations(response.recommendations || []);
+        }
+      } catch {
+        if (isAlive) {
+          setSmartRecommendations([]);
+        }
+      } finally {
+        if (isAlive) {
+          setIsLoadingRecommendations(false);
+        }
+      }
+    };
+
+    void loadRecommendations();
+
+    return () => {
+      isAlive = false;
+    };
+  }, [selectedDoctor, selectedPatient?.id, step]);
+
+  const applySmartRecommendation = (recommendation: SmartRecommendation) => {
+    const [year, month, day] = recommendation.date.split("-").map(Number);
+    if (
+      Number.isFinite(year) &&
+      Number.isFinite(month) &&
+      Number.isFinite(day)
+    ) {
+      setSelectedDate(new Date(year, month - 1, day));
+    }
+
+    setSelectedTime(recommendation.startTime);
+  };
+
+  const formatRecommendationDate = (dateValue: string) => {
+    const date = new Date(`${dateValue}T00:00:00.000Z`);
+    return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   const searchPatients = async () => {
     const query = patientSearch.trim();
@@ -536,6 +625,58 @@ export default function BookingPage() {
 
       {step === 2 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                {locale === "ar" ? "الجدولة الذكية" : "Smart Scheduler"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingRecommendations ? (
+                <p className="text-sm text-muted-foreground">
+                  {locale === "ar"
+                    ? "جاري تجهيز أفضل المواعيد..."
+                    : "Preparing best recommendations..."}
+                </p>
+              ) : smartRecommendations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {locale === "ar"
+                    ? "لا توجد توصيات حالياً. اختر التاريخ يدوياً."
+                    : "No recommendations available right now. Select date manually."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
+                  {smartRecommendations.map((recommendation) => {
+                    const isSelected =
+                      selectedTime === recommendation.startTime &&
+                      selectedDate &&
+                      formatDateKey(selectedDate) === recommendation.date;
+
+                    return (
+                      <button
+                        key={`${recommendation.doctorId}-${recommendation.date}-${recommendation.startTime}`}
+                        type="button"
+                        onClick={() => applySmartRecommendation(recommendation)}
+                        className={`rounded-lg border p-3 text-left transition ${
+                          isSelected
+                            ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{formatRecommendationDate(recommendation.date)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{recommendation.startTime}</p>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                          {recommendation.doctorName}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <MiniCalendar
             locale={locale}
             selectedDate={selectedDate}

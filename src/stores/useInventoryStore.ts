@@ -23,7 +23,6 @@ interface InventoryState {
   createItem: (payload: CreateInventoryItemPayload) => Promise<void>;
   updateItem: (id: string, payload: UpdateInventoryItemPayload) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
-  adjustQuantity: (id: string, delta: number) => Promise<void>;
   createRestockRequest: (id: string, payload: CreateRestockRequestPayload) => Promise<void>;
   updateRestockStatus: (id: string, status: RestockStatus) => Promise<void>;
   clearError: () => void;
@@ -103,14 +102,6 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       set({ error: message, isLoading: false });
       throw err;
     }
-  },
-
-  adjustQuantity: async (id, delta) => {
-    const item = get().items.find((entry) => entry.id === id);
-    if (!item) return;
-
-    const nextQuantity = Math.max(0, item.quantity + delta);
-    await get().updateItem(id, { quantity: nextQuantity });
   },
 
   createRestockRequest: async (id, payload) => {

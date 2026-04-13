@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search, Calendar, Clock, Star, ChevronRight } from "lucide-react";
+import { Search, Calendar, Clock, Star, ChevronRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AppointmentCard } from "@/components/shared/AppointmentCard";
@@ -21,11 +22,12 @@ import { useToastStore } from "@/stores/useToastStore";
 import { bookingService } from "@/services/bookingService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
 import { formatDateKey } from "@/lib/dateUtils";
-import type { ApiService } from "@/types";
+import type { ApiService, SmartRecommendation } from "@/types";
 
 const specialtiesList = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"];
 
 export default function AppointmentsPage() {
+  const searchParams = useSearchParams();
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { appointments, addAppointment, updateAppointment, fetchAppointments } = useBookingStore();
@@ -83,6 +85,10 @@ export default function AppointmentsPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotLoadFailed, setSlotLoadFailed] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [smartRecommendations, setSmartRecommendations] =
+    useState<SmartRecommendation[]>([]);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const prefillAppliedRef = useRef(false);
 
   useEffect(() => {
     if (!selectedDoctor) return;
@@ -128,6 +134,54 @@ export default function AppointmentsPage() {
   const doctor = selectableDoctors.find((d) => d.id === selectedDoctor);
 
   useEffect(() => {
+    if (prefillAppliedRef.current) {
+      return;
+    }
+
+    if (selectableDoctors.length === 0) {
+      return;
+    }
+
+    const prefilledDoctorId = searchParams.get("doctorId");
+    const prefilledDate = searchParams.get("date");
+    const prefilledTime = searchParams.get("time");
+    const prefilledServiceId = searchParams.get("serviceId");
+
+    if (!prefilledDoctorId && !prefilledDate && !prefilledTime && !prefilledServiceId) {
+      prefillAppliedRef.current = true;
+      return;
+    }
+
+    if (prefilledServiceId) {
+      setSelectedServiceId(prefilledServiceId);
+    }
+
+    if (prefilledDoctorId) {
+      const exists = selectableDoctors.some((doctorOption) => doctorOption.id === prefilledDoctorId);
+      if (exists) {
+        setSelectedDoctor(prefilledDoctorId);
+      }
+    }
+
+    if (prefilledDate) {
+      const [year, month, day] = prefilledDate.split("-").map(Number);
+      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+        setSelectedDate(new Date(year, month - 1, day));
+      }
+    }
+
+    if (prefilledTime) {
+      setSelectedTime(prefilledTime);
+    }
+
+    if (prefilledDoctorId || prefilledDate || prefilledTime) {
+      setBookingStep(1);
+    }
+
+    prefillAppliedRef.current = true;
+  }, [searchParams, selectableDoctors]);
+
+  useEffect(() => {
     let active = true;
 
     const loadSlots = async () => {
@@ -167,6 +221,78 @@ export default function AppointmentsPage() {
       active = false;
     };
   }, [selectedDoctor, selectedDate, selectedServiceId]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadRecommendations = async () => {
+      if (bookingStep !== 0) {
+        return;
+      }
+
+      setIsLoadingRecommendations(true);
+      try {
+        const response = await bookingService.getSmartRecommendations({
+          patientId: currentPatient?.id,
+          serviceId: selectedServiceId || undefined,
+          horizonDays: 7,
+          limit: 9,
+        });
+
+        if (active) {
+          setSmartRecommendations(response.recommendations || []);
+        }
+      } catch {
+        if (active) {
+          setSmartRecommendations([]);
+        }
+      } finally {
+        if (active) {
+          setIsLoadingRecommendations(false);
+        }
+      }
+    };
+
+    void loadRecommendations();
+
+    return () => {
+      active = false;
+    };
+  }, [bookingStep, currentPatient?.id, selectedServiceId]);
+
+  const applySmartRecommendation = (recommendation: SmartRecommendation) => {
+    const exists = selectableDoctors.some((doctorOption) => doctorOption.id === recommendation.doctorId);
+    if (!exists) {
+      toast.error(
+        locale === "ar"
+          ? "الطبيب غير متاح حالياً ضمن الفلاتر الحالية"
+          : "The recommended doctor is not currently available with active filters",
+      );
+      return;
+    }
+
+    const [year, month, day] = recommendation.date.split("-").map(Number);
+    if (
+      Number.isFinite(year) &&
+      Number.isFinite(month) &&
+      Number.isFinite(day)
+    ) {
+      setSelectedDate(new Date(year, month - 1, day));
+    }
+
+    setSelectedDoctor(recommendation.doctorId);
+    setSelectedTime(recommendation.startTime);
+    setBookingStep(1);
+  };
+
+  const formatRecommendationDate = (dateValue: string) => {
+    const date = new Date(`${dateValue}T00:00:00.000Z`);
+    return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
   const formatSelectedDate = (date?: Date) =>
     date
       ? date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
@@ -273,6 +399,47 @@ export default function AppointmentsPage() {
 
           {bookingStep === 0 && (
             <>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    {locale === "ar" ? "الجدولة الذكية" : "Smart Scheduler"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingRecommendations ? (
+                    <p className="text-sm text-muted-foreground">
+                      {locale === "ar"
+                        ? "جاري تحليل أفضل المواعيد المتاحة..."
+                        : "Analyzing best available booking options..."}
+                    </p>
+                  ) : smartRecommendations.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {locale === "ar"
+                        ? "لا توجد توصيات حالياً. اختر الطبيب والوقت يدوياً."
+                        : "No recommendations available right now. You can continue with manual booking."}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                      {smartRecommendations.map((recommendation) => (
+                        <button
+                          key={`${recommendation.doctorId}-${recommendation.date}-${recommendation.startTime}`}
+                          type="button"
+                          onClick={() => applySmartRecommendation(recommendation)}
+                          className="rounded-lg border p-3 text-left transition hover:bg-muted"
+                        >
+                          <p className="text-sm font-medium">{recommendation.doctorName}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatRecommendationDate(recommendation.date)}
+                          </p>
+                          <p className="text-xs text-primary mt-1">{recommendation.startTime}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground rtl:left-auto rtl:right-3" />

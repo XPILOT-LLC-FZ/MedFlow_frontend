@@ -2,13 +2,14 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, Clock, PlayCircle, RefreshCw, User, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, MessageSquare, PlayCircle, RefreshCw, User, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatDateKey } from "@/lib/dateUtils";
+import { surveyService } from "@/services/surveyService";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import type { Appointment } from "@/types";
@@ -76,6 +77,9 @@ export default function WaitingRoomPage() {
     useBookingStore();
 
   const [processingKey, setProcessingKey] = useState<string | null>(null);
+  const [feedbackRequestingId, setFeedbackRequestingId] = useState<string | null>(null);
+  const [feedbackRequestedByAppointmentId, setFeedbackRequestedByAppointmentId] =
+    useState<Record<string, boolean>>({});
 
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
 
@@ -201,6 +205,44 @@ export default function WaitingRoomPage() {
     if (!window.confirm(confirmMessage)) return;
 
     await applyTransition(appointment, "cancelled");
+  };
+
+  const handleRequestFeedback = async (appointment: Appointment) => {
+    if (appointment.status !== "completed") {
+      return;
+    }
+
+    setFeedbackRequestingId(appointment.id);
+    try {
+      const result = await surveyService.requestFeedback({
+        appointmentId: appointment.id,
+      });
+
+      setFeedbackRequestedByAppointmentId((previous) => ({
+        ...previous,
+        [appointment.id]: true,
+      }));
+
+      toast.success(
+        result.created
+          ? locale === "ar"
+            ? "تم إرسال طلب التقييم للمريض"
+            : "Feedback request sent to patient"
+          : locale === "ar"
+            ? "تم طلب التقييم مسبقاً لهذا الموعد"
+            : "Feedback was already requested for this appointment",
+      );
+    } catch (feedbackError) {
+      const message =
+        feedbackError instanceof Error
+          ? feedbackError.message
+          : locale === "ar"
+            ? "فشل إرسال طلب التقييم"
+            : "Failed to request patient feedback";
+      toast.error(message);
+    } finally {
+      setFeedbackRequestingId(null);
+    }
   };
 
   return (
@@ -370,9 +412,42 @@ export default function WaitingRoomPage() {
                     {appointment.doctorName} • {appointment.time}
                   </p>
                 </div>
-                <Badge variant={getStatusVariant(appointment.status)}>
-                  {getStatusLabel(appointment.status, locale, t)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {appointment.status === "completed" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={
+                        feedbackRequestedByAppointmentId[appointment.id]
+                          ? "outline"
+                          : "default"
+                      }
+                      className="h-8 gap-1 text-xs"
+                      disabled={
+                        feedbackRequestingId === appointment.id ||
+                        feedbackRequestedByAppointmentId[appointment.id]
+                      }
+                      onClick={() => void handleRequestFeedback(appointment)}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      {feedbackRequestedByAppointmentId[appointment.id]
+                        ? locale === "ar"
+                          ? "تم الطلب"
+                          : "Requested"
+                        : feedbackRequestingId === appointment.id
+                          ? locale === "ar"
+                            ? "جارٍ الإرسال..."
+                            : "Requesting..."
+                          : locale === "ar"
+                            ? "طلب تقييم"
+                            : "Request Feedback"}
+                    </Button>
+                  )}
+
+                  <Badge variant={getStatusVariant(appointment.status)}>
+                    {getStatusLabel(appointment.status, locale, t)}
+                  </Badge>
+                </div>
               </div>
             ))
           )}

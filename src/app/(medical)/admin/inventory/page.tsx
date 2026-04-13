@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Search, Plus, Package, Edit3, Trash2, AlertTriangle, Minus, Truck } from "lucide-react";
+import { Search, Plus, Package, Edit3, Trash2, AlertTriangle, Truck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,6 @@ export default function InventoryPage() {
     createItem,
     updateItem,
     deleteItem,
-    adjustQuantity,
     createRestockRequest,
   } = useInventoryStore();
   const [branches, setBranches] = useState<ApiBranch[]>([]);
@@ -218,9 +217,28 @@ export default function InventoryPage() {
   };
 
   const handleRequestRestock = async (item: ApiInventoryItem) => {
-    const raw = window.prompt("Requested quantity", String(Math.max(item.minQuantity * 2, 1)));
-    const requestedQuantity = raw ? parseInt(raw) : 0;
-    if (!requestedQuantity || requestedQuantity < 1) return;
+    if (item.quantity > item.minQuantity) {
+      toast.info(
+        locale === "ar"
+          ? "العنصر أعلى من الحد الأدنى، لا حاجة لطلب توريد الآن"
+          : "Item is above minimum stock, no restock needed now",
+      );
+      return;
+    }
+
+    const baseNeed = Math.max(item.minQuantity - item.quantity, 1);
+    const targetNeed = Math.max(item.minQuantity * 2 - item.quantity, baseNeed);
+    const packSize = item.category === "EQUIPMENT" ? 1 : 5;
+    const requestedQuantity = Math.ceil(targetNeed / packSize) * packSize;
+    const estimatedTotal = requestedQuantity * item.unitPrice;
+
+    const confirmed = window.confirm(
+      locale === "ar"
+        ? `كمية مقترحة للتوريد: ${requestedQuantity}\nالتكلفة التقديرية: $${estimatedTotal.toFixed(2)}\nهل تريد إنشاء طلب التوريد؟`
+        : `Suggested restock quantity: ${requestedQuantity}\nEstimated cost: $${estimatedTotal.toFixed(2)}\nCreate restock request?`,
+    );
+
+    if (!confirmed) return;
 
     try {
       await createRestockRequest(item.id, {
@@ -383,17 +401,16 @@ export default function InventoryPage() {
                     <Badge variant="outline" className="text-xs">{item.category}</Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => void adjustQuantity(item.id, -1)}>
-                        <Minus className="h-3 w-3" />
-                      </Button>
+                    <div className="flex items-center gap-2">
                       <span className={cn("font-medium min-w-[3ch] text-center", item.quantity <= item.minQuantity && "text-destructive")}>
                         {item.quantity}
                       </span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => void adjustQuantity(item.id, 1)}>
-                        <Plus className="h-3 w-3" />
-                      </Button>
                       <span className="text-muted-foreground text-xs">/ {item.minQuantity}</span>
+                      {item.quantity <= item.minQuantity && (
+                        <Badge variant="warning" className="text-[10px]">
+                          {locale === "ar" ? "توريد مقترح" : "Restock suggested"}
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -411,7 +428,7 @@ export default function InventoryPage() {
                           size="icon"
                           className="h-7 w-7 text-amber-600"
                           onClick={() => void handleRequestRestock(item)}
-                          title="Request restock"
+                          title={locale === "ar" ? "طلب توريد ذكي" : "Smart restock request"}
                         >
                           <Truck className="h-3 w-3" />
                         </Button>
