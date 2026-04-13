@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Search, Plus, Edit3, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,12 +52,12 @@ export default function UsersPage() {
     role: "PATIENT" as Role,
   });
 
-  const extractErrorMessage = (error: unknown, fallback: string) => {
+  const extractErrorMessage = useCallback((error: unknown, fallback: string) => {
     if (error instanceof Error && error.message) return error.message;
     return fallback;
-  };
+  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     // ... logic remains same, we will preserve it
     setIsLoading(true);
     try {
@@ -78,11 +78,11 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [extractErrorMessage, toast]);
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    void loadUsers();
+  }, [loadUsers]);
 
   const openEdit = (user: SystemUser) => {
     setEditId(user.id);

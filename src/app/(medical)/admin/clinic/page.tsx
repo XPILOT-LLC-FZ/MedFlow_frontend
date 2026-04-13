@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Building2, MapPin, Globe, Phone, Mail, Plus, Trash2, Edit2, Check, ExternalLink } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
+import { Building2, MapPin, Globe, Phone, Mail, Plus, Trash2, Edit2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,7 +29,7 @@ const emptyBranchForm = {
 };
 
 export default function ClinicManagementPage() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const { success, error } = useToastStore();
   const [clinic, setClinic] = useState<ApiClinic | null>(null);
   const [branches, setBranches] = useState<ApiBranch[]>([]);
@@ -39,11 +40,7 @@ export default function ClinicManagementPage() {
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [isBranchSaving, setIsBranchSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [clinicData, branchesData] = await Promise.all([
@@ -52,12 +49,16 @@ export default function ClinicManagementPage() {
       ]);
       setClinic(clinicData);
       setBranches(branchesData);
-    } catch (err) {
+    } catch {
       error("Failed to load clinic data");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [error]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const handleUpdateClinic = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +67,7 @@ export default function ClinicManagementPage() {
     try {
       await clinicService.updateClinic(clinic);
       success("Clinic profile updated");
-    } catch (err) {
+    } catch {
       error("Failed to update profile");
     } finally {
       setIsSaving(false);
@@ -247,7 +248,9 @@ export default function ClinicManagementPage() {
                    <div className="rounded-3xl bg-white/20 p-8 flex flex-col items-center justify-center border-2 border-dashed border-white/40 group cursor-pointer hover:bg-white/30 transition-all">
                       <div className="h-20 w-20 rounded-2xl bg-white flex items-center justify-center p-3 mb-4 shadow-xl">
                         {clinic?.logoUrl ? (
-                          <img src={clinic.logoUrl} alt="Logo" className="max-h-full" />
+                            <div className="relative h-20 w-20">
+                              <Image src={clinic.logoUrl} alt="Logo" fill className="object-contain" unoptimized />
+                            </div>
                         ) : (
                           <Building2 className="h-10 w-10 text-primary" />
                         )}
@@ -316,7 +319,7 @@ export default function ClinicManagementPage() {
               <Card key={branch.id} className="group border-none shadow-xl hover:shadow-2xl transition-all duration-300 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm overflow-hidden">
                 <div className="aspect-[16/9] bg-muted relative">
                   {branch.imageUrl ? (
-                    <img src={branch.imageUrl} alt={branch.name} className="w-full h-full object-cover" />
+                    <Image src={branch.imageUrl} alt={branch.name} fill className="object-cover" unoptimized />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <MapPin className="h-10 w-10 text-muted-foreground/30" />

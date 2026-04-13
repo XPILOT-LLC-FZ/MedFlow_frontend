@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Search, Plus, Star, Clock, MoreVertical, Edit3, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,15 +84,18 @@ export default function DoctorsPage() {
   const [resetConfirmPassword, setResetConfirmPassword] = useState("");
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
-  const buildDoctorFilters = (): DoctorListFilters => ({
-    search: searchTerm.trim() || undefined,
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-    specialization: specializationFilter === "ALL" ? undefined : specializationFilter,
-  });
+  const buildDoctorFilters = useCallback(
+    (): DoctorListFilters => ({
+      search: searchTerm.trim() || undefined,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      specialization: specializationFilter === "ALL" ? undefined : specializationFilter,
+    }),
+    [searchTerm, statusFilter, specializationFilter],
+  );
 
   useEffect(() => {
     void fetchDoctors(buildDoctorFilters());
-  }, [fetchDoctors, searchTerm, specializationFilter, statusFilter]);
+  }, [fetchDoctors, buildDoctorFilters]);
 
   const toggleService = (serviceId: string) => {
     setForm((prev) => ({
@@ -534,10 +538,13 @@ export default function DoctorsPage() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex gap-3">
-                    <img
+                    <Image
                       src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.email}`}
                       alt={doc.fullName}
+                      width={56}
+                      height={56}
                       className="h-14 w-14 rounded-xl"
+                      unoptimized
                     />
                     <div>
                       <h3 className="font-semibold">{doc.fullName}</h3>

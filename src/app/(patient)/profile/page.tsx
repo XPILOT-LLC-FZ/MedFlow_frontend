@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { User, Mail, Phone, MapPin, Calendar, Edit3, FileImage, FileText, Trash2, Eye } from "lucide-react";
+import { Phone, MapPin, Calendar, Edit3, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,7 +148,14 @@ export default function ProfilePage() {
                     >
                       <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                         {file.type === "image" ? (
-                          <img src={file.dataUrl} alt={file.name} className="h-full w-full object-cover" />
+                          <Image
+                            src={file.dataUrl}
+                            alt={file.name}
+                            width={48}
+                            height={48}
+                            className="h-full w-full object-cover"
+                            unoptimized
+                          />
                         ) : (
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         )}

@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Tag, Calendar, Copy, CheckCircle2, Search, Gift, Clock } from "lucide-react";
+import { Tag, Copy, Search, Gift, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -14,7 +13,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 
 export default function PatientPromotionsPage() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const { success, error } = useToastStore();
   const [promotions, setPromotions] = useState<ApiPromotion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,14 +24,14 @@ export default function PatientPromotionsPage() {
       try {
         const data = await promotionsService.getApplicable();
         setPromotions(data);
-      } catch (err) {
+      } catch {
         error("Failed to load promotions");
       } finally {
         setIsLoading(false);
       }
     };
     loadPromotions();
-  }, []);
+  }, [error]);
 
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code);

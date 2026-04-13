@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Search, Calendar, Clock, Star, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -242,7 +243,7 @@ export default function AppointmentsPage() {
       }
 
       toast.success(locale === "ar" ? "تم تأكيد الموعد والدفع عند الحضور" : "Appointment confirmed with onsite payment");
-    } catch (err) {
+    } catch {
       toast.error("Payment update failed");
     }
   };
@@ -329,10 +330,13 @@ export default function AppointmentsPage() {
                     >
                       <CardContent className="p-4">
                         <div className="flex gap-4">
-                          <img
+                          <Image
                             src={doc.image}
                             alt={doc.name}
+                            width={64}
+                            height={64}
                             className="h-16 w-16 rounded-xl object-cover"
+                            unoptimized
                           />
                           <div className="min-w-0 flex-1">
                             <h3 className="truncate font-semibold">
@@ -378,7 +382,14 @@ export default function AppointmentsPage() {
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <Card className="p-6">
                   <div className="space-y-3 text-center">
-                    <img src={doctor.image} alt={doctor.name} className="mx-auto h-24 w-24 rounded-full object-cover" />
+                    <Image
+                      src={doctor.image}
+                      alt={doctor.name}
+                      width={96}
+                      height={96}
+                      className="mx-auto h-24 w-24 rounded-full object-cover"
+                      unoptimized
+                    />
                     <h3 className="text-lg font-semibold">{locale === "ar" ? doctor.nameAr : doctor.name}</h3>
                     <Badge variant="info">{locale === "ar" ? doctor.specialtyAr : doctor.specialty}</Badge>
                     <div className="flex items-center justify-center gap-1">

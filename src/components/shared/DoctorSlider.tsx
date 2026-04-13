@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback } from "react";
+import Image from "next/image";
 import useEmblaCarousel from "embla-carousel-react";
 import { motion } from "framer-motion";
 import { Star, ChevronLeft, ChevronRight, Clock } from "lucide-react";
@@ -9,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { doctors } from "@/data/doctors";
 import { useTranslation } from "@/hooks/useTranslation";
-import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export function DoctorSlider() {
@@ -54,10 +54,13 @@ export function DoctorSlider() {
               <Card className="overflow-hidden group hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                 {/* Image */}
                 <div className="relative h-48 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                  <img
+                  <Image
                     src={doctor.image}
                     alt={locale === "ar" ? doctor.nameAr : doctor.name}
+                    width={128}
+                    height={128}
                     className="h-32 w-32 rounded-full border-4 border-white shadow-lg"
+                    unoptimized
                   />
                   <Badge
                     variant={doctor.available ? "success" : "secondary"}

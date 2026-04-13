@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Search, Edit2, Trash2, SlidersHorizontal, Activity, Clock, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,7 +44,7 @@ const emptyForm = {
 };
 
 export default function ServicesManagementPage() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const { success, error } = useToastStore();
   const [services, setServices] = useState<ApiService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,21 +54,21 @@ export default function ServicesManagementPage() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadServices();
-  }, []);
-
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await servicesCatalogService.getAll();
       setServices(data);
-    } catch (err) {
+    } catch {
       error("Failed to load services");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [error]);
+
+  useEffect(() => {
+    void loadServices();
+  }, [loadServices]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete ${name}?`)) return;
@@ -76,7 +76,7 @@ export default function ServicesManagementPage() {
       await servicesCatalogService.remove(id);
       success("Service deleted");
       await loadServices();
-    } catch (err) {
+    } catch {
       error("Failed to delete service");
     }
   };

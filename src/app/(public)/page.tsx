@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   Activity,
@@ -361,10 +362,13 @@ export default function LandingPage() {
                     </div>
                     <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{item.text}&rdquo;</p>
                     <div className="flex items-center gap-3 pt-2">
-                      <img
+                      <Image
                         src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${item.avatar}`}
                         className="h-10 w-10 rounded-full"
                         alt={item.name}
+                        width={40}
+                        height={40}
+                        unoptimized
                       />
                       <div>
                         <p className="text-sm font-semibold">{item.name}</p>

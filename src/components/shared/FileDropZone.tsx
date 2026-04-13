@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Upload, FileText } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
@@ -123,7 +124,14 @@ export function FileDropZone({
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm"
             >
               {f.url ? (
-                <img src={f.url} alt={f.name} className="h-6 w-6 rounded object-cover" />
+                <Image
+                  src={f.url}
+                  alt={f.name}
+                  width={24}
+                  height={24}
+                  className="h-6 w-6 rounded object-cover"
+                  unoptimized
+                />
               ) : (
                 <FileText className="h-4 w-4 text-muted-foreground" />
               )}

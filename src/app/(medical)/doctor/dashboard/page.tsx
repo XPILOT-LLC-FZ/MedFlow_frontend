@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { Calendar, Users, Clock, Activity, ArrowRight } from "lucide-react";
+import { Calendar, Users, Clock, Activity, ArrowRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,21 +20,31 @@ export default function DoctorDashboard() {
   const { user } = useAuthStore();
   const [dashboardData, setDashboardData] = React.useState<DashboardDoctorSummaryData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const refreshDashboard = React.useCallback(async () => {
+    try {
+      setError(null);
+      const summary = await dashboardService.getDoctorSummary({ period: "month" });
+      setDashboardData(summary);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load doctor dashboard summary";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const summary = await dashboardService.getDoctorSummary({ period: "month" });
-        setDashboardData(summary);
-      } catch (error) {
-        console.error("Failed to load doctor dashboard summary", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    void refreshDashboard();
 
-    void loadDashboard();
-  }, []);
+    const interval = setInterval(() => {
+      void refreshDashboard();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [refreshDashboard]);
 
   const displayName = user
     ? locale === "ar" ? user.nameAr : user.name
@@ -75,7 +85,19 @@ export default function DoctorDashboard() {
       <PageHeader
         title={`${locale === "ar" ? "مرحبًا" : "Good morning"}, ${displayName}`}
         description={locale === "ar" ? "إليك جدولك لهذا اليوم" : "Here's your schedule for today"}
+        action={
+          <Button variant="outline" className="gap-2" onClick={() => void refreshDashboard()}>
+            <RefreshCw className="h-4 w-4" />
+            {locale === "ar" ? "تحديث" : "Refresh"}
+          </Button>
+        }
       />
+
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard title={t("todayAppointments")} value={isLoading ? "..." : (summaryCards?.todayAppointments ?? 0)} icon={<Calendar className="h-5 w-5" />} delay={0} />
@@ -96,25 +118,31 @@ export default function DoctorDashboard() {
 
           <Card>
             <CardContent className="p-0">
-              {visibleAppointments.map((p, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border-b last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-primary" />
+              {visibleAppointments.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments scheduled for today"}
+                </p>
+              ) : (
+                visibleAppointments.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 border-b last:border-0">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{p.patientName}</p>
+                        <p className="text-xs text-muted-foreground">{p.type.replace("_", " ")}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">{p.patientName}</p>
-                      <p className="text-xs text-muted-foreground">{p.type.replace("_", " ")}</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">{p.time}</span>
+                      <Badge variant={statusVariant(p.status)} className="text-xs">
+                        {statusLabel(p.status)}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">{p.time}</span>
-                    <Badge variant={statusVariant(p.status)} className="text-xs">
-                      {statusLabel(p.status)}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
 

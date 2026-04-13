@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   Calendar, Clock, User, Plus, ArrowRight, Activity,
@@ -345,7 +346,9 @@ export default function PatientDashboard() {
                       onClick={() => setPreviewFile(file)}
                     >
                       {file.type === "image" ? (
-                        <img src={file.dataUrl} alt={file.name} className="h-full w-full object-cover" />
+                        <div className="relative h-full w-full">
+                          <Image src={file.dataUrl} alt={file.name} fill className="object-cover" unoptimized />
+                        </div>
                       ) : (
                         <FileText className="h-12 w-12 text-muted-foreground/50" />
                       )}
@@ -415,7 +418,14 @@ export default function PatientDashboard() {
               </Button>
             </div>
             {previewFile.type === "image" ? (
-              <img src={previewFile.dataUrl} alt={previewFile.name} className="w-full rounded-lg" />
+              <Image
+                src={previewFile.dataUrl}
+                alt={previewFile.name}
+                width={1200}
+                height={900}
+                className="w-full rounded-lg"
+                unoptimized
+              />
             ) : (
               <iframe src={previewFile.dataUrl} className="w-full h-[60vh] rounded-lg border" title={previewFile.name} />
             )}

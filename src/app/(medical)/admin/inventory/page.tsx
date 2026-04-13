@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Search, Plus, Package, Edit3, Trash2, AlertTriangle, Minus, Truck } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -74,7 +74,7 @@ export default function InventoryPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const loadBranches = async (): Promise<ApiBranch[]> => {
+  const loadBranches = useCallback(async (): Promise<ApiBranch[]> => {
     setIsLoadingBranches(true);
     try {
       const data = await clinicService.getBranches();
@@ -86,9 +86,9 @@ export default function InventoryPage() {
     } finally {
       setIsLoadingBranches(false);
     }
-  };
+  }, []);
 
-  async function loadInventory() {
+  const loadInventory = useCallback(async () => {
     const results = await Promise.all([
       fetchItems(),
       fetchLowStock(),
@@ -102,11 +102,11 @@ export default function InventoryPage() {
         return { ...prev, branchId: getDefaultBranchId(loadedBranches) };
       });
     }
-  }
+  }, [fetchItems, fetchLowStock, loadBranches]);
 
   useEffect(() => {
     void loadInventory();
-  }, []);
+  }, [loadInventory]);
 
   const categories = [
     "All",
