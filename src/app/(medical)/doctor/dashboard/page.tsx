@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
-import type { DashboardAppointmentStatus, DashboardDoctorSummaryData } from "@/types";
+import type { DashboardDoctorSummaryData } from "@/types";
 import Link from "next/link";
 
 export default function DoctorDashboard() {
@@ -151,25 +151,8 @@ export default function DoctorDashboard() {
     },
   ];
 
-  const statusLabel = (status: DashboardAppointmentStatus) => {
-    if (locale === "ar") {
-      const labels: Record<DashboardAppointmentStatus, string> = {
-        SCHEDULED: "مجدول",
-        CONFIRMED: "مؤكد",
-        IN_PROGRESS: "جارٍ التنفيذ",
-        COMPLETED: "مكتمل",
-        CANCELLED: "ملغي",
-        NO_SHOW: "لم يحضر",
-        RESCHEDULED: "أعيد الجدولة",
-      };
-      return labels[status];
-    }
-
-    return status.replace("_", " ").toLowerCase();
-  };
-
   return (
-    <div className="space-y-5 lg:space-y-6">
+    <div className="doctor-dashboard space-y-5 lg:space-y-6">
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}

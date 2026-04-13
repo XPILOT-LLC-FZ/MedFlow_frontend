@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
   Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles,
-  LogOut, Activity
+  LogOut, Activity, Moon, Sun
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -27,6 +27,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/dashboard", icon: LayoutDashboard },
     { label: "AI Chat", labelAr: "المساعد الذكي", href: "/chat", icon: MessageSquare },
     { label: "Appointments", labelAr: "المواعيد", href: "/appointments", icon: Calendar },
+    { label: "Promotions", labelAr: "العروض", href: "/promotions", icon: Sparkles },
     { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/smart-scheduler", icon: Sparkles },
     { label: "Feedback", labelAr: "التقييمات", href: "/feedback", icon: FileText },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/profile", icon: User },
@@ -43,11 +44,12 @@ const navByRole: Record<Role, NavItem[]> = {
   ],
   DOCTOR: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/doctor/dashboard", icon: LayoutDashboard },
+    { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: Calendar },
     { label: "My Schedule", labelAr: "جدولي", href: "/doctor/schedule", icon: Calendar },
     { label: "Patients", labelAr: "المرضى", href: "/doctor/patients", icon: Users },
-    { label: "Analytics", labelAr: "التحليلات", href: "/doctor/treatment-timelines", icon: Activity },
+    { label: "Analytics", labelAr: "التحليلات", href: "/doctor/analytics", icon: Activity },
+    { label: "Treatment Timelines", labelAr: "الخطط العلاجية", href: "/doctor/treatment-timelines", icon: ClipboardList },
     { label: "Settings", labelAr: "الإعدادات", href: "/doctor/profile", icon: Settings },
-    { label: "Logout", labelAr: "تسجيل الخروج", href: "/logout", icon: LogOut },
   ],
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
@@ -67,7 +69,7 @@ const navByRole: Record<Role, NavItem[]> = {
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { sidebarOpen, setSidebarOpen } = useStore();
+  const { sidebarOpen, setSidebarOpen, theme, toggleTheme } = useStore();
   const { user, logout } = useAuthStore();
   const { t, locale, isRTL } = useTranslation();
 
@@ -75,7 +77,7 @@ export function Sidebar() {
   const role = user?.role ?? "PATIENT";
   const items = navByRole[role];
   const isDoctorSidebar = role === "DOCTOR";
-  const doctorName = user?.name || "Dr. Sarah Mitchell";
+  const profileName = user?.name || (locale === "ar" ? "مستخدم النظام" : "MedFlow User");
 
   const handleLogout = async () => {
     await logout();
@@ -86,9 +88,9 @@ export function Sidebar() {
     if (isDoctorSidebar) {
       return (
         <Link href="/doctor/dashboard" className="flex items-center gap-2">
-          <span className="text-base font-semibold tracking-tight text-slate-900">
+          <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             Clinic
-            <span className="text-blue-600">Flow</span>
+            <span className="text-blue-600 dark:text-blue-400">Flow</span>
           </span>
         </Link>
       );
@@ -96,9 +98,9 @@ export function Sidebar() {
 
     return (
       <Link href="/main" className="flex items-center">
-        <span className="text-base font-semibold tracking-tight text-slate-900">
+        <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           Med
-          <span className="text-blue-600">Flow</span>
+          <span className="text-blue-600 dark:text-blue-400">Flow</span>
         </span>
       </Link>
     );
@@ -122,7 +124,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <motion.aside
         className={cn(
-          "fixed top-0 z-50 h-full w-64 border-r bg-white text-sidebar-fg flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto",
+          "fixed top-0 z-50 h-full w-64 border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto",
           isRTL ? "right-0 border-l border-r-0" : "left-0",
           sidebarOpen
             ? "translate-x-0"
@@ -142,71 +144,72 @@ export function Sidebar() {
         {/* Nav items */}
         <nav className={cn("flex-1 overflow-y-auto p-3 space-y-1", isDoctorSidebar && "px-3 py-4")}>
           {items.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
             const Icon = item.icon;
-            const isLogout = isDoctorSidebar && item.label === "Logout";
             const isSettings = isDoctorSidebar && item.label === "Settings";
             return (
-              isLogout ? (
-                <button
-                  key={`${role}:${item.href}:${item.label}`}
-                  type="button"
-                  onClick={async () => {
-                    setSidebarOpen(false);
-                    await handleLogout();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-rose-500 hover:bg-rose-50"
-                >
-                  <Icon className="h-[17px] w-[17px] shrink-0" />
-                  <span>{locale === "ar" ? item.labelAr : item.label}</span>
-                </button>
-              ) : (
-                <Link
-                  key={`${role}:${item.href}:${item.label}`}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                    isDoctorSidebar && "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    isDoctorSidebar && isActive && "bg-blue-600 text-white shadow-none",
-                    isDoctorSidebar && isSettings && !isActive && "text-slate-500"
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4 shrink-0", isDoctorSidebar && "h-[17px] w-[17px]")} />
-                  <span>{locale === "ar" ? item.labelAr : item.label}</span>
-                </Link>
-              )
+              <Link
+                key={`${role}:${item.href}:${item.label}`}
+                href={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                  isDoctorSidebar && "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  isDoctorSidebar && isActive && "bg-blue-600 text-white shadow-none dark:bg-blue-500",
+                  isDoctorSidebar && isSettings && !isActive && "text-slate-500 dark:text-slate-400"
+                )}
+              >
+                <Icon className={cn("h-4 w-4 shrink-0", isDoctorSidebar && "h-[17px] w-[17px]")} />
+                <span>{locale === "ar" ? item.labelAr : item.label}</span>
+              </Link>
             );
           })}
         </nav>
 
         {/* Footer */}
-        {isDoctorSidebar ? (
-          <div className="p-3 border-t border-slate-100">
+        <div className={cn("p-3 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800" : "border-sidebar-border")}>
+          {user && (
             <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-600">
-                {doctorName.slice(0, 2).toUpperCase()}
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                {profileName.slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-800">{doctorName}</p>
-                <p className="truncate text-xs text-slate-500">Cardiologist</p>
+                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{profileName}</p>
+                {isDoctorSidebar ? (
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">Cardiologist</p>
+                ) : (
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("settings")}</p>
+                )}
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="p-3 border-t border-sidebar-border">
-            <Link
-              href="/"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          )}
+
+          <div className={cn("mt-2 grid gap-1.5", !user && "mt-0")}>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
             >
-              <Settings className="h-4 w-4" />
-              <span>{t("settings")}</span>
-            </Link>
+              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              <span>{locale === "ar" ? "تبديل المظهر" : "Toggle Theme"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setSidebarOpen(false);
+                await handleLogout();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>{t("logout")}</span>
+            </button>
           </div>
-        )}
+        </div>
       </motion.aside>
     </>
   );

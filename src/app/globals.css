@@ -243,3 +243,44 @@ html {
   background: rgba(15, 23, 42, 0.72);
   box-shadow: 0 18px 45px -34px rgba(2, 6, 23, 0.82);
 }
+
+/* Doctor dashboard dark-mode bridge for figma-style slate palette classes */
+.dark .doctor-dashboard [class*="border-slate-200"] {
+  border-color: rgba(71, 85, 105, 0.75);
+}
+
+.dark .doctor-dashboard [class*="border-slate-100"] {
+  border-color: rgba(71, 85, 105, 0.5);
+}
+
+.dark .doctor-dashboard [class*="bg-white"] {
+  background-color: rgba(15, 23, 42, 0.82);
+}
+
+.dark .doctor-dashboard [class*="bg-slate-50"] {
+  background-color: rgba(30, 41, 59, 0.55);
+}
+
+.dark .doctor-dashboard [class*="text-slate-900"] {
+  color: rgb(241, 245, 249);
+}
+
+.dark .doctor-dashboard [class*="text-slate-800"] {
+  color: rgb(226, 232, 240);
+}
+
+.dark .doctor-dashboard [class*="text-slate-700"] {
+  color: rgb(203, 213, 225);
+}
+
+.dark .doctor-dashboard [class*="text-slate-600"] {
+  color: rgb(148, 163, 184);
+}
+
+.dark .doctor-dashboard [class*="text-slate-500"] {
+  color: rgb(148, 163, 184);
+}
+
+.dark .doctor-dashboard [class*="text-slate-400"] {
+  color: rgb(100, 116, 139);
+}

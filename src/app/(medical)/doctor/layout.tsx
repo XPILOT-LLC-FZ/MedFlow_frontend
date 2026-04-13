@@ -1,13 +1,15 @@
 "use client";
 
 import React from "react";
-import { Bell, Moon, Search } from "lucide-react";
+import { Bell, Moon, Search, Sun } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useStore } from "@/stores/useStore";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function DoctorSectionLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuthStore();
   const { locale } = useTranslation();
+  const { theme, toggleTheme } = useStore();
 
   const displayName = user
     ? locale === "ar"
@@ -24,13 +26,13 @@ export default function DoctorSectionLayout({ children }: { children: React.Reac
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 lg:space-y-6">
-      <section className="rounded-2xl border bg-white px-5 py-5 sm:px-6 sm:py-6">
+      <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5 sm:px-6 sm:py-6 dark:border-slate-800 dark:bg-slate-900/70">
         <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
+            <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
               {`${locale === "ar" ? "صباح الخير" : "Good Morning"}, ${displayName}`}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {locale === "ar"
                 ? `${currentDate} • لديك 12 موعدًا اليوم`
                 : `${currentDate} • You have 12 appointments today`}
@@ -40,23 +42,24 @@ export default function DoctorSectionLayout({ children }: { children: React.Reac
             <button
               type="button"
               aria-label="Notifications"
-              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               <Bell className="h-4 w-4" />
             </button>
             <button
               type="button"
-              aria-label="Theme"
-              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+              aria-label={locale === "ar" ? "تبديل المظهر" : "Toggle theme"}
+              onClick={toggleTheme}
+              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
-              <Moon className="h-4 w-4" />
+              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </button>
           </div>
         </div>
 
         <div className="mt-3.5 sm:mt-4">
           <label className="relative block">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder={
@@ -64,7 +67,7 @@ export default function DoctorSectionLayout({ children }: { children: React.Reac
                   ? "ابحث عن المرضى أو المواعيد أو السجلات الطبية..."
                   : "Search patients, appointments, or medical records..."
               }
-              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-500"
             />
           </label>
         </div>
