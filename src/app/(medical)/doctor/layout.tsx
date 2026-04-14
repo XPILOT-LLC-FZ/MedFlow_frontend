@@ -1,15 +1,13 @@
 "use client";
 
 import React from "react";
-import { Bell, Moon, Search, Sun } from "lucide-react";
+import { Search } from "lucide-react";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useStore } from "@/stores/useStore";
 import { useTranslation } from "@/hooks/useTranslation";
 
 export default function DoctorSectionLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuthStore();
   const { locale } = useTranslation();
-  const { theme, toggleTheme } = useStore();
 
   const displayName = user
     ? locale === "ar"
@@ -37,23 +35,6 @@ export default function DoctorSectionLayout({ children }: { children: React.Reac
                 ? `${currentDate} • لديك 12 موعدًا اليوم`
                 : `${currentDate} • You have 12 appointments today`}
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              <Bell className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              aria-label={locale === "ar" ? "تبديل المظهر" : "Toggle theme"}
-              onClick={toggleTheme}
-              className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-            </button>
           </div>
         </div>
 
