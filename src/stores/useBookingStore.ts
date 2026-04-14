@@ -70,11 +70,16 @@ const mapToLocal = (api: ApiAppointment): Appointment => ({
       : api.notes,
 });
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value.trim()
+  );
+
 const mapToApi = (local: Partial<Appointment>): Partial<ApiAppointment> => {
   const api: Partial<ApiAppointment> = {};
-  if (local.patientId) api.patientId = local.patientId;
+  if (local.patientId && isUuid(local.patientId)) api.patientId = local.patientId;
   if (local.patientName) api.patientName = local.patientName;
-  if (local.doctorId) api.doctorId = local.doctorId;
+  if (local.doctorId && isUuid(local.doctorId)) api.doctorId = local.doctorId;
   if (local.doctorName) api.doctorName = local.doctorName;
   if (local.date) api.date = local.date;
   if (local.time) api.startTime = local.time;
@@ -186,6 +191,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         appointments: [localCreated, ...s.appointments],
         isLoading: false,
       }));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("appointment-booked"));
+      }
+
       return localCreated;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to book appointment";

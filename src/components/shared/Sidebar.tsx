@@ -45,6 +45,7 @@ const navByRole: Record<Role, NavItem[]> = {
   DOCTOR: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/doctor/dashboard", icon: LayoutDashboard },
     { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: Calendar },
+    { label: "Chat", labelAr: "المحادثة", href: "/doctor/chat", icon: MessageSquare },
     { label: "My Schedule", labelAr: "جدولي", href: "/doctor/schedule", icon: Calendar },
     { label: "Patients", labelAr: "المرضى", href: "/doctor/patients", icon: Users },
     { label: "Analytics", labelAr: "التحليلات", href: "/doctor/analytics", icon: Activity },
