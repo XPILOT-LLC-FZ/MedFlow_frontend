@@ -627,6 +627,173 @@ export interface CreatePatientPayload {
   password?: string;
 }
 
+export type LabResultStatus = "PENDING" | "NORMAL" | "ABNORMAL" | "CRITICAL";
+
+export interface ApiPatientDocument {
+  id: string;
+  patientId: string;
+  name: string;
+  fileUrl: string;
+  fileType?: string | null;
+  uploadedBy?: string | null;
+  createdAt: string;
+}
+
+export interface CreatePatientDocumentPayload {
+  name: string;
+  fileUrl: string;
+  fileType?: string | null;
+}
+
+export interface ApiLabResult {
+  id: string;
+  patientId: string;
+  appointmentId?: string | null;
+  doctorId?: string | null;
+  testName: string;
+  resultSummary?: string | null;
+  status: LabResultStatus;
+  resultDate: string;
+  documentId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  document?: {
+    id: string;
+    name: string;
+    fileUrl: string;
+    fileType?: string | null;
+  } | null;
+}
+
+export interface CreateLabResultPayload {
+  patientId: string;
+  appointmentId?: string | null;
+  doctorId?: string | null;
+  testName: string;
+  resultSummary?: string | null;
+  status?: LabResultStatus;
+  resultDate?: string;
+  documentId?: string | null;
+}
+
+export interface UpdateLabResultPayload {
+  testName?: string;
+  resultSummary?: string | null;
+  status?: LabResultStatus;
+  resultDate?: string;
+  documentId?: string | null;
+}
+
+export type PrescriptionStatus = "DRAFT" | "ISSUED" | "SENT" | "CANCELLED";
+
+export interface PrescriptionMedicationItem {
+  name: string;
+  dosage: string;
+  frequency: string;
+  duration?: string;
+  instructions?: string;
+}
+
+export interface ApiPrescription {
+  id: string;
+  patientId: string;
+  appointmentId?: string | null;
+  doctorId?: string | null;
+  diagnosis?: string | null;
+  notes?: string | null;
+  medications: PrescriptionMedicationItem[];
+  status: PrescriptionStatus;
+  issuedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePrescriptionPayload {
+  patientId: string;
+  appointmentId?: string | null;
+  doctorId?: string | null;
+  diagnosis?: string | null;
+  notes?: string | null;
+  medications: PrescriptionMedicationItem[];
+  status?: PrescriptionStatus;
+  issuedAt?: string;
+}
+
+export interface UpdatePrescriptionPayload {
+  diagnosis?: string | null;
+  notes?: string | null;
+  medications?: PrescriptionMedicationItem[];
+  status?: PrescriptionStatus;
+  issuedAt?: string | null;
+}
+
+export type InvestigationCategory = "LAB" | "IMAGING" | "CARDIOLOGY" | "OTHER";
+
+export type InvestigationStatus =
+  | "ORDERED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export interface ApiInvestigation {
+  id: string;
+  patientId: string;
+  appointmentId?: string | null;
+  doctorId?: string | null;
+  category: InvestigationCategory;
+  testName: string;
+  status: InvestigationStatus;
+  priority: "NORMAL" | "URGENT" | "VIP";
+  notes?: string | null;
+  documentId?: string | null;
+  orderedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  document?: {
+    id: string;
+    name: string;
+    fileUrl: string;
+    fileType?: string | null;
+  } | null;
+}
+
+export interface CreateInvestigationPayload {
+  patientId: string;
+  appointmentId?: string | null;
+  doctorId?: string | null;
+  category?: InvestigationCategory;
+  testName: string;
+  status?: InvestigationStatus;
+  priority?: "NORMAL" | "URGENT" | "VIP";
+  notes?: string | null;
+  documentId?: string | null;
+  orderedAt?: string;
+}
+
+export interface UpdateInvestigationPayload {
+  category?: InvestigationCategory;
+  testName?: string;
+  status?: InvestigationStatus;
+  priority?: "NORMAL" | "URGENT" | "VIP";
+  notes?: string | null;
+  documentId?: string | null;
+  orderedAt?: string | null;
+}
+
+export interface SendWhatsAppPayload {
+  to: string;
+  message: string;
+  patientId?: string;
+}
+
+export interface SendWhatsAppResponse {
+  sent: boolean;
+  provider: string;
+  reason?: string;
+  to: string;
+  response?: unknown;
+}
+
 export interface Service {
   id: string;
   name: string;
