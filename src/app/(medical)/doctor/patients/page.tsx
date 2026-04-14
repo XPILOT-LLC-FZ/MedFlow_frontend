@@ -1,23 +1,33 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
   Download,
+  FilterX,
+  Plus,
   Search,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { patientService } from "@/services/patientService";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
-import type { ApiPatient } from "@/types";
+import type { ApiPatient, CreatePatientPayload } from "@/types";
 
 const chronicFilters = [
   "Hypertension",
@@ -28,6 +38,72 @@ const chronicFilters = [
 ];
 
 const ageBuckets = ["0-18", "19-35", "36-50", "51-65", "65+"];
+
+const canonicalizeCondition = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return "";
+
+  if (normalized.includes("hypertension") || normalized.includes("ضغط")) {
+    return "Hypertension";
+  }
+  if (normalized.includes("diabetes") || normalized.includes("سكري")) {
+    return "Diabetes";
+  }
+  if (normalized.includes("asthma") || normalized.includes("ربو")) {
+    return "Asthma";
+  }
+  if (
+    normalized.includes("heart") ||
+    normalized.includes("cardio") ||
+    normalized.includes("قلب")
+  ) {
+    return "Heart Disease";
+  }
+  if (normalized.includes("arthritis") || normalized.includes("التهاب المفاصل")) {
+    return "Arthritis";
+  }
+
+  return value.trim();
+};
+
+type AddPatientForm = {
+  fullName: string;
+  age: string;
+  phone: string;
+  email: string;
+  address: string;
+  bloodType: string;
+  allergies: string;
+  idType: string;
+  chronicDiseases: string[];
+};
+
+const getInitialAddPatientForm = (): AddPatientForm => ({
+  fullName: "",
+  age: "",
+  phone: "",
+  email: "",
+  address: "",
+  bloodType: "",
+  allergies: "",
+  idType: "",
+  chronicDiseases: [],
+});
+
+const parseCsvTags = (value: string) =>
+  value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const ageToDateOfBirthIso = (ageText: string) => {
+  const age = Number(ageText);
+  if (!Number.isFinite(age) || age <= 0) return undefined;
+
+  const now = new Date();
+  const birthYear = now.getUTCFullYear() - age;
+  return new Date(Date.UTC(birthYear, 0, 1)).toISOString();
+};
 
 const getAge = (dateOfBirth?: string) => {
   if (!dateOfBirth) return null;
@@ -44,21 +120,72 @@ const getAge = (dateOfBirth?: string) => {
   return age >= 0 ? age : null;
 };
 
-const deriveConditions = (patient: ApiPatient) => {
-  const text = `${patient.notes || ""} ${JSON.stringify(patient.medicalHistory || {})}`.toLowerCase();
-  const tags: string[] = [];
+const extractAllConditions = (patient: ApiPatient) => {
+  const source = patient.medicalHistory as Record<string, unknown> | undefined;
+  const fromStructured = Array.isArray(source?.chronicDiseases)
+    ? (source.chronicDiseases as unknown[])
+        .map((item) => String(item).trim())
+        .filter(Boolean)
+    : [];
 
-  if (text.includes("hypertension")) tags.push("Hypertension");
-  if (text.includes("diabetes")) tags.push("Diabetes");
-  if (text.includes("asthma")) tags.push("Asthma");
-  if (text.includes("heart")) tags.push("Heart Disease");
-  if (text.includes("arthritis")) tags.push("Arthritis");
+  const text = `${patient.notes || ""} ${JSON.stringify(source || {})}`.toLowerCase();
+  const fromText: string[] = [];
 
-  if (tags.length === 0) {
-    tags.push("General Checkup");
+  if (text.includes("hypertension")) fromText.push("Hypertension");
+  if (text.includes("diabetes")) fromText.push("Diabetes");
+  if (text.includes("asthma")) fromText.push("Asthma");
+  if (text.includes("heart")) fromText.push("Heart Disease");
+  if (text.includes("arthritis")) fromText.push("Arthritis");
+
+  const normalized = [...fromStructured, ...fromText]
+    .map((item) => canonicalizeCondition(item))
+    .filter(Boolean);
+
+  return Array.from(new Set(normalized));
+};
+
+const deriveConditionsForCard = (patient: ApiPatient) => {
+  const conditions = extractAllConditions(patient);
+  if (conditions.length === 0) {
+    return ["General Checkup"];
+  }
+  return conditions.slice(0, 2);
+};
+
+const hasPendingResults = (patient: ApiPatient) => {
+  const history = patient.medicalHistory as Record<string, unknown> | undefined;
+  const pendingDirect = history?.pendingResults;
+
+  if (typeof pendingDirect === "boolean") {
+    return pendingDirect;
   }
 
-  return tags.slice(0, 2);
+  if (Array.isArray(pendingDirect)) {
+    return pendingDirect.length > 0;
+  }
+
+  const historyText = JSON.stringify(history || {}).toLowerCase();
+  if (
+    historyText.includes("pending") ||
+    historyText.includes("awaiting") ||
+    historyText.includes("critical") ||
+    historyText.includes("abnormal")
+  ) {
+    return true;
+  }
+
+  return !patient.user?.isOnboarded;
+};
+
+const hasRecentActivityWithinDays = (patient: ApiPatient, days: number) => {
+  const fallbackDate = patient.updatedAt || patient.createdAt;
+  if (!fallbackDate) return false;
+
+  const updatedAtMs = new Date(fallbackDate).getTime();
+  if (Number.isNaN(updatedAtMs)) return false;
+
+  const daysSinceUpdate = Math.floor((Date.now() - updatedAtMs) / (1000 * 60 * 60 * 24));
+  return daysSinceUpdate <= days;
 };
 
 const inAgeBucket = (age: number | null, bucket: string) => {
@@ -72,54 +199,54 @@ const inAgeBucket = (age: number | null, bucket: string) => {
 
 export default function DoctorPatientsPage() {
   const { locale } = useTranslation();
-  const toast = useToastStore();
+  const toastSuccess = useToastStore((state) => state.success);
+  const toastError = useToastStore((state) => state.error);
 
   const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
-  const [selectedAges, setSelectedAges] = useState<string[]>([]);
+  const [selectedAgeBucket, setSelectedAgeBucket] = useState<string | null>(null);
   const [showRecentActivity, setShowRecentActivity] = useState(true);
   const [showPendingResults, setShowPendingResults] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSavingPatient, setIsSavingPatient] = useState(false);
+  const [addPatientForm, setAddPatientForm] = useState<AddPatientForm>(
+    getInitialAddPatientForm(),
+  );
+
+  const loadPatients = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await patientService.getPage({
+        take: 80,
+        page: 1,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+      setPatients(response.data || []);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "تعذر تحميل المرضى"
+            : "Failed to load patients";
+      toastError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [locale, toastError]);
 
   useEffect(() => {
-    const loadPatients = async () => {
-      setIsLoading(true);
-      try {
-        const response = await patientService.getPage({
-          take: 80,
-          page: 1,
-          sortBy: "createdAt",
-          sortOrder: "desc",
-        });
-        setPatients(response.data || []);
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : locale === "ar"
-              ? "تعذر تحميل المرضى"
-              : "Failed to load patients";
-        toast.error(message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     void loadPatients();
-  }, [locale, toast]);
+  }, [loadPatients]);
 
   const filteredPatients = useMemo(() => {
     const normalized = searchTerm.trim().toLowerCase();
     return patients.filter((patient) => {
       const age = getAge(patient.dateOfBirth);
-      const conditions = deriveConditions(patient);
-      const updatedAt = new Date(
-        patient.updatedAt || patient.createdAt || Date.now(),
-      ).getTime();
-      const daysSinceUpdate = Math.floor(
-        (Date.now() - updatedAt) / (1000 * 60 * 60 * 24),
-      );
+      const allConditions = extractAllConditions(patient);
 
       const haystack = [patient.fullName, patient.email, patient.phone]
         .filter(Boolean)
@@ -129,12 +256,21 @@ export default function DoctorPatientsPage() {
       const matchesSearch = !normalized || haystack.includes(normalized);
       const matchesCondition =
         selectedConditions.length === 0 ||
-        conditions.some((condition) => selectedConditions.includes(condition));
+        selectedConditions.some((selected) =>
+          allConditions.some((condition) => {
+            const selectedNorm = selected.toLowerCase();
+            const conditionNorm = condition.toLowerCase();
+            return (
+              conditionNorm === selectedNorm ||
+              conditionNorm.includes(selectedNorm) ||
+              selectedNorm.includes(conditionNorm)
+            );
+          }),
+        );
       const matchesAge =
-        selectedAges.length === 0 ||
-        selectedAges.some((bucket) => inAgeBucket(age, bucket));
-      const matchesRecentActivity = !showRecentActivity || daysSinceUpdate <= 30;
-      const matchesPendingResults = !showPendingResults || !patient.user?.isOnboarded;
+        !selectedAgeBucket || inAgeBucket(age, selectedAgeBucket);
+      const matchesRecentActivity = !showRecentActivity || hasRecentActivityWithinDays(patient, 30);
+      const matchesPendingResults = !showPendingResults || hasPendingResults(patient);
 
       return (
         matchesSearch &&
@@ -148,7 +284,7 @@ export default function DoctorPatientsPage() {
     patients,
     searchTerm,
     selectedConditions,
-    selectedAges,
+    selectedAgeBucket,
     showRecentActivity,
     showPendingResults,
   ]);
@@ -156,13 +292,13 @@ export default function DoctorPatientsPage() {
   const stats = useMemo(() => {
     const total = filteredPatients.length;
     const active = filteredPatients.filter((patient) => (patient.totalVisits || 0) > 0).length;
-    const pending = filteredPatients.filter((patient) => !patient.user?.isOnboarded).length;
+    const pending = filteredPatients.filter((patient) => hasPendingResults(patient)).length;
     return { total, active, pending };
   }, [filteredPatients]);
 
   const exportPatients = () => {
     if (filteredPatients.length === 0) {
-      toast.error(locale === "ar" ? "لا توجد بيانات للتصدير" : "No data to export");
+      toastError(locale === "ar" ? "لا توجد بيانات للتصدير" : "No data to export");
       return;
     }
 
@@ -193,6 +329,97 @@ export default function DoctorPatientsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSelectedConditions([]);
+    setSelectedAgeBucket(null);
+    setShowRecentActivity(true);
+    setShowPendingResults(false);
+  };
+
+  const handleCreatePatient = async () => {
+    if (addPatientForm.fullName.trim().length < 2) {
+      toastError(
+        locale === "ar"
+          ? "الاسم الكامل يجب أن يكون حرفين على الأقل"
+          : "Full name must be at least 2 characters",
+      );
+      return;
+    }
+
+    const normalizedAge = addPatientForm.age.trim();
+    if (normalizedAge) {
+      const age = Number(normalizedAge);
+      if (!Number.isInteger(age) || age <= 0 || age > 120) {
+        toastError(locale === "ar" ? "العمر غير صالح" : "Age is invalid");
+        return;
+      }
+    }
+
+    const normalizedEmail = addPatientForm.email.trim().toLowerCase();
+    if (
+      normalizedEmail &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ) {
+      toastError(
+        locale === "ar" ? "صيغة البريد الإلكتروني غير صحيحة" : "Invalid email format",
+      );
+      return;
+    }
+
+    const allergyList = parseCsvTags(addPatientForm.allergies);
+    const medicalHistory: Record<string, unknown> = {};
+
+    if (addPatientForm.address.trim()) {
+      medicalHistory.address = addPatientForm.address.trim();
+    }
+    if (addPatientForm.idType.trim()) {
+      medicalHistory.idType = addPatientForm.idType.trim();
+    }
+    if (addPatientForm.chronicDiseases.length > 0) {
+      medicalHistory.chronicDiseases = addPatientForm.chronicDiseases;
+    }
+    if (normalizedAge) {
+      medicalHistory.estimatedAge = Number(normalizedAge);
+    }
+
+    const payload: CreatePatientPayload = {
+      fullName: addPatientForm.fullName.trim(),
+      phone: addPatientForm.phone.trim() || undefined,
+      email: normalizedEmail || undefined,
+      dateOfBirth: ageToDateOfBirthIso(normalizedAge),
+      bloodType: addPatientForm.bloodType.trim() || undefined,
+      allergies: allergyList,
+      medicalHistory:
+        Object.keys(medicalHistory).length > 0 ? medicalHistory : undefined,
+      createUserAccount: false,
+    };
+
+    setIsSavingPatient(true);
+    try {
+      await patientService.create(payload);
+      toastSuccess(
+        locale === "ar" ? "تم إضافة المريض بنجاح" : "Patient added successfully",
+      );
+      setIsAddDialogOpen(false);
+      setAddPatientForm(getInitialAddPatientForm());
+      await loadPatients();
+    } catch (error) {
+      toastError(
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "تعذر إضافة المريض"
+            : "Failed to add patient",
+      );
+    } finally {
+      setIsSavingPatient(false);
+    }
+  };
+
+  const hasNoPatients = !isLoading && patients.length === 0;
+  const hasNoMatches = !isLoading && patients.length > 0 && filteredPatients.length === 0;
+
   return (
     <div className="space-y-6 max-w-7xl">
       <PageHeader
@@ -202,7 +429,168 @@ export default function DoctorPatientsPage() {
             ? "إدارة سجلات المرضى والتاريخ الطبي"
             : "Manage patient records and medical history"
         }
+        action={
+          <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            {locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}
+          </Button>
+        }
       />
+
+      <Dialog
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) {
+            setAddPatientForm(getInitialAddPatientForm());
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{locale === "ar" ? "الاسم الكامل" : "Full Name"} *</label>
+                <Input
+                  value={addPatientForm.fullName}
+                  onChange={(event) =>
+                    setAddPatientForm((prev) => ({ ...prev, fullName: event.target.value }))
+                  }
+                  placeholder={locale === "ar" ? "أدخل اسم المريض" : "Enter patient name"}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{locale === "ar" ? "العمر" : "Age"}</label>
+                <Input
+                  value={addPatientForm.age}
+                  onChange={(event) =>
+                    setAddPatientForm((prev) => ({ ...prev, age: event.target.value }))
+                  }
+                  placeholder={locale === "ar" ? "أدخل العمر" : "Enter age"}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{locale === "ar" ? "رقم الهاتف" : "Phone Number"}</label>
+                <Input
+                  value={addPatientForm.phone}
+                  onChange={(event) =>
+                    setAddPatientForm((prev) => ({ ...prev, phone: event.target.value }))
+                  }
+                  placeholder={locale === "ar" ? "0555 123 4567" : "0555 123 4567"}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{locale === "ar" ? "البريد الإلكتروني" : "Email"}</label>
+                <Input
+                  value={addPatientForm.email}
+                  onChange={(event) =>
+                    setAddPatientForm((prev) => ({ ...prev, email: event.target.value }))
+                  }
+                  placeholder="patient@email.com"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">{locale === "ar" ? "العنوان" : "Address"}</label>
+              <Input
+                value={addPatientForm.address}
+                onChange={(event) =>
+                  setAddPatientForm((prev) => ({ ...prev, address: event.target.value }))
+                }
+                placeholder={locale === "ar" ? "23 Main St, City" : "23 Main St, City, State ZIP"}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{locale === "ar" ? "نوع الهوية" : "ID Type"}</label>
+                <Input
+                  value={addPatientForm.idType}
+                  onChange={(event) =>
+                    setAddPatientForm((prev) => ({ ...prev, idType: event.target.value }))
+                  }
+                  placeholder={locale === "ar" ? "الرقم القومي / جواز" : "National ID / Passport"}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">{locale === "ar" ? "فصيلة الدم" : "Blood Type"}</label>
+                <Input
+                  value={addPatientForm.bloodType}
+                  onChange={(event) =>
+                    setAddPatientForm((prev) => ({ ...prev, bloodType: event.target.value }))
+                  }
+                  placeholder="O+"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">{locale === "ar" ? "الحساسية" : "Allergies"}</label>
+              <Input
+                value={addPatientForm.allergies}
+                onChange={(event) =>
+                  setAddPatientForm((prev) => ({ ...prev, allergies: event.target.value }))
+                }
+                placeholder={
+                  locale === "ar"
+                    ? "افصل بين القيم بفاصلة"
+                    : "Separate with commas"
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">{locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {chronicFilters.map((condition) => (
+                  <button
+                    key={`new-${condition}`}
+                    type="button"
+                    onClick={() =>
+                      setAddPatientForm((prev) => ({
+                        ...prev,
+                        chronicDiseases: prev.chronicDiseases.includes(condition)
+                          ? prev.chronicDiseases.filter((value) => value !== condition)
+                          : [...prev.chronicDiseases, condition],
+                      }))
+                    }
+                    className={`rounded-md border px-2 py-1.5 text-xs ${
+                      addPatientForm.chronicDiseases.includes(condition)
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border"
+                    }`}
+                  >
+                    {condition}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => setIsAddDialogOpen(false)}>
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button className="flex-1" disabled={isSavingPatient} onClick={() => void handleCreatePatient()}>
+                {isSavingPatient
+                  ? locale === "ar"
+                    ? "جارٍ الإضافة..."
+                    : "Adding..."
+                  : locale === "ar"
+                    ? "إضافة المريض"
+                    : "Add Patient"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardContent className="pt-6 space-y-4">
@@ -238,10 +626,29 @@ export default function DoctorPatientsPage() {
               <div key={`skeleton-${index}`} className="h-56 rounded-2xl border bg-muted/30" />
             ))}
 
+          {hasNoPatients && (
+            <div className="rounded-2xl border bg-background sm:col-span-2 xl:col-span-3">
+              <EmptyState
+                icon={<UserPlus className="h-8 w-8 text-muted-foreground/60" />}
+                title={locale === "ar" ? "لا يوجد مرضى حالياً" : "No patients found"}
+                description={
+                  locale === "ar"
+                    ? "ابدأ بإضافة مريض جديد لعرض السجل الطبي في هذا القسم"
+                    : "Start by adding a new patient to populate this directory"
+                }
+                action={{
+                  label: locale === "ar" ? "إضافة مريض جديد" : "Add New Patient",
+                  onClick: () => setIsAddDialogOpen(true),
+                }}
+              />
+            </div>
+          )}
+
           {!isLoading &&
+            !hasNoPatients &&
             filteredPatients.map((patient) => {
               const age = getAge(patient.dateOfBirth);
-              const conditions = deriveConditions(patient);
+              const conditions = deriveConditionsForCard(patient);
 
               return (
                 <article key={patient.id} className="rounded-2xl border bg-background p-4 shadow-sm">
@@ -313,9 +720,21 @@ export default function DoctorPatientsPage() {
               );
             })}
 
-          {!isLoading && filteredPatients.length === 0 && (
-            <div className="rounded-2xl border bg-background p-6 text-center text-sm text-muted-foreground sm:col-span-2 xl:col-span-3">
-              {locale === "ar" ? "لا توجد نتائج مطابقة" : "No patients match current filters"}
+          {hasNoMatches && (
+            <div className="rounded-2xl border bg-background sm:col-span-2 xl:col-span-3">
+              <EmptyState
+                icon={<FilterX className="h-8 w-8 text-muted-foreground/60" />}
+                title={locale === "ar" ? "لا توجد نتائج مطابقة" : "No patients match current filters"}
+                description={
+                  locale === "ar"
+                    ? "جرّب تعديل الفلاتر أو مسح البحث للوصول إلى النتائج"
+                    : "Try adjusting filters or clearing search to see results"
+                }
+                action={{
+                  label: locale === "ar" ? "إعادة تعيين الفلاتر" : "Reset Filters",
+                  onClick: resetFilters,
+                }}
+              />
             </div>
           )}
         </section>
@@ -356,26 +775,29 @@ export default function DoctorPatientsPage() {
                 <p className="text-xs font-medium text-muted-foreground mb-2">
                   {locale === "ar" ? "الفئة العمرية" : "Age Group"}
                 </p>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="space-y-1.5">
+                  <label className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs">
+                    <span>{locale === "ar" ? "الكل" : "All"}</span>
+                    <input
+                      type="radio"
+                      name="age-group"
+                      checked={selectedAgeBucket === null}
+                      onChange={() => setSelectedAgeBucket(null)}
+                    />
+                  </label>
                   {ageBuckets.map((bucket) => (
-                    <button
+                    <label
                       key={bucket}
-                      type="button"
-                      onClick={() =>
-                        setSelectedAges((prev) =>
-                          prev.includes(bucket)
-                            ? prev.filter((item) => item !== bucket)
-                            : [...prev, bucket],
-                        )
-                      }
-                      className={`rounded-md border px-2 py-1.5 text-xs ${
-                        selectedAges.includes(bucket)
-                          ? "border-primary/50 bg-primary/10 text-primary"
-                          : "border-border"
-                      }`}
+                      className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs"
                     >
-                      {bucket}
-                    </button>
+                      <span>{bucket}</span>
+                      <input
+                        type="radio"
+                        name="age-group"
+                        checked={selectedAgeBucket === bucket}
+                        onChange={() => setSelectedAgeBucket(bucket)}
+                      />
+                    </label>
                   ))}
                 </div>
               </div>
@@ -397,6 +819,16 @@ export default function DoctorPatientsPage() {
                     onChange={(event) => setShowPendingResults(event.target.checked)}
                   />
                 </label>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={resetFilters}
+                >
+                  {locale === "ar" ? "إعادة تعيين الفلاتر" : "Reset Filters"}
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -424,6 +856,15 @@ export default function DoctorPatientsPage() {
           </Card>
         </aside>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setIsAddDialogOpen(true)}
+        className="fixed bottom-6 right-6 rtl:right-auto rtl:left-6 grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl transition hover:scale-105"
+        aria-label={locale === "ar" ? "إضافة مريض جديد" : "Add new patient"}
+      >
+        <Plus className="h-5 w-5" />
+      </button>
     </div>
   );
 }

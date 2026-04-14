@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
   Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles,
-  LogOut, Activity, Moon, Sun
+  LogOut, Activity
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -27,7 +27,6 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/dashboard", icon: LayoutDashboard },
     { label: "AI Chat", labelAr: "المساعد الذكي", href: "/chat", icon: MessageSquare },
     { label: "Appointments", labelAr: "المواعيد", href: "/appointments", icon: Calendar },
-    { label: "Promotions", labelAr: "العروض", href: "/promotions", icon: Sparkles },
     { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/smart-scheduler", icon: Sparkles },
     { label: "Feedback", labelAr: "التقييمات", href: "/feedback", icon: FileText },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/profile", icon: User },
@@ -69,7 +68,7 @@ const navByRole: Record<Role, NavItem[]> = {
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { sidebarOpen, setSidebarOpen, theme, toggleTheme } = useStore();
+  const { sidebarOpen, setSidebarOpen } = useStore();
   const { user, logout } = useAuthStore();
   const { t, locale, isRTL } = useTranslation();
 
@@ -188,15 +187,6 @@ export function Sidebar() {
           )}
 
           <div className={cn("mt-2 grid gap-1.5", !user && "mt-0")}>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-              <span>{locale === "ar" ? "تبديل المظهر" : "Toggle Theme"}</span>
-            </button>
-
             <button
               type="button"
               onClick={async () => {
