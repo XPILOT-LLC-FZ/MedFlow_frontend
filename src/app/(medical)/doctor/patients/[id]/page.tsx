@@ -559,11 +559,10 @@ export default function DoctorPatientDetailsPage() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="history">{locale === "ar" ? "سجل الزيارات" : "Visit history"}</TabsTrigger>
           <TabsTrigger value="labs">{locale === "ar" ? "نتائج التحاليل" : "Lab results"}</TabsTrigger>
-          <TabsTrigger value="notes">{locale === "ar" ? "الملاحظات والتشخيص" : "Clinical Notes & Diagnosis"}</TabsTrigger>
-          <TabsTrigger value="prescription">{locale === "ar" ? "الوصفة" : "Prescription"}</TabsTrigger>
+          <TabsTrigger value="prescription">{locale === "ar" ? "الملاحظات والوصفة" : "Clinical Notes & Prescription"}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="history">
@@ -676,51 +675,47 @@ export default function DoctorPatientDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="notes">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "الملاحظات والتشخيص" : "Clinical Notes & Diagnosis"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <textarea
-                className="w-full min-h-32 rounded-lg border bg-background px-3 py-2 text-sm"
-                placeholder={
-                  locale === "ar"
-                    ? "أدخل الأعراض والانطباع الطبي والتشخيص..."
-                    : "Enter patient symptoms, examination findings, and diagnosis..."
-                }
-                value={notesDraft}
-                onChange={(event) => setNotesDraft(event.target.value)}
-              />
-
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => void saveClinicalNotes()} disabled={isSavingNotes}>
-                  {isSavingNotes
-                    ? locale === "ar"
-                      ? "جارٍ الحفظ..."
-                      : "Saving..."
-                    : locale === "ar"
-                      ? "حفظ الملاحظات"
-                      : "Save Notes"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => toastInfo(locale === "ar" ? "تم إرسال بلاغ للمراجعة" : "Issue reported for review")}
-                >
-                  {locale === "ar" ? "Report issue" : "Report issue"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="prescription">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "الوصفة والتحويلات" : "Prescription"}</CardTitle>
+              <CardTitle className="text-base">{locale === "ar" ? "الملاحظات والوصفة والتحويلات" : "Clinical Notes, Prescription & Investigations"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{locale === "ar" ? "Clinical Notes" : "Clinical Notes"}</label>
+                  <textarea
+                    className="w-full min-h-32 rounded-md border bg-background px-3 py-2 text-sm"
+                    placeholder={
+                      locale === "ar"
+                        ? "أدخل الأعراض والانطباع الطبي والتشخيص..."
+                        : "Enter patient symptoms, examination findings, and diagnosis..."
+                    }
+                    value={notesDraft}
+                    onChange={(event) => setNotesDraft(event.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => void saveClinicalNotes()} disabled={isSavingNotes}>
+                    {isSavingNotes
+                      ? locale === "ar"
+                        ? "جارٍ الحفظ..."
+                        : "Saving..."
+                      : locale === "ar"
+                        ? "حفظ الملاحظات"
+                        : "Save Notes"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toastInfo(locale === "ar" ? "تم إرسال بلاغ للمراجعة" : "Issue reported for review")}
+                  >
+                    {locale === "ar" ? "Report issue" : "Report issue"}
+                  </Button>
+                </div>
+              </div>
+
               <div className="rounded-lg border p-3 space-y-3">
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">{locale === "ar" ? "Diagnosis" : "Diagnosis"}</label>
