@@ -13,6 +13,7 @@ import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 import type { Role } from "@/types";
 
 interface NavItem {
@@ -26,7 +27,6 @@ const navByRole: Record<Role, NavItem[]> = {
   PATIENT: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/dashboard", icon: LayoutDashboard },
     { label: "AI Chat", labelAr: "المساعد الذكي", href: "/chat", icon: MessageSquare },
-    { label: "Appointments", labelAr: "المواعيد", href: "/appointments", icon: Calendar },
     { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/smart-scheduler", icon: Sparkles },
     { label: "Feedback", labelAr: "التقييمات", href: "/feedback", icon: FileText },
     { label: "Profile", labelAr: "الملف الشخصي", href: "/profile", icon: User },
@@ -43,12 +43,11 @@ const navByRole: Record<Role, NavItem[]> = {
   ],
   DOCTOR: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/doctor/dashboard", icon: LayoutDashboard },
-    { label: "Appointments", labelAr: "المواعيد", href: "/doctor/appointments", icon: Calendar },
-    { label: "Chat", labelAr: "المحادثة", href: "/doctor/chat", icon: MessageSquare },
     { label: "My Schedule", labelAr: "جدولي", href: "/doctor/schedule", icon: Calendar },
     { label: "Patients", labelAr: "المرضى", href: "/doctor/patients", icon: Users },
-    { label: "Analytics", labelAr: "التحليلات", href: "/doctor/analytics", icon: Activity },
     { label: "Treatment Timelines", labelAr: "الخطط العلاجية", href: "/doctor/treatment-timelines", icon: ClipboardList },
+    { label: "Chat", labelAr: "المحادثة", href: "/doctor/chat", icon: MessageSquare },
+    { label: "Analytics", labelAr: "التحليلات", href: "/doctor/analytics", icon: Activity },
     { label: "Settings", labelAr: "الإعدادات", href: "/doctor/profile", icon: Settings },
   ],
   STAFF: [
@@ -85,23 +84,13 @@ export function Sidebar() {
   };
 
   const renderLogo = () => {
-    if (isDoctorSidebar) {
-      return (
-        <Link href="/doctor/dashboard" className="flex items-center gap-2">
-          <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-            Clinic
-            <span className="text-blue-600 dark:text-blue-400">Flow</span>
-          </span>
-        </Link>
-      );
-    }
-
     return (
-      <Link href="/main" className="flex items-center">
-        <span className="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-          Med
-          <span className="text-blue-600 dark:text-blue-400">Flow</span>
-        </span>
+      <Link href={isDoctorSidebar ? "/doctor/dashboard" : "/main"} className="flex items-center">
+        <BrandLogo
+          className="gap-2"
+          iconClassName="h-9 w-9 rounded-xl"
+          textClassName="text-base"
+        />
       </Link>
     );
   };
@@ -167,27 +156,8 @@ export function Sidebar() {
               </Link>
             );
           })}
-        </nav>
 
-        {/* Footer */}
-        <div className={cn("p-3 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800" : "border-sidebar-border")}>
-          {user && (
-            <div className="flex items-center gap-3 rounded-xl px-2 py-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                {profileName.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{profileName}</p>
-                {isDoctorSidebar ? (
-                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">Cardiologist</p>
-                ) : (
-                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("settings")}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className={cn("mt-2 grid gap-1.5", !user && "mt-0")}>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-2">
             <button
               type="button"
               onClick={async () => {
@@ -196,10 +166,29 @@ export function Sidebar() {
               }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className={cn("h-4 w-4", isDoctorSidebar && "h-[17px] w-[17px]")} />
               <span>{t("logout")}</span>
             </button>
           </div>
+        </nav>
+
+        {/* Footer */}
+        <div className={cn("p-3 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800" : "border-sidebar-border")}>
+          {user && (
+            <div className="flex items-center gap-3 rounded-xl px-2 py-1">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                {profileName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{profileName}</p>
+                {isDoctorSidebar ? (
+                  <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">Cardiologist</p>
+                ) : (
+                  <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("settings")}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </motion.aside>
     </>

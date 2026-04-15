@@ -14,6 +14,14 @@ import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { staffService } from "@/services/staffService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
+import { bookingService } from "@/services/bookingService";
+import { aiChatService } from "@/services/aiChatService";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ApiService, Appointment, DoctorShift } from "@/types";
 
 const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -172,6 +180,29 @@ export default function SchedulePage() {
     Array.from({ length: 7 }).map((_, day) => buildDefaultShift(day))
   );
 
+  // Ported Actions State
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [actionsDropdownId, setActionsDropdownId] = useState<string | null>(null);
+  const [openForm, setOpenForm] = useState<{
+    appointmentId: string;
+    type: "reschedule" | "manual-summary" | "ai-summary";
+  } | null>(null);
+  
+  const [rescheduleForm, setRescheduleForm] = useState({
+    date: "",
+    startTime: "",
+    reason: "",
+  });
+  const [manualSummaryForm, setManualSummaryForm] = useState({
+    content: "",
+    sendToPatient: true,
+  });
+  const [aiSummaryForm, setAiSummaryForm] = useState({
+    consultationNotes: "",
+    format: "clinical" as "brief" | "detailed" | "clinical",
+    sendToPatient: true,
+  });
+
   const hasDoctor = Boolean(doctorId);
 
   const loadAvailability = useCallback(async (targetDoctorId: string) => {
@@ -253,6 +284,20 @@ export default function SchedulePage() {
     );
   };
 
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (actionsDropdownId) {
+        setActionsDropdownId(null);
+      }
+    };
+    if (actionsDropdownId) {
+      window.addEventListener("click", handleClickOutside);
+    }
+    return () => {
+      window.removeEventListener("click", handleClickOutside);
+    };
+  }, [actionsDropdownId]);
+
   const handleSave = async () => {
     if (!doctorId) return;
 
@@ -333,6 +378,114 @@ export default function SchedulePage() {
       error(message);
     } finally {
       setIsSubmittingAppointment(false);
+    }
+  };
+
+  // Ported Actions Handlers
+  const openRescheduleForm = (appointment: Appointment) => {
+    setOpenForm({ appointmentId: appointment.id, type: "reschedule" });
+    setRescheduleForm({
+      date: appointment.date,
+      startTime: appointment.time,
+      reason: "",
+    });
+    setActionsDropdownId(null);
+  };
+
+  const openManualSummaryForm = (appointment: Appointment) => {
+    setOpenForm({ appointmentId: appointment.id, type: "manual-summary" });
+    setManualSummaryForm({
+      content: appointment.notes ?? "",
+      sendToPatient: true,
+    });
+    setActionsDropdownId(null);
+  };
+
+  const openAiSummaryForm = (appointment: Appointment) => {
+    setOpenForm({ appointmentId: appointment.id, type: "ai-summary" });
+    setAiSummaryForm({
+      consultationNotes: appointment.notes ?? "",
+      format: "clinical",
+      sendToPatient: true,
+    });
+    setActionsDropdownId(null);
+  };
+
+  const handleRescheduleSubmit = async (appointment: Appointment) => {
+    if (!rescheduleForm.date || !rescheduleForm.startTime) {
+      error(
+        locale === "ar"
+          ? "يرجى تعبئة التاريخ والوقت"
+          : "Please fill both date and start time",
+      );
+      return;
+    }
+
+    setActiveActionId(appointment.id);
+    try {
+      await bookingService.rescheduleAppointment(appointment.id, {
+        date: rescheduleForm.date,
+        startTime: rescheduleForm.startTime,
+        reason: rescheduleForm.reason.trim() || undefined,
+      });
+      await fetchAppointments();
+      setOpenForm(null);
+      success(locale === "ar" ? "تمت إعادة الجدولة بنجاح" : "Appointment rescheduled");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to reschedule appointment";
+      error(message);
+    } finally {
+      setActiveActionId(null);
+    }
+  };
+
+  const handleManualSummarySubmit = async (appointment: Appointment) => {
+    if (!manualSummaryForm.content || manualSummaryForm.content.trim().length < 5) {
+      error(
+        locale === "ar"
+          ? "الملخص الطبي يجب أن يكون 5 أحرف على الأقل"
+          : "Medical summary must be at least 5 characters",
+      );
+      return;
+    }
+
+    setActiveActionId(appointment.id);
+    try {
+      await bookingService.saveManualSummary(appointment.id, {
+        mode: "NORMAL",
+        content: manualSummaryForm.content.trim(),
+        sendToPatient: manualSummaryForm.sendToPatient,
+      });
+      await fetchAppointments();
+      setOpenForm(null);
+      success(locale === "ar" ? "تم إرسال الملخص" : "Medical summary sent");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send summary";
+      error(message);
+    } finally {
+      setActiveActionId(null);
+    }
+  };
+
+  const handleAiSummarySubmit = async (appointment: Appointment) => {
+    setActiveActionId(appointment.id);
+    try {
+      await aiChatService.generateMedicalSummary({
+        appointmentId: appointment.id,
+        consultationNotes: aiSummaryForm.consultationNotes.trim() || undefined,
+        format: aiSummaryForm.format,
+        language: locale === "ar" ? "ar" : "en",
+        sendToPatient: aiSummaryForm.sendToPatient,
+        saveSummary: true,
+      });
+      await fetchAppointments();
+      setOpenForm(null);
+      success(locale === "ar" ? "تم إنشاء ملخص بالذكاء الاصطناعي" : "AI summary generated and sent");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to generate AI summary";
+      error(message);
+    } finally {
+      setActiveActionId(null);
     }
   };
 
@@ -460,7 +613,42 @@ export default function SchedulePage() {
                         <p className="text-sm font-semibold text-slate-800">{item.patientName}</p>
                         <p className="text-xs text-slate-500">{item.specialty}</p>
                       </div>
-                      <MoreVertical className="h-4 w-4 text-slate-400" />
+                      <div className="relative">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActionsDropdownId(actionsDropdownId === item.id ? null : item.id);
+                          }}
+                          className="p-1 rounded-md hover:bg-slate-100 transition-colors"
+                        >
+                          <MoreVertical className="h-4 w-4 text-slate-400" />
+                        </button>
+                        {actionsDropdownId === item.id && (
+                          <div className="absolute right-0 top-full mt-1 z-30 w-52 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                            <button 
+                              onClick={() => openRescheduleForm(item)}
+                              disabled={activeActionId === item.id}
+                              className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {locale === "ar" ? "إعادة جدولة" : "Reschedule Appointment"}
+                            </button>
+                            <button 
+                              onClick={() => openManualSummaryForm(item)}
+                              disabled={activeActionId === item.id}
+                              className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {locale === "ar" ? "إرسال ملخص يدوي" : "Send Manual Summary"}
+                            </button>
+                            <button 
+                              onClick={() => openAiSummaryForm(item)}
+                              disabled={activeActionId === item.id}
+                              className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
+                            >
+                              {locale === "ar" ? "إنشاء ملخص AI" : "Generate AI Summary"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-2 space-y-1 text-xs text-slate-500">
                       <p className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{item.time} • 30 min</p>
@@ -854,6 +1042,154 @@ export default function SchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Action Dialogs */}
+      {openForm && (
+        <Dialog open={!!openForm} onOpenChange={(open) => !open && setOpenForm(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {openForm.type === "reschedule" && (locale === "ar" ? "إعادة جدولة الموعد" : "Reschedule Appointment")}
+                {openForm.type === "manual-summary" && (locale === "ar" ? "إرسال ملخص طبي يدوي" : "Send Manual Medical Summary")}
+                {openForm.type === "ai-summary" && (locale === "ar" ? "إنشاء ملخص بالذكاء الاصطناعي" : "Generate AI Medical Summary")}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="py-4">
+              {openForm.type === "reschedule" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{locale === "ar" ? "التاريخ الجديد" : "New Date"}</label>
+                      <Input
+                        type="date"
+                        value={rescheduleForm.date}
+                        onChange={(e) => setRescheduleForm(prev => ({ ...prev, date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{locale === "ar" ? "الوقت الجديد" : "New Start Time"}</label>
+                      <Input
+                        type="time"
+                        value={rescheduleForm.startTime}
+                        onChange={(e) => setRescheduleForm(prev => ({ ...prev, startTime: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{locale === "ar" ? "سبب إعادة الجدولة (اختياري)" : "Reason for rescheduling (optional)"}</label>
+                    <textarea
+                      className="min-h-24 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      value={rescheduleForm.reason}
+                      onChange={(e) => setRescheduleForm(prev => ({ ...prev, reason: e.target.value }))}
+                      placeholder={locale === "ar" ? "أدخل السبب هنا..." : "Enter reason here..."}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="ghost" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                    <Button 
+                      onClick={() => {
+                        const appt = appointments.find(a => a.id === openForm.appointmentId);
+                        if (appt) handleRescheduleSubmit(appt);
+                      }}
+                      disabled={activeActionId === openForm.appointmentId}
+                    >
+                      {activeActionId === openForm.appointmentId ? (locale === "ar" ? "جارٍ الحفظ..." : "Scheduling...") : (locale === "ar" ? "تأكيد الموعد الجديد" : "Confirm New Schedule")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {openForm.type === "manual-summary" && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{locale === "ar" ? "محتوى الملخص الطبي" : "Medical Summary Content"}</label>
+                    <textarea
+                      className="min-h-40 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      value={manualSummaryForm.content}
+                      onChange={(e) => setManualSummaryForm(prev => ({ ...prev, content: e.target.value }))}
+                      placeholder={locale === "ar" ? "اكتب ملاحظاتك الطبية وتوصياتك هنا..." : "Write your medical notes and recommendations here..."}
+                    />
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      checked={manualSummaryForm.sendToPatient}
+                      onChange={(e) => setManualSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
+                    />
+                    <span className="text-sm text-slate-600 font-medium">{locale === "ar" ? "إرسال نسخة للمريض عبر البريد/التطبيق" : "Send a copy to the patient via Email/App"}</span>
+                  </label>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="ghost" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                    <Button 
+                      onClick={() => {
+                        const appt = appointments.find(a => a.id === openForm.appointmentId);
+                        if (appt) handleManualSummarySubmit(appt);
+                      }}
+                      disabled={activeActionId === openForm.appointmentId}
+                    >
+                      {activeActionId === openForm.appointmentId ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending...") : (locale === "ar" ? "إرسال الملخص" : "Send Summary")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {openForm.type === "ai-summary" && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">{locale === "ar" ? "ملاحظات إضافية للذكاء الاصطناعي (اختياري)" : "Additional notes for AI (optional)"}</label>
+                    <textarea
+                      className="min-h-32 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      value={aiSummaryForm.consultationNotes}
+                      onChange={(e) => setAiSummaryForm(prev => ({ ...prev, consultationNotes: e.target.value }))}
+                      placeholder={locale === "ar" ? "أي سياق إضافي تريده في الملخص..." : "Any extra context you want included in the summary..."}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium">{locale === "ar" ? "تنسيق الملخص" : "Summary Format"}</label>
+                      <select
+                        value={aiSummaryForm.format}
+                        onChange={(e) => setAiSummaryForm(prev => ({ ...prev, format: e.target.value as any }))}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      >
+                        <option value="brief">Brief (Core points only)</option>
+                        <option value="detailed">Detailed (Comprehensive explanation)</option>
+                        <option value="clinical">Clinical (Structured medical report)</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end pb-1.5">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          checked={aiSummaryForm.sendToPatient}
+                          onChange={(e) => setAiSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
+                        />
+                        <span className="text-sm text-slate-600 font-medium">{locale === "ar" ? "مشاركة مع المريض" : "Share with patient"}</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="ghost" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                    <Button 
+                      className="bg-blue-600 hover:bg-blue-700 font-semibold"
+                      onClick={() => {
+                        const appt = appointments.find(a => a.id === openForm.appointmentId);
+                        if (appt) handleAiSummarySubmit(appt);
+                      }}
+                      disabled={activeActionId === openForm.appointmentId}
+                    >
+                      {activeActionId === openForm.appointmentId ? (locale === "ar" ? "جارٍ التوليد..." : "Generating...") : (locale === "ar" ? "توليد بالذكاء الاصطناعي" : "Generate with AI")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

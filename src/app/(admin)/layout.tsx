@@ -1,7 +1,8 @@
 "use client";
 
 import { Sidebar } from "@/components/shared/Sidebar";
-import { Navbar } from "@/components/shared/Navbar";
+import { DashboardTopbar } from "@/components/shared/DashboardTopbar";
+import { MobileNavbar } from "@/components/shared/MobileNavbar";
 import { RoleGuard } from "@/components/shared/RoleGuard";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -10,7 +11,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Navbar showSidebarToggle />
+          <DashboardTopbar />
+          <MobileNavbar showSidebarToggle />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
         </div>
       </div>
