@@ -94,38 +94,50 @@ export default function DoctorDashboard() {
           : "James Brown confirmed follow-up appointment for 30 mins ago",
     },
   ];
+  const [taskState, setTaskState] = React.useState<Record<string, boolean>>({
+    "call-sarah": false,
+    "sign-michael": false,
+    "review-emma": false,
+    "records": false,
+    "afternoon": true,
+  });
+
+  const toggleTask = (key: string) => {
+    setTaskState((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const quickTasks = [
     {
       key: "call-sarah",
       title: locale === "ar" ? "الاتصال بصاحبة الموعد" : "Call pharmacy for Sarah Johnson's refill",
       due: locale === "ar" ? "الاستحقاق: 10:30 ص" : "Due: 10:30 AM",
       tone: "default",
-      completed: false,
+      completed: taskState["call-sarah"],
     },
     {
       key: "sign-michael",
       title: locale === "ar" ? "توقيع وصفة مايكل" : "Sign prescription for Michael Chen",
       tone: "default",
-      completed: false,
+      completed: taskState["sign-michael"],
     },
     {
       key: "review-emma",
       title: locale === "ar" ? "مراجعة نتائج إيما العاجلة" : "Review urgent lab results for Emma Williams",
       due: locale === "ar" ? "الاستحقاق: 11:00 ص" : "Due: 11:00 AM",
       tone: "alert",
-      completed: false,
+      completed: taskState["review-emma"],
     },
     {
       key: "records",
       title: locale === "ar" ? "تحديث السجلات الصباحية" : "Update medical records for morning patients",
       tone: "default",
-      completed: false,
+      completed: taskState["records"],
     },
     {
       key: "afternoon",
       title: locale === "ar" ? "تأكيد مواعيد العصر" : "Confirm afternoon appointments",
       tone: "success",
-      completed: true,
+      completed: taskState["afternoon"],
     },
   ];
   const recentActivity = [
@@ -436,12 +448,13 @@ export default function DoctorDashboard() {
                 .map((task) => (
                   <div
                     key={task.key}
-                    className={`rounded-lg border p-2.5 ${
+                    onClick={() => toggleTask(task.key)}
+                    className={`group cursor-pointer rounded-lg border p-2.5 transition-all hover:bg-slate-100 ${
                       task.tone === "alert" ? "border-rose-100 bg-rose-50/50" : "border-slate-200 bg-slate-50/60"
                     }`}
                   >
                     <div className="flex gap-2">
-                      <div className="mt-0.5 h-3.5 w-3.5 rounded-[3px] border border-slate-300 bg-white" />
+                      <div className="mt-0.5 h-3.5 w-3.5 rounded-[3px] border border-slate-300 bg-white group-hover:border-blue-500" />
                       <div className="min-w-0">
                         <p className="text-[11px] font-medium text-slate-700">{task.title}</p>
                         {task.due && <p className="mt-0.5 text-[10px] text-slate-500">{task.due}</p>}
@@ -456,10 +469,16 @@ export default function DoctorDashboard() {
                 {quickTasks
                   .filter((task) => task.completed)
                   .map((task) => (
-                    <div key={task.key} className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-2.5">
+                    <div 
+                      key={task.key} 
+                      onClick={() => toggleTask(task.key)}
+                      className="group cursor-pointer rounded-lg border border-emerald-100 bg-emerald-50/40 p-2.5 transition-all hover:bg-emerald-50"
+                    >
                       <div className="flex gap-2">
-                        <div className="mt-0.5 h-3.5 w-3.5 rounded-[3px] border border-emerald-300 bg-emerald-100" />
-                        <p className="text-[11px] font-medium text-slate-700">{task.title}</p>
+                        <div className="mt-0.5 grid h-3.5 w-3.5 place-items-center rounded-[3px] border border-emerald-300 bg-emerald-100">
+                           <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                        </div>
+                        <p className="text-[11px] font-medium text-slate-500 line-through decoration-slate-300">{task.title}</p>
                       </div>
                     </div>
                   ))}
@@ -501,19 +520,19 @@ export default function DoctorDashboard() {
           <CardContent className="px-4 pb-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {[
-                { key: "patient", label: locale === "ar" ? "مريض جديد" : "New Patient", icon: UserPlus },
-                { key: "appointment", label: locale === "ar" ? "إضافة موعد" : "Add Appointment", icon: CalendarPlus },
-                { key: "prescription", label: locale === "ar" ? "كتابة وصفة" : "Write Prescription", icon: FilePenLine },
-                { key: "schedule", label: locale === "ar" ? "إدارة الجدول" : "Manage Schedule", icon: CalendarClock },
+                { key: "patient", label: locale === "ar" ? "مريض جديد" : "New Patient", icon: UserPlus, href: "/doctor/patients" },
+                { key: "appointment", label: locale === "ar" ? "إضافة موعد" : "Add Appointment", icon: CalendarPlus, href: "/doctor/schedule" },
+                { key: "prescription", label: locale === "ar" ? "كتابة وصفة" : "Write Prescription", icon: FilePenLine, href: "/doctor/patients" },
+                { key: "schedule", label: locale === "ar" ? "إدارة الجدول" : "Manage Schedule", icon: CalendarClock, href: "/doctor/schedule" },
               ].map((action) => (
-                <button
+                <Link
                   key={action.key}
-                  type="button"
-                  className="flex h-[74px] flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 text-slate-700 transition hover:bg-slate-100"
+                  href={action.href}
+                  className="flex h-[74px] flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 text-slate-700 transition hover:bg-slate-100 hover:border-blue-200 hover:text-blue-600 active:scale-95"
                 >
                   <action.icon className="h-4 w-4 text-blue-600" />
                   <span className="text-[11px] font-medium">{action.label}</span>
-                </button>
+                </Link>
               ))}
             </div>
           </CardContent>

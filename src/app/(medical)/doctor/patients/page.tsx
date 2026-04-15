@@ -122,20 +122,31 @@ const getAge = (dateOfBirth?: string) => {
 
 const extractAllConditions = (patient: ApiPatient) => {
   const source = patient.medicalHistory as Record<string, unknown> | undefined;
-  const fromStructured = Array.isArray(source?.chronicDiseases)
-    ? (source.chronicDiseases as unknown[])
-        .map((item) => String(item).trim())
-        .filter(Boolean)
-    : [];
+  
+  const fromStructured: string[] = [];
+  
+  // Directly pull structured data (populated by backend from onboarding)
+  if (Array.isArray(source?.chronicDiseases)) {
+    (source.chronicDiseases as unknown[]).forEach(item => {
+      const norm = canonicalizeCondition(String(item));
+      if (norm) fromStructured.push(norm);
+    });
+  } else if (typeof source?.chronicDiseases === 'string') {
+    source.chronicDiseases.split(',').forEach(item => {
+      const norm = canonicalizeCondition(item.trim());
+      if (norm) fromStructured.push(norm);
+    });
+  }
 
+  // Fallback heuristics for older data
   const text = `${patient.notes || ""} ${JSON.stringify(source || {})}`.toLowerCase();
   const fromText: string[] = [];
 
-  if (text.includes("hypertension")) fromText.push("Hypertension");
-  if (text.includes("diabetes")) fromText.push("Diabetes");
-  if (text.includes("asthma")) fromText.push("Asthma");
-  if (text.includes("heart")) fromText.push("Heart Disease");
-  if (text.includes("arthritis")) fromText.push("Arthritis");
+  if (text.includes("hypertension") || text.includes("ضغط")) fromText.push("Hypertension");
+  if (text.includes("diabetes") || text.includes("سكري")) fromText.push("Diabetes");
+  if (text.includes("asthma") || text.includes("ربو")) fromText.push("Asthma");
+  if (text.includes("heart") || text.includes("قلب")) fromText.push("Heart Disease");
+  if (text.includes("arthritis") || text.includes("المفاصل")) fromText.push("Arthritis");
 
   const normalized = [...fromStructured, ...fromText]
     .map((item) => canonicalizeCondition(item))

@@ -581,6 +581,14 @@ export interface ApiPatient {
     isOnboarded: boolean;
     isActive: boolean;
     createdAt: string;
+    onboardingAnswers?: Array<{
+      answer: string;
+      question: {
+        questionAr: any;
+        fieldKey: string;
+        question: string;
+      };
+    }>;
   } | null;
 }
 

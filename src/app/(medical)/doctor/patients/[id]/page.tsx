@@ -79,21 +79,29 @@ const investigationCatalog = [
 ];
 
 const deriveChronicConditions = (patient: ApiPatient) => {
-  const conditions: string[] = [];
+  const conditions: Set<string> = new Set();
+  
+  // Directly pull structured data (populated by backend from onboarding)
   const history = patient.medicalHistory as Record<string, unknown> | undefined;
-  const fromArray = Array.isArray(history?.chronicDiseases)
-    ? (history?.chronicDiseases as unknown[])
-        .map((item) => String(item))
-        .filter(Boolean)
-    : [];
+  
+  if (Array.isArray(history?.chronicDiseases)) {
+    (history?.chronicDiseases as unknown[]).forEach(item => conditions.add(String(item)));
+  } else if (typeof history?.chronicDiseases === 'string') {
+    history.chronicDiseases.split(',').forEach(item => {
+      const trimmed = item.trim();
+      if (trimmed) conditions.add(trimmed);
+    });
+  }
 
-  conditions.push(...fromArray);
+  // Fallback heuristics for older records without structured onboarding data
+  if (conditions.size === 0) {
+    const text = `${patient.notes || ""} ${JSON.stringify(patient.medicalHistory || {})}`.toLowerCase();
+    if (text.includes("hypertension") || text.includes("ضغط")) conditions.add("Hypertension");
+    if (text.includes("diabetes") || text.includes("سكري")) conditions.add("Diabetes");
+    if (text.includes("asthma") || text.includes("ربو")) conditions.add("Asthma");
+  }
 
-  const text = `${patient.notes || ""} ${JSON.stringify(patient.medicalHistory || {})}`.toLowerCase();
-  if (conditions.length === 0 && text.includes("hypertension")) conditions.push("Hypertension");
-  if (conditions.length < 2 && text.includes("diabetes")) conditions.push("Type 2 Diabetes");
-
-  return conditions.slice(0, 3);
+  return Array.from(conditions).slice(0, 3);
 };
 
 export default function DoctorPatientDetailsPage() {
@@ -559,10 +567,25 @@ export default function DoctorPatientDetailsPage() {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-3 w-full">
-          <TabsTrigger value="history">{locale === "ar" ? "سجل الزيارات" : "Visit history"}</TabsTrigger>
-          <TabsTrigger value="labs">{locale === "ar" ? "نتائج التحاليل" : "Lab results"}</TabsTrigger>
-          <TabsTrigger value="prescription">{locale === "ar" ? "الملاحظات والوصفة" : "Clinical Notes & Prescription"}</TabsTrigger>
+        <TabsList className="flex items-center gap-1.5 w-full bg-muted/30 p-1.5 rounded-xl h-auto border">
+          <TabsTrigger 
+            value="history" 
+            className="flex-1 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+          >
+            {locale === "ar" ? "سجل الزيارات" : "Visit history"}
+          </TabsTrigger>
+          <TabsTrigger 
+            value="labs" 
+            className="flex-1 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+          >
+            {locale === "ar" ? "نتائج التحاليل" : "Lab results"}
+          </TabsTrigger>
+          <TabsTrigger 
+            value="prescription" 
+            className="flex-1 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
+          >
+            {locale === "ar" ? "الملاحظات والوصفة" : "Clinical Notes & Prescription"}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="history">
@@ -576,16 +599,24 @@ export default function DoctorPatientDetailsPage() {
                   {locale === "ar" ? "لا توجد زيارات مسجلة" : "No recorded visits"}
                 </p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                <div className="flex flex-col gap-3">
                   {appointments.map((visit) => (
-                    <article key={visit.id} className="rounded-lg border p-3">
-                      <p className="text-sm font-medium">{visit.serviceName || (locale === "ar" ? "متابعة طبية" : "Clinical follow-up")}</p>
-                      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>{formatDate(visit.date, locale)}</span>
-                        <span>{visit.startTime}</span>
+                    <article key={visit.id} className="rounded-lg border p-4 bg-muted/5">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{visit.serviceName || (locale === "ar" ? "متابعة طبية" : "Clinical follow-up")}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{visit.doctorName || "-"}</p>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-muted-foreground bg-background px-3 py-1.5 rounded-md border w-fit">
+                          <span className="font-medium">{formatDate(visit.date, locale)}</span>
+                          <span className="opacity-30">|</span>
+                          <span>{visit.startTime}</span>
+                          <Badge variant="outline" className="ml-2 text-[10px] uppercase">{visit.status}</Badge>
+                        </div>
                       </div>
-                      <p className="mt-2 text-xs text-muted-foreground">{visit.doctorName || "-"}</p>
-                      <p className="mt-2 text-xs line-clamp-3">{visit.consultationSession?.notes || visit.notes || (locale === "ar" ? "بدون ملاحظات" : "No notes")}</p>
+                      <div className="mt-3 text-xs text-muted-foreground leading-relaxed border-t pt-3">
+                        {visit.consultationSession?.notes || visit.notes || (locale === "ar" ? "بدون ملاحظات" : "No clinical notes preserved")}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -600,77 +631,73 @@ export default function DoctorPatientDetailsPage() {
               <CardTitle className="text-base">{locale === "ar" ? "نتائج التحاليل" : "Lab results"}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div>
-                <input
-                  id="patient-doc-upload"
-                  type="file"
-                  accept="image/*,.pdf"
-                  multiple
-                  className="hidden"
-                  onChange={onUploadFiles}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={isUploadingDocument}
-                  onClick={() => {
-                    const input = document.getElementById("patient-doc-upload") as HTMLInputElement | null;
-                    input?.click();
-                  }}
-                >
-                  {locale === "ar" ? "رفع ملف" : "Upload file"}
-                </Button>
-              </div>
-
               {labResults.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   {locale === "ar" ? "لا توجد نتائج تحاليل" : "No lab results found"}
                 </p>
               )}
 
-              {labResults.map((result) => {
-                const linkedDocument =
-                  result.document ||
-                  documents.find((doc) => doc.id === result.documentId) ||
-                  null;
+              <div className="flex flex-col gap-3">
+                {labResults.map((result) => {
+                  const linkedDocument =
+                    result.document ||
+                    documents.find((doc) => doc.id === result.documentId) ||
+                    null;
 
-                const statusTone =
-                  result.status === "NORMAL"
-                    ? "bg-emerald-50 border-emerald-200"
-                    : result.status === "ABNORMAL" || result.status === "CRITICAL"
-                      ? "bg-amber-50 border-amber-200"
-                      : "bg-muted/40 border-border";
+                  const statusTone =
+                    result.status === "NORMAL"
+                      ? "bg-emerald-50/50 border-emerald-100"
+                      : result.status === "ABNORMAL" || result.status === "CRITICAL"
+                        ? "bg-amber-50/50 border-amber-100"
+                        : "bg-muted/5 border-border";
 
-                return (
-                  <article key={result.id} className={`rounded-lg border p-3 ${statusTone}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium">{result.testName}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {result.resultSummary || (locale === "ar" ? "بدون ملخص" : "No summary")}
-                        </p>
+                  return (
+                    <article key={result.id} className={`rounded-xl border p-4 ${statusTone}`}>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">{result.testName}</p>
+                            <Badge
+                              variant={
+                                result.status === "NORMAL"
+                                  ? "secondary"
+                                  : result.status === "CRITICAL"
+                                    ? "destructive"
+                                    : "outline"
+                              }
+                              className="text-[10px] h-4"
+                            >
+                              {result.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {result.resultSummary || (locale === "ar" ? "بدون ملخص" : "No summary available for this test")}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-muted-foreground bg-background px-2 py-1 rounded border">
+                            {formatDate(result.resultDate, locale)}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-4 text-xs font-medium bg-background"
+                            disabled={!linkedDocument?.fileUrl}
+                            onClick={() => {
+                              if (linkedDocument?.fileUrl) {
+                                window.open(linkedDocument.fileUrl, "_blank", "noopener,noreferrer");
+                              }
+                            }}
+                          >
+                            {locale === "ar" ? "عرض التقرير" : "View Report"}
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">{formatDate(result.resultDate, locale)}</p>
-                    </div>
-
-                    <div className="mt-2 flex items-center justify-between">
-                      <Badge variant="outline">{result.status}</Badge>
-                      <Button
-                        size="sm"
-                        className="h-7 px-3 text-[11px]"
-                        disabled={!linkedDocument?.fileUrl}
-                        onClick={() => {
-                          if (linkedDocument?.fileUrl) {
-                            window.open(linkedDocument.fileUrl, "_blank", "noopener,noreferrer");
-                          }
-                        }}
-                      >
-                        {locale === "ar" ? "فتح PDF" : "open pdf"}
-                      </Button>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
