@@ -72,7 +72,7 @@ export const staffService = {
    * Uses /doctors/me/profile — no clinic context needed.
    */
   async getMyDoctorProfile(): Promise<ApiDoctor> {
-    return apiClient.get(`/doctors/me/profile?t=${Date.now()}`);
+    return apiClient.get("/doctors/me/profile");
   },
 
   /**

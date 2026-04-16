@@ -136,7 +136,7 @@ export default function DiagnosisPreferencesPage() {
         {templates.map((template) => (
           <Card key={template.id} className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 group relative transition-all duration-200 hover:border-blue-100 dark:hover:border-blue-900/50">
             <CardContent className="p-5 flex items-start gap-4">
-              <div className="mt-0.5 h-10 w-10 shrink-0 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
+              <div className="mt-0.5 h-10 w-10 shrink-0 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
                 <FileText className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0 pr-8">
@@ -156,18 +156,18 @@ export default function DiagnosisPreferencesPage() {
           </Card>
         ))}
 
-        <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-          <CardContent className="p-10 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="h-14 w-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-              <FileText className="h-7 w-7" />
+        <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/40 rounded-3xl">
+          <CardContent className="p-12 flex flex-col items-center justify-center text-center space-y-5">
+            <div className="h-20 w-20 rounded-3xl bg-white dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 shadow-sm border border-slate-100 dark:border-slate-700">
+              <FileText className="h-10 w-10" strokeWidth={1.5} />
             </div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-slate-400 dark:text-slate-500 max-w-[240px]">
               {locale === "ar" ? "أضف قوالب مخصصة لتسريع الاستشارات" : "Create custom templates for faster consultations"}
             </p>
             <Button
-              variant="secondary"
+              variant="outline"
               onClick={() => setShowModal(true)}
-              className="bg-slate-200/50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-lg mt-2"
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold px-8 h-11 rounded-xl shadow-sm"
             >
               <Plus className="h-4 w-4 mr-2" />
               {locale === "ar" ? "إنشاء قالب" : "Create Template"}
@@ -176,11 +176,11 @@ export default function DiagnosisPreferencesPage() {
         </Card>
       </div>
 
-      <div className="flex justify-end pt-6">
+      <div className="flex justify-end pt-8">
         <Button
           onClick={() => void handleSave()}
           disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-8 h-11 rounded-xl shadow-md shadow-blue-500/20"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 h-12 rounded-xl shadow-lg shadow-blue-500/20 transition-all active:scale-95"
         >
           <Save className="h-4 w-4 mr-2" />
           {isSaving
