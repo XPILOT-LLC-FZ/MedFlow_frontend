@@ -544,16 +544,16 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="doctor-dashboard space-y-6 max-w-7xl pb-10">
       <section className="space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="flex items-center gap-2 text-[24px] font-semibold text-slate-900">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 text-blue-600">
+        <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 transition-colors duration-200 shadow-sm">
+          <h2 className="flex items-center gap-2 text-[24px] font-semibold text-slate-900 dark:text-slate-100">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
               <CalendarDays className="h-4 w-4" />
             </span>
             {locale === "ar" ? "المواعيد" : "Appointments"}
           </h2>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {locale === "ar" ? "إدارة جدولك اليومي" : "Manage your daily schedule"}
           </p>
           <div className="relative mt-3">
@@ -566,14 +566,14 @@ export default function SchedulePage() {
               }
               value={scheduleSearch}
               onChange={(event) => setScheduleSearch(event.target.value)}
-              className="h-10 border-slate-200 pl-10"
+              className="h-10 border-slate-100 dark:border-slate-800 pl-10 bg-slate-50/50 dark:bg-slate-950/50 focus:bg-white dark:focus:bg-slate-950 transition-all"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="space-y-3 xl:col-span-9">
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm transition-colors duration-200">
               <div className="grid grid-cols-9 items-center text-center text-xs text-slate-500">
                 {timelineDates.map((slot) => {
                   const isActive = slot.toISOString().slice(0, 10) === dateKey;
@@ -582,11 +582,11 @@ export default function SchedulePage() {
                       key={slot.toISOString()}
                       type="button"
                       onClick={() => setSelectedDate(slot)}
-                      className={`mx-0.5 rounded-lg py-2 ${isActive ? "bg-blue-600 text-white" : "hover:bg-slate-50"}`}
+                      className={`mx-0.5 rounded-lg py-2 transition-all duration-200 ${isActive ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500"}`}
                     >
                       <p className="text-[10px]">{slot.toLocaleDateString("en-US", { weekday: "short" })}</p>
                       <p className="text-lg font-semibold leading-5">{slot.getDate()}</p>
-                      <p className={`text-[10px] ${isActive ? "text-blue-100" : "text-slate-400"}`}>
+                      <p className={`text-[10px] ${isActive ? "text-blue-100" : "text-slate-400 dark:text-slate-500"}`}>
                         {slot.toLocaleDateString("en-US", { month: "short" })}
                       </p>
                     </button>
@@ -597,7 +597,7 @@ export default function SchedulePage() {
 
             <div className="space-y-2.5">
               {dayAppointments.length === 0 && (
-                <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+                <p className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-sm text-slate-500 dark:text-slate-400 shadow-sm transition-colors duration-200">
                   {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments for this day"}
                 </p>
               )}
@@ -605,12 +605,12 @@ export default function SchedulePage() {
                 const statusTag = getStatusTag(item);
                 return (
                 <div key={item.id} className="grid grid-cols-[72px_1fr] gap-2">
-                  <p className="pt-4 text-[11px] font-medium text-slate-400">{item.time}</p>
-                  <article className={`rounded-xl border p-3 ${index === 2 ? "border-blue-300 bg-[linear-gradient(135deg,rgba(219,234,254,0.8),rgba(255,255,255,0.9))]" : "border-slate-200 bg-white"}`}>
+                  <p className="pt-4 text-[11px] font-medium text-slate-400 dark:text-slate-500">{item.time}</p>
+                  <article className={`rounded-xl border p-4 transition-colors duration-200 shadow-sm ${index === 2 ? "border-blue-200 dark:border-blue-800/60 bg-[linear-gradient(135deg,rgba(219,234,254,0.6),rgba(255,255,255,0.8))] dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.2),rgba(15,23,42,0.4))]" : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"}`}>
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-800">{item.patientName}</p>
-                        <p className="text-xs text-slate-500">{item.specialty}</p>
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.patientName}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{item.specialty}</p>
                       </div>
                       <div className="relative">
                         <button 
@@ -618,12 +618,12 @@ export default function SchedulePage() {
                             e.stopPropagation();
                             setActionsDropdownId(actionsDropdownId === item.id ? null : item.id);
                           }}
-                          className="p-1 rounded-md hover:bg-slate-100 transition-colors"
+                          className="p-1 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                         >
-                          <MoreVertical className="h-4 w-4 text-slate-400" />
+                          <MoreVertical className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                         </button>
                         {actionsDropdownId === item.id && (
-                          <div className="absolute right-0 top-full mt-1 z-30 w-52 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                          <div className="absolute right-0 top-full mt-1 z-30 w-52 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
                             <button 
                               onClick={() => openRescheduleForm(item)}
                               disabled={activeActionId === item.id}
@@ -649,12 +649,12 @@ export default function SchedulePage() {
                         )}
                       </div>
                     </div>
-                    <div className="mt-2 space-y-1 text-xs text-slate-500">
+                    <div className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
                       <p className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{item.time} • 30 min</p>
                       <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{item.patientId}</p>
                     </div>
-                    <p className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusTag.className}`}>{statusTag.label}</p>
-                    <p className="mt-2 text-xs text-slate-500">Reason: {item.type}</p>
+                    <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${statusTag.className === "bg-emerald-50 text-emerald-600" ? "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400" : statusTag.className === "bg-slate-100 text-slate-500" ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400" : "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"}`}>{statusTag.label}</p>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-medium">Reason: {item.type}</p>
                   </article>
                 </div>
               )})}
@@ -662,109 +662,114 @@ export default function SchedulePage() {
           </div>
 
           <aside className="space-y-3 xl:col-span-3">
-            <section className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+            <section className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm transition-colors duration-200">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
                 <Funnel className="h-3.5 w-3.5 text-sky-500" />
                 {locale === "ar" ? "فلاتر سريعة" : "Quick Filters"}
               </p>
               <div className="mt-2.5 space-y-2">
-                <label className="flex items-center justify-between rounded-md bg-emerald-50 px-2.5 py-2 text-xs"><span>{locale === "ar" ? "مؤكد" : "Confirmed"}</span><input type="checkbox" checked={showConfirmed} onChange={(event) => setShowConfirmed(event.target.checked)} /></label>
-                <label className="flex items-center justify-between rounded-md bg-amber-50 px-2.5 py-2 text-xs"><span>{locale === "ar" ? "معلق" : "Pending"}</span><input type="checkbox" checked={showPending} onChange={(event) => setShowPending(event.target.checked)} /></label>
-                <label className="flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-2 text-xs"><span>{locale === "ar" ? "ملغي" : "Cancelled"}</span><input type="checkbox" checked={showCancelled} onChange={(event) => setShowCancelled(event.target.checked)} /></label>
+                <label className="flex items-center justify-between rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-2 text-xs text-emerald-700 dark:text-emerald-400 font-medium"><span>{locale === "ar" ? "مؤكد" : "Confirmed"}</span><input type="checkbox" checked={showConfirmed} onChange={(event) => setShowConfirmed(event.target.checked)} className="rounded border-emerald-200" /></label>
+                <label className="flex items-center justify-between rounded-md bg-amber-50 dark:bg-amber-900/20 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400 font-medium"><span>{locale === "ar" ? "معلق" : "Pending"}</span><input type="checkbox" checked={showPending} onChange={(event) => setShowPending(event.target.checked)} className="rounded border-amber-200" /></label>
+                <label className="flex items-center justify-between rounded-md bg-slate-50 dark:bg-slate-800/40 px-2.5 py-2 text-xs text-slate-600 dark:text-slate-400 font-medium"><span>{locale === "ar" ? "ملغي" : "Cancelled"}</span><input type="checkbox" checked={showCancelled} onChange={(event) => setShowCancelled(event.target.checked)} className="rounded border-slate-200" /></label>
               </div>
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-[0_10px_24px_-20px_rgba(30,64,175,0.55)]">
-              <p className="text-sm font-semibold text-slate-800">{locale === "ar" ? "ملخص اليوم" : "Today's Summary"}</p>
-              <div className="mt-2.5 space-y-1.5 text-xs text-slate-600">
-                <div className="flex items-center justify-between"><span>{locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"}</span><span className="font-semibold">{dayAppointments.length}</span></div>
-                <div className="flex items-center justify-between"><span>{locale === "ar" ? "مكتمل" : "Completed"}</span><span className="font-semibold text-emerald-600">{completedCount}</span></div>
-                <div className="flex items-center justify-between"><span>{locale === "ar" ? "متبقي" : "Remaining"}</span><span className="font-semibold text-sky-600">{remainingCount}</span></div>
+            <section className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm transition-colors duration-200">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{locale === "ar" ? "ملخص اليوم" : "Today's Summary"}</p>
+              <div className="mt-2.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <div className="flex items-center justify-between"><span>{locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"}</span><span className="font-bold text-slate-900 dark:text-slate-100">{dayAppointments.length}</span></div>
+                <div className="flex items-center justify-between"><span>{locale === "ar" ? "مكتمل" : "Completed"}</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</span></div>
+                <div className="flex items-center justify-between"><span>{locale === "ar" ? "متبقي" : "Remaining"}</span><span className="font-bold text-blue-600 dark:text-blue-400">{remainingCount}</span></div>
               </div>
             </section>
 
-            <button
-              type="button"
-              aria-label="Add appointment"
-              onClick={() => setShowAddAppointmentModal(true)}
-              className="fixed right-6 top-1/2 z-20 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-2xl bg-[#1d72f3] text-white shadow-[0_14px_30px_-12px_rgba(29,114,243,0.9)] transition-all hover:bg-[#1867df] hover:shadow-[0_16px_34px_-12px_rgba(24,103,223,0.95)] active:scale-95"
-            >
-              <Plus className="h-5 w-5 stroke-[2.5]" />
-            </button>
-          </aside>
+             <button
+               type="button"
+               aria-label="Add appointment"
+               onClick={() => setShowAddAppointmentModal(true)}
+               className="fixed right-6 bottom-6 md:right-10 md:bottom-10 z-20 grid h-14 w-14 place-items-center rounded-2xl bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition-all hover:bg-blue-700 hover:scale-110 active:scale-95 group"
+             >
+               <Plus className="h-6 w-6 stroke-[3] group-hover:rotate-90 transition-transform duration-300" />
+             </button>
+           </aside>
         </div>
       </section>
 
 
 
       {showAddAppointmentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h3 className="flex items-center gap-2 text-2xl font-semibold text-slate-800">
-                <CalendarDays className="h-5 w-5 text-blue-600" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 px-8 py-5">
+              <h3 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <CalendarDays className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 {locale === "ar" ? "إضافة موعد جديد" : "Add New Appointment"}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowAddAppointmentModal(false)}
-                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+                className="rounded-xl p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4 px-6 py-5">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "اسم المريض" : "Patient Name"}</label>
+            <div className="space-y-6 px-8 py-7 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "اسم المريض" : "Patient Name"}</label>
                   <Input
                     value={newAppointmentForm.patientName}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, patientName: event.target.value }))}
                     placeholder={locale === "ar" ? "ادخل اسم المريض" : "Enter patient name"}
+                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "العمر" : "Age"}</label>
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "العمر" : "Age"}</label>
                   <Input
                     value={newAppointmentForm.age}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, age: event.target.value }))}
                     placeholder={locale === "ar" ? "ادخل العمر" : "Enter age"}
+                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "رقم الهاتف" : "Phone Number"}</label>
-                <Input
-                  value={newAppointmentForm.phoneNumber}
-                  onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "رقم الهاتف" : "Phone Number"}</label>
+                  <Input
+                    value={newAppointmentForm.phoneNumber}
+                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+                    placeholder="(555) 123-4567"
+                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "التاريخ" : "Date"}</label>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "التاريخ" : "Date"}</label>
                   <Input
                     type="date"
                     value={newAppointmentForm.date}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, date: event.target.value }))}
+                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "الوقت" : "Time"}</label>
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الوقت" : "Time"}</label>
                   <Input
                     type="time"
                     value={newAppointmentForm.time}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, time: event.target.value }))}
+                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "نوع الزيارة" : "Visit Type"}</label>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "نوع الزيارة" : "Visit Type"}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -772,13 +777,13 @@ export default function SchedulePage() {
                         setVisitTypeOpen((prev) => !prev);
                         setDurationOpen(false);
                       }}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                       <span>{newAppointmentForm.visitType}</span>
-                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${visitTypeOpen ? "rotate-180" : ""}`} />
                     </button>
                     {visitTypeOpen && (
-                      <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                      <div className="absolute z-60 mt-2 max-h-48 w-full overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-200">
                         {["New patient", "Follow up", "Emergency", "Consultation"].map((option) => (
                           <button
                             key={option}
@@ -787,10 +792,10 @@ export default function SchedulePage() {
                               setNewAppointmentForm((prev) => ({ ...prev, visitType: option }));
                               setVisitTypeOpen(false);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
-                            <span className="w-4">
-                              {newAppointmentForm.visitType === option ? <Check className="h-4 w-4" /> : null}
+                            <span className="w-4 flex items-center justify-center">
+                              {newAppointmentForm.visitType === option ? <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" /> : null}
                             </span>
                             <span>{option}</span>
                           </button>
@@ -799,8 +804,8 @@ export default function SchedulePage() {
                     )}
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "المدة (بالدقائق)" : "Duration (minutes)"}</label>
+                <div className="space-y-2">
+                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "المدة (بالدقائق)" : "Duration (minutes)"}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -808,13 +813,13 @@ export default function SchedulePage() {
                         setDurationOpen((prev) => !prev);
                         setVisitTypeOpen(false);
                       }}
-                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-sm"
+                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                       <span>{`${newAppointmentForm.duration} minutes`}</span>
-                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${durationOpen ? "rotate-180" : ""}`} />
                     </button>
                     {durationOpen && (
-                      <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                      <div className="absolute z-60 mt-2 max-h-48 w-full overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-200">
                         {["10", "20", "30", "40", "50", "60"].map((option) => (
                           <button
                             key={option}
@@ -823,10 +828,10 @@ export default function SchedulePage() {
                               setNewAppointmentForm((prev) => ({ ...prev, duration: option }));
                               setDurationOpen(false);
                             }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50"
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
-                            <span className="w-4">
-                              {newAppointmentForm.duration === option ? <Check className="h-4 w-4" /> : null}
+                            <span className="w-4 flex items-center justify-center">
+                              {newAppointmentForm.duration === option ? <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" /> : null}
                             </span>
                             <span>{option} minutes</span>
                           </button>
@@ -837,28 +842,28 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">{locale === "ar" ? "سبب الزيارة" : "Reason for Visit"}</label>
+               <div className="space-y-2">
+                <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "سبب الزيارة" : "Reason for Visit"}</label>
                 <textarea
                   value={newAppointmentForm.reason}
                   onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, reason: event.target.value }))}
                   placeholder={locale === "ar" ? "ادخل سبب الزيارة" : "Enter reason for visit"}
-                  className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="min-h-[100px] w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-6 pb-6 pt-1">
+            <div className="flex items-center gap-3 px-8 pb-8 pt-2">
               <Button
-                variant="secondary"
-                className="h-11 flex-1 bg-slate-200 text-slate-700 hover:bg-slate-300"
+                variant="ghost"
+                className="h-12 flex-1 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                 onClick={() => setShowAddAppointmentModal(false)}
                 disabled={isSubmittingAppointment}
               >
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </Button>
               <Button
-                className="h-11 flex-1 bg-blue-600 hover:bg-blue-700"
+                className="h-12 flex-1 rounded-2xl bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 shadow-lg shadow-blue-500/20 text-white font-bold transition-all"
                 onClick={() => void handleCreateAppointment()}
                 disabled={isSubmittingAppointment}
               >
@@ -874,48 +879,51 @@ export default function SchedulePage() {
       {/* Action Dialogs */}
       {openForm && (
         <Dialog open={!!openForm} onOpenChange={(open) => !open && setOpenForm(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
+          <DialogContent className="max-w-2xl rounded-3xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-0 overflow-hidden shadow-2xl">
+            <DialogHeader className="px-8 py-5 border-b border-slate-50 dark:border-slate-800/50">
+              <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
                 {openForm.type === "reschedule" && (locale === "ar" ? "إعادة جدولة الموعد" : "Reschedule Appointment")}
                 {openForm.type === "manual-summary" && (locale === "ar" ? "إرسال ملخص طبي يدوي" : "Send Manual Medical Summary")}
                 {openForm.type === "ai-summary" && (locale === "ar" ? "إنشاء ملخص بالذكاء الاصطناعي" : "Generate AI Medical Summary")}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="py-4">
+            <div className="px-8 py-6">
               {openForm.type === "reschedule" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{locale === "ar" ? "التاريخ الجديد" : "New Date"}</label>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "التاريخ الجديد" : "New Date"}</label>
                       <Input
                         type="date"
                         value={rescheduleForm.date}
+                        className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
                         onChange={(e) => setRescheduleForm(prev => ({ ...prev, date: e.target.value }))}
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{locale === "ar" ? "الوقت الجديد" : "New Start Time"}</label>
+                    <div className="space-y-2">
+                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الوقت الجديد" : "New Start Time"}</label>
                       <Input
                         type="time"
                         value={rescheduleForm.startTime}
+                        className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
                         onChange={(e) => setRescheduleForm(prev => ({ ...prev, startTime: e.target.value }))}
                       />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{locale === "ar" ? "سبب إعادة الجدولة (اختياري)" : "Reason for rescheduling (optional)"}</label>
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "سبب إعادة الجدولة (اختياري)" : "Reason for rescheduling (optional)"}</label>
                     <textarea
-                      className="min-h-24 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="min-h-24 w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       value={rescheduleForm.reason}
                       onChange={(e) => setRescheduleForm(prev => ({ ...prev, reason: e.target.value }))}
                       placeholder={locale === "ar" ? "أدخل السبب هنا..." : "Enter reason here..."}
                     />
                   </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="ghost" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
                     <Button 
+                      className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
                       onClick={() => {
                         const appt = appointments.find(a => a.id === openForm.appointmentId);
                         if (appt) handleRescheduleSubmit(appt);
@@ -929,28 +937,32 @@ export default function SchedulePage() {
               )}
 
               {openForm.type === "manual-summary" && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{locale === "ar" ? "محتوى الملخص الطبي" : "Medical Summary Content"}</label>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "محتوى الملخص الطبي" : "Medical Summary Content"}</label>
                     <textarea
-                      className="min-h-40 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="min-h-40 w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       value={manualSummaryForm.content}
                       onChange={(e) => setManualSummaryForm(prev => ({ ...prev, content: e.target.value }))}
                       placeholder={locale === "ar" ? "اكتب ملاحظاتك الطبية وتوصياتك هنا..." : "Write your medical notes and recommendations here..."}
                     />
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      checked={manualSummaryForm.sendToPatient}
-                      onChange={(e) => setManualSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
-                    />
-                    <span className="text-sm text-slate-600 font-medium">{locale === "ar" ? "إرسال نسخة للمريض عبر البريد/التطبيق" : "Send a copy to the patient via Email/App"}</span>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className={`flex items-center justify-center h-5 w-5 rounded border-2 transition-colors ${manualSummaryForm.sendToPatient ? "bg-blue-600 border-blue-600" : "border-slate-200 dark:border-slate-800"}`}>
+                      {manualSummaryForm.sendToPatient && <Check className="h-3.5 w-3.5 text-white stroke-[3px]" />}
+                      <input
+                        type="checkbox"
+                        className="hidden"
+                        checked={manualSummaryForm.sendToPatient}
+                        onChange={(e) => setManualSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
+                      />
+                    </div>
+                    <span className="text-[14px] text-slate-600 dark:text-slate-400 font-bold group-hover:text-slate-900 dark:group-hover:text-slate-200">{locale === "ar" ? "إرسال نسخة للمريض عبر البريد/التطبيق" : "Send a copy to the patient via Email/App"}</span>
                   </label>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="ghost" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
                     <Button 
+                      className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
                       onClick={() => {
                         const appt = appointments.find(a => a.id === openForm.appointmentId);
                         if (appt) handleManualSummarySubmit(appt);
@@ -962,25 +974,25 @@ export default function SchedulePage() {
                   </div>
                 </div>
               )}
-
-              {openForm.type === "ai-summary" && (
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">{locale === "ar" ? "ملاحظات إضافية للذكاء الاصطناعي (اختياري)" : "Additional notes for AI (optional)"}</label>
+                      
+               {openForm.type === "ai-summary" && (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "ملاحظات إضافية للذكاء الاصطناعي (اختياري)" : "Additional notes for AI (optional)"}</label>
                     <textarea
-                      className="min-h-32 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="min-h-32 w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       value={aiSummaryForm.consultationNotes}
                       onChange={(e) => setAiSummaryForm(prev => ({ ...prev, consultationNotes: e.target.value }))}
                       placeholder={locale === "ar" ? "أي سياق إضافي تريده في الملخص..." : "Any extra context you want included in the summary..."}
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium">{locale === "ar" ? "تنسيق الملخص" : "Summary Format"}</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "تنسيق الملخص" : "Summary Format"}</label>
                       <select
                         value={aiSummaryForm.format}
                         onChange={(e) => setAiSummaryForm(prev => ({ ...prev, format: e.target.value as any }))}
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        className="h-11 w-full rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       >
                         <option value="brief">Brief (Core points only)</option>
                         <option value="detailed">Detailed (Comprehensive explanation)</option>
@@ -988,21 +1000,24 @@ export default function SchedulePage() {
                       </select>
                     </div>
                     <div className="flex items-end pb-1.5">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          checked={aiSummaryForm.sendToPatient}
-                          onChange={(e) => setAiSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
-                        />
-                        <span className="text-sm text-slate-600 font-medium">{locale === "ar" ? "مشاركة مع المريض" : "Share with patient"}</span>
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className={`flex items-center justify-center h-5 w-5 rounded border-2 transition-colors ${aiSummaryForm.sendToPatient ? "bg-blue-600 border-blue-600" : "border-slate-200 dark:border-slate-800"}`}>
+                          {aiSummaryForm.sendToPatient && <Check className="h-3.5 w-3.5 text-white stroke-[3px]" />}
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={aiSummaryForm.sendToPatient}
+                            onChange={(e) => setAiSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
+                          />
+                        </div>
+                        <span className="text-[14px] text-slate-600 dark:text-slate-400 font-bold group-hover:text-slate-900 dark:group-hover:text-slate-200">{locale === "ar" ? "مشاركة مع المريض" : "Share with patient"}</span>
                       </label>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="ghost" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
                     <Button 
-                      className="bg-blue-600 hover:bg-blue-700 font-semibold"
+                      className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
                       onClick={() => {
                         const appt = appointments.find(a => a.id === openForm.appointmentId);
                         if (appt) handleAiSummarySubmit(appt);
@@ -1014,7 +1029,7 @@ export default function SchedulePage() {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
           </DialogContent>
         </Dialog>
       )}

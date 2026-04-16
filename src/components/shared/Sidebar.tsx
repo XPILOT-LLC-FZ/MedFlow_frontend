@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/shared/BrandLogo";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Role } from "@/types";
 
 interface NavItem {
@@ -176,9 +177,10 @@ export function Sidebar() {
         <div className={cn("p-3 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800" : "border-sidebar-border")}>
           {user && (
             <div className="flex items-center gap-3 rounded-xl px-2 py-1">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                {profileName.slice(0, 2).toUpperCase()}
-              </div>
+              <Avatar className="h-9 w-9 border border-border">
+                <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
+                <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
+              </Avatar>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{profileName}</p>
                 {isDoctorSidebar ? (

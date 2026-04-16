@@ -121,28 +121,28 @@ const mockSatisfaction = {
 function StatsCard({ title, value, icon: Icon, trend, trendLabel, theme }: any) {
   const styles = {
     blue: {
-      bg: "bg-[#F3F8FF]",
-      border: "border-[#D1E4FE]",
-      iconBg: "bg-[#BBD6FE]",
-      iconColor: "text-[#1D4ED8]",
-      badgeBg: "bg-[#E0EDFE]",
-      badgeText: "text-[#1D4ED8]",
+      bg: "bg-[#F3F8FF] dark:bg-blue-900/20",
+      border: "border-[#D1E4FE] dark:border-blue-800/50",
+      iconBg: "bg-[#BBD6FE] dark:bg-blue-900/40",
+      iconColor: "text-[#1D4ED8] dark:text-blue-400",
+      badgeBg: "bg-[#E0EDFE] dark:bg-blue-900/30",
+      badgeText: "text-[#1D4ED8] dark:text-blue-400",
     },
     teal: {
-      bg: "bg-[#F0FDF4]",
-      border: "border-[#D1F4E0]",
-      iconBg: "bg-[#A7F3D0]",
-      iconColor: "text-[#059669]",
-      badgeBg: "bg-[#D1F4E0]",
-      badgeText: "text-[#059669]",
+      bg: "bg-[#F0FDF4] dark:bg-emerald-900/20",
+      border: "border-[#D1F4E0] dark:border-emerald-800/50",
+      iconBg: "bg-[#A7F3D0] dark:bg-emerald-900/40",
+      iconColor: "text-[#059669] dark:text-emerald-400",
+      badgeBg: "bg-[#D1F4E0] dark:bg-emerald-900/30",
+      badgeText: "text-[#059669] dark:text-emerald-400",
     },
     orange: {
-      bg: "bg-[#FFF9F3]",
-      border: "border-[#FDE0C1]",
-      iconBg: "bg-[#FDE0C1]",
-      iconColor: "text-[#D97706]",
-      badgeBg: "bg-[#D1F4E0]", // Figma uses a green badge here
-      badgeText: "text-[#059669]",
+      bg: "bg-[#FFF9F3] dark:bg-orange-900/20",
+      border: "border-[#FDE0C1] dark:border-orange-800/50",
+      iconBg: "bg-[#FDE0C1] dark:bg-orange-900/40",
+      iconColor: "text-[#D97706] dark:text-orange-400",
+      badgeBg: "bg-[#D1F4E0] dark:bg-emerald-900/30", // Consistent with design
+      badgeText: "text-[#059669] dark:text-emerald-400",
     },
   };
 
@@ -160,8 +160,8 @@ function StatsCard({ title, value, icon: Icon, trend, trendLabel, theme }: any) 
         </div>
       </div>
       <div>
-        <p className="font-semibold text-gray-500 text-[15px] mb-1">{title}</p>
-        <h3 className="text-[32px] font-black tracking-tight text-[#111827]">{value}</h3>
+        <p className="font-semibold text-slate-500 dark:text-slate-400 text-[15px] mb-1">{title}</p>
+        <h3 className="text-[32px] font-black tracking-tight text-slate-900 dark:text-slate-100">{value}</h3>
       </div>
     </div>
   );
@@ -475,10 +475,10 @@ export default function DoctorAnalyticsPage() {
             <Activity className="h-7 w-7 text-white stroke-[2.5px]" />
           </div>
           <div>
-            <h1 className="text-[26px] font-[800] tracking-tight text-[#111827]">
+            <h1 className="text-[26px] font-[800] tracking-tight text-slate-900 dark:text-slate-100">
               {locale === "ar" ? "التقارير والتحليلات" : "Reports & Analytics"}
             </h1>
-            <p className="text-[14px] font-medium text-[#6B7280] mt-0.5">
+            <p className="text-[14px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
               {locale === "ar" ? "رؤى شاملة لأداء عيادتك" : "Comprehensive insights into your practice performance"}
             </p>
           </div>
@@ -490,7 +490,7 @@ export default function DoctorAnalyticsPage() {
             <Select 
               value={timeRange} 
               onChange={(e) => setTimeRange(e.target.value)} 
-              className="w-[124px] pl-9 rounded-xl border-[#E5E7EB] bg-white h-[42px] font-semibold text-[#374151] shadow-sm"
+              className="w-[124px] pl-9 rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-[42px] font-semibold text-slate-700 dark:text-slate-200 shadow-sm"
               options={[
                 { value: "day", label: "Day" },
                 { value: "week", label: "Week" },
@@ -500,14 +500,14 @@ export default function DoctorAnalyticsPage() {
             />
           </div>
 
-          <Button className="rounded-xl bg-[#EEF2F6] hover:bg-[#E2E8F0] shadow-none border-none font-semibold text-[#334155] h-[42px] px-4 hidden sm:flex">
+          <Button className="rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 shadow-none border-none font-semibold text-slate-700 dark:text-slate-200 h-[42px] px-4 hidden sm:flex transition-colors duration-200">
             <Download className="mr-2 h-4 w-4 stroke-[2.5px]" />
             Export Data
           </Button>
         </div>
       </div>
 
-      <hr className="border-[#E5E7EB]" />
+      <hr className="border-slate-100 dark:border-slate-800" />
 
       {/* Stats Cards Grid from Figma */}
       <motion.div 
@@ -560,14 +560,14 @@ export default function DoctorAnalyticsPage() {
           transition={{ duration: 0.4, delay: 0.1 }}
           className="xl:col-span-2 space-y-6 flex flex-col"
         >
-          <Card className="border-none flex-1 shadow-sm ring-1 ring-border/50 bg-white rounded-3xl p-1">
+          <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 overflow-hidden transition-colors duration-200">
             <CardHeader className="pb-0 pt-5 px-7">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-[17px] font-bold text-[#111827]">
+                  <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
                     {locale === "ar" ? "المرضى بمرور الوقت" : "Patients Over Time"}
                   </CardTitle>
-                  <CardDescription className="text-[13px] text-[#6B7280] font-medium mt-1">
+                  <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                     {locale === "ar" ? "اتجاهات زيارات المرضى الشهرية على مدار العام" : "Monthly patient visit trends throughout the year"}
                   </CardDescription>
                 </div>
@@ -577,28 +577,30 @@ export default function DoctorAnalyticsPage() {
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={computedMonthlyPatients} margin={{ top: 20, right: 30, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#E5E7EB" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="currentColor" className="text-slate-200 dark:text-slate-800" />
                     <XAxis 
                       dataKey="name" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fontSize: 11, fill: "#6B7280", fontWeight: 500 }}
+                      tick={{ fontSize: 11, fill: "currentColor", fontWeight: 500 }}
+                      className="text-slate-400 dark:text-slate-500"
                       dy={10}
                     />
                     <YAxis 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fontSize: 11, fill: "#6B7280", fontWeight: 500 }}
+                      tick={{ fontSize: 11, fill: "currentColor", fontWeight: 500 }}
+                      className="text-slate-400 dark:text-slate-500"
                       ticks={[0, 40, 80, 120, 160]}
                     />
                     <Tooltip 
                       content={({ active, payload, label }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-lg min-w-[100px] text-center">
-                              <p className="text-[13px] font-semibold text-gray-500 mb-1">{label}</p>
-                              <p className="text-[15px] font-bold text-gray-900">
-                                {payload[0].value} <span className="font-medium text-gray-600">patients</span>
+                            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-lg min-w-[100px] text-center">
+                              <p className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 mb-1">{label}</p>
+                              <p className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
+                                {payload[0].value} <span className="font-medium text-slate-500 dark:text-slate-400">patients</span>
                               </p>
                             </div>
                           );
@@ -629,12 +631,12 @@ export default function DoctorAnalyticsPage() {
           transition={{ duration: 0.4, delay: 0.2 }}
           className="space-y-6 flex flex-col"
         >
-          <Card className="border-none shadow-sm ring-1 ring-border/50 bg-white rounded-3xl p-1 flex flex-col h-full flex-1">
+          <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 flex flex-col h-full transition-colors duration-200">
             <CardHeader className="pb-0 pt-5 px-7">
-              <CardTitle className="text-[17px] font-bold text-[#111827]">
+              <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
                 {locale === "ar" ? "أنواع الحالات" : "Case Types"}
               </CardTitle>
-              <CardDescription className="text-[13px] text-[#6B7280] font-medium mt-1">
+              <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                 {locale === "ar" ? "توزيع التشخيصات" : "Distribution of diagnoses"}
               </CardDescription>
             </CardHeader>
@@ -661,9 +663,9 @@ export default function DoctorAnalyticsPage() {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                             <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-lg text-[13px]">
-                               <span className="font-medium text-gray-500">{payload[0].name} : </span>
-                               <span className="font-bold text-gray-900">{payload[0].value}</span>
+                             <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 shadow-lg text-[13px]">
+                               <span className="font-medium text-slate-500 dark:text-slate-400">{payload[0].name} : </span>
+                               <span className="font-bold text-slate-900 dark:text-slate-100">{payload[0].value}</span>
                              </div>
                           );
                         }
@@ -679,9 +681,9 @@ export default function DoctorAnalyticsPage() {
                   <div key={item.name} className="flex items-center justify-between text-[13px] font-medium">
                     <div className="flex items-center gap-2">
                       <div className="h-[9px] w-[9px] rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-[#6B7280]">{item.name}</span>
+                      <span className="text-slate-500 dark:text-slate-400">{item.name}</span>
                     </div>
-                    <span className="text-[#111827] font-bold">{item.value}</span>
+                    <span className="text-slate-900 dark:text-slate-100 font-bold">{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -697,12 +699,12 @@ export default function DoctorAnalyticsPage() {
           
           {/* Top Prescribed Medications */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} className="flex flex-col">
-            <Card className="border-none shadow-sm ring-1 ring-border/50 bg-white rounded-3xl p-1 shrink-0">
+            <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 shrink-0 transition-colors duration-200">
               <CardHeader className="pb-4 pt-6 px-7">
-                <CardTitle className="text-[17px] font-bold text-[#111827]">
+                <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
                   {locale === "ar" ? "أعلى الأدوية الموصوفة" : "Top Prescribed Medications"}
                 </CardTitle>
-                <CardDescription className="text-[13px] text-[#6B7280] font-medium mt-1">
+                <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                   {locale === "ar" ? "الأدوية الأكثر وصفًا للفترة المحددة" : "Most frequently prescribed medications for the selected period"}
                 </CardDescription>
               </CardHeader>
@@ -711,16 +713,16 @@ export default function DoctorAnalyticsPage() {
                   <div key={med.name} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center h-[26px] w-[26px] rounded-lg bg-[#F0F6FF] text-[#2563EB] text-[13px] font-bold">
+                        <div className="flex items-center justify-center h-[26px] w-[26px] rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[13px] font-bold">
                           {idx + 1}
                         </div>
-                        <span className="text-[14px] font-bold text-[#111827]">{med.name}</span>
+                        <span className="text-[14px] font-bold text-slate-900 dark:text-slate-100">{med.name}</span>
                       </div>
-                      <span className="text-[13px] font-bold text-[#111827]">
-                        {med.count} <span className="font-semibold text-[#6B7280] ml-1">prescriptions</span>
+                      <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100">
+                        {med.count} <span className="font-semibold text-slate-500 dark:text-slate-400 ml-1">prescriptions</span>
                       </span>
                     </div>
-                    <div className="h-[6px] w-full bg-slate-50 rounded-full overflow-hidden">
+                    <div className="h-[6px] w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div 
                         className="h-full rounded-full bg-gradient-to-r from-blue-500 to-teal-400" 
                         style={{ width: `${(med.count / med.max) * 100}%` }}
@@ -771,12 +773,12 @@ export default function DoctorAnalyticsPage() {
           
           {/* Patient Demographics */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }} className="flex flex-col">
-            <Card className="border-none shadow-sm ring-1 ring-border/50 bg-white rounded-3xl p-1">
+            <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 transition-colors duration-200">
               <CardHeader className="pb-0 pt-6 px-7">
-                <CardTitle className="text-[17px] font-bold text-[#111827]">
+                <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
                   {locale === "ar" ? "التركيبة السكانية للمرضى" : "Patient Demographics"}
                 </CardTitle>
-                <CardDescription className="text-[13px] text-[#6B7280] font-medium mt-1">
+                <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                   {locale === "ar" ? "توزيع الأعمار" : "Age distribution breakdown"}
                 </CardDescription>
               </CardHeader>
@@ -819,11 +821,11 @@ export default function DoctorAnalyticsPage() {
                 <div className="mt-2 space-y-3">
                   {computedDemographics.map((item) => (
                     <div key={item.name} className="flex items-center justify-between text-[13px] font-medium">
-                      <div className="flex items-center gap-2 text-[#6B7280]">
+                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <div className="h-[9px] w-[9px] rounded-full" style={{ backgroundColor: item.color }} />
                         {item.name}
                       </div>
-                      <span className="text-[#111827] font-bold">{item.value}%</span>
+                      <span className="text-slate-900 dark:text-slate-100 font-bold">{item.value}%</span>
                     </div>
                   ))}
                 </div>
@@ -833,42 +835,42 @@ export default function DoctorAnalyticsPage() {
 
           {/* Patient Satisfaction */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.6 }} className="flex-1 flex flex-col">
-            <Card className="border-none shadow-sm ring-1 ring-border/50 bg-white rounded-3xl p-1 flex flex-col flex-1">
+            <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 flex flex-col flex-1 transition-colors duration-200">
               <CardHeader className="pb-2 pt-6 px-7">
-                <CardTitle className="text-[17px] font-bold text-[#111827]">
+                <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
                   {locale === "ar" ? "رضا المرضى" : "Patient Satisfaction"}
                 </CardTitle>
-                <CardDescription className="text-[13px] text-[#6B7280] font-medium mt-1">
+                <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                   {locale === "ar" ? "تقييمات المراجعات الشاملة" : "Overall feedback ratings"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-7 pb-7 pt-2 flex flex-col flex-1">
                 <div className="flex flex-col items-center justify-center py-4 text-center">
-                  <h2 className="text-[34px] font-black tracking-tight text-[#111827] mb-2">{mockSatisfaction.rating}</h2>
+                  <h2 className="text-[34px] font-black tracking-tight text-slate-900 dark:text-slate-100 mb-2">{mockSatisfaction.rating}</h2>
                   <div className="flex items-center gap-1.5 mb-2">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star 
                         key={star} 
-                        className={`h-5 w-5 ${star <= Math.floor(mockSatisfaction.rating) ? "fill-[#527FF4] text-[#527FF4]" : "fill-[#D1E0FF] text-[#D1E0FF]"}`} 
+                        className={`h-5 w-5 ${star <= Math.floor(mockSatisfaction.rating) ? "fill-[#527FF4] text-[#527FF4]" : "fill-blue-100 dark:fill-blue-900/40 text-blue-100 dark:text-blue-900/40"}`} 
                       />
                     ))}
                   </div>
-                  <p className="text-[12px] font-semibold text-[#6B7280]">Based on {mockSatisfaction.reviews} reviews</p>
+                  <p className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">Based on {mockSatisfaction.reviews} reviews</p>
                 </div>
 
                 <div className="mt-4 space-y-3.5 pt-2">
-                  {mockSatisfaction.distribution.map((dist) => (
+                   {mockSatisfaction.distribution.map((dist) => (
                     <div key={dist.stars} className="flex items-center gap-4">
-                      <div className="flex items-center gap-1.5 w-6 text-[13px] font-bold text-[#6B7280]">
+                      <div className="flex items-center gap-1.5 w-6 text-[13px] font-bold text-slate-500 dark:text-slate-400">
                         {dist.stars} <Star className="h-3.5 w-3.5 fill-[#527FF4] text-[#527FF4]" />
                       </div>
-                      <div className="h-[6px] flex-1 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-[6px] flex-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div 
                           className="h-full rounded-full bg-[#527FF4]" 
                           style={{ width: `${(dist.count / dist.max) * 100}%` }}
                         />
                       </div>
-                      <div className="w-8 text-right text-[12px] font-bold text-[#6B7280]">
+                      <div className="w-8 text-right text-[12px] font-bold text-slate-500 dark:text-slate-400">
                         {dist.count}
                       </div>
                     </div>
@@ -883,24 +885,24 @@ export default function DoctorAnalyticsPage() {
 
       {/* Row 3: Recent Patient Visits Table */}
       <div className="pt-4">
-        <Card className="border-none shadow-sm ring-1 ring-border/50 bg-white rounded-[24px] overflow-hidden">
-          <CardHeader className="pb-4 pt-7 px-8 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white">
+        <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-[24px] overflow-hidden transition-colors duration-200">
+          <CardHeader className="pb-4 pt-7 px-8 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-transparent">
             <div>
-              <CardTitle className="text-[17px] font-bold text-[#111827]">
+              <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
                 {locale === "ar" ? "زيارات المرضى الأخيرة" : "Recent Patient Visits"}
               </CardTitle>
-              <CardDescription className="text-[13px] text-[#6B7280] font-medium mt-1">
+              <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
                 {locale === "ar" ? "أحدث الاستشارات والتشخيصات" : "Latest consultations and diagnoses"}
               </CardDescription>
             </div>
-            <div className="text-[13px] font-semibold text-[#6B7280]">
+            <div className="text-[13px] font-semibold text-slate-500 dark:text-slate-400">
               {filteredTablePlans.length} of {plans.length} records
             </div>
           </CardHeader>
-          <CardContent className="p-0 bg-white">
+          <CardContent className="p-0 bg-transparent">
             {/* Filters Row */}
-            <div className="flex flex-wrap items-center gap-2.5 px-8 py-5 border-b border-gray-100">
-              <span className="text-[13px] font-semibold text-[#6B7280] mr-2">
+            <div className="flex flex-wrap items-center gap-2.5 px-8 py-5 border-b border-slate-50 dark:border-slate-800/50">
+              <span className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 mr-2">
                 {locale === "ar" ? "تصفية حسب:" : "Filter by:"}
               </span>
               {["All", "COMPLETED", "ACTIVE", "CANCELLED"].map((statusStr) => {
@@ -911,8 +913,8 @@ export default function DoctorAnalyticsPage() {
                     onClick={() => setTableStatusFilter(statusStr)}
                     className={`px-5 py-2 rounded-full text-[13px] font-bold transition-all duration-200 ${
                       isActive
-                        ? "bg-[#2563EB] text-white shadow-md shadow-blue-500/25 border border-[#2563EB]"
-                        : "bg-white text-[#6B7280] border border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-600"
+                        : "bg-transparent text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                     }`}
                   >
                     {statusStr === "All" 
@@ -929,15 +931,15 @@ export default function DoctorAnalyticsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#F8FAFC]">
-                    <th className="px-8 py-4 text-[11px] font-bold text-[#6B7280] tracking-wider uppercase whitespace-nowrap">Patient</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-[#6B7280] tracking-wider uppercase whitespace-nowrap">Date & Time</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-[#6B7280] tracking-wider uppercase whitespace-nowrap">Diagnosis</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-[#6B7280] tracking-wider uppercase whitespace-nowrap">Status</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-[#6B7280] tracking-wider uppercase whitespace-nowrap text-right">Action</th>
+                  <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Patient</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Date & Time</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Diagnosis</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Status</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredTablePlans.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-8 py-12 text-center text-[14px] font-medium text-gray-500">
@@ -946,50 +948,50 @@ export default function DoctorAnalyticsPage() {
                     </tr>
                   ) : (
                     filteredTablePlans.slice(0, 6).map((plan, index) => (
-                      <tr key={plan.id} className="hover:bg-slate-50/70 transition-colors group">
+                      <tr key={plan.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3.5">
-                            <div className="h-9 w-9 relative rounded-full overflow-hidden shrink-0 bg-blue-100 flex items-center justify-center">
+                            <div className="h-9 w-9 relative rounded-full overflow-hidden shrink-0 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                                {/* Use a generic avatar based on string hash or just first letter */}
-                               <span className="text-blue-700 font-bold text-[14px]">
+                               <span className="text-blue-700 dark:text-blue-400 font-bold text-[14px]">
                                  {plan.patientName?.charAt(0).toUpperCase() || 'P'}
                                </span>
                             </div>
-                            <span className="text-[14px] font-bold text-[#111827] whitespace-nowrap">{plan.patientName}</span>
+                            <span className="text-[14px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{plan.patientName}</span>
                           </div>
                         </td>
                         <td className="px-8 py-5">
                           <div className="flex flex-col">
-                            <span className="text-[13px] font-bold text-[#111827] whitespace-nowrap">
+                            <span className="text-[13px] font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                               {new Date(plan.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                             </span>
-                            <span className="text-[12px] font-semibold text-[#6B7280] mt-0.5 whitespace-nowrap">
+                            <span className="text-[12px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5 whitespace-nowrap">
                               {new Date(plan.updatedAt).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </td>
                         <td className="px-8 py-5">
-                          <div className="text-[13px] font-medium text-[#4B5563] max-w-[420px] leading-relaxed">
-                            <span className="font-bold text-[#111827]">{plan.title}</span> 
-                            {plan.description && <span className="mx-1.5 text-gray-300">-</span>} 
+                          <div className="text-[13px] font-medium text-slate-600 dark:text-slate-300 max-w-[420px] leading-relaxed">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">{plan.title}</span> 
+                            {plan.description && <span className="mx-1.5 text-slate-300 dark:text-slate-700">-</span>} 
                             {plan.description}
                           </div>
                         </td>
                         <td className="px-8 py-5">
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] font-bold whitespace-nowrap ${
                             plan.status === "COMPLETED" 
-                              ? "bg-[#ECFDF5] text-[#059669]" 
+                              ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400" 
                               : plan.status === "ACTIVE" 
-                                ? "bg-[#FFF7ED] text-[#EA580C]"
-                                : "bg-[#F3F4F6] text-[#374151]"
+                                ? "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+                                : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                           }`}>
                             {plan.status === "ACTIVE" ? "Follow-up" : plan.status.charAt(0).toUpperCase() + plan.status.slice(1).toLowerCase()}
                           </span>
                         </td>
                         <td className="px-8 py-5 text-right">
                           <Link href={`/doctor/treatment-timelines?planId=${plan.id}`}>
-                            <Button variant="outline" className="h-[34px] px-4 rounded-[10px] bg-white border-gray-200 text-[#374151] hover:bg-gray-50 flex items-center gap-2 shadow-sm transition-all ml-auto">
-                               <Eye className="h-4 w-4 text-[#6B7280]" />
+                            <Button variant="outline" className="h-[34px] px-4 rounded-[10px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm transition-all ml-auto">
+                               <Eye className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                                <span className="text-[12px] font-bold">View</span>
                             </Button>
                           </Link>

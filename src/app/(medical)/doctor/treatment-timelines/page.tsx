@@ -2,12 +2,15 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ClipboardList,
   CalendarDays,
   CheckCircle2,
+  ListChecks,
   RefreshCw,
   Search,
   Sparkles,
   Stethoscope,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -313,8 +316,28 @@ export default function DoctorTreatmentTimelinesPage() {
     [plans],
   );
 
+  const activeCount = useMemo(
+    () => plans.filter((plan) => plan.status !== "COMPLETED").length,
+    [plans],
+  );
+
+  const completedSessions = useMemo(
+    () => plans.reduce((total, plan) => total + Math.max(0, plan.completedSessions), 0),
+    [plans],
+  );
+
+  const totalSessionTarget = useMemo(
+    () => plans.reduce((total, plan) => total + Math.max(1, plan.totalSessions), 0),
+    [plans],
+  );
+
+  const completionRate = useMemo(
+    () => (plans.length > 0 ? Math.round((completedCount / plans.length) * 100) : 0),
+    [completedCount, plans.length],
+  );
+
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="max-w-6xl space-y-5 lg:space-y-6">
       <PageHeader
         title={locale === "ar" ? "الخطط العلاجية" : "Treatment Timelines"}
         description={
@@ -325,7 +348,7 @@ export default function DoctorTreatmentTimelinesPage() {
         action={
           <Button
             variant="outline"
-            className="gap-2"
+            className="gap-2 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             onClick={() => doctorId && void loadPlans(doctorId)}
             disabled={!doctorId || isLoadingPlans}
           >
@@ -335,30 +358,106 @@ export default function DoctorTreatmentTimelinesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Stethoscope className="h-4 w-4" />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="rounded-2xl border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-900">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                <ClipboardList className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "إجمالي الخطط" : "Total Timelines"}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{plans.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-900">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-500 dark:bg-amber-900/30 dark:text-amber-300">
+                <Stethoscope className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "خطط نشطة" : "Active Timelines"}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{activeCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-900">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-50 text-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "مكتملة" : "Completed"}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{completedCount}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-900">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "معدل الإكمال" : "Completion Rate"}
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{completionRate}%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Card className="lg:col-span-1 rounded-2xl border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-900">
+          <CardHeader className="space-y-1 pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100">
+              <Stethoscope className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               {locale === "ar" ? "إنشاء خطة جديدة" : "Create New Timeline"}
             </CardTitle>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {locale === "ar"
+                ? "أدخل بيانات الخطة ثم أنشئها مباشرة للمريض"
+                : "Fill timeline details and create it directly for the patient"}
+            </p>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {locale === "ar" ? "الطبيب" : "Doctor"}
               </label>
-              <Input value={doctorName} disabled />
+              <Input
+                value={doctorName}
+                disabled
+                className="border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200"
+              />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {locale === "ar" ? "بحث المريض" : "Patient Search"}
               </label>
               <div className="flex gap-2">
                 <Input
                   value={patientQuery}
                   onChange={(event) => setPatientQuery(event.target.value)}
+                  className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   placeholder={
                     locale === "ar"
                       ? "ابحث بالاسم أو الهاتف"
@@ -368,29 +467,36 @@ export default function DoctorTreatmentTimelinesPage() {
                 <Button
                   type="button"
                   variant="outline"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   onClick={() => void searchPatients()}
                   disabled={isSearchingPatients}
                 >
                   <Search className="h-4 w-4" />
                 </Button>
               </div>
+
+              {selectedPatient && (
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-2.5 py-2 text-xs text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/30 dark:text-emerald-300">
+                  {locale === "ar" ? "المريض المحدد:" : "Selected patient:"} {selectedPatient.fullName}
+                </div>
+              )}
             </div>
 
             {patientResults.length > 0 && (
-              <div className="rounded-lg border p-2 space-y-1">
+              <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/40 p-2 dark:border-slate-700 dark:bg-slate-800/40">
                 {patientResults.map((patient) => (
                   <button
                     key={patient.id}
                     type="button"
                     onClick={() => setSelectedPatient(patient)}
-                    className={`w-full rounded-md border px-2 py-1.5 text-left text-sm ${
+                    className={`w-full rounded-md border px-2.5 py-2 text-left text-sm transition-colors ${
                       selectedPatient?.id === patient.id
-                        ? "border-primary bg-primary/5"
-                        : "hover:bg-muted"
+                        ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/40"
+                        : "border-slate-200 bg-white hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
                     }`}
                   >
-                    <p className="font-medium">{patient.fullName}</p>
-                    <p className="text-xs text-muted-foreground">{patient.phone || "-"}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100">{patient.fullName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{patient.phone || "-"}</p>
                   </button>
                 ))}
               </div>
@@ -399,17 +505,18 @@ export default function DoctorTreatmentTimelinesPage() {
             <Input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
+              className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               placeholder={locale === "ar" ? "عنوان الخطة" : "Timeline title"}
             />
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {locale === "ar" ? "الخدمة" : "Service"}
               </label>
               <select
                 value={serviceName}
                 onChange={(event) => setServiceName(event.target.value)}
-                className="w-full border rounded-md bg-background px-3 py-2 text-sm"
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-blue-900/50"
                 disabled={isLoadingServices}
               >
                 <option value="">
@@ -430,6 +537,7 @@ export default function DoctorTreatmentTimelinesPage() {
               min={1}
               value={totalSessions}
               onChange={(event) => setTotalSessions(Number(event.target.value) || 1)}
+              className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               placeholder={locale === "ar" ? "عدد الجلسات" : "Total sessions"}
             />
 
@@ -437,17 +545,18 @@ export default function DoctorTreatmentTimelinesPage() {
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
+              className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
 
             <textarea
-              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="min-h-20 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-900/50"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder={locale === "ar" ? "وصف الخطة" : "Timeline description"}
             />
 
             <textarea
-              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="min-h-20 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-900/50"
               value={predictedOutcome}
               onChange={(event) => setPredictedOutcome(event.target.value)}
               placeholder={
@@ -460,7 +569,7 @@ export default function DoctorTreatmentTimelinesPage() {
             <Button
               type="button"
               variant="outline"
-              className="w-full gap-2"
+              className="w-full gap-2 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               onClick={() => void generateAiDraft()}
               disabled={isGeneratingDraft || !selectedPatient}
             >
@@ -474,11 +583,7 @@ export default function DoctorTreatmentTimelinesPage() {
                   : "Generate AI Draft"}
             </Button>
 
-            <Button
-              className="w-full"
-              onClick={() => void createTimeline()}
-              disabled={isSubmitting || !doctorId}
-            >
+            <Button className="w-full" onClick={() => void createTimeline()} disabled={isSubmitting || !doctorId}>
               {isSubmitting
                 ? locale === "ar"
                   ? "جارٍ الإنشاء..."
@@ -490,28 +595,47 @@ export default function DoctorTreatmentTimelinesPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center justify-between">
-              <span>{locale === "ar" ? "الخطط الحالية" : "Active Timelines"}</span>
-              <Badge variant="outline">
+        <Card className="lg:col-span-2 rounded-2xl border-slate-200 bg-white shadow-none dark:border-slate-800 dark:bg-slate-900">
+          <CardHeader className="space-y-2 pb-2">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base text-slate-800 dark:text-slate-100">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span>{locale === "ar" ? "الخطط الحالية" : "Active Timelines"}</span>
+              </div>
+              <Badge variant="outline" className="border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300">
                 {locale === "ar"
                   ? `مكتمل ${completedCount}/${plans.length}`
                   : `Completed ${completedCount}/${plans.length}`}
               </Badge>
             </CardTitle>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {locale === "ar"
+                ? `إجمالي الجلسات المكتملة ${completedSessions} من ${totalSessionTarget}`
+                : `Completed sessions ${completedSessions} of ${totalSessionTarget}`}
+            </p>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3.5">
             {isLoadingPlans ? (
-              <p className="text-sm text-muted-foreground">
-                {locale === "ar" ? "جاري تحميل الخطط..." : "Loading timelines..."}
-              </p>
+              <div className="space-y-2.5">
+                {[0, 1, 2].map((key) => (
+                  <div
+                    key={key}
+                    className="h-[94px] animate-pulse rounded-xl border border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/60"
+                  />
+                ))}
+              </div>
             ) : plans.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {locale === "ar"
-                  ? "لا توجد خطط علاجية بعد"
-                  : "No treatment timelines yet"}
-              </p>
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/40 px-4 py-8 text-center dark:border-slate-700 dark:bg-slate-800/40">
+                <Stethoscope className="mx-auto h-5 w-5 text-slate-400 dark:text-slate-500" />
+                <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                  {locale === "ar" ? "لا توجد خطط علاجية بعد" : "No treatment timelines yet"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {locale === "ar"
+                    ? "ابدأ بإضافة أول خطة من لوحة الإنشاء"
+                    : "Start by creating your first timeline from the form"}
+                </p>
+              </div>
             ) : (
               plans.map((plan) => {
                 const percentage = Math.min(
@@ -522,62 +646,79 @@ export default function DoctorTreatmentTimelinesPage() {
                 );
 
                 return (
-                  <div key={plan.id} className="rounded-lg border p-3 space-y-2">
+                  <div
+                    key={plan.id}
+                    className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+                  >
                     <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div>
-                        <p className="font-medium text-sm">{plan.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{plan.title}</p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {plan.patientName} •{" "}
                           {plan.serviceName ||
                             (locale === "ar" ? "خطة عامة" : "General Plan")}
                         </p>
                       </div>
                       <Badge variant={plan.status === "COMPLETED" ? "success" : "info"}>
-                        {plan.status}
+                        {plan.status.replaceAll("_", " ")}
                       </Badge>
                     </div>
 
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                      <span>{locale === "ar" ? "التقدم" : "Progress"}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{percentage}%</span>
+                    </div>
+
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
-                        className="h-full bg-primary transition-all"
+                        className={`h-full transition-all ${
+                          plan.status === "COMPLETED"
+                            ? "bg-emerald-500 dark:bg-emerald-400"
+                            : "bg-blue-500 dark:bg-blue-400"
+                        }`}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                         {locale === "ar" ? "الجلسات" : "Sessions"}: {plan.completedSessions}/
                         {plan.totalSessions}
                       </span>
-                      <span className="flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1">
                         <CalendarDays className="h-3 w-3" />
                         {plan.startDate || "-"}
                       </span>
                     </div>
 
                     {plan.description && (
-                      <p className="text-xs text-muted-foreground">{plan.description}</p>
+                      <p className="rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300">
+                        {plan.description}
+                      </p>
                     )}
 
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
-                      disabled={
-                        plan.status === "COMPLETED" || progressingPlanId === plan.id
-                      }
-                      onClick={() => void markSessionDone(plan)}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {progressingPlanId === plan.id
-                        ? locale === "ar"
-                          ? "جارٍ التحديث..."
-                          : "Updating..."
-                        : locale === "ar"
-                          ? "تسجيل جلسة مكتملة"
-                          : "Mark Session Completed"}
-                    </Button>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        disabled={
+                          plan.status === "COMPLETED" || progressingPlanId === plan.id
+                        }
+                        onClick={() => void markSessionDone(plan)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {progressingPlanId === plan.id
+                          ? locale === "ar"
+                            ? "جارٍ التحديث..."
+                            : "Updating..."
+                          : locale === "ar"
+                            ? "تسجيل جلسة مكتملة"
+                            : "Mark Session Completed"}
+                      </Button>
+                    </div>
                   </div>
                 );
               })
