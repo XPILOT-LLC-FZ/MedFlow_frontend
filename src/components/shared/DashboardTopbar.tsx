@@ -217,27 +217,44 @@ export function DashboardTopbar() {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800" 
+                className={`h-8 w-8 rounded-full border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${notifOpen ? "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"}`} 
                 onClick={() => setNotifOpen(!notifOpen)}
               >
                 <Bell className="h-[18px] w-[18px] text-slate-600 dark:text-slate-300" />
-                <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />
+                {appointments.length > 0 && <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />}
               </Button>
               {notifOpen && (
-                <div className="absolute top-full mt-3 right-0 rtl:right-auto rtl:left-0 w-80 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 z-50">
+                <div className="absolute top-full mt-3 right-0 rtl:right-auto rtl:left-0 w-80 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white shadow-xl dark:bg-slate-950 p-4 z-50">
                   <p className="text-sm font-bold mb-3 px-1 text-slate-900 dark:text-slate-50">
                     {locale === "ar" ? "الإشعارات" : "Notifications"}
                   </p>
-                  <div className="space-y-2">
-                    {[
-                      { en: "New appointment booked with Dr. Mitchell", ar: "تم حجز موعد جديد مع د. ميتشل" },
-                      { en: "Inventory alert: Face Masks N95 low stock", ar: "تنبيه المخزون: كمامات N95 منخفضة" },
-                      { en: "Appointment reminder: Tomorrow at 9:00 AM", ar: "تذكير: موعدك غداً الساعة 9:00 صباحاً" }
-                    ].map((n, idx) => (
-                      <div key={idx} className="text-xs text-slate-600 dark:text-slate-400 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors">
-                        {locale === "ar" ? n.ar : n.en}
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {appointments.filter(a => a.status === "scheduled" || a.status === "in-progress").length > 0 ? (
+                      appointments
+                        .filter(a => a.status === "scheduled" || a.status === "in-progress")
+                        .slice(0, 5)
+                        .map((a, idx) => (
+                          <div key={idx} className="text-xs text-slate-600 dark:text-slate-400 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-800">
+                            <span className="block font-semibold mb-1 text-slate-800 dark:text-slate-200">
+                              {locale === "ar" ? `موعد مجدول: ${a.patientName}` : `Scheduled: ${a.patientName}`}
+                            </span>
+                            {locale === "ar" ? `التاريخ: ${a.date} | الوقت: ${a.time}` : `Date: ${a.date} | Time: ${a.time}`}
+                          </div>
+                      ))
+                    ) : (
+                      <div className="text-xs text-slate-500 p-3 text-center">
+                        {locale === "ar" ? "لا توجد إشعارات جديدة" : "No new notifications"}
                       </div>
-                    ))}
+                    )}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
+                       <Link 
+                         href="/doctor/notifications" 
+                         className="flex items-center justify-center py-2 text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                         onClick={() => setNotifOpen(false)}
+                       >
+                          {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
+                       </Link>
+                    </div>
                   </div>
                 </div>
               )}
@@ -275,7 +292,7 @@ export function DashboardTopbar() {
               </div>
               <Link href={role === "DOCTOR" ? "/doctor/profile" : (role === "PATIENT" ? "/profile" : (role === "STAFF" ? "/reception/profile" : "#"))}>
                 <Avatar className="h-10 w-10 cursor-pointer border border-slate-200 dark:border-slate-800">
-                  <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
+                  <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
                   <AvatarFallback className="bg-primary text-white font-bold">{firstName.charAt(0)}</AvatarFallback>
                 </Avatar>
               </Link>

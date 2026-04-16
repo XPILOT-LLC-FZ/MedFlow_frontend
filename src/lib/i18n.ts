@@ -36,6 +36,14 @@ export const translations = {
     loading: "Loading...",
     noResults: "No results found",
     all: "All",
+ 
+    // Settings
+    workingHours: "Working Hours",
+    notificationsSettings: "Notifications",
+    diagnosisPreferences: "Diagnosis Preferences",
+    prescriptionSettings: "Prescription Settings",
+    privacyPermissions: "Privacy & Permissions",
+    communicationSettings: "Communication",
 
     // Landing
     heroTitle: "Your Health, Our Priority",
@@ -244,6 +252,14 @@ export const translations = {
     loading: "جارٍ التحميل...",
     noResults: "لا توجد نتائج",
     all: "الكل",
+ 
+    // Settings
+    workingHours: "ساعات العمل",
+    notificationsSettings: "الإشعارات",
+    diagnosisPreferences: "تفضيلات التشخيص",
+    prescriptionSettings: "إعدادات الوصفات",
+    privacyPermissions: "الخصوصية والأذونات",
+    communicationSettings: "التواصل",
 
     // Landing
     heroTitle: "صحتك، أولويتنا",

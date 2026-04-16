@@ -67,6 +67,24 @@ export const staffService = {
     return apiClient.get(`/doctors/${id}/availability?${params.toString()}`);
   },
 
+  /**
+   * Returns the Doctor profile for the currently logged-in doctor user.
+   * Uses /doctors/me/profile — no clinic context needed.
+   */
+  async getMyDoctorProfile(): Promise<ApiDoctor> {
+    return apiClient.get(`/doctors/me/profile?t=${Date.now()}`);
+  },
+
+  /**
+   * Deep-merges the supplied preferences object into the doctor's existing preferences.
+   * Uses /doctors/me/preferences — no clinic context needed.
+   */
+  async updateMyPreferences(
+    preferences: Record<string, unknown>,
+  ): Promise<{ success: boolean; preferences: Record<string, unknown> }> {
+    return apiClient.patch("/doctors/me/preferences", preferences);
+  },
+
   async getStats() {
     // This might need a specialized endpoint or client-side aggregation
     const doctors = await this.getDoctors();

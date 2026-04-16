@@ -14,6 +14,7 @@ export interface AuthUser {
   phone?: string;
   clinicId?: string;
   isOnboarded?: boolean;
+  avatarUrl?: string | null;
 }
 
 export interface SignupData {
@@ -102,6 +103,7 @@ function mapUser(raw: any, fallback?: Partial<SignupData>): AuthUser {
     phone: raw.phone ?? fallback?.phone,
     clinicId: raw.clinicId ?? raw.clinic_id ?? raw.clinic?.id ?? raw.tenantId ?? raw.tenant_id ?? raw.cid,
     isOnboarded: raw.isOnboarded ?? false,
+    avatarUrl: raw.avatarUrl ?? raw.avatar ?? null,
   };
 }
 
@@ -396,6 +398,9 @@ export const useAuthStore = create<AuthState>()(
           if (typeof data.name === "string") {
             payload.fullName = data.name.trim();
           }
+          if (typeof data.avatarUrl === "string") {
+            payload.avatarUrl = data.avatarUrl;
+          }
 
           const updatedUser = await apiClient.patch<Record<string, unknown>>(
             "/auth/me",
@@ -428,6 +433,15 @@ export const useAuthStore = create<AuthState>()(
               ? updatedUser.phone
               : currentUser.phone;
 
+          const nextAvatarUrl =
+            typeof updatedUser.avatarUrl === "string"
+              ? updatedUser.avatarUrl
+              : typeof updatedUser.avatar === "string"
+                ? updatedUser.avatar
+                : data.avatarUrl !== undefined
+                  ? data.avatarUrl
+                  : currentUser.avatarUrl;
+
           set({
             user: {
               ...currentUser,
@@ -435,6 +449,7 @@ export const useAuthStore = create<AuthState>()(
               nameAr: nextNameAr,
               email: nextEmail,
               phone: nextPhone,
+              avatarUrl: nextAvatarUrl,
             },
           });
           return { success: true };

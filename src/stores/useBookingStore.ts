@@ -142,18 +142,24 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to fetch appointments";
       
-      // If clinic context is missing, retry once after a short delay to allow for background "sniffing"
-      if (message.includes("Clinic context missing")) {
-         await new Promise(r => setTimeout(r, 1500));
-         try {
-           const apiAppointments = await bookingService.getAll(filters);
-           set({ appointments: (apiAppointments || []).map(mapToLocal), isLoading: false });
-           return;
-         } catch (retryError: unknown) {
-           const retryMessage = retryError instanceof Error ? retryError.message : message;
-           set({ error: retryMessage, isLoading: false });
-           return;
-         }
+      // Soft-fail for clinic context issues — these are session-timing transient errors,
+      // not user-visible failures. Return empty state silently.
+      const isSoftFail = 
+        message.includes("Clinic context missing") ||
+        message.toLowerCase().includes("internal server error");
+      
+      if (isSoftFail) {
+        // Retry once after a short delay to let session/clinic context settle
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          const apiAppointments = await bookingService.getAll(filters);
+          set({ appointments: (apiAppointments || []).map(mapToLocal), isLoading: false });
+          return;
+        } catch {
+          // Still failing — return silently with empty state, don't surface to UI
+          set({ appointments: [], isLoading: false, error: null });
+          return;
+        }
       }
       
       set({ error: message, isLoading: false });

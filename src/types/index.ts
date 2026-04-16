@@ -42,6 +42,7 @@ export interface ApiDoctor {
   email: string;
   phone?: string;
   specialization?: string;
+  qualification?: string;
   bio?: string;
   ministryOfHealthId?: string | null;
   experienceStartDate?: string | null;
@@ -52,6 +53,7 @@ export interface ApiDoctor {
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   rating: number;
   shifts?: DoctorShift[];
+  preferences?: Record<string, any>;
   user?: {
     id: string;
     email: string;
@@ -87,6 +89,7 @@ export interface CreateDoctorPayload {
   email: string;
   phone?: string;
   specialization?: string;
+  qualification?: string;
   bio?: string;
   ministryOfHealthId?: string | null;
   experienceStartDate?: string | null;
@@ -102,6 +105,7 @@ export interface UpdateDoctorPayload {
   fullName?: string;
   phone?: string;
   specialization?: string;
+  qualification?: string;
   bio?: string;
   clinicId?: string;
   ministryOfHealthId?: string | null;
@@ -110,6 +114,7 @@ export interface UpdateDoctorPayload {
   branchId?: string;
   services?: string[];
   status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+  preferences?: Record<string, any>;
 }
 
 export interface ResetDoctorPasswordPayload {

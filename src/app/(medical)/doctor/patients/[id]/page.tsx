@@ -25,6 +25,7 @@ import { prescriptionService } from "@/services/prescriptionService";
 import { investigationService } from "@/services/investigationService";
 import { patientDocumentService } from "@/services/patientDocumentService";
 import { whatsAppService } from "@/services/whatsAppService";
+import { staffService } from "@/services/staffService";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 import type {
@@ -135,6 +136,8 @@ export default function DoctorPatientDetailsPage() {
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [lastPrescriptionId, setLastPrescriptionId] = useState<string | null>(null);
 
+  const [favoriteMedications, setFavoriteMedications] = useState<any[]>([]);
+
   useEffect(() => {
     if (!patientId) {
       setIsLoading(false);
@@ -153,6 +156,7 @@ export default function DoctorPatientDetailsPage() {
           prescriptionResult,
           investigationResult,
           documentResult,
+          doctorProfileResult,
         ] = await Promise.allSettled([
           patientService.getById(patientId),
           bookingService.getAll({ patientId }),
@@ -160,6 +164,7 @@ export default function DoctorPatientDetailsPage() {
           prescriptionService.getAll({ patientId }),
           investigationService.getAll({ patientId }),
           patientDocumentService.getAll(patientId),
+          staffService.getMyDoctorProfile(),
         ] as const);
 
         if (patientResult.status !== "fulfilled") {
@@ -239,6 +244,14 @@ export default function DoctorPatientDetailsPage() {
           existingInvestigations[item.testName] = true;
         });
         setSelectedInvestigations(existingInvestigations);
+
+        // Load doctor's prescription preferences
+        if (doctorProfileResult.status === "fulfilled") {
+          const prefs = doctorProfileResult.value.preferences as any;
+          if (prefs?.prescriptionSettings?.favoriteMedications?.length) {
+            setFavoriteMedications(prefs.prescriptionSettings.favoriteMedications);
+          }
+        }
       } catch (error) {
         const message =
           error instanceof Error
@@ -778,6 +791,38 @@ export default function DoctorPatientDetailsPage() {
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {favoriteMedications.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1 pb-2">
+                    <span className="text-xs text-muted-foreground self-center mr-2">
+                       {locale === "ar" ? "إضافة سريعة:" : "Quick Add:"}
+                    </span>
+                    {favoriteMedications.map((fav, index) => (
+                      <Button
+                        key={`fav-${index}`}
+                        variant="secondary"
+                        size="sm"
+                        className="text-[10px] h-6 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-none"
+                        onClick={() => {
+                          setMedications((prev) => {
+                            const newMeds = [...prev];
+                            // Replace the first empty slot if available, otherwise append
+                            const emptyIdx = newMeds.findIndex(m => !m.name && !m.dosage);
+                            if (emptyIdx !== -1) {
+                              newMeds[emptyIdx] = { ...fav };
+                            } else {
+                              newMeds.push({ ...fav });
+                            }
+                            return newMeds;
+                          });
+                        }}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        {fav.name} {fav.dosage && `(${fav.dosage})`}
+                      </Button>
+                    ))}
+                  </div>
+                )}
 
                 {medications.map((item, index) => (
                   <div key={`medication-${index}`} className="rounded-lg border p-2 grid grid-cols-1 md:grid-cols-4 gap-2">

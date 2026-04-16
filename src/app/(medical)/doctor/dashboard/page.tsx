@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
 import type { DashboardDoctorSummaryData } from "@/types";
+import { useBookingStore } from "@/stores/useBookingStore";
 import Link from "next/link";
 
 export default function DoctorDashboard() {
@@ -65,35 +66,32 @@ export default function DoctorDashboard() {
     day: "numeric",
     year: "numeric",
   }).format(new Date());
-  const notificationItems = [
-    {
-      key: "critical-labs",
-      tone: "critical",
-      title: locale === "ar" ? "نتائج حرجة" : "Critical Lab Results",
-      body:
-        locale === "ar"
-          ? "إيما ويليامز - نتائج الدهون تتطلب مراجعة فورية"
-          : "Emma Williams - Abnormal lipid panel requires immediate review",
-    },
-    {
-      key: "prescription",
-      tone: "info",
-      title: locale === "ar" ? "الوصفة جاهزة" : "Prescription Ready",
-      body:
-        locale === "ar"
-          ? "جون جونسون - تم إرسال الوصفة للصيدلية"
-          : "Sarah Johnson's prescription has been sent to pharmacy",
-    },
-    {
-      key: "confirmed",
-      tone: "success",
-      title: locale === "ar" ? "تم تأكيد الموعد" : "Appointment Confirmed",
-      body:
-        locale === "ar"
-          ? "تأكيد موعد جيمس براون للمتابعة بعد 30 دقيقة"
-          : "James Brown confirmed follow-up appointment for 30 mins ago",
-    },
-  ];
+  const { appointments } = useBookingStore();
+  
+  const dynamicNotifications = appointments
+    .filter(a => a.status === "scheduled" || a.status === "in-progress")
+    .slice(0, 3)
+    .map(a => ({
+      key: `appt-${a.id}`,
+      tone: a.status === "in-progress" ? "critical" : "info",
+      title: locale === "ar" 
+        ? (a.status === "in-progress" ? "جلسة قيد التنفيذ" : "موعد مخطط") 
+        : (a.status === "in-progress" ? "Session In Progress" : "Planned Appointment"),
+      body: locale === "ar"
+        ? `${a.patientName} - الساعة ${a.time}`
+        : `${a.patientName} scheduled at ${a.time}`,
+    }));
+
+  const notificationItems = dynamicNotifications.length > 0 
+    ? dynamicNotifications 
+    : [
+        {
+          key: "welcome",
+          tone: "success",
+          title: locale === "ar" ? "مرحباً دكتور" : "Welcome Doctor",
+          body: locale === "ar" ? "لا توجد تنبيهات عاجلة اليوم" : "You have no urgent alerts today.",
+        }
+      ];
   const [taskState, setTaskState] = React.useState<Record<string, boolean>>({
     "call-sarah": false,
     "sign-michael": false,
@@ -244,7 +242,7 @@ export default function DoctorDashboard() {
                   : `${currentDate} • ${summaryCards?.todayAppointments ?? 0} appointments`}
               </p>
             </div>
-            <Link href="/doctor/appointments">
+            <Link href="/doctor/schedule">
               <Button variant="ghost" size="sm" className="h-auto px-1 py-1 text-[11px] font-medium text-blue-600 hover:bg-transparent hover:text-blue-700">
                 {t("viewAll")}
               </Button>
@@ -314,7 +312,7 @@ export default function DoctorDashboard() {
                         ) : (
                           <span />
                         )}
-                        <Link href="/doctor/appointments" className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700">
+                        <Link href="/doctor/schedule" className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700">
                           {locale === "ar" ? "عرض التفاصيل" : "View Details"}
                           <ArrowRight className="h-3 w-3" />
                         </Link>
@@ -376,7 +374,7 @@ export default function DoctorDashboard() {
                 </div>
               ))}
               <div className="pt-1 text-center">
-                <Link href="/doctor/appointments" className="text-[11px] font-medium text-blue-600 hover:text-blue-700">
+                <Link href="/doctor/schedule" className="text-[11px] font-medium text-blue-600 hover:text-blue-700">
                   {locale === "ar" ? "عرض كل المرضى" : "View All Patients"}
                 </Link>
               </div>
@@ -426,7 +424,7 @@ export default function DoctorDashboard() {
                 </div>
               ))}
               <div className="pt-1 text-center">
-                <Link href="/doctor/appointments" className="text-[11px] font-medium text-blue-600 hover:text-blue-700">
+                <Link href="/doctor/notifications" className="text-[11px] font-medium text-blue-600 hover:text-blue-700">
                   {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
                 </Link>
               </div>

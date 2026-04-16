@@ -16,12 +16,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { theme, locale } = useStore();
   const { bootSession } = useAuthStore();
+  const [mounted, setMounted] = React.useState(false);
   const [isAuthHydrated, setIsAuthHydrated] = React.useState(() => {
     const persistApi = (useAuthStore as unknown as { persist?: PersistApi }).persist;
     return !persistApi?.hasHydrated || persistApi.hasHydrated();
   });
 
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isAuthHydrated) {
@@ -52,11 +57,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, [bootSession, isAuthHydrated, isAuthPage]);
 
   useEffect(() => {
+    if (!mounted) return;
     const root = document.documentElement;
     root.classList.toggle("dark", theme === "dark");
     root.setAttribute("dir", locale === "ar" ? "rtl" : "ltr");
     root.setAttribute("lang", locale);
-  }, [theme, locale]);
+  }, [theme, locale, mounted]);
+
+  // Prevent hydration mismatch by returning null or a simplified loader during SSR
+  if (!mounted) {
+    return <div style={{ visibility: "hidden" }}>{children}</div>;
+  }
 
   return (
     <>

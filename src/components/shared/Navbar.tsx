@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo } from "@/components/shared/BrandLogo";
 import type { Role } from "@/types";
+import { useBookingStore } from "@/stores/useBookingStore";
 
 const roleLabels: Record<Role, { en: string; ar: string }> = {
   PATIENT: { en: "Patient", ar: "مريض" },
@@ -34,6 +35,7 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
   const { user, logout } = useAuthStore();
   const { t } = useTranslation();
   const [notifOpen, setNotifOpen] = React.useState(false);
+  const { appointments } = useBookingStore();
 
   const handleLogout = async () => {
     await logout();
@@ -83,23 +85,31 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
         <div className="relative">
           <Button variant="ghost" size="icon" onClick={() => setNotifOpen(!notifOpen)}>
             <Bell className="h-4 w-4" />
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
+            {appointments.length > 0 && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />}
           </Button>
           {notifOpen && (
             <div className="absolute top-full mt-1 right-0 rtl:right-auto rtl:left-0 w-72 rounded-xl border bg-popover p-4 shadow-lg z-50">
               <p className="text-sm font-medium mb-2">
                 {locale === "ar" ? "الإشعارات" : "Notifications"}
               </p>
-              <div className="space-y-2">
-                <div className="text-xs text-muted-foreground p-2 rounded-lg bg-muted">
-                  {locale === "ar" ? "تم حجز موعد جديد مع د. ميتشل" : "New appointment booked with Dr. Mitchell"}
-                </div>
-                <div className="text-xs text-muted-foreground p-2 rounded-lg bg-muted">
-                  {locale === "ar" ? "تنبيه المخزون: كمامات N95 منخفضة" : "Inventory alert: Face Masks N95 low stock"}
-                </div>
-                <div className="text-xs text-muted-foreground p-2 rounded-lg bg-muted">
-                  {locale === "ar" ? "تذكير: موعدك غداً الساعة 9:00 صباحاً" : "Appointment reminder: Tomorrow at 9:00 AM"}
-                </div>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {appointments.filter(a => a.status === "scheduled" || a.status === "in-progress").length > 0 ? (
+                  appointments
+                    .filter(a => a.status === "scheduled" || a.status === "in-progress")
+                    .slice(0, 5)
+                    .map((a, idx) => (
+                      <div key={idx} className="text-xs text-muted-foreground p-3 rounded-lg bg-muted cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <span className="block font-semibold mb-1 text-foreground">
+                          {locale === "ar" ? `موعد مجدول: ${a.patientName}` : `Scheduled: ${a.patientName}`}
+                        </span>
+                        {locale === "ar" ? `التاريخ: ${a.date} | الوقت: ${a.time}` : `Date: ${a.date} | Time: ${a.time}`}
+                      </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-muted-foreground p-3 text-center">
+                    {locale === "ar" ? "لا توجد إشعارات جديدة" : "No new notifications"}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -130,7 +140,7 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
         {user && (
           <Link href={rolePaths[user.role]}>
             <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-primary/20">
-              <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
+              <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
               <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
           </Link>
