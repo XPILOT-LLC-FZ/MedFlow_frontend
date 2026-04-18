@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Save, RefreshCcw, CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown } from "lucide-react";
+import { Save, RefreshCcw, CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, MessageSquare } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +145,7 @@ export default function SchedulePage() {
   const { fetchDoctors } = useStaffStore();
   const { appointments, fetchAppointments, addAppointment } = useBookingStore();
   const { success, error } = useToastStore();
+  const router = useRouter();
 
   const [doctorId, setDoctorId] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string | null>(null);
@@ -488,6 +490,18 @@ export default function SchedulePage() {
     }
   };
 
+  const handleChatWithPatient = async (appointment: Appointment) => {
+    setActiveActionId(appointment.id);
+    try {
+      router.push(`/doctor/chat?appointmentId=${appointment.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to open chat";
+      error(message);
+    } finally {
+      setActiveActionId(null);
+    }
+  };
+
   const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
   const timelineDates = useMemo(() => {
     return Array.from({ length: 9 }).map((_, index) => {
@@ -603,6 +617,10 @@ export default function SchedulePage() {
               )}
               {dayAppointments.map((item, index) => {
                 const statusTag = getStatusTag(item);
+                function handleChatWithPatient(item: Appointment): void {
+                  throw new Error("Function not implemented.");
+                }
+
                 return (
                 <div key={item.id} className="grid grid-cols-[72px_1fr] gap-2">
                   <p className="pt-4 text-[11px] font-medium text-slate-400 dark:text-slate-500">{item.time}</p>
@@ -637,6 +655,14 @@ export default function SchedulePage() {
                               className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                             >
                               {locale === "ar" ? "إرسال ملخص يدوي" : "Send Manual Summary"}
+                            </button>
+                            <button 
+                              onClick={() => handleChatWithPatient(item)}
+                              disabled={activeActionId === item.id}
+                              className="flex w-full items-center gap-2 px-4 py-2 text-[13px] font-bold text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                              {locale === "ar" ? "دردشة مع المريض" : "Chat with Patient"}
                             </button>
                             <button 
                               onClick={() => openAiSummaryForm(item)}

@@ -2,9 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, Loader2, MessageSquare } from "lucide-react";
-import { io, Socket } from "socket.io-client";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
@@ -12,36 +9,17 @@ import {
   type ChatConversation,
   type ChatMessage,
 } from "@/services/doctorChatService";
-import { ChatLayout } from "@/app/(patient)/chat/components/ChatLayout";
-import { ConversationList } from "@/app/(patient)/chat/components/ConversationList";
-import { ChatHeader } from "@/app/(patient)/chat/components/ChatHeader";
-import { MessageBubble } from "@/app/(patient)/chat/components/MessageBubble";
-import { MessageInput } from "@/app/(patient)/chat/components/MessageInput";
+import { patientService } from "@/services/patientService";
+import { bookingService } from "@/services/bookingService";
+import { patientDocumentService } from "@/services/patientDocumentService";
 
-type ConnectionStatus = "connecting" | "connected" | "disconnected";
+import { DoctorChatSidebar } from "./components/DoctorChatSidebar";
+import { DoctorChatMain } from "./components/DoctorChatMain";
+import { DoctorChatContactInfo } from "./components/DoctorChatContactInfo";
+import { Loader2, AlertCircle } from "lucide-react";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) return "Today";
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function groupByDay(messages: ChatMessage[]) {
-  const groups: Record<string, ChatMessage[]> = {};
-  for (const msg of messages) {
-    const key = formatDate(msg.createdAt);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(msg);
-  }
-  return Object.entries(groups);
 }
 
 function applyStatusToMessages(
@@ -52,8 +30,14 @@ function applyStatusToMessages(
 ) {
   if (messageIds.length === 0) return messages;
   const idSet = new Set(messageIds);
-  return messages.map((msg) =>
-    idSet.has(msg.id) ? { ...msg, status, seenAt: status === "seen" ? seenAt : msg.seenAt } : msg
+  return messages.map((message) =>
+    idSet.has(message.id)
+      ? {
+          ...message,
+          status,
+          seenAt: status === "seen" ? seenAt : message.seenAt,
+        }
+      : message
   );
 }
 
@@ -62,31 +46,63 @@ export default function DoctorChatPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const appointmentIdParam = searchParams.get("appointmentId");
-  const selectedConversationId = searchParams.get("conversationId") ?? "";
+  const conversationIdParam = searchParams.get("conversationId");
+  const legacyConversationIdParam = searchParams.get("id");
+  const selectedConversationId = conversationIdParam ?? legacyConversationIdParam ?? "";
+  
   const { user, accessToken, refreshAccessToken } = useAuthStore();
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [unreadByConversation, setUnreadByConversation] = useState<Record<string, number>>({});
-  const [lastActivityByConversation, setLastActivityByConversation] = useState<
-    Record<string, string>
-  >({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected");
-  const [isOtherTyping, setIsOtherTyping] = useState(false);
 
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingOptimisticIdsRef = useRef<string[]>([]);
-  const socketRef = useRef<Socket | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Right sidebar data
+  const [showContactInfo, setShowContactInfo] = useState(true);
+  const [patientDetails, setPatientDetails] = useState<
+    | {
+        id: string;
+        name: string;
+        role: string;
+        email?: string;
+        phone?: string;
+        age?: number;
+        bloodType?: string;
+      }
+    | null
+  >(null);
+  const [patientActivity, setPatientActivity] = useState<
+    Array<{ id: string; date: string; title: string }>
+  >([]);
+  const [patientFiles, setPatientFiles] = useState<
+    Array<{ id: string; name: string; size: string; date: string }>
+  >([]);
+  const lastSyncedLatestRef = useRef<Record<string, string>>({});
 
-  const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
-  }, []);
+  const selectedConversation = useMemo(() => 
+    conversations.find(c => c.id === selectedConversationId),
+    [conversations, selectedConversationId]
+  );
+
+  const markSeen = useCallback(async () => {
+    if (!selectedConversationId) return;
+    try {
+      const result = await doctorChatService.markConversationSeen(selectedConversationId);
+      setUnreadByConversation((prev) => ({
+        ...prev,
+        [selectedConversationId]: 0,
+      }));
+      setMessages((prev) =>
+        applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt)
+      );
+    } catch {
+      // non-blocking
+    }
+  }, [selectedConversationId]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
@@ -94,6 +110,7 @@ export default function DoctorChatPage() {
       const params = new URLSearchParams(searchParams.toString());
       params.set("conversationId", id);
       params.delete("appointmentId");
+      params.delete("id");
       router.replace(`${pathname}?${params.toString()}`);
     },
     [pathname, router, searchParams]
@@ -101,65 +118,102 @@ export default function DoctorChatPage() {
 
   const loadConversations = useCallback(async () => {
     try {
+      setError(null);
       const data = await doctorChatService.listConversations();
-      if (process.env.NODE_ENV !== "production") {
-        console.debug("[doctor-chat] listConversations", data);
-      }
       setConversations(data);
-      const seeded: Record<string, string> = {};
-      for (const conversation of data) {
-        seeded[conversation.id] = conversation.latestMessage?.createdAt ?? conversation.createdAt;
-      }
-      setLastActivityByConversation((prev) => ({ ...seeded, ...prev }));
-    } catch {
+      setUnreadByConversation((prev) => {
+        const next = { ...prev };
+
+        for (const conversation of data) {
+          const latestTimestamp =
+            conversation.latestMessage?.createdAt ?? conversation.createdAt;
+          const previousTimestamp = lastSyncedLatestRef.current[conversation.id];
+
+          if (
+            previousTimestamp &&
+            new Date(latestTimestamp).getTime() >
+              new Date(previousTimestamp).getTime() &&
+            conversation.latestMessage?.senderId &&
+            conversation.latestMessage.senderId !== user?.id &&
+            conversation.id !== selectedConversationId
+          ) {
+            next[conversation.id] = (next[conversation.id] ?? 0) + 1;
+          }
+
+          if (conversation.id === selectedConversationId) {
+            next[conversation.id] = 0;
+          }
+
+          lastSyncedLatestRef.current[conversation.id] = latestTimestamp;
+        }
+
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to load conversations", err);
+      setError(locale === "ar" ? "فشل تحميل المحادثات. يرجى المحاولة مرة أخرى." : "Failed to load conversations. Please try again.");
       setConversations([]);
+    } finally {
+      setIsLoading(false);
     }
-  }, []);
+  }, [locale, selectedConversationId, user?.id]);
 
   useEffect(() => {
     void loadConversations();
-  }, [loadConversations]);
-
-  useEffect(() => {
     const refreshInterval = setInterval(() => {
       void loadConversations();
     }, 10000);
-    const onFocus = () => {
+
+    const onRefresh = () => {
       void loadConversations();
     };
 
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-    window.addEventListener("appointment-booked", onFocus);
+    window.addEventListener("focus", onRefresh);
+    document.addEventListener("visibilitychange", onRefresh);
+    window.addEventListener("appointment-booked", onRefresh);
 
     return () => {
       clearInterval(refreshInterval);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
-      window.removeEventListener("appointment-booked", onFocus);
+      window.removeEventListener("focus", onRefresh);
+      document.removeEventListener("visibilitychange", onRefresh);
+      window.removeEventListener("appointment-booked", onRefresh);
     };
   }, [loadConversations]);
 
   useEffect(() => {
+    if (!legacyConversationIdParam || conversationIdParam) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("conversationId", legacyConversationIdParam);
+    params.delete("id");
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [conversationIdParam, legacyConversationIdParam, pathname, router, searchParams]);
+
+  useEffect(() => {
     if (!appointmentIdParam || selectedConversationId) return;
+
     const syncFromAppointment = async () => {
       try {
         const conversation = await doctorChatService.getOrCreateConversation(appointmentIdParam);
         setConversations((prev) =>
-          prev.some((c) => c.id === conversation.id) ? prev : [conversation, ...prev]
+          prev.some((entry) => entry.id === conversation.id)
+            ? prev
+            : [conversation, ...prev]
         );
         handleSelectConversation(conversation.id);
       } catch {
-        setConnectionStatus("disconnected");
+        setError(locale === "ar" ? "تعذر فتح محادثة الموعد" : "Unable to open appointment chat");
       }
     };
+
     void syncFromAppointment();
-  }, [appointmentIdParam, selectedConversationId, handleSelectConversation]);
+  }, [appointmentIdParam, handleSelectConversation, locale, selectedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId || accessToken || !user) return;
-    void refreshAccessToken().catch(() => setConnectionStatus("disconnected"));
-  }, [selectedConversationId, accessToken, user, refreshAccessToken]);
+    void refreshAccessToken().catch(() => {
+      setError(locale === "ar" ? "انتهت الجلسة" : "Session expired");
+    });
+  }, [selectedConversationId, accessToken, user, refreshAccessToken, locale]);
 
   useEffect(() => {
     if (selectedConversationId || conversations.length === 0) return;
@@ -168,153 +222,73 @@ export default function DoctorChatPage() {
 
   useEffect(() => {
     if (!selectedConversationId) {
+      setMessages([]);
       setIsLoading(false);
-      setError(locale === "ar" ? "لم يتم تحديد محادثة." : "No conversation selected.");
       return;
     }
 
     let cancelled = false;
-    const init = async () => {
+
+    const fetchMessages = async () => {
+      setIsLoading(true);
       try {
-        setIsLoading(true);
         setError(null);
-        setMessages([]);
         const history = await doctorChatService.getMessages(selectedConversationId);
         if (cancelled) return;
-        setMessages(history ?? []);
-        await doctorChatService.markConversationSeen(selectedConversationId);
-        setTimeout(() => scrollToBottom(false), 50);
+        setMessages(history);
+        const result = await doctorChatService.markConversationSeen(selectedConversationId);
+        if (cancelled) return;
+        setUnreadByConversation((prev) => ({
+          ...prev,
+          [selectedConversationId]: 0,
+        }));
+        setMessages((prev) =>
+          applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt)
+        );
       } catch (err) {
+        console.error("Failed to fetch messages", err);
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load conversation");
+          setError(locale === "ar" ? "تعذر تحميل الرسائل" : "Failed to load messages");
         }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
-    void init();
+
+    void fetchMessages();
     return () => {
       cancelled = true;
     };
-  }, [selectedConversationId, locale, scrollToBottom]);
+  }, [selectedConversationId, locale]);
 
   useEffect(() => {
-    if (conversations.length === 0 || !accessToken) {
-      setConnectionStatus("disconnected");
-      return;
-    }
+    if (!selectedConversationId) return;
 
-    setConnectionStatus("connecting");
-    const wsUrl = process.env.NEXT_PUBLIC_BACKEND_WS_URL || "http://localhost:3001";
-    const socket = io(`${wsUrl}/chat`, {
-      transports: ["websocket"],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-    });
-    socketRef.current = socket;
-    const connectTimeout = setTimeout(() => {
-      setConnectionStatus((prev) => (prev === "connecting" ? "disconnected" : prev));
-    }, 7000);
+    const interval = setInterval(() => {
+      void doctorChatService
+        .getMessages(selectedConversationId)
+        .then((history) => {
+          setMessages((prev) => {
+            const previousTail = prev[prev.length - 1]?.id;
+            const nextTail = history[history.length - 1]?.id;
+            if (previousTail === nextTail && prev.length === history.length) {
+              return prev;
+            }
+            return history;
+          });
+        })
+        .catch(() => {
+          // non-blocking
+        });
+    }, 5000);
 
-    socket.on("connect", () => {
-      setConnectionStatus("connected");
-      for (const conversation of conversations) {
-        socket.emit("join_room", { conversationId: conversation.id, token: accessToken });
-      }
-    });
-    socket.on("disconnect", () => setConnectionStatus("disconnected"));
-    socket.on("connect_error", () => setConnectionStatus("disconnected"));
-
-    socket.on("new_message", (msg: ChatMessage) => {
-      const targetConversationId = msg.conversationId;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        if (targetConversationId !== selectedConversationId) return prev;
-        return [...prev, msg];
-      });
-
-      setLastActivityByConversation((prev) => ({ ...prev, [targetConversationId]: msg.createdAt }));
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation.id === targetConversationId
-            ? { ...conversation, latestMessage: msg }
-            : conversation
-        )
-      );
-
-      if (targetConversationId !== selectedConversationId && msg.senderId !== user?.id) {
-        setUnreadByConversation((prev) => ({
-          ...prev,
-          [targetConversationId]: (prev[targetConversationId] ?? 0) + 1,
-        }));
-      }
-
-      if (targetConversationId === selectedConversationId && msg.senderId !== user?.id) {
-        socket.emit("mark_seen", { conversationId: msg.conversationId, token: accessToken });
-      }
-    });
-
-    socket.on("message_sent", (msg: ChatMessage) => {
-      const optimisticId = pendingOptimisticIdsRef.current.shift();
-      if (!optimisticId) return;
-      setMessages((prev) => prev.map((m) => (m.id === optimisticId ? msg : m)));
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation.id === msg.conversationId
-            ? { ...conversation, latestMessage: msg }
-            : conversation
-        )
-      );
-    });
-
-    socket.on("message_delivered", (payload: { conversationId: string; messageIds: string[] }) => {
-      if (payload.conversationId !== selectedConversationId) return;
-      setMessages((prev) => applyStatusToMessages(prev, payload.messageIds, "delivered"));
-    });
-
-    socket.on(
-      "message_seen",
-      (payload: { conversationId: string; messageIds: string[]; seenAt: string | null }) => {
-        if (payload.conversationId !== selectedConversationId) return;
-        setMessages((prev) =>
-          applyStatusToMessages(prev, payload.messageIds, "seen", payload.seenAt)
-        );
-      }
-    );
-
-    socket.on("user_typing", () => {
-      setIsOtherTyping(true);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = setTimeout(() => setIsOtherTyping(false), 2500);
-    });
-
-    return () => {
-      clearTimeout(connectTimeout);
-      socket.disconnect();
-      socketRef.current = null;
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, [selectedConversationId, accessToken, conversations, user?.id]);
-
-  const markSeen = useCallback(async () => {
-    if (!selectedConversationId || !accessToken) return;
-    try {
-      const result = await doctorChatService.markConversationSeen(selectedConversationId);
-      setMessages((prev) => applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt));
-      socketRef.current?.emit("mark_seen", { conversationId: selectedConversationId, token: accessToken });
-    } catch {
-      // non-blocking
-    }
-  }, [selectedConversationId, accessToken]);
+    return () => clearInterval(interval);
+  }, [selectedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
     void markSeen();
   }, [selectedConversationId, markSeen]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -324,12 +298,117 @@ export default function DoctorChatPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [markSeen]);
 
+  // Load patient sidebar details with lightweight lookup first.
+  useEffect(() => {
+    if (!selectedConversation) {
+      setPatientDetails(null);
+      setPatientActivity(prev => prev.length === 0 ? prev : []);
+      setPatientFiles(prev => prev.length === 0 ? prev : []);
+      return;
+    }
+
+    const roleLabel =
+      selectedConversation.otherParticipantRole === "PATIENT"
+        ? t("patient")
+        : selectedConversation.otherParticipantRole === "DOCTOR"
+        ? t("doctor")
+        : t("user");
+
+    setPatientDetails(prev => {
+      const next = {
+        id: selectedConversation.otherParticipantId || "",
+        name: selectedConversation.otherParticipantName || "Chat User",
+        role: roleLabel,
+      };
+      if (JSON.stringify(prev) === JSON.stringify(next) && prev?.role === roleLabel) return prev;
+      return next;
+    });
+    setPatientActivity(prev => prev.length === 0 ? prev : []);
+    setPatientFiles(prev => prev.length === 0 ? prev : []);
+
+    const shouldHydratePatientDetails =
+      selectedConversation.otherParticipantRole === "PATIENT" &&
+      Boolean(selectedConversation.otherParticipantId);
+
+    if (!shouldHydratePatientDetails) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydratePatientDetails = async () => {
+      try {
+        const patients = await patientService.getAll({
+          search: selectedConversation.otherParticipantName ?? undefined,
+          take: 50,
+        });
+
+        if (cancelled) return;
+
+        const patient = patients.find(
+          (entry) =>
+            entry.user?.id === selectedConversation.otherParticipantId ||
+            entry.id === selectedConversation.otherParticipantId
+        );
+
+        if (!patient) {
+          return;
+        }
+
+        setPatientDetails({
+          id: patient.id,
+          name: patient.fullName,
+          email: patient.email,
+          phone: patient.phone,
+          role: t("patient"),
+          age: patient.dateOfBirth
+            ? new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()
+            : undefined,
+          bloodType: patient.bloodType,
+        });
+
+        const [appointments, docs] = await Promise.all([
+          bookingService.getAll({ patientId: patient.id }),
+          patientDocumentService.getAll(patient.id),
+        ]);
+
+        if (cancelled) return;
+
+        setPatientActivity(
+          appointments.slice(0, 5).map((appointment) => ({
+            id: appointment.id,
+            date: new Date(appointment.date).toLocaleDateString(),
+            title: `${appointment.type.replace("_", " ")} - ${appointment.status}`,
+          }))
+        );
+
+        setPatientFiles(
+          docs.map((document) => ({
+            id: document.id,
+            name: document.name,
+            size: "2.4 MB",
+            date: new Date(document.createdAt).toLocaleDateString(),
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch patient details", err);
+      }
+    };
+
+    void hydratePatientDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedConversation, t]);
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || isSending || !selectedConversationId || !user) return;
+    if (!text || !selectedConversationId || !user || isSending) return;
 
     setIsSending(true);
     setInput("");
+
     const optimisticId = `opt-${Date.now()}`;
     const optimistic: ChatMessage = {
       id: optimisticId,
@@ -342,188 +421,128 @@ export default function DoctorChatPage() {
       createdAt: new Date().toISOString(),
     };
 
-    pendingOptimisticIdsRef.current.push(optimisticId);
     setMessages((prev) => [...prev, optimistic]);
-    setLastActivityByConversation((prev) => ({ ...prev, [selectedConversationId]: optimistic.createdAt }));
-    setConversations((prev) =>
-      prev.map((conversation) =>
-        conversation.id === selectedConversationId
-          ? { ...conversation, latestMessage: optimistic }
-          : conversation
-      )
-    );
 
     try {
-      const socket = socketRef.current;
-      if (socket?.connected) {
-        socket.emit("send_message", { conversationId: selectedConversationId, text, token: accessToken });
-      } else {
-        const saved = await doctorChatService.sendMessage(selectedConversationId, text);
-        setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
-      }
-    } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      const saved = await doctorChatService.sendMessage(selectedConversationId, text);
+      lastSyncedLatestRef.current[selectedConversationId] = saved.createdAt;
+      setMessages((prev) =>
+        prev.map((message) => (message.id === optimisticId ? saved : message))
+      );
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === selectedConversationId
+            ? { ...conversation, latestMessage: saved }
+            : conversation
+        )
+      );
+    } catch (err) {
+      console.error("Failed to send message", err);
+      setMessages((prev) => prev.filter((message) => message.id !== optimisticId));
     } finally {
       setIsSending(false);
     }
-  }, [input, isSending, selectedConversationId, user, accessToken]);
+  }, [input, isSending, selectedConversationId, user]);
 
-  const handleTyping = () => {
-    if (!selectedConversationId || !accessToken) return;
-    socketRef.current?.emit("typing", { conversationId: selectedConversationId, token: accessToken });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
-    }
-  };
-
-  const isMine = (msg: ChatMessage) => msg.senderId === user?.id;
-  const conversationItems = useMemo(() => {
-    const sorted = [...conversations].sort((a, b) => {
-      const aScore = new Date(lastActivityByConversation[a.id] ?? a.latestMessage?.createdAt ?? a.createdAt).getTime();
-      const bScore = new Date(lastActivityByConversation[b.id] ?? b.latestMessage?.createdAt ?? b.createdAt).getTime();
-      return bScore - aScore;
-    });
-    return sorted.map((item) => ({
-      id: item.id,
-      title: item.otherParticipantName ?? (locale === "ar" ? "محادثة مريض" : "Patient Chat"),
-      subtitle: item.latestMessage?.text ?? (locale === "ar" ? "ابدأ المحادثة" : "Start conversation"),
-      unreadCount: unreadByConversation[item.id] ?? 0,
+  const sidebarConversations = useMemo(() => {
+    return conversations.map((conversation) => ({
+      id: conversation.id,
+      name: conversation.otherParticipantName || "User",
+      lastMessage: conversation.latestMessage?.text || "No messages yet",
+      time: conversation.latestMessage
+        ? new Date(conversation.latestMessage.createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "",
+      unreadCount: unreadByConversation[conversation.id],
+      status: "online" as const, // For now
+      role: conversation.otherParticipantRole || "PATIENT",
     }));
-  }, [conversations, locale, unreadByConversation, lastActivityByConversation]);
+  }, [conversations, unreadByConversation]);
+
+  const chatMessages = useMemo(() => {
+    return messages.map((message) => ({
+      id: message.id,
+      senderId: message.senderId,
+      senderName: message.senderName || "Unknown",
+      text: message.text,
+      time: formatTime(message.createdAt),
+      status: message.status,
+      isMine: message.senderId === user?.id,
+    }));
+  }, [messages, user?.id]);
+
+  if (isLoading && !conversations.length) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white flex-col gap-4">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+        <p className="text-slate-500 font-medium">
+          {locale === "ar" ? "جارٍ تحميل المحادثات..." : "Loading conversations..."}
+        </p>
+      </div>
+    );
+  }
+
+  if (error && !conversations.length) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white flex-col gap-6 p-8 text-center">
+        <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500">
+           <AlertCircle size={40} />
+        </div>
+        <div className="max-w-md">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            {locale === "ar" ? "خطأ في الاتصال" : "Connection Error"}
+          </h2>
+          <p className="text-slate-500 mb-6">{error}</p>
+          <button 
+            onClick={() => void loadConversations()}
+            className="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
+          >
+            {locale === "ar" ? "إعادة المحاولة" : "Retry Now"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-screen overflow-hidden">
-      <ChatLayout
-        sidebar={
-          <ConversationList
-            title={locale === "ar" ? "محادثات المرضى" : "Patient Conversations"}
-            items={conversationItems}
-            selectedId={selectedConversationId}
-            onSelect={handleSelectConversation}
-            isDoctor
-          />
-        }
-        header={
-          <ChatHeader
-            title={locale === "ar" ? "المحادثة مع المريض" : "Patient Chat"}
-            subtitle={
-              selectedConversationId
-                ? `#${selectedConversationId.slice(0, 8)}`
-                : locale === "ar"
-                ? "لا توجد محادثة محددة"
-                : "No conversation selected"
-            }
-            isDoctor
-            connectionStatus={connectionStatus}
-          />
-        }
-        messages={
-          <div className="h-full overflow-y-auto bg-background px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {isLoading && (
-              <div className="flex h-full items-center justify-center">
-                <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                  <Loader2 size={30} className="animate-spin text-primary" />
-                  <span className="text-sm">
-                    {locale === "ar" ? "جارٍ تحميل المحادثة..." : "Loading conversation..."}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {!isLoading && error && (
-              <div className="flex h-full items-center justify-center">
-                <div className="flex max-w-xs flex-col items-center gap-3 px-6 text-center">
-                  <div className="rounded-full bg-destructive/10 p-3 text-destructive">
-                    <AlertCircle size={24} />
-                  </div>
-                  <p className="text-sm text-muted-foreground">{error}</p>
-                </div>
-              </div>
-            )}
-
-            {!isLoading && !error && messages.length === 0 && (
-              <div className="flex h-full items-center justify-center">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="rounded-full bg-primary/10 p-3 text-primary">
-                    <MessageSquare size={24} />
-                  </div>
-                  <p className="text-sm font-medium text-foreground">
-                    {locale === "ar" ? "لا توجد رسائل بعد" : "No messages yet"}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {!isLoading &&
-              !error &&
-              groupByDay(messages).map(([day, dayMessages]) => (
-                <div key={day}>
-                  <div className="my-4 flex items-center gap-3">
-                    <hr className="flex-1 border-border" />
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                      {day}
-                    </span>
-                    <hr className="flex-1 border-border" />
-                  </div>
-
-                  {dayMessages.map((msg, idx) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      mine={isMine(msg)}
-                      showSender={idx === 0 || dayMessages[idx - 1].senderId !== msg.senderId}
-                      senderFallback={locale === "ar" ? "الطرف الآخر" : "Other party"}
-                      formattedTime={formatTime(msg.createdAt)}
-                    />
-                  ))}
-                </div>
-              ))}
-
-            <AnimatePresence>
-              {isOtherTyping && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  className="mb-2 flex justify-start"
-                >
-                  <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border bg-card px-4 py-2.5 shadow-sm">
-                    <span className="text-xs text-muted-foreground">
-                      {locale === "ar" ? "يكتب..." : "Typing..."}
-                    </span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div ref={messagesEndRef} />
-          </div>
-        }
-        input={
-          selectedConversationId ? (
-            <MessageInput
-              value={input}
-              onChange={(value) => {
-                setInput(value);
-                handleTyping();
-              }}
-              onSend={() => void handleSend()}
-              onKeyDown={handleKeyDown}
-              placeholder={locale === "ar" ? "اكتب رسالتك..." : "Type a message..."}
-              disabled={isLoading || !!error}
-              isSending={isSending}
-            />
-          ) : (
-            <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground">
-              {locale === "ar" ? "يرجى اختيار محادثة للبدء" : "Select a chat to start"}
-            </div>
-          )
-        }
+    <div className="flex h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/60 transition-all duration-500">
+      <DoctorChatSidebar 
+        conversations={sidebarConversations}
+        selectedId={selectedConversationId}
+        onSelect={handleSelectConversation}
+        onFilterChange={() => {}} // TODO: Role filtering
       />
+      
+      <DoctorChatMain 
+        recipient={selectedConversation ? {
+          id: selectedConversation.otherParticipantId || "",
+          name: selectedConversation.otherParticipantName || "User",
+          status: "online",
+          role:
+            selectedConversation.otherParticipantRole === "PATIENT"
+              ? t("patient")
+              : selectedConversation.otherParticipantRole === "DOCTOR"
+              ? t("doctor")
+              : t("user" as any),
+        } : null}
+        messages={chatMessages}
+        inputValue={input}
+        onInputChange={setInput}
+        onSend={handleSend}
+        isTyping={false}
+      />
+
+      {showContactInfo && (
+        <DoctorChatContactInfo 
+          user={patientDetails}
+          activity={patientActivity}
+          files={patientFiles}
+          onClose={() => setShowContactInfo(false)}
+        />
+      )}
     </div>
   );
 }
+

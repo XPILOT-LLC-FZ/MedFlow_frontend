@@ -2,9 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Loader2, MessageSquare } from "lucide-react";
-import { io, Socket } from "socket.io-client";
 import {
   doctorChatService,
   type ChatConversation,
@@ -72,7 +70,7 @@ function applyStatusToMessages(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function DoctorChatPage() {
+export default function PatientChatPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -93,11 +91,7 @@ export default function DoctorChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
-  const [isOtherTyping, setIsOtherTyping] = useState(false);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingOptimisticIdsRef = useRef<string[]>([]);
-
-  const socketRef = useRef<Socket | null>(null);
+  const lastSyncedLatestRef = useRef<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -124,6 +118,37 @@ export default function DoctorChatPage() {
         console.debug("[patient-chat] listConversations", data);
       }
       setConversations(data);
+      setConnectionStatus("connected");
+
+      setUnreadByConversation((prev) => {
+        const next = { ...prev };
+
+        for (const conversation of data) {
+          const latestTimestamp =
+            conversation.latestMessage?.createdAt ?? conversation.createdAt;
+          const previousTimestamp = lastSyncedLatestRef.current[conversation.id];
+
+          if (
+            previousTimestamp &&
+            new Date(latestTimestamp).getTime() >
+              new Date(previousTimestamp).getTime() &&
+            conversation.latestMessage?.senderId &&
+            conversation.latestMessage.senderId !== user?.id &&
+            conversation.id !== selectedConversationId
+          ) {
+            next[conversation.id] = (next[conversation.id] ?? 0) + 1;
+          }
+
+          if (conversation.id === selectedConversationId) {
+            next[conversation.id] = 0;
+          }
+
+          lastSyncedLatestRef.current[conversation.id] = latestTimestamp;
+        }
+
+        return next;
+      });
+
       const seeded: Record<string, string> = {};
       for (const conversation of data) {
         seeded[conversation.id] =
@@ -131,9 +156,10 @@ export default function DoctorChatPage() {
       }
       setLastActivityByConversation((prev) => ({ ...seeded, ...prev }));
     } catch {
+      setConnectionStatus("disconnected");
       setConversations([]);
     }
-  }, []);
+  }, [selectedConversationId, user?.id]);
 
   useEffect(() => {
     void loadConversations();
@@ -229,135 +255,44 @@ export default function DoctorChatPage() {
   }, [selectedConversationId, scrollToBottom, locale]);
 
   useEffect(() => {
-    if (conversations.length === 0 || !accessToken) {
-      setConnectionStatus("disconnected");
-      return;
-    }
+    if (!selectedConversationId) return;
 
-    setConnectionStatus("connecting");
-    const wsUrl =
-      process.env.NEXT_PUBLIC_BACKEND_WS_URL || "http://localhost:3001";
-
-    const socket = io(`${wsUrl}/chat`, {
-      transports: ["websocket"],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-    });
-    socketRef.current = socket;
-    const connectTimeout = setTimeout(() => {
-      setConnectionStatus((prev) => (prev === "connecting" ? "disconnected" : prev));
-    }, 7000);
-
-    socket.on("connect", () => {
-      setConnectionStatus("connected");
-      for (const conversation of conversations) {
-        socket.emit("join_room", { conversationId: conversation.id, token: accessToken });
-      }
-    });
-
-    socket.on("disconnect", () => setConnectionStatus("disconnected"));
-    socket.on("connect_error", () => setConnectionStatus("disconnected"));
-
-    socket.on("new_message", (msg: ChatMessage) => {
-      const targetConversationId = msg.conversationId;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        if (targetConversationId !== selectedConversationId) return prev;
-        return [...prev, msg];
-      });
-
-      setLastActivityByConversation((prev) => ({
-        ...prev,
-        [targetConversationId]: msg.createdAt,
-      }));
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation.id === targetConversationId
-            ? { ...conversation, latestMessage: msg }
-            : conversation
-        )
-      );
-
-      if (targetConversationId !== selectedConversationId && msg.senderId !== user?.id) {
-        setUnreadByConversation((prev) => ({
-          ...prev,
-          [targetConversationId]: (prev[targetConversationId] ?? 0) + 1,
-        }));
-      }
-
-      if (targetConversationId === selectedConversationId && msg.senderId !== user?.id) {
-        socket.emit("mark_seen", {
-          conversationId: msg.conversationId,
-          token: accessToken,
+    const interval = setInterval(() => {
+      void doctorChatService
+        .getMessages(selectedConversationId)
+        .then((history) => {
+          setMessages((prev) => {
+            const previousTail = prev[prev.length - 1]?.id;
+            const nextTail = history[history.length - 1]?.id;
+            if (previousTail === nextTail && prev.length === history.length) {
+              return prev;
+            }
+            return history;
+          });
+        })
+        .catch(() => {
+          setConnectionStatus("disconnected");
         });
-      }
-    });
+    }, 5000);
 
-    socket.on("message_sent", (msg: ChatMessage) => {
-      const optimisticId = pendingOptimisticIdsRef.current.shift();
-      if (!optimisticId) return;
-      setMessages((prev) => prev.map((m) => (m.id === optimisticId ? msg : m)));
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation.id === msg.conversationId
-            ? { ...conversation, latestMessage: msg }
-            : conversation
-        )
-      );
-    });
-
-    socket.on(
-      "message_delivered",
-      (payload: { conversationId: string; messageIds: string[] }) => {
-        setMessages((prev) =>
-          applyStatusToMessages(prev, payload.messageIds, "delivered")
-        );
-      }
-    );
-
-    socket.on(
-      "message_seen",
-      (payload: {
-        conversationId: string;
-        messageIds: string[];
-        seenAt: string | null;
-      }) => {
-        setMessages((prev) =>
-          applyStatusToMessages(prev, payload.messageIds, "seen", payload.seenAt)
-        );
-      }
-    );
-
-    socket.on("user_typing", () => {
-      setIsOtherTyping(true);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = setTimeout(() => setIsOtherTyping(false), 2500);
-    });
-
-    return () => {
-      clearTimeout(connectTimeout);
-      socket.disconnect();
-      socketRef.current = null;
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    };
-  }, [selectedConversationId, accessToken, scrollToBottom, user?.id, conversations]);
+    return () => clearInterval(interval);
+  }, [selectedConversationId]);
 
   const markSeen = useCallback(async () => {
-    if (!selectedConversationId || !accessToken) return;
+    if (!selectedConversationId) return;
     try {
       const result = await doctorChatService.markConversationSeen(selectedConversationId);
+      setUnreadByConversation((prev) => ({
+        ...prev,
+        [selectedConversationId]: 0,
+      }));
       setMessages((prev) =>
         applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt)
       );
-
-      socketRef.current?.emit("mark_seen", {
-        conversationId: selectedConversationId,
-        token: accessToken,
-      });
     } catch {
       // non-blocking
     }
-  }, [selectedConversationId, accessToken]);
+  }, [selectedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -400,7 +335,6 @@ export default function DoctorChatPage() {
       ...prev,
       [selectedConversationId]: optimistic.createdAt,
     }));
-    pendingOptimisticIdsRef.current.push(optimisticId);
     setMessages((prev) => [...prev, optimistic]);
     setConversations((prev) =>
       prev.map((conversation) =>
@@ -411,41 +345,25 @@ export default function DoctorChatPage() {
     );
 
     try {
-      const socket = socketRef.current;
-      if (socket?.connected) {
-        socket.emit("send_message", {
-          conversationId: selectedConversationId,
-          text,
-          token: accessToken,
-        });
-        setIsSending(false);
-      } else {
-        const saved = await doctorChatService.sendMessage(selectedConversationId, text);
-        setMessages((prev) =>
-          prev.map((m) => (m.id === optimistic.id ? saved : m))
-        );
-        setConversations((prev) =>
-          prev.map((conversation) =>
-            conversation.id === selectedConversationId
-              ? { ...conversation, latestMessage: saved }
-              : conversation
-          )
-        );
-        setIsSending(false);
-      }
+      const saved = await doctorChatService.sendMessage(selectedConversationId, text);
+      setConnectionStatus("connected");
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimistic.id ? saved : m))
+      );
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.id === selectedConversationId
+            ? { ...conversation, latestMessage: saved }
+            : conversation
+        )
+      );
+      setIsSending(false);
     } catch {
+      setConnectionStatus("disconnected");
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setIsSending(false);
     }
-  }, [input, isSending, selectedConversationId, user, accessToken]);
-
-  const handleTyping = () => {
-    if (!selectedConversationId || !accessToken) return;
-    socketRef.current?.emit("typing", {
-      conversationId: selectedConversationId,
-      token: accessToken,
-    });
-  };
+  }, [input, isSending, selectedConversationId, user]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -490,7 +408,7 @@ export default function DoctorChatPage() {
     <ChatLayout
       sidebar={
         <ConversationList
-          title={locale === "ar" ? "محادثاتي مع الأطباء" : "Doctor Chats"}
+          title={locale === "ar" ? "محادثاتي مع الأطباء" : "My Consultations"}
           items={conversationItems}
           selectedId={selectedConversationId}
           onSelect={handleSelectConversation}
@@ -576,32 +494,6 @@ export default function DoctorChatPage() {
               </div>
             ))}
 
-          <AnimatePresence>
-            {isOtherTyping && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                className="mb-2 flex justify-start"
-              >
-                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm border bg-card px-4 py-2.5 shadow-sm">
-                  <span className="flex gap-1">
-                    {[0, 0.2, 0.4].map((delay, i) => (
-                      <span
-                        key={i}
-                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70"
-                        style={{ animationDelay: `${delay}s` }}
-                      />
-                    ))}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {locale === "ar" ? "يكتب..." : "Typing..."}
-                  </span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           <div ref={messagesEndRef} />
         </div>
       }
@@ -609,10 +501,7 @@ export default function DoctorChatPage() {
         selectedConversationId ? (
           <MessageInput
             value={input}
-            onChange={(value) => {
-              setInput(value);
-              handleTyping();
-            }}
+            onChange={setInput}
             onSend={handleSend}
             onKeyDown={handleKeyDown}
             placeholder={locale === "ar" ? "اكتب رسالتك..." : "Type a message..."}

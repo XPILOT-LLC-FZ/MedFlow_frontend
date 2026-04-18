@@ -14,7 +14,9 @@ import {
   FilePenLine,
   CalendarClock,
   SendHorizontal,
+  MessageSquare,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -25,8 +27,10 @@ import Link from "next/link";
 
 export default function DoctorDashboard() {
   const { t, locale } = useTranslation();
+  const router = useRouter();
   const [dashboardData, setDashboardData] = React.useState<DashboardDoctorSummaryData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isChatLoading, setIsChatLoading] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   const refreshDashboard = React.useCallback(async () => {
@@ -67,31 +71,31 @@ export default function DoctorDashboard() {
     year: "numeric",
   }).format(new Date());
   const { appointments } = useBookingStore();
-  
+
   const dynamicNotifications = appointments
     .filter(a => a.status === "scheduled" || a.status === "in-progress")
     .slice(0, 3)
     .map(a => ({
       key: `appt-${a.id}`,
       tone: a.status === "in-progress" ? "critical" : "info",
-      title: locale === "ar" 
-        ? (a.status === "in-progress" ? "جلسة قيد التنفيذ" : "موعد مخطط") 
+      title: locale === "ar"
+        ? (a.status === "in-progress" ? "جلسة قيد التنفيذ" : "موعد مخطط")
         : (a.status === "in-progress" ? "Session In Progress" : "Planned Appointment"),
       body: locale === "ar"
         ? `${a.patientName} - الساعة ${a.time}`
         : `${a.patientName} scheduled at ${a.time}`,
     }));
 
-  const notificationItems = dynamicNotifications.length > 0 
-    ? dynamicNotifications 
+  const notificationItems = dynamicNotifications.length > 0
+    ? dynamicNotifications
     : [
-        {
-          key: "welcome",
-          tone: "success",
-          title: locale === "ar" ? "مرحباً دكتور" : "Welcome Doctor",
-          body: locale === "ar" ? "لا توجد تنبيهات عاجلة اليوم" : "You have no urgent alerts today.",
-        }
-      ];
+      {
+        key: "welcome",
+        tone: "success",
+        title: locale === "ar" ? "مرحباً دكتور" : "Welcome Doctor",
+        body: locale === "ar" ? "لا توجد تنبيهات عاجلة اليوم" : "You have no urgent alerts today.",
+      }
+    ];
   const [taskState, setTaskState] = React.useState<Record<string, boolean>>({
     "call-sarah": false,
     "sign-michael": false,
@@ -102,6 +106,17 @@ export default function DoctorDashboard() {
 
   const toggleTask = (key: string) => {
     setTaskState((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleChatWithPatient = async (appointmentId: string) => {
+    setIsChatLoading(appointmentId);
+    try {
+      router.push(`/doctor/chat?appointmentId=${appointmentId}`);
+    } catch (err) {
+      console.error("Failed to open chat:", err);
+    } finally {
+      setIsChatLoading(null);
+    }
   };
 
   const quickTasks = [
@@ -259,13 +274,11 @@ export default function DoctorDashboard() {
                 visibleAppointments.map((p, i) => (
                   <div
                     key={i}
-                    className={`mb-2.5 rounded-xl border p-3.5 last:mb-0 ${
-                      i === 1
-                        ? "border-blue-500 bg-white shadow-[0_0_0_2px_rgba(59,130,246,0.10)]"
-                        : i === 2
-                          ? "border-blue-200 bg-sky-50/40"
-                        : "border-slate-200 bg-white"
-                    }`}
+                    className={`mb-2.5 rounded-xl border p-3.5 last:mb-0 ${i === 1
+                      ? "border-blue-500 bg-white shadow-[0_0_0_2px_rgba(59,130,246,0.10)]"
+                      : i === 2
+                        ? "border-blue-200 bg-sky-50/40"
+                        : "border-slate-200 bg-white"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">
@@ -312,15 +325,22 @@ export default function DoctorDashboard() {
                         ) : (
                           <span />
                         )}
-                        <Link href="/doctor/schedule" className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700">
-                          {locale === "ar" ? "عرض التفاصيل" : "View Details"}
-                          <ArrowRight className="h-3 w-3" />
-                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleChatWithPatient(p.id)}
+                          disabled={isChatLoading === p.id}
+                          className={`flex items-center gap-1 text-[11px] font-medium transition-colors ${isChatLoading === p.id ? "text-slate-400" : "text-blue-600 hover:text-blue-700"}`}
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          {locale === "ar" ? "دردشة" : "Chat"}
+                        </button>
                       </div>
+                      <Link href="/doctor/schedule" className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700">
+                        {locale === "ar" ? "عرض التفاصيل" : "View Details"}
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
                     </div>
-                  </div>
-                ))
-              )}
+                  </div>)))}
             </CardContent>
           </Card>
 
@@ -337,9 +357,7 @@ export default function DoctorDashboard() {
               {visibleAppointments.slice(0, 3).map((item, i) => (
                 <div
                   key={`queue:${item.id}`}
-                  className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
-                    i === 1 ? "border-rose-100 bg-rose-50/40" : "border-slate-200 bg-white"
-                  }`}
+                  className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${i === 1 ? "border-rose-100 bg-rose-50/40" : "border-slate-200 bg-white"}`}
                 >
                   <div className="flex min-w-0 items-start gap-2.5">
                     <span className="mt-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-blue-50 text-[10px] font-semibold text-blue-600">
@@ -363,6 +381,15 @@ export default function DoctorDashboard() {
                     <p className="text-[10px] text-slate-400">
                       {locale === "ar" ? "الوصول" : "Checked in"} {`09:${(45 + i * 10).toString().padStart(2, "0")}`}
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => handleChatWithPatient(item.id)}
+                      disabled={isChatLoading === item.id}
+                      className={`grid h-5 w-5 place-items-center rounded-md transition-colors ${isChatLoading === item.id ? "bg-slate-200 text-slate-400" : "bg-blue-100 text-blue-600 hover:bg-blue-200"}`}
+                      aria-label="Chat with patient"
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                    </button>
                     <button
                       type="button"
                       className="grid h-5 w-5 place-items-center rounded-md bg-blue-600 text-white hover:bg-blue-700"
@@ -398,24 +425,19 @@ export default function DoctorDashboard() {
               {notificationItems.map((item) => (
                 <div
                   key={item.key}
-                  className={`rounded-lg border p-2.5 ${
-                    item.tone === "critical"
-                      ? "border-rose-100 bg-rose-50/60"
-                      : item.tone === "success"
-                        ? "border-emerald-100 bg-emerald-50/60"
-                        : "border-blue-100 bg-blue-50/60"
-                  }`}
+                  className={`rounded-lg border p-2.5 ${item.tone === "critical"
+                    ? "border-rose-100 bg-rose-50/60"
+                    : item.tone === "success"
+                      ? "border-emerald-100 bg-emerald-50/60"
+                      : "border-blue-100 bg-blue-50/60"}`}
                 >
                   <div className="flex gap-2">
                     <div
-                      className={`mt-0.5 h-4 w-4 shrink-0 rounded-[4px] ${
-                        item.tone === "critical"
-                          ? "bg-rose-200"
-                          : item.tone === "success"
-                            ? "bg-emerald-200"
-                            : "bg-blue-200"
-                      }`}
-                    />
+                      className={`mt-0.5 h-4 w-4 shrink-0 rounded-[4px] ${item.tone === "critical"
+                        ? "bg-rose-200"
+                        : item.tone === "success"
+                          ? "bg-emerald-200"
+                          : "bg-blue-200"}`} />
                     <div className="min-w-0">
                       <p className="text-[11px] font-medium text-slate-700">{item.title}</p>
                       <p className="mt-0.5 text-[10px] leading-4 text-slate-500">{item.body}</p>
@@ -447,9 +469,7 @@ export default function DoctorDashboard() {
                   <div
                     key={task.key}
                     onClick={() => toggleTask(task.key)}
-                    className={`group cursor-pointer rounded-lg border p-2.5 transition-all hover:bg-slate-100 ${
-                      task.tone === "alert" ? "border-rose-100 bg-rose-50/50" : "border-slate-200 bg-slate-50/60"
-                    }`}
+                    className={`group cursor-pointer rounded-lg border p-2.5 transition-all hover:bg-slate-100 ${task.tone === "alert" ? "border-rose-100 bg-rose-50/50" : "border-slate-200 bg-slate-50/60"}`}
                   >
                     <div className="flex gap-2">
                       <div className="mt-0.5 h-3.5 w-3.5 rounded-[3px] border border-slate-300 bg-white group-hover:border-blue-500" />
@@ -467,14 +487,14 @@ export default function DoctorDashboard() {
                 {quickTasks
                   .filter((task) => task.completed)
                   .map((task) => (
-                    <div 
-                      key={task.key} 
+                    <div
+                      key={task.key}
                       onClick={() => toggleTask(task.key)}
                       className="group cursor-pointer rounded-lg border border-emerald-100 bg-emerald-50/40 p-2.5 transition-all hover:bg-emerald-50"
                     >
                       <div className="flex gap-2">
                         <div className="mt-0.5 grid h-3.5 w-3.5 place-items-center rounded-[3px] border border-emerald-300 bg-emerald-100">
-                           <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                          <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                         </div>
                         <p className="text-[11px] font-medium text-slate-500 line-through decoration-slate-300">{task.title}</p>
                       </div>
@@ -552,12 +572,10 @@ export default function DoctorDashboard() {
             <input
               type="text"
               placeholder={locale === "ar" ? "إلى:" : "to:"}
-              className="h-8 w-full rounded-md border border-slate-200 bg-white px-2.5 text-[11px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
+              className="h-8 w-full rounded-md border border-slate-200 bg-white px-2.5 text-[11px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             <textarea
               placeholder={locale === "ar" ? "اكتب إشعارك..." : "Enter your notifications..."}
-              className="min-h-[68px] w-full resize-none rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
+              className="min-h-[68px] w-full resize-none rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             <div className="flex justify-end">
               <button
                 type="button"

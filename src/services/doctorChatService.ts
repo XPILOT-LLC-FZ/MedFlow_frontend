@@ -8,6 +8,7 @@ export interface ChatConversation {
   latestMessage?: ChatMessage | null;
   otherParticipantId?: string;
   otherParticipantName?: string;
+  otherParticipantRole?: "PATIENT" | "DOCTOR" | "STAFF" | "ADMIN";
   messages: ChatMessage[];
 }
 
