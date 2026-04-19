@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import { X, Phone, Video, Mail, FileText, Download, Activity, MapPin, UserRound, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/i18n";
 
 interface ContactInfoProps {
   user: {
@@ -24,10 +26,9 @@ interface ContactInfoProps {
   activity: Array<{ id: string; date: string; title: string }>;
   files: Array<{ id: string; name: string; size: string; date: string }>;
   onClose?: () => void;
-  recipientId?: string;
 }
 
-export function DoctorChatContactInfo({ user, activity, files, onClose, recipientId }: ContactInfoProps) {
+export function DoctorChatContactInfo({ user, activity, files, onClose }: ContactInfoProps) {
   const { t, locale } = useTranslation();
   const [activeTab, setActiveTab] = useState("Details");
   const tabs = ["Details", "History", "Files"];
@@ -60,7 +61,13 @@ export function DoctorChatContactInfo({ user, activity, files, onClose, recipien
       <div className="flex flex-col items-center border-b border-slate-100 px-6 pb-5 dark:border-slate-800/50">
         <div className="mb-4 h-20 w-20 overflow-hidden rounded-full bg-slate-100 ring-4 ring-slate-50 transition-all duration-300 dark:bg-slate-800 dark:ring-slate-950">
           {user.avatar ? (
-            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+            <Image 
+              src={user.avatar} 
+              alt={user.name} 
+              width={80} 
+              height={80} 
+              className="w-full h-full object-cover" 
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 text-blue-600 dark:text-blue-400 font-bold text-3xl">
               {user.name.charAt(0)}
@@ -85,7 +92,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose, recipien
               )}>
                 <btn.icon size={18} />
               </button>
-              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t(btn.labelKey as any)}</span>
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{t(btn.labelKey as TranslationKey)}</span>
             </div>
           ))}
         </div>
@@ -142,7 +149,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose, recipien
                           <item.icon size={16} />
                         </div>
                         <div>
-                          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">{t(item.labelKey as any)}</p>
+                          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500">{t(item.labelKey as TranslationKey)}</p>
                           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{item.value}</p>
                         </div>
                       </div>
@@ -164,7 +171,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose, recipien
                       { label: "Last Visit", labelKey: "lastVisit", value: user.lastVisit || "—" },
                     ].map((item) => (
                       <div key={item.label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 transition-all duration-500 dark:border-slate-800 dark:bg-slate-950/30">
-                        <p className="mb-1 text-[10px] font-medium text-slate-400 dark:text-slate-500">{t(item.labelKey as any)}</p>
+                        <p className="mb-1 text-[10px] font-medium text-slate-400 dark:text-slate-500">{t(item.labelKey as TranslationKey)}</p>
                         <p className="text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-200">{item.value}</p>
                       </div>
                     ))}

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { StatusBadge } from "./StatusBadge";
+import Image from "next/image";
 
 interface Message {
   id: string;
@@ -65,7 +66,7 @@ export function DoctorChatMain({
           <div className="relative">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 ring-2 ring-slate-50 dark:ring-slate-900 transition-all duration-300">
               {recipient.avatar ? (
-                <img src={recipient.avatar} alt={recipient.name} className="w-full h-full object-cover" />
+                <Image src={recipient.avatar} alt={recipient.name} width={40} height={40} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 text-blue-600 dark:text-blue-400 font-bold text-base">
                   {recipient.name.charAt(0)}

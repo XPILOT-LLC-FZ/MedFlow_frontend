@@ -276,6 +276,10 @@ export default function LoginPage() {
             </p>
             <div className="grid gap-1 text-xs text-muted-foreground">
               <span>superadmin@medflow.com / Admin@12345</span>
+              <span>patient1@gmail.com or patient2@gmail.com / 12345678</span>
+              <span>doctor1@gmail.com / 12345678</span>
+              <span>admin1@gmail.com / 12345678</span>
+              <span>reception1@gmail.com / 12345678</span>
             </div>
           </div>
         </motion.div>

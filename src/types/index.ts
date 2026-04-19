@@ -53,7 +53,7 @@ export interface ApiDoctor {
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   rating: number;
   shifts?: DoctorShift[];
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
   user?: {
     id: string;
     email: string;
@@ -114,7 +114,7 @@ export interface UpdateDoctorPayload {
   branchId?: string;
   services?: string[];
   status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
-  preferences?: Record<string, any>;
+  preferences?: Record<string, unknown>;
 }
 
 export interface ResetDoctorPasswordPayload {
@@ -189,6 +189,56 @@ export interface AppointmentSummaryResponse {
   mode: string | null;
   sendToPatient: boolean;
   savedAt?: string;
+}
+
+export interface NotifyAppointmentWhatsAppPayload {
+  message?: string;
+  estimatedWaitMinutes?: number;
+  status?:
+    | "SCHEDULED"
+    | "CONFIRMED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "NO_SHOW"
+    | "RESCHEDULED";
+}
+
+export interface NotifyAppointmentWhatsAppResponse {
+  sent: boolean;
+  provider: string;
+  reason?: string;
+  to: string;
+  response?: unknown;
+  appointmentId: string;
+  patientId?: string | null;
+}
+
+export interface CreateReceptionHandoffPayload {
+  diagnosis?: string;
+  notesSnapshot?: string;
+}
+
+export interface ApiReceptionHandoff {
+  id: string;
+  clinicId: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  doctorUserId: string;
+  doctorName: string;
+  diagnosis?: string | null;
+  notesSnapshot?: string | null;
+  status: "NEW" | "REVIEWED";
+  createdAt: string;
+  reviewedAt?: string | null;
+  reviewedByUserId?: string | null;
+}
+
+export interface QueryReceptionHandoffsParams {
+  status?: "NEW" | "REVIEWED";
+  limit?: number;
+  clinicId?: string;
 }
 
 export interface SmartRecommendation {
@@ -415,8 +465,17 @@ export interface DashboardAdminStaffAvailabilityModule {
     fullName: string;
     specialization: string;
     status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+    isAvailable: boolean;
+    avatarUrl?: string | null;
     appointmentsCount: number;
     configuredDays: number[];
+  }>;
+  otherStaffAvailability: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    isAvailable: boolean;
+    avatarUrl?: string | null;
   }>;
 }
 
@@ -489,6 +548,13 @@ export interface DashboardStaffSummaryData {
     upcoming: DashboardStaffQueueItem[];
     nextAppointment: DashboardStaffQueueItem | null;
   };
+  doctorsStatus: Array<{
+    doctorId: string;
+    fullName: string;
+    specialization: string;
+    isAvailable: boolean;
+    avatarUrl?: string | null;
+  }>;
 }
 
 export interface DashboardDoctorScheduleItem {
@@ -589,7 +655,7 @@ export interface ApiPatient {
     onboardingAnswers?: Array<{
       answer: string;
       question: {
-        questionAr: any;
+        questionAr: string | null;
         fieldKey: string;
         question: string;
       };
@@ -795,7 +861,8 @@ export interface UpdateInvestigationPayload {
 
 export interface SendWhatsAppPayload {
   to: string;
-  message: string;
+  message?: string;
+  mediaUrl?: string;
   patientId?: string;
 }
 
@@ -805,6 +872,42 @@ export interface SendWhatsAppResponse {
   reason?: string;
   to: string;
   response?: unknown;
+}
+
+export interface CreateDiagnosticReportPayload {
+  hospitalName?: string;
+  hospitalNameAr?: string;
+  specialty?: string;
+  serviceRequested: string;
+  studyReason: string;
+  findings: string;
+  impression: string;
+  advisedClinicalCorrelation?: boolean;
+  examDateTime?: string;
+  radiologistName?: string;
+  radiologistTitle?: string;
+  licenseNumber?: string;
+  patientNumber?: string;
+  referringDoctor?: string;
+  whatsappCaption?: string;
+}
+
+export interface SendDiagnosticReportResponse {
+  generated: boolean;
+  documentId: string;
+  documentName: string;
+  downloadUrl: string;
+  storageMode?: "cloudinary" | "inline-data-url";
+  mediaAttached?: boolean;
+  mediaUrl?: string | null;
+  mediaFallbackReason?: string | null;
+  whatsapp: {
+    sent: boolean;
+    provider: string;
+    reason?: string;
+    to?: string;
+    response?: unknown;
+  };
 }
 
 export interface Service {

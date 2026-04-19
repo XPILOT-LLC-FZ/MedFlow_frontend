@@ -40,6 +40,19 @@ function StatusBadge({ status, locale }: { status: "ACTIVE" | "ON_LEAVE" | "INAC
   return <Badge variant={v} className="text-xs">{label}</Badge>;
 }
 
+function AvailabilityIndicator({ isAvailable, locale, showLabel = true }: { isAvailable: boolean; locale: string; showLabel?: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className={`h-2 w-2 rounded-full ${isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse" : "bg-slate-300"}`} />
+      {showLabel && (
+        <span className={`text-[10px] font-medium ${isAvailable ? "text-emerald-600" : "text-muted-foreground"}`}>
+          {locale === "ar" ? (isAvailable ? "متاح" : "غير متاح") : (isAvailable ? "Available" : "Away")}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function StockBadge({ status, locale }: { status: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" | "EXPIRED"; locale: string }) {
   if (status === "LOW_STOCK") {
     return <Badge variant="warning" className="text-xs">{locale === "ar" ? "مخزون منخفض" : "Low Stock"}</Badge>;
@@ -328,34 +341,86 @@ export default function MedicalAdminDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "توفر الطاقم" : "Staff Availability"}</CardTitle>
-              <CardDescription>
-                {locale === "ar" ? "جداول الأطباء الحالية وحجم المواعيد اليومية" : "Current doctor schedules and same-day workload"}
-              </CardDescription>
+            <CardHeader className="flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">{locale === "ar" ? "توفر الطاقم" : "Staff Availability"}</CardTitle>
+                <CardDescription>
+                  {locale === "ar" ? "جداول الأطباء والحالة الحالية لجميع الموظفين" : "Current doctor schedules and real-time status for all staff"}
+                </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {(availabilityData?.doctorSchedules ?? []).length === 0 ? (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  {locale === "ar" ? "لا توجد بيانات جداول حالياً" : "No schedule data available"}
-                </div>
-              ) : (
-                (availabilityData?.doctorSchedules ?? []).slice(0, 7).map((doctor) => (
-                  <div key={doctor.doctorId} className="rounded-lg border p-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">{doctor.fullName}</p>
-                      <p className="text-xs text-muted-foreground">{doctor.specialization}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{formatConfiguredDays(doctor.configuredDays, locale)}</p>
-                    </div>
-                    <div className="text-right rtl:text-left">
-                      <StatusBadge status={doctor.status} locale={locale} />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {locale === "ar" ? "اليوم" : "Today"}: {doctor.appointmentsCount}
-                      </p>
-                    </div>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                  {locale === "ar" ? "الأطباء" : "Doctors"}
+                </p>
+                {(availabilityData?.doctorSchedules ?? []).length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    {locale === "ar" ? "لا توجد بيانات جداول حالياً" : "No schedule data available"}
                   </div>
-                ))
-              )}
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {(availabilityData?.doctorSchedules ?? []).slice(0, 5).map((doctor) => (
+                      <div key={doctor.doctorId} className="rounded-lg border p-3 flex items-start justify-between gap-3 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Image
+                              src={doctor.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doctor.fullName}`}
+                              alt={doctor.fullName}
+                              width={32}
+                              height={32}
+                              className="h-8 w-8 rounded-lg"
+                              unoptimized
+                            />
+                            <div className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${doctor.isAvailable ? "bg-emerald-500" : "bg-slate-300"}`} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium leading-none">{doctor.fullName}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">{doctor.specialization}</p>
+                            <p className="text-[10px] text-primary/70 mt-1 font-medium">{formatConfiguredDays(doctor.configuredDays, locale)}</p>
+                          </div>
+                        </div>
+                        <div className="text-right rtl:text-left space-y-1">
+                          <AvailabilityIndicator isAvailable={doctor.isAvailable} locale={locale} />
+                          <p className="text-[10px] text-muted-foreground">
+                            {locale === "ar" ? "اليوم" : "Today"}: {doctor.appointmentsCount}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+                  {locale === "ar" ? "طاقم الإدارة والاستقبال" : "Administration & Reception Team"}
+                </p>
+                {(availabilityData?.otherStaffAvailability ?? []).length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                    {locale === "ar" ? "لا يوجد موظفون آخرون" : "No other staff members found"}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2">
+                    {(availabilityData?.otherStaffAvailability ?? []).map((staff) => (
+                      <div key={staff.id} className="rounded-lg border p-2 px-3 flex items-center justify-between gap-3 bg-muted/20">
+                        <div className="flex items-center gap-3">
+                          <Image
+                            src={staff.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${staff.email}`}
+                            alt={staff.fullName}
+                            width={24}
+                            height={24}
+                            className="h-6 w-6 rounded-full"
+                            unoptimized
+                          />
+                          <p className="text-xs font-medium">{staff.fullName}</p>
+                        </div>
+                        <AvailabilityIndicator isAvailable={staff.isAvailable} locale={locale} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -441,6 +506,7 @@ export default function MedicalAdminDashboard() {
                     <TableHead>{locale === "ar" ? "الطبيب" : "Doctor"}</TableHead>
                     <TableHead>{t("email")}</TableHead>
                     <TableHead>{t("specialty")}</TableHead>
+                    <TableHead>{locale === "ar" ? "التوفر" : "Availability"}</TableHead>
                     <TableHead>{t("status")}</TableHead>
                     <TableHead className="text-right rtl:text-left">{t("actions")}</TableHead>
                   </TableRow>
@@ -468,6 +534,9 @@ export default function MedicalAdminDashboard() {
                         <Badge variant="outline" className="text-xs">
                           {doctor.specialization || "General"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className={`h-2.5 w-2.5 rounded-full ${doctor.status === "ACTIVE" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" : "bg-slate-300"}`} title={doctor.status} />
                       </TableCell>
                       <TableCell><StatusBadge status={doctor.status} locale={locale} /></TableCell>
                       <TableCell className="text-right rtl:text-left">

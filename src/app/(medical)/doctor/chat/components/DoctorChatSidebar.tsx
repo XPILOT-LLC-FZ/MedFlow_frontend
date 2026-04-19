@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { StatusBadge } from "./StatusBadge";
+import Image from "next/image";
 
 interface ConversationItem {
   id: string;
@@ -123,7 +124,7 @@ export function DoctorChatSidebar({
                 <div className="relative flex-shrink-0">
                   <div className="h-11 w-11 overflow-hidden rounded-full bg-slate-100 ring-2 ring-white transition-all duration-300 dark:bg-slate-800 dark:ring-slate-900">
                     {conv.avatar ? (
-                      <img src={conv.avatar} alt={conv.name} className="w-full h-full object-cover" />
+                      <Image src={conv.avatar} alt={conv.name} width={44} height={44} className="w-full h-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 text-base font-bold text-blue-600 dark:from-blue-900/40 dark:to-blue-800/40 dark:text-blue-400">
                         {conv.name.charAt(0)}

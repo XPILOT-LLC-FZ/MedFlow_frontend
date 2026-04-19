@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Save, RefreshCcw, CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, MessageSquare } from "lucide-react";
+import { CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -13,7 +11,6 @@ import { useBookingStore } from "@/stores/useBookingStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { staffService } from "@/services/staffService";
-import { servicesCatalogService } from "@/services/servicesCatalogService";
 import { bookingService } from "@/services/bookingService";
 import { aiChatService } from "@/services/aiChatService";
 import {
@@ -22,14 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ApiService, Appointment, DoctorShift } from "@/types";
+import type { Appointment, DoctorShift } from "@/types";
 
 const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLabelsAr = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-
-function getDayLabel(dayOfWeek: number, locale: string): string {
-  return locale === "ar" ? dayLabelsAr[dayOfWeek] : dayLabels[dayOfWeek];
-}
 
 function buildDefaultShift(dayOfWeek: number): DoctorShift {
   return {
@@ -43,104 +36,10 @@ function buildDefaultShift(dayOfWeek: number): DoctorShift {
   };
 }
 
-function normalizeShifts(source: DoctorShift[]): DoctorShift[] {
-  const map = new Map<number, DoctorShift>();
-  source.forEach((shift) => {
-    map.set(shift.dayOfWeek, {
-      ...buildDefaultShift(shift.dayOfWeek),
-      ...shift,
-      shiftStart: shift.shiftStart?.slice(0, 5) || "09:00",
-      shiftEnd: shift.shiftEnd?.slice(0, 5) || "17:00",
-      lunchStart: shift.lunchStart ? shift.lunchStart.slice(0, 5) : "13:00",
-      lunchEnd: shift.lunchEnd ? shift.lunchEnd.slice(0, 5) : "14:00",
-    });
-  });
 
-  const normalized: DoctorShift[] = [];
-  for (let day = 0; day < 7; day += 1) {
-    normalized.push(map.get(day) || buildDefaultShift(day));
-  }
-  return normalized;
-}
-
-function toMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return (hours * 60) + minutes;
-}
-
-function normalizeAvailabilityResponse(response: unknown): string[] {
-  if (Array.isArray(response)) {
-    return response.map((slot) => String(slot));
-  }
-
-  if (typeof response === "object" && response !== null) {
-    const record = response as Record<string, unknown>;
-    if (Array.isArray(record.slots)) {
-      return record.slots.map((slot) => String(slot));
-    }
-
-    if (Array.isArray(record.availableSlots)) {
-      return record.availableSlots.map((slot) => String(slot));
-    }
-  }
-
-  return [];
-}
-
-function validateShifts(shifts: DoctorShift[], locale: string): string | null {
-  for (const shift of shifts) {
-    if (!shift.isAvailable) {
-      continue;
-    }
-
-    const label = getDayLabel(shift.dayOfWeek, locale);
-    const shiftStart = shift.shiftStart?.trim();
-    const shiftEnd = shift.shiftEnd?.trim();
-
-    if (!shiftStart || !shiftEnd) {
-      return locale === "ar"
-        ? `الرجاء إدخال وقت بداية ونهاية صحيحين ليوم ${label}`
-        : `Please provide valid shift start and end times for ${label}`;
-    }
-
-    if (toMinutes(shiftEnd) <= toMinutes(shiftStart)) {
-      return locale === "ar"
-        ? `وقت نهاية الدوام يجب أن يكون بعد البداية ليوم ${label}`
-        : `Shift end must be after shift start for ${label}`;
-    }
-
-    const hasLunchStart = Boolean(shift.lunchStart);
-    const hasLunchEnd = Boolean(shift.lunchEnd);
-
-    if (hasLunchStart !== hasLunchEnd) {
-      return locale === "ar"
-        ? `الرجاء إدخال بداية ونهاية الاستراحة معًا ليوم ${label}`
-        : `Provide both lunch start and lunch end for ${label}`;
-    }
-
-    if (hasLunchStart && hasLunchEnd) {
-      const lunchStart = shift.lunchStart as string;
-      const lunchEnd = shift.lunchEnd as string;
-
-      if (toMinutes(lunchEnd) <= toMinutes(lunchStart)) {
-        return locale === "ar"
-          ? `وقت نهاية الاستراحة يجب أن يكون بعد البداية ليوم ${label}`
-          : `Lunch end must be after lunch start for ${label}`;
-      }
-
-      if (toMinutes(lunchStart) < toMinutes(shiftStart) || toMinutes(lunchEnd) > toMinutes(shiftEnd)) {
-        return locale === "ar"
-          ? `الاستراحة يجب أن تكون ضمن وقت الدوام ليوم ${label}`
-          : `Lunch time must be within shift bounds for ${label}`;
-      }
-    }
-  }
-
-  return null;
-}
 
 export default function SchedulePage() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const { user } = useAuthStore();
   const { fetchDoctors } = useStaffStore();
   const { appointments, fetchAppointments, addAppointment } = useBookingStore();
@@ -149,8 +48,6 @@ export default function SchedulePage() {
 
   const [doctorId, setDoctorId] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [scheduleSearch, setScheduleSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [showConfirmed, setShowConfirmed] = useState(true);
@@ -170,16 +67,6 @@ export default function SchedulePage() {
     duration: "30",
     reason: "",
   });
-  const [availabilityDate, setAvailabilityDate] = useState<string>(
-    new Date().toISOString().split("T")[0],
-  );
-  const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
-  const [services, setServices] = useState<ApiService[]>([]);
-  const [shifts, setShifts] = useState<DoctorShift[]>(
-    Array.from({ length: 7 }).map((_, day) => buildDefaultShift(day))
-  );
 
   // Ported Actions State
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
@@ -204,32 +91,9 @@ export default function SchedulePage() {
     sendToPatient: true,
   });
 
-  const hasDoctor = Boolean(doctorId);
 
-  const loadAvailability = useCallback(async (targetDoctorId: string) => {
-    if (!targetDoctorId || !availabilityDate) {
-      setAvailableSlots([]);
-      return;
-    }
-
-    setIsLoadingAvailability(true);
-    try {
-      const response = await staffService.getDoctorAvailability(
-        targetDoctorId,
-        availabilityDate,
-        selectedServiceId || undefined,
-      );
-      setAvailableSlots(normalizeAvailabilityResponse(response));
-    } catch {
-      setAvailableSlots([]);
-      error(locale === "ar" ? "تعذر تحميل الأوقات المتاحة" : "Failed to load available slots");
-    } finally {
-      setIsLoadingAvailability(false);
-    }
-  }, [availabilityDate, error, locale, selectedServiceId]);
 
   const initialize = useCallback(async () => {
-    setIsLoading(true);
     try {
       await Promise.all([fetchDoctors(), fetchAppointments()]);
       const doctors = useStaffStore.getState().doctors;
@@ -248,17 +112,9 @@ export default function SchedulePage() {
       setDoctorId(doctor.id);
       setDoctorName(doctor.fullName ?? user?.name ?? null);
 
-      const [fetchedShifts, fetchedServices] = await Promise.all([
-        staffService.getDoctorShifts(doctor.id),
-        servicesCatalogService.getAll({ isActive: "true" }).catch(() => [] as ApiService[]),
-      ]);
-
-      setShifts(normalizeShifts(fetchedShifts));
-      setServices(fetchedServices);
+      await staffService.getDoctorShifts(doctor.id);
     } catch {
       error(locale === "ar" ? "فشل تحميل الجدول" : "Failed to load schedule");
-    } finally {
-      setIsLoading(false);
     }
   }, [error, fetchAppointments, fetchDoctors, locale, user?.email, user?.id, user?.name]);
 
@@ -266,24 +122,7 @@ export default function SchedulePage() {
     void initialize();
   }, [initialize]);
 
-  useEffect(() => {
-    if (!doctorId) {
-      setAvailableSlots([]);
-      return;
-    }
 
-    void loadAvailability(doctorId);
-  }, [availabilityDate, doctorId, loadAvailability, selectedServiceId]);
-
-  const updateShift = (dayOfWeek: number, patch: Partial<DoctorShift>) => {
-    setShifts((prev) =>
-      prev.map((shift) =>
-        shift.dayOfWeek === dayOfWeek
-          ? { ...shift, ...patch }
-          : shift
-      )
-    );
-  };
 
   useEffect(() => {
     const handleClickOutside = () => {
@@ -299,39 +138,6 @@ export default function SchedulePage() {
     };
   }, [actionsDropdownId]);
 
-  const handleSave = async () => {
-    if (!doctorId) return;
-
-    const validationError = validateShifts(shifts, locale);
-    if (validationError) {
-      error(validationError);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const payload = shifts
-        .map((shift) => ({
-          dayOfWeek: shift.dayOfWeek,
-          shiftStart: shift.shiftStart,
-          shiftEnd: shift.shiftEnd,
-          lunchStart: shift.lunchStart || null,
-          lunchEnd: shift.lunchEnd || null,
-          isAvailable: shift.isAvailable,
-          branchId: shift.branchId || null,
-        }))
-        .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
-
-      await staffService.updateDoctorShifts(doctorId, payload);
-      success(locale === "ar" ? "تم حفظ جدول الدوام" : "Schedule saved");
-      void loadAvailability(doctorId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save schedule";
-      error(message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const resetAppointmentForm = () => {
     setNewAppointmentForm({
@@ -490,17 +296,6 @@ export default function SchedulePage() {
     }
   };
 
-  const handleChatWithPatient = async (appointment: Appointment) => {
-    setActiveActionId(appointment.id);
-    try {
-      router.push(`/doctor/chat?appointmentId=${appointment.id}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to open chat";
-      error(message);
-    } finally {
-      setActiveActionId(null);
-    }
-  };
 
   const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
   const timelineDates = useMemo(() => {
@@ -617,9 +412,6 @@ export default function SchedulePage() {
               )}
               {dayAppointments.map((item, index) => {
                 const statusTag = getStatusTag(item);
-                function handleChatWithPatient(item: Appointment): void {
-                  throw new Error("Function not implemented.");
-                }
 
                 return (
                 <div key={item.id} className="grid grid-cols-[72px_1fr] gap-2">
@@ -657,7 +449,7 @@ export default function SchedulePage() {
                               {locale === "ar" ? "إرسال ملخص يدوي" : "Send Manual Summary"}
                             </button>
                             <button 
-                              onClick={() => handleChatWithPatient(item)}
+                               onClick={() => router.push(`/doctor/chat?appointmentId=${item.id}`)}
                               disabled={activeActionId === item.id}
                               className="flex w-full items-center gap-2 px-4 py-2 text-[13px] font-bold text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
                             >
@@ -1017,7 +809,7 @@ export default function SchedulePage() {
                       <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "تنسيق الملخص" : "Summary Format"}</label>
                       <select
                         value={aiSummaryForm.format}
-                        onChange={(e) => setAiSummaryForm(prev => ({ ...prev, format: e.target.value as any }))}
+                        onChange={(e) => setAiSummaryForm(prev => ({ ...prev, format: e.target.value as "brief" | "detailed" | "clinical" }))}
                         className="h-11 w-full rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       >
                         <option value="brief">Brief (Core points only)</option>

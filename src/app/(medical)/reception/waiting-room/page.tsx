@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { formatDateKey } from "@/lib/dateUtils";
+import { bookingService } from "@/services/bookingService";
 import { surveyService } from "@/services/surveyService";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
-import type { Appointment } from "@/types";
+import type { ApiReceptionHandoff, Appointment } from "@/types";
 
 const QUEUE_STATUSES: Appointment["status"][] = [
   "scheduled",
@@ -78,13 +79,30 @@ export default function WaitingRoomPage() {
 
   const [processingKey, setProcessingKey] = useState<string | null>(null);
   const [feedbackRequestingId, setFeedbackRequestingId] = useState<string | null>(null);
+  const [notifyWhatsAppKey, setNotifyWhatsAppKey] = useState<string | null>(null);
   const [feedbackRequestedByAppointmentId, setFeedbackRequestedByAppointmentId] =
     useState<Record<string, boolean>>({});
+  const [handoffs, setHandoffs] = useState<ApiReceptionHandoff[]>([]);
+  const [isLoadingHandoffs, setIsLoadingHandoffs] = useState(false);
+  const [reviewingHandoffId, setReviewingHandoffId] = useState<string | null>(null);
 
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
 
   const loadQueue = useCallback(async () => {
     await fetchAppointments({ date: todayKey });
+
+    setIsLoadingHandoffs(true);
+    try {
+      const handoffItems = await bookingService.getReceptionHandoffs({
+        status: "NEW",
+        limit: 20,
+      });
+      setHandoffs(handoffItems);
+    } catch {
+      setHandoffs([]);
+    } finally {
+      setIsLoadingHandoffs(false);
+    }
   }, [fetchAppointments, todayKey]);
 
   useEffect(() => {
@@ -207,6 +225,54 @@ export default function WaitingRoomPage() {
     await applyTransition(appointment, "cancelled");
   };
 
+  const handleNotifyWhatsApp = async (
+    appointment: Appointment,
+    waitMinutes: number,
+  ) => {
+    const operationKey = `${appointment.id}:notify-whatsapp`;
+    setNotifyWhatsAppKey(operationKey);
+
+    try {
+      const apiStatus = appointment.status.toUpperCase().replace("-", "_");
+      const result = await bookingService.notifyPatientOnWhatsApp(appointment.id, {
+        status: apiStatus as
+          | "SCHEDULED"
+          | "CONFIRMED"
+          | "IN_PROGRESS"
+          | "COMPLETED"
+          | "CANCELLED"
+          | "NO_SHOW"
+          | "RESCHEDULED",
+        estimatedWaitMinutes: waitMinutes,
+      });
+
+      if (result.sent) {
+        toast.success(
+          locale === "ar"
+            ? "تم إرسال تحديث واتساب للمريض"
+            : "WhatsApp update sent to patient",
+        );
+      } else {
+        toast.info(
+          result.reason ||
+            (locale === "ar"
+              ? "تعذر إرسال تحديث واتساب"
+              : "Unable to send WhatsApp update"),
+        );
+      }
+    } catch (notifyError) {
+      const message =
+        notifyError instanceof Error
+          ? notifyError.message
+          : locale === "ar"
+            ? "فشل إرسال تحديث واتساب"
+            : "Failed to send WhatsApp update";
+      toast.error(message);
+    } finally {
+      setNotifyWhatsAppKey(null);
+    }
+  };
+
   const handleRequestFeedback = async (appointment: Appointment) => {
     if (appointment.status !== "completed") {
       return;
@@ -245,6 +311,29 @@ export default function WaitingRoomPage() {
     }
   };
 
+  const handleMarkHandoffReviewed = async (handoffId: string) => {
+    setReviewingHandoffId(handoffId);
+    try {
+      await bookingService.markReceptionHandoffReviewed(handoffId);
+      setHandoffs((previous) => previous.filter((item) => item.id !== handoffId));
+      toast.success(
+        locale === "ar"
+          ? "تمت مراجعة المهمة"
+          : "Handoff marked as reviewed",
+      );
+    } catch (reviewError) {
+      const message =
+        reviewError instanceof Error
+          ? reviewError.message
+          : locale === "ar"
+            ? "تعذر تحديث حالة المهمة"
+            : "Failed to update handoff status";
+      toast.error(message);
+    } finally {
+      setReviewingHandoffId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl">
       <PageHeader
@@ -275,7 +364,63 @@ export default function WaitingRoomPage() {
         <Badge variant="warning" className="text-sm px-3 py-1">
           {locale === "ar" ? "متوسط الانتظار" : "Avg. Wait"}: {formatWait(avgWaitMinutes, locale)}
         </Badge>
+        <Badge variant="info" className="text-sm px-3 py-1">
+          {locale === "ar" ? "مهام الاستقبال" : "Reception Handoffs"}: {handoffs.length}
+        </Badge>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {locale === "ar" ? "المهام الواردة من الأطباء" : "Doctor Handoffs"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoadingHandoffs && handoffs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar" ? "جارٍ تحميل المهام..." : "Loading handoffs..."}
+            </p>
+          ) : handoffs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar"
+                ? "لا توجد مهام جديدة من الأطباء"
+                : "No new doctor handoffs"}
+            </p>
+          ) : (
+            handoffs.slice(0, 8).map((handoff) => (
+              <div
+                key={handoff.id}
+                className="rounded-lg border p-3 flex items-start justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{handoff.patientName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {handoff.doctorName} • {new Date(handoff.createdAt).toLocaleString(locale === "ar" ? "ar-EG" : "en-US")}
+                  </p>
+                  {handoff.diagnosis && (
+                    <p className="text-xs text-foreground/80">{handoff.diagnosis}</p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  disabled={reviewingHandoffId === handoff.id}
+                  onClick={() => void handleMarkHandoffReviewed(handoff.id)}
+                >
+                  {reviewingHandoffId === handoff.id
+                    ? locale === "ar"
+                      ? "جارٍ الحفظ..."
+                      : "Saving..."
+                    : locale === "ar"
+                      ? "تمت المراجعة"
+                      : "Mark Reviewed"}
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <div className="space-y-3">
         {isLoading && queue.length === 0 && (
@@ -366,6 +511,25 @@ export default function WaitingRoomPage() {
                           {primaryAction.label}
                         </Button>
                       )}
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8 gap-1"
+                        disabled={notifyWhatsAppKey === `${appointment.id}:notify-whatsapp`}
+                        onClick={() =>
+                          void handleNotifyWhatsApp(appointment, waitMinutes)
+                        }
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        {notifyWhatsAppKey === `${appointment.id}:notify-whatsapp`
+                          ? locale === "ar"
+                            ? "جارٍ الإرسال..."
+                            : "Sending..."
+                          : locale === "ar"
+                            ? "إبلاغ واتساب"
+                            : "Notify WhatsApp"}
+                      </Button>
 
                       {(appointment.status === "scheduled" ||
                         appointment.status === "confirmed") && (

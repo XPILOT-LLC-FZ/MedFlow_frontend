@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Menu, Moon, Sun, Globe, Bell, LogOut } from "lucide-react";
+import { Menu, Moon, Sun, Globe, Bell, LogOut, UsersRound } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -29,6 +29,13 @@ const rolePaths: Record<Role, string> = {
   STAFF: "/reception/dashboard",
   SUPER_ADMIN: "/super-dashboard",
 };
+
+const availabilityPaths: Partial<Record<Role, string>> = {
+  ADMIN: "/admin/doctors",
+  DOCTOR: "/doctor/schedule",
+  STAFF: "/reception/smart-scheduler",
+  SUPER_ADMIN: "/admin/doctors",
+} as const;
 
 export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: boolean }) {
   const { theme, toggleTheme, locale, setLocale, toggleSidebar } = useStore();
@@ -78,6 +85,45 @@ export function Navbar({ showSidebarToggle = false }: { showSidebarToggle?: bool
             <Badge variant="secondary" className="text-xs">
               {roleLabels[user.role][locale]}
             </Badge>
+          </div>
+        )}
+
+        {/* Staff Availability Icon (For Medical/Admin Roles) */}
+        {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
+          <div className="relative group">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={(e) => {
+                e.preventDefault();
+                const { toggleAvailability } = useAuthStore.getState();
+                toggleAvailability();
+              }}
+              className={`relative transition-all duration-300 ${
+                user.isAvailable 
+                  ? "text-primary hover:text-primary ring-2 ring-primary/20 ring-offset-2 bg-primary/5" 
+                  : "text-muted-foreground grayscale opacity-70"
+              }`}
+              title={
+                locale === "ar" 
+                  ? (user.isAvailable ? "متاح" : "غير متاح")
+                  : (user.isAvailable ? "Available" : "Unavailable")
+              }
+            >
+              <UsersRound className={`h-4 w-4 ${user.isAvailable ? "animate-pulse-subtle" : ""}`} />
+              {/* LED status indicator */}
+              <span className={`absolute top-1 right-1 h-2 w-2 rounded-full border-2 border-background ${
+                user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" : "bg-slate-400"
+              }`} />
+            </Button>
+            
+            {/* Dashboard Shortcut */}
+            <Link 
+              href={availabilityPaths[user.role] || "#"}
+              className="absolute -bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-background border px-2 py-0.5 rounded text-[10px] shadow-sm z-50 pointer-events-none"
+            >
+              {locale === "ar" ? "لوحة التوفر" : "Availability Dashboard"}
+            </Link>
           </div>
         )}
 

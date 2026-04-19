@@ -14,6 +14,7 @@ export interface AuthUser {
   phone?: string;
   clinicId?: string;
   isOnboarded?: boolean;
+  isAvailable?: boolean;
   avatarUrl?: string | null;
 }
 
@@ -79,6 +80,7 @@ interface AuthState {
     currentPassword: string,
     newPassword: string,
   ) => Promise<{ success: boolean; error?: string }>;
+  toggleAvailability: () => Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -103,6 +105,7 @@ function mapUser(raw: any, fallback?: Partial<SignupData>): AuthUser {
     phone: raw.phone ?? fallback?.phone,
     clinicId: raw.clinicId ?? raw.clinic_id ?? raw.clinic?.id ?? raw.tenantId ?? raw.tenant_id ?? raw.cid,
     isOnboarded: raw.isOnboarded ?? false,
+    isAvailable: raw.isAvailable ?? true,
     avatarUrl: raw.avatarUrl ?? raw.avatar ?? null,
   };
 }
@@ -390,7 +393,6 @@ export const useAuthStore = create<AuthState>()(
         return roleDashboardMap[effectiveUser.role] ?? "/dashboard";
       },
 
-      // ─── UPDATE PROFILE ────────────────────────────────────
       updateProfile: async (data) => {
         try {
           const payload: Record<string, unknown> = {};
@@ -400,6 +402,9 @@ export const useAuthStore = create<AuthState>()(
           }
           if (typeof data.avatarUrl === "string") {
             payload.avatarUrl = data.avatarUrl;
+          }
+          if (typeof data.isAvailable === "boolean") {
+            payload.isAvailable = data.isAvailable;
           }
 
           const updatedUser = await apiClient.patch<Record<string, unknown>>(
@@ -442,6 +447,11 @@ export const useAuthStore = create<AuthState>()(
                   ? data.avatarUrl
                   : currentUser.avatarUrl;
 
+          const nextIsAvailable =
+            typeof updatedUser.isAvailable === "boolean"
+              ? updatedUser.isAvailable
+              : currentUser.isAvailable;
+
           set({
             user: {
               ...currentUser,
@@ -450,11 +460,23 @@ export const useAuthStore = create<AuthState>()(
               email: nextEmail,
               phone: nextPhone,
               avatarUrl: nextAvatarUrl,
+              isAvailable: nextIsAvailable,
             },
           });
           return { success: true };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Update failed";
+          return { success: false, error: message };
+        }
+      },
+
+      toggleAvailability: async () => {
+        try {
+          const { user, updateProfile } = get();
+          if (!user) return { success: false, error: "Not authenticated" };
+          return await updateProfile({ isAvailable: !user.isAvailable });
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Toggle failed";
           return { success: false, error: message };
         }
       },

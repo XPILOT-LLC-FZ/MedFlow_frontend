@@ -5,7 +5,12 @@ import { apiClient } from "@/lib/apiClient";
 import { formatDateKey } from "@/lib/dateUtils";
 import type {
   ApiAppointment,
+  ApiReceptionHandoff,
   AppointmentSummaryResponse,
+  CreateReceptionHandoffPayload,
+  NotifyAppointmentWhatsAppPayload,
+  NotifyAppointmentWhatsAppResponse,
+  QueryReceptionHandoffsParams,
   RescheduleAppointmentPayload,
   SmartRecommendationsResponse,
   UpsertMedicalSummaryPayload,
@@ -27,6 +32,45 @@ export const bookingService = {
 
   async updateStatus(id: string, status: string, notes?: string): Promise<ApiAppointment> {
     return apiClient.patch(`/appointments/${id}/status`, { status, notes });
+  },
+
+  async notifyPatientOnWhatsApp(
+    id: string,
+    payload: NotifyAppointmentWhatsAppPayload,
+  ): Promise<NotifyAppointmentWhatsAppResponse> {
+    return apiClient.post(`/appointments/${id}/notify-whatsapp`, payload);
+  },
+
+  async createReceptionHandoff(
+    id: string,
+    payload: CreateReceptionHandoffPayload,
+  ): Promise<ApiReceptionHandoff> {
+    return apiClient.post(`/appointments/${id}/reception-handoff`, payload);
+  },
+
+  async getReceptionHandoffs(
+    params?: QueryReceptionHandoffsParams,
+  ): Promise<ApiReceptionHandoff[]> {
+    const search = new URLSearchParams();
+    if (params?.status) {
+      search.set("status", params.status);
+    }
+    if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+      search.set("limit", String(params.limit));
+    }
+    if (params?.clinicId) {
+      search.set("clinicId", params.clinicId);
+    }
+
+    const query = search.toString();
+    const qs = query ? `?${query}` : "";
+    return apiClient.get(`/appointments/reception-handoffs${qs}`);
+  },
+
+  async markReceptionHandoffReviewed(
+    handoffId: string,
+  ): Promise<ApiReceptionHandoff> {
+    return apiClient.patch(`/appointments/reception-handoffs/${handoffId}/review`, {});
   },
 
   async rescheduleAppointment(

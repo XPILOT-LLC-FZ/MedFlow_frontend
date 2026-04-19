@@ -17,44 +17,87 @@ import { MiniCalendar } from "@/components/shared/MiniCalendar";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useFilesStore, fileToMedicalFile, type MedicalFile } from "@/stores/useFilesStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
-import { dashboardService } from "@/services/dashboardService";
-import type { ApiService, DashboardPatientSummaryData } from "@/types";
+import { patientDocumentService } from "@/services/patientDocumentService";
+import { useFilesStore, fileToMedicalFile } from "@/stores/useFilesStore";
+import type { ApiService, ApiPatientDocument } from "@/types";
 
 export default function PatientDashboard() {
-  const { t, locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const { user } = useAuthStore();
-  const { addFile, deleteFile, getFilesByPatient } = useFilesStore();
   const { appointments } = useBookingStore();
   const { doctors: discoverDoctors, fetchDoctors } = useStaffStore();
   const toast = useToastStore();
   const patientId = user?.id ?? "guest";
   const [discoverQuery, setDiscoverQuery] = useState("");
   const [discoverSpecialization, setDiscoverSpecialization] = useState("All");
-  const [discoverServiceId, setDiscoverServiceId] = useState("");
   const [discoverServices, setDiscoverServices] = useState<ApiService[]>([]);
-  const [summaryData, setSummaryData] = useState<DashboardPatientSummaryData | null>(null);
+  const [discoverServiceId, setDiscoverServiceId] = useState("");
+  const [receivedReports, setReceivedReports] = useState<ApiPatientDocument[]>([]);
+  const [selfUploadedDocuments, setSelfUploadedDocuments] = useState<ApiPatientDocument[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const localFilesStore = useFilesStore();
+
+  const loadDocuments = React.useCallback(async () => {
+    if (!user?.id) return;
+    setIsLoadingReports(true);
+    try {
+      // 1. Fetch remote documents from backend
+      const docs = await patientDocumentService.getCurrentPatientDocuments();
+      
+      // Reports: are always from backend (diagnostic reports or doctor uploads)
+      const reports = docs.filter(doc => 
+        doc.name.startsWith('diagnostic-report-') || (doc.uploadedBy && doc.uploadedBy !== user.id)
+      );
+      setReceivedReports(reports);
+
+      // Self-Uploaded (My Medical Files): can be legacy backend files OR new local files
+      const selfUploadedBackend = docs.filter(doc => 
+        !doc.name.startsWith('diagnostic-report-') && (!doc.uploadedBy || doc.uploadedBy === user.id)
+      );
+
+      // 2. Fetch local documents from store
+      const localFiles = localFilesStore.getFilesByPatient(user.id);
+      const mappedLocalFiles: ApiPatientDocument[] = localFiles.map(file => ({
+        id: file.id,
+        patientId: user.id,
+        name: file.name,
+        fileUrl: file.dataUrl,
+        fileType: file.type === "pdf" ? "application/pdf" : "image/jpeg",
+        createdAt: file.uploadDate,
+      }));
+      
+      // Combine both sources
+      setSelfUploadedDocuments([...selfUploadedBackend, ...mappedLocalFiles]);
+    } catch (error) {
+      console.error('Error fetching patient documents:', error);
+      setReceivedReports([]);
+      setSelfUploadedDocuments([]);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  }, [user?.id, localFilesStore]);
 
   React.useEffect(() => {
     if (user?.id) {
-       useBookingStore.getState().fetchAppointments({ patientId: user.id });
-
-      void dashboardService
-        .getPatientSummary({ period: "month" })
-        .then((summary) => setSummaryData(summary))
-        .catch(() => setSummaryData(null));
+      useBookingStore.getState().fetchAppointments({ patientId: user.id });
 
       void servicesCatalogService
         .getAll({ isActive: "true" })
         .then((services) => setDiscoverServices(services))
         .catch(() => setDiscoverServices([]));
+
+      // Load documents
+      void loadDocuments();
     }
-  }, [user?.id]);
+  }, [user?.id, loadDocuments]);
 
   React.useEffect(() => {
     if (!user?.id) return;
@@ -71,18 +114,41 @@ export default function PatientDashboard() {
 
     return () => clearTimeout(timeout);
   }, [user?.id, discoverQuery, discoverSpecialization, discoverServiceId, fetchDoctors]);
-  const files = getFilesByPatient(patientId);
 
   const patientAppointments = appointments.filter((a) => a.patientId === patientId);
   const upcoming = patientAppointments
     .filter((a) => a.status === "scheduled" || a.status === "confirmed")
     .slice(0, 3);
   const highlightDates = patientAppointments.map((a) => a.date);
-  const summaryCards = summaryData?.summaryCards;
+
+  // Local Summary Logic
+  const localSummary = React.useMemo(() => {
+    const upcomingCount = patientAppointments.filter(
+      (a) => a.status === "scheduled" || a.status === "confirmed"
+    ).length;
+    
+    const completedCount = patientAppointments.filter(
+      (a) => a.status === "completed"
+    ).length;
+
+    const myDoctorsCount = new Set(patientAppointments.map((a) => a.doctorId)).size;
+
+    // Derived Health Score: Base 70 + activity bonuses
+    let healthScore = 70;
+    healthScore += Math.min(20, selfUploadedDocuments.length * 5);
+    healthScore += Math.min(10, completedCount * 2);
+
+    return {
+      upcomingAppointments: upcomingCount,
+      completedAppointments: completedCount,
+      myDoctors: myDoctorsCount,
+      healthScore: Math.min(100, healthScore),
+    };
+  }, [patientAppointments, selfUploadedDocuments]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [previewFile, setPreviewFile] = useState<MedicalFile | null>(null);
+  const [previewFile, setPreviewFile] = useState<ApiPatientDocument | null>(null);
   const [uploadError, setUploadError] = useState("");
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -92,21 +158,20 @@ export default function PatientDashboard() {
     ? locale === "ar" ? user.nameAr : user.name
     : "John";
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user?.id) return;
     const selected = e.target.files;
     if (!selected || selected.length === 0) return;
     setUploadError("");
 
-    const validFiles: File[] = [];
-    for (const file of Array.from(selected)) {
+    const validFiles: File[] = Array.from(selected).filter(file => {
       if (!ALLOWED_TYPES.includes(file.type)) {
         setUploadError(
           locale === "ar"
             ? `نوع الملف غير مدعوم: ${file.name}. يرجى رفع PDF أو صور فقط.`
             : `Unsupported file type: ${file.name}. Please upload PDF or images only.`
         );
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
+        return false;
       }
       if (file.size > MAX_FILE_SIZE) {
         setUploadError(
@@ -114,48 +179,81 @@ export default function PatientDashboard() {
             ? `الملف كبير جداً: ${file.name}. الحد الأقصى 10 ميجابايت.`
             : `File too large: ${file.name}. Maximum size is 10 MB.`
         );
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
+        return false;
       }
-      validFiles.push(file);
-    }
-
-    if (validFiles.length === 0) return;
-    setUploading(true);
-
-    let remaining = validFiles.length;
-    validFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        const medFile = fileToMedicalFile(file, dataUrl, patientId);
-        addFile(medFile);
-        remaining--;
-        if (remaining === 0) {
-          setUploading(false);
-          toast.success(locale === "ar" ? "تم رفع الملفات بنجاح" : "Files uploaded successfully");
-        }
-      };
-      reader.onerror = () => {
-        remaining--;
-        if (remaining === 0) setUploading(false);
-        setUploadError(
-          locale === "ar"
-            ? `فشل في قراءة الملف: ${file.name}`
-            : `Failed to read file: ${file.name}`
-        );
-      };
-      reader.readAsDataURL(file);
+      return true;
     });
 
+    if (validFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    
+    setUploading(true);
+    let successCount = 0;
+
+    for (const file of validFiles) {
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        // Save to local storage instead of backend
+        const medicalFile = fileToMedicalFile(file, dataUrl, user.id);
+        localFilesStore.addFile(medicalFile);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to handle ${file.name}:`, error);
+        setUploadError(
+          locale === "ar"
+            ? `فشل في حفظ الملف: ${file.name}`
+            : `Failed to save file: ${file.name}`
+        );
+      }
+    }
+
+    setUploading(false);
+    if (successCount > 0) {
+      toast.success(
+        locale === "ar" 
+          ? `تم رفع ${successCount} ملفات بنجاح` 
+          : `Successfully uploaded ${successCount} files`
+      );
+      loadDocuments();
+    }
+    
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const handleDeleteFile = async (id: string) => {
+    if (!window.confirm(locale === "ar" ? "هل أنت متأكد من حذف هذا الملف؟" : "Are you sure you want to delete this file?")) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      // Local file IDs generated by useFilesStore start with "file-"
+      const isLocal = id.startsWith('file-');
+      
+      if (isLocal) {
+        localFilesStore.deleteFile(id);
+      } else {
+        await patientDocumentService.removeForCurrentPatient(id);
+      }
+      
+      toast.success(locale === "ar" ? "تم حذف الملف بنجاح" : "File deleted successfully");
+      loadDocuments();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error(locale === "ar" ? "فشل في حذف الملف" : "Failed to delete file");
+    } finally {
+      setDeletingId(null);
+    }
   };
+
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -174,10 +272,10 @@ export default function PatientDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title={t("upcomingAppointments")} value={summaryCards?.upcomingAppointments ?? upcoming.length} change={12} icon={<Calendar className="h-5 w-5" />} delay={0} />
-        <StatsCard title={t("completed")} value={summaryCards?.completedAppointments ?? patientAppointments.filter((a) => a.status === "completed").length} change={8} icon={<Clock className="h-5 w-5" />} delay={0.1} />
-        <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={summaryCards?.myDoctors ?? new Set(patientAppointments.map((a) => a.doctorId)).size} icon={<User className="h-5 w-5" />} delay={0.2} />
-        <StatsCard title={locale === "ar" ? "النتائج الصحية" : "Health Score"} value={summaryCards?.healthScore === null || summaryCards?.healthScore === undefined ? "--" : `${summaryCards.healthScore}%`} icon={<Activity className="h-5 w-5" />} delay={0.3} />
+        <StatsCard title={t("upcomingAppointments")} value={localSummary.upcomingAppointments} change={12} icon={<Calendar className="h-5 w-5" />} delay={0} />
+        <StatsCard title={t("completed")} value={localSummary.completedAppointments} change={8} icon={<Clock className="h-5 w-5" />} delay={0.1} />
+        <StatsCard title={locale === "ar" ? "الأطباء" : "My Doctors"} value={localSummary.myDoctors} icon={<User className="h-5 w-5" />} delay={0.2} />
+        <StatsCard title={locale === "ar" ? "النتائج الصحية" : "Health Score"} value={`${localSummary.healthScore}%`} icon={<Activity className="h-5 w-5" />} delay={0.3} />
       </div>
 
       <Card>
@@ -274,6 +372,95 @@ export default function PatientDashboard() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">
+                {locale === "ar" ? "التقارير المستلمة" : "Received Reports"}
+              </CardTitle>
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {receivedReports.length} {locale === "ar" ? "تقرير" : "reports"}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            {isLoadingReports ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : receivedReports.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-8 w-8 text-muted-foreground/50" />}
+                title={locale === "ar" ? "لا توجد تقارير مستلمة" : "No reports received yet"}
+                description={locale === "ar" ? "سيظهر التقارير المرسلة من أطبائك هنا" : "Reports sent by your doctors will appear here"}
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {receivedReports.map((report) => (
+                  <motion.div
+                    key={report.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="group rounded-xl border p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start gap-3">
+                      <FileText className="h-5 w-5 text-primary/60 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" title={report.name}>
+                          {report.name.replace('diagnostic-report-', '').replace(/\.pdf$/, '')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(report.createdAt).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US")}
+                        </p>
+                        {report.uploadedBy && (
+                          <p className="text-xs text-muted-foreground/70 mt-0.5">
+                            {locale === "ar" ? "من الطبيب" : "From doctor"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {report.fileType === "application/pdf" ? "PDF" : "Document"}
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 gap-1 text-xs"
+                        onClick={async () => {
+                          setDownloadingReportId(report.id);
+                          try {
+                            const result = await patientDocumentService.getDocumentDownloadUrl(report.id);
+                            setPreviewFile({ ...report, fileUrl: result.downloadUrl });
+                            toast.success(locale === "ar" ? "جاري عرض التقرير" : "Opening report preview");
+                          } catch (error) {
+                            toast.error(locale === "ar" ? "فشل تنزيل التقرير" : "Failed to download report");
+                            console.error('Download error:', error);
+                          } finally {
+                            setDownloadingReportId(null);
+                          }
+                        }}
+                        disabled={downloadingReportId === report.id}
+                      >
+                        {downloadingReportId === report.id ? (
+                          <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        ) : (
+                          <Eye className="h-3 w-3" />
+                        )}
+                        {locale === "ar" ? "عرض" : "View"}
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Medical File Upload Section */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
               <Upload className="h-5 w-5 text-primary" />
               <CardTitle className="text-base">
                 {locale === "ar" ? "ملفاتي الطبية" : "My Medical Files"}
@@ -281,7 +468,7 @@ export default function PatientDashboard() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs">
-                {files.length} {locale === "ar" ? "ملف" : "files"}
+                {selfUploadedDocuments.length} {locale === "ar" ? "ملف" : "files"}
               </Badge>
               <input
                 ref={fileInputRef}
@@ -318,7 +505,7 @@ export default function PatientDashboard() {
               </div>
             )}
 
-            {files.length === 0 ? (
+            {selfUploadedDocuments.length === 0 ? (
               <div
                 className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
@@ -333,9 +520,9 @@ export default function PatientDashboard() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {files.map((file) => (
+                {selfUploadedDocuments.map((doc) => (
                   <motion.div
-                    key={file.id}
+                    key={doc.id}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     className="group relative rounded-xl border overflow-hidden hover:shadow-md transition-shadow"
@@ -343,11 +530,11 @@ export default function PatientDashboard() {
                     {/* Preview */}
                     <div
                       className="h-32 bg-muted/50 flex items-center justify-center cursor-pointer"
-                      onClick={() => setPreviewFile(file)}
+                      onClick={() => setPreviewFile(doc)}
                     >
-                      {file.type === "image" ? (
+                      {doc.fileType?.startsWith("image/") ? (
                         <div className="relative h-full w-full">
-                          <Image src={file.dataUrl} alt={file.name} fill className="object-cover" unoptimized />
+                          <Image src={doc.fileUrl} alt={doc.name} fill className="object-cover" unoptimized />
                         </div>
                       ) : (
                         <FileText className="h-12 w-12 text-muted-foreground/50" />
@@ -356,11 +543,13 @@ export default function PatientDashboard() {
 
                     {/* Info */}
                     <div className="p-3">
-                      <p className="text-sm font-medium truncate" title={file.name}>{file.name}</p>
+                      <p className="text-sm font-medium truncate" title={doc.name}>{doc.name}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(file.uploadDate).toLocaleDateString()}
+                          {doc.fileType === "application/pdf" ? "PDF" : "Image"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(doc.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
@@ -368,16 +557,21 @@ export default function PatientDashboard() {
                     {/* Actions overlay */}
                     <div className="absolute top-2 right-2 rtl:right-auto rtl:left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => setPreviewFile(file)}
+                        onClick={() => setPreviewFile(doc)}
                         className="h-7 w-7 rounded-md bg-background/90 border flex items-center justify-center hover:bg-background"
                       >
                         <Eye className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => { deleteFile(file.id); toast.success(locale === "ar" ? "تم حذف الملف" : "File deleted"); }}
-                        className="h-7 w-7 rounded-md bg-background/90 border flex items-center justify-center hover:bg-destructive/10 text-destructive"
+                        onClick={() => handleDeleteFile(doc.id)}
+                        disabled={deletingId === doc.id}
+                        className="h-7 w-7 rounded-md bg-background/90 border flex items-center justify-center hover:bg-destructive/10 text-destructive disabled:opacity-50"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        {deletingId === doc.id ? (
+                          <span className="h-3 w-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     </div>
                   </motion.div>
@@ -417,9 +611,9 @@ export default function PatientDashboard() {
                 {t("close")}
               </Button>
             </div>
-            {previewFile.type === "image" ? (
+            {previewFile.fileType?.startsWith("image/") ? (
               <Image
-                src={previewFile.dataUrl}
+                src={previewFile.fileUrl}
                 alt={previewFile.name}
                 width={1200}
                 height={900}
@@ -427,7 +621,7 @@ export default function PatientDashboard() {
                 unoptimized
               />
             ) : (
-              <iframe src={previewFile.dataUrl} className="w-full h-[60vh] rounded-lg border" title={previewFile.name} />
+              <iframe src={previewFile.fileUrl} className="w-full h-[60vh] rounded-lg border" title={previewFile.name} />
             )}
           </motion.div>
         </div>

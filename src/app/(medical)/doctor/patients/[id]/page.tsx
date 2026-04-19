@@ -24,6 +24,7 @@ import { labResultService } from "@/services/labResultService";
 import { prescriptionService } from "@/services/prescriptionService";
 import { investigationService } from "@/services/investigationService";
 import { patientDocumentService } from "@/services/patientDocumentService";
+import { patientReportService } from "@/services/patientReportService";
 import { whatsAppService } from "@/services/whatsAppService";
 import { staffService } from "@/services/staffService";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -132,11 +133,11 @@ export default function DoctorPatientDetailsPage() {
   ]);
   const [selectedInvestigations, setSelectedInvestigations] = useState<Record<string, boolean>>({});
   const [isSavingPrescription, setIsSavingPrescription] = useState(false);
+  const [isSendingDiagnosticReport, setIsSendingDiagnosticReport] = useState(false);
 
-  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [lastPrescriptionId, setLastPrescriptionId] = useState<string | null>(null);
 
-  const [favoriteMedications, setFavoriteMedications] = useState<any[]>([]);
+  const [favoriteMedications, setFavoriteMedications] = useState<PrescriptionMedicationItem[]>([]);
 
   useEffect(() => {
     if (!patientId) {
@@ -247,7 +248,13 @@ export default function DoctorPatientDetailsPage() {
 
         // Load doctor's prescription preferences
         if (doctorProfileResult.status === "fulfilled") {
-          const prefs = doctorProfileResult.value.preferences as any;
+          const doctorData = doctorProfileResult.value;
+          const prefs = doctorData.preferences as { 
+            prescriptionSettings?: { 
+              favoriteMedications?: PrescriptionMedicationItem[] 
+            } 
+          } | null;
+          
           if (prefs?.prescriptionSettings?.favoriteMedications?.length) {
             setFavoriteMedications(prefs.prescriptionSettings.favoriteMedications);
           }
@@ -274,43 +281,6 @@ export default function DoctorPatientDetailsPage() {
     };
   }, [locale, patientId, toastError, toastInfo]);
 
-  const onUploadFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!patientId) return;
-    const selected = event.target.files;
-    if (!selected || selected.length === 0) return;
-
-    setIsUploadingDocument(true);
-    try {
-      for (const file of Array.from(selected)) {
-        if (file.size > 10 * 1024 * 1024) {
-          toastError(locale === "ar" ? "حجم الملف أكبر من 10MB" : "File size exceeds 10MB");
-          continue;
-        }
-
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = () => reject(new Error("failed"));
-          reader.readAsDataURL(file);
-        });
-
-        await patientDocumentService.create(patientId, {
-          name: file.name,
-          fileType: file.type,
-          fileUrl: dataUrl,
-        });
-      }
-
-      const nextDocuments = await patientDocumentService.getAll(patientId);
-      setDocuments(nextDocuments);
-      toastSuccess(locale === "ar" ? "تم رفع الملفات" : "Files uploaded");
-    } catch {
-      toastError(locale === "ar" ? "تعذر رفع الملفات" : "Failed to upload files");
-    } finally {
-      setIsUploadingDocument(false);
-      event.target.value = "";
-    }
-  };
 
   const saveClinicalNotes = async () => {
     const latestAppointmentId = appointments[0]?.id;
@@ -345,6 +315,8 @@ export default function DoctorPatientDetailsPage() {
 
   const savePrescriptionAndInvestigations = async () => {
     if (!patientId || !patient) return;
+
+    const latestAppointmentId = appointments[0]?.id;
 
     const normalizedMeds = medications
       .map((item) => ({
@@ -411,10 +383,35 @@ export default function DoctorPatientDetailsPage() {
       ]);
       setPrescriptions(nextPrescriptions);
       setInvestigations(nextInvestigations);
+
+      let handoffCreated = false;
+      if (latestAppointmentId) {
+        try {
+          await bookingService.createReceptionHandoff(latestAppointmentId, {
+            diagnosis: diagnosisDraft.trim() || undefined,
+            notesSnapshot:
+              prescriptionNotesDraft.trim() || notesDraft.trim() || undefined,
+          });
+          handoffCreated = true;
+        } catch (handoffError) {
+          toastInfo(
+            handoffError instanceof Error
+              ? handoffError.message
+              : locale === "ar"
+                ? "تم حفظ البيانات لكن تعذر إرسال المهمة للاستقبال"
+                : "Saved, but failed to notify reception",
+          );
+        }
+      }
+
       toastSuccess(
-        locale === "ar"
-          ? "تم حفظ الوصفة والتحويلات"
-          : "Prescription and investigations saved",
+        handoffCreated
+          ? locale === "ar"
+            ? "تم حفظ الوصفة وإرسال المهمة للاستقبال"
+            : "Consultation saved and sent to reception"
+          : locale === "ar"
+            ? "تم حفظ الوصفة والتحويلات"
+            : "Prescription and investigations saved",
       );
     } catch (error) {
       toastError(error instanceof Error ? error.message : "Failed to save prescription");
@@ -429,9 +426,19 @@ export default function DoctorPatientDetailsPage() {
       return;
     }
 
+    const normalizedPhone = patient.phone.replace(/\s+/g, "");
+    if (!/^\+?[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      toastError(
+        locale === "ar"
+          ? "رقم هاتف المريض غير صالح. استخدم صيغة دولية مثل +201234567890"
+          : "Patient phone is invalid. Use international format like +201234567890",
+      );
+      return;
+    }
+
     try {
       const result = await whatsAppService.send({
-        to: patient.phone,
+        to: normalizedPhone,
         patientId: patient.id,
         message:
           locale === "ar"
@@ -446,6 +453,88 @@ export default function DoctorPatientDetailsPage() {
       }
     } catch (error) {
       toastError(error instanceof Error ? error.message : "Failed to send WhatsApp message");
+    }
+  };
+
+  const sendDiagnosticReportToPatient = async () => {
+    if (!patientId || !patient) return;
+
+    const findings = prescriptionNotesDraft.trim() || notesDraft.trim();
+    const impression = diagnosisDraft.trim() || findings;
+    const studyReason = notesDraft.trim() || diagnosisDraft.trim();
+
+    if (!findings || !impression || !studyReason) {
+      toastError(
+        locale === "ar"
+          ? "أضف بيانات سريرية كافية قبل إنشاء التقرير"
+          : "Please add enough clinical data before generating the report",
+      );
+      return;
+    }
+
+    const selectedTests = Object.entries(selectedInvestigations)
+      .filter(([, value]) => Boolean(value))
+      .map(([name]) => name);
+
+    const serviceRequested =
+      selectedTests.length > 0
+        ? selectedTests.join(", ")
+        : locale === "ar"
+          ? "تقرير تشخيصي سريري"
+          : "Clinical Diagnostic Report";
+
+    setIsSendingDiagnosticReport(true);
+    try {
+      const result = await patientReportService.generateAndSendDiagnosticReport(patientId, {
+        specialty: "Diagnostic Imaging",
+        serviceRequested,
+        studyReason,
+        findings,
+        impression,
+        advisedClinicalCorrelation: true,
+        patientNumber: `PAT-${patient.id.slice(0, 8).toUpperCase()}`,
+        whatsappCaption:
+          locale === "ar"
+            ? `مرحباً ${patient.fullName}، التقرير التشخيصي جاهز وتمت مشاركته بصيغة PDF.`
+            : `Hello ${patient.fullName}, your diagnostic report is ready and shared as a signed PDF.`,
+      });
+
+      const nextDocuments = await patientDocumentService.getAll(patientId);
+      setDocuments(nextDocuments);
+
+      if (result.whatsapp.sent) {
+        if (result.mediaAttached) {
+          toastSuccess(
+            locale === "ar"
+              ? "تم إنشاء التقرير وإرساله كمرفق عبر واتساب"
+              : "Diagnostic report generated and sent as WhatsApp attachment",
+          );
+        } else {
+          toastInfo(
+            result.mediaFallbackReason ||
+              (locale === "ar"
+                ? "تم إنشاء التقرير وإرسال رابط التنزيل عبر واتساب"
+                : "Report generated and a download link was sent via WhatsApp"),
+          );
+        }
+      } else {
+        toastInfo(
+          result.whatsapp.reason ||
+            (locale === "ar"
+              ? "تم إنشاء التقرير لكن لم يتم الإرسال عبر واتساب"
+              : "Report generated but WhatsApp delivery was not completed"),
+        );
+      }
+    } catch (error) {
+      toastError(
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "فشل إنشاء أو إرسال التقرير"
+            : "Failed to generate or send report",
+      );
+    } finally {
+      setIsSendingDiagnosticReport(false);
     }
   };
 
@@ -937,6 +1026,22 @@ export default function DoctorPatientDetailsPage() {
                 <Button variant="outline" onClick={() => void sendWhatsAppToPatient()} className="gap-2">
                   <Send className="h-4 w-4" />
                   {locale === "ar" ? "Send to whatsapp of patient" : "Send to whatsapp of patient"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => void sendDiagnosticReportToPatient()}
+                  disabled={isSendingDiagnosticReport}
+                  className="gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  {isSendingDiagnosticReport
+                    ? locale === "ar"
+                      ? "جارٍ إنشاء التقرير..."
+                      : "Generating report..."
+                    : locale === "ar"
+                      ? "إنشاء PDF وإرساله للمريض"
+                      : "Generate PDF & send to patient"}
                 </Button>
               </div>
             </CardContent>

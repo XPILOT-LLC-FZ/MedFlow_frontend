@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, Moon, Sun, Globe, Bell, LogOut, X } from "lucide-react";
+import { Menu, Moon, Sun, Globe, Bell, LogOut, X, UsersRound } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -79,6 +79,34 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
               {roleLabels[user.role][locale]}
             </Badge>
           </div>
+        )}
+
+        {/* Staff Availability Icon (For Medical/Admin Roles) */}
+        {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={(e) => {
+              e.preventDefault();
+              const { toggleAvailability } = useAuthStore.getState();
+              toggleAvailability();
+            }}
+            className={`relative transition-all duration-300 ${
+              user.isAvailable 
+                ? "text-primary bg-primary/5 ring-1 ring-primary/20" 
+                : "text-muted-foreground opacity-70"
+            }`}
+            title={
+              locale === "ar" 
+                ? (user.isAvailable ? "متاح" : "غير متاح")
+                : (user.isAvailable ? "Available" : "Unavailable")
+            }
+          >
+            <UsersRound className={`h-4 w-4 ${user.isAvailable ? "animate-pulse" : ""}`} />
+            <span className={`absolute top-1 right-1 h-2 w-2 rounded-full border-2 border-background ${
+              user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-400"
+            }`} />
+          </Button>
         )}
 
         {/* Notifications */}

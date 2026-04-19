@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { CalendarCheck2, Clock3, PlayCircle, Plus, RefreshCw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -187,50 +188,104 @@ export default function ReceptionDashboard() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "إجراء سريع" : "Quick Actions"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Link href="/reception/booking" className="block">
-                <Button className="w-full justify-start gap-2">
-                  <Plus className="h-4 w-4" />
-                  {locale === "ar" ? "إنشاء حجز" : "Create Booking"}
-                </Button>
-              </Link>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{locale === "ar" ? "إجراء سريع" : "Quick Actions"}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Link href="/reception/booking" className="block">
+                  <Button className="w-full justify-start gap-2">
+                    <Plus className="h-4 w-4" />
+                    {locale === "ar" ? "إنشاء حجز" : "Create Booking"}
+                  </Button>
+                </Link>
 
-              <Link href="/reception/profile" className="block">
-                <Button variant="outline" className="w-full justify-start gap-2">
-                  <UserRound className="h-4 w-4" />
-                  {locale === "ar" ? "تحديث الملف الشخصي" : "Update Profile"}
-                </Button>
-              </Link>
+                <Link href="/reception/profile" className="block">
+                  <Button variant="outline" className="w-full justify-start gap-2">
+                    <UserRound className="h-4 w-4" />
+                    {locale === "ar" ? "تحديث الملف الشخصي" : "Update Profile"}
+                  </Button>
+                </Link>
 
-              <div className="rounded-lg border p-3">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {locale === "ar" ? "الموعد التالي" : "Next Appointment"}
-                </p>
-                {nextAppointment ? (
-                  <>
-                    <p className="font-medium mt-1">{nextAppointment.patientName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {nextAppointment.doctorName} • {nextAppointment.time}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {locale === "ar" ? "لا يوجد" : "None"}
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {locale === "ar" ? "الموعد التالي" : "Next Appointment"}
                   </p>
-                )}
-              </div>
+                  {nextAppointment ? (
+                    <>
+                      <p className="font-medium mt-1">{nextAppointment.patientName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {nextAppointment.doctorName} • {nextAppointment.time}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {locale === "ar" ? "لا يوجد" : "None"}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-              <p className="text-xs text-muted-foreground">
-                {locale === "ar"
-                  ? "يتم تحديث البيانات تلقائياً كل 15 ثانية"
-                  : "Data refreshes automatically every 15 seconds."}
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="overflow-hidden border-primary/10 shadow-sm">
+              <CardHeader className="bg-primary/5 py-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  {locale === "ar" ? "حالة الأطباء وتوفرهم" : "Doctor Status & Availability"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y max-h-[320px] overflow-y-auto custom-scrollbar">
+                  {(dashboardData?.doctorsStatus ?? []).length === 0 ? (
+                    <div className="p-8 text-center text-sm text-muted-foreground">
+                      {locale === "ar" ? "لا يوجد أطباء متاحون" : "No doctors available"}
+                    </div>
+                  ) : (
+                    (dashboardData?.doctorsStatus ?? []).map((dr) => (
+                      <div key={dr.doctorId} className="flex items-center justify-between p-3 hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Image
+                              src={dr.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${dr.fullName}`}
+                              alt={dr.fullName}
+                              width={32}
+                              height={32}
+                              className="h-8 w-8 rounded-full border border-primary/10"
+                              unoptimized
+                            />
+                            <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${
+                              dr.isAvailable ? "bg-emerald-500" : "bg-slate-300"
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold leading-none">{dr.fullName}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{dr.specialization}</p>
+                          </div>
+                        </div>
+                        <Badge 
+                          variant={dr.isAvailable ? "success" : "secondary"} 
+                          className="px-1.5 h-5 text-[9px] uppercase tracking-wider"
+                        >
+                          {locale === "ar" 
+                            ? (dr.isAvailable ? "متاح" : "غير متاح") 
+                            : (dr.isAvailable ? "Available" : "Unavailable")
+                          }
+                        </Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="p-3 bg-muted/20 border-t">
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    {locale === "ar"
+                      ? "يتم تحديث الحالة في الوقت الفعلي"
+                      : "Status updates in real-time."}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </motion.div>
       </div>
     </div>

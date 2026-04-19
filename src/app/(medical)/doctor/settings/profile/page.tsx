@@ -1,17 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Save, Upload, User, MapPin, Mail, Phone, Briefcase, FileBadge2, Stethoscope, Clock3, Award, Calendar } from "lucide-react";
+import { Save, Upload, User, Mail, Phone, FileBadge2, Stethoscope, Award, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { UpdateDoctorPayload } from "@/types";
-import { CldUploadWidget } from "next-cloudinary";
+import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 
 export default function DoctorProfileSettingsPage() {
   const { locale } = useTranslation();
@@ -68,6 +68,7 @@ export default function DoctorProfileSettingsPage() {
     doctorRecord?.ministryOfHealthId, 
     doctorRecord?.specialization,
     doctorRecord?.experienceStartDate,
+    doctorRecord?.qualification,
     user?.name
   ]);
 
@@ -161,11 +162,11 @@ export default function DoctorProfileSettingsPage() {
                 <div className="flex flex-col gap-2">
                    <CldUploadWidget
                       uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "default_preset"}
-                      onSuccess={(result: any) => {
-                         if (result.info?.secure_url) {
-                            setAvatarPreview(result.info.secure_url);
-                         }
-                      }}
+                       onSuccess={(result: CloudinaryUploadWidgetResults) => {
+                          if (result.info && typeof result.info !== "string" && result.info.secure_url) {
+                             setAvatarPreview(result.info.secure_url);
+                          }
+                       }}
                    >
                      {({ open }) => (
                        <Button type="button" variant="outline" size="sm" className="w-fit flex items-center gap-2 border-slate-200" onClick={() => open()}>

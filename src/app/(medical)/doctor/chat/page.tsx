@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/useAuthStore";
 import {
   doctorChatService,
@@ -525,7 +526,7 @@ export default function DoctorChatPage() {
               ? t("patient")
               : selectedConversation.otherParticipantRole === "DOCTOR"
               ? t("doctor")
-              : t("user" as any),
+              : t("user" as TranslationKey),
         } : null}
         messages={chatMessages}
         inputValue={input}

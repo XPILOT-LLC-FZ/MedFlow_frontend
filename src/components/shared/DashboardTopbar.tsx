@@ -1,16 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Moon, Sun, Globe, Bell, Search } from "lucide-react";
+import { Moon, Sun, Bell, Search, UsersRound } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useTranslation } from "@/hooks/useTranslation";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { BrandLogo } from "@/components/shared/BrandLogo";
-import type { Role } from "@/types";
+import type { Role, Appointment } from "@/types";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
   Package, BarChart3, Clock, FileText, Settings, MessageSquare, Sparkles, Activity
@@ -78,7 +76,8 @@ const navByRole: Record<Role, NavItem[]> = {
 
 export function DashboardTopbar() {
   const router = useRouter();
-  const { theme, toggleTheme, locale, setLocale } = useStore();
+  const { appointments, fetchAppointments } = useBookingStore();
+  const { locale, setLocale, theme, toggleTheme } = useStore();
   const { user } = useAuthStore();
   const [notifOpen, setNotifOpen] = useState(false);
   
@@ -86,9 +85,6 @@ export function DashboardTopbar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const [searchResults, setSearchResults] = useState<NavItem[]>([]);
-
-  const { appointments, fetchAppointments } = useBookingStore();
 
   useEffect(() => {
     const today = formatDateKey(new Date());
@@ -98,6 +94,21 @@ export function DashboardTopbar() {
   const role = user?.role ?? "PATIENT";
   const firstName = user?.name ? user.name.split(" ")[0] : "";
   const roleLabel = roleLabels[role][locale];
+
+  // Derive search results from query and role
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const query = searchQuery.toLowerCase();
+    const availableRoutes = navByRole[role] || [];
+    
+    return availableRoutes.filter(
+      (route) => 
+        route.label.toLowerCase().includes(query) || 
+        route.labelAr.toLowerCase().includes(query) ||
+        route.href.toLowerCase().includes(query)
+    );
+  }, [searchQuery, role]);
 
   // Close search on click outside or escape
   useEffect(() => {
@@ -121,26 +132,6 @@ export function DashboardTopbar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Filter routes on query change
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    
-    const query = searchQuery.toLowerCase();
-    const availableRoutes = navByRole[role] || [];
-    
-    const matches = availableRoutes.filter(
-      (route) => 
-        route.label.toLowerCase().includes(query) || 
-        route.labelAr.toLowerCase().includes(query) ||
-        route.href.toLowerCase().includes(query)
-    );
-    
-    setSearchResults(matches);
-  }, [searchQuery, role]);
-
   const handleRouteNavigate = (href: string) => {
     setIsSearchFocused(false);
     setSearchQuery("");
@@ -163,7 +154,7 @@ export function DashboardTopbar() {
     }).format(new Date());
 
     const todayStr = formatDateKey(new Date());
-    const todaysAppointmentsCount = appointments.filter(a => a.date === todayStr).length;
+    const todaysAppointmentsCount = appointments.filter((a: { date: string; }) => a.date === todayStr).length;
 
     let message = "";
     
@@ -229,12 +220,12 @@ export function DashboardTopbar() {
                     {locale === "ar" ? "الإشعارات" : "Notifications"}
                   </p>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                    {appointments.filter(a => a.status === "scheduled" || a.status === "in-progress").length > 0 ? (
+                    {appointments.filter((a) => a.status === "scheduled" || a.status === "in-progress").length > 0 ? (
                       appointments
-                        .filter(a => a.status === "scheduled" || a.status === "in-progress")
+                        .filter((a) => a.status === "scheduled" || a.status === "in-progress")
                         .slice(0, 5)
-                        .map((a, idx) => (
-                          <div key={idx} className="text-xs text-slate-600 dark:text-slate-400 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-800">
+                        .map((a: Appointment) => (
+                          <div key={a.id} className="text-xs text-slate-600 dark:text-slate-400 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-800">
                             <span className="block font-semibold mb-1 text-slate-800 dark:text-slate-200">
                               {locale === "ar" ? `موعد مجدول: ${a.patientName}` : `Scheduled: ${a.patientName}`}
                             </span>
@@ -259,6 +250,33 @@ export function DashboardTopbar() {
                 </div>
               )}
             </div>
+
+            {/* Availability Toggle */}
+            {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  useAuthStore.getState().toggleAvailability();
+                }}
+                className={`relative h-8 w-8 rounded-full border transition-all duration-300 ${
+                  user.isAvailable 
+                    ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400" 
+                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 grayscale"
+                }`}
+                title={
+                  locale === "ar" 
+                    ? (user.isAvailable ? "متاح" : "غير متاح")
+                    : (user.isAvailable ? "Available" : "Unavailable")
+                }
+              >
+                <UsersRound className={`h-[18px] w-[18px] ${user.isAvailable ? "animate-pulse-subtle" : ""}`} />
+                <span className={`absolute top-0.5 right-0.5 h-2 w-2 rounded-full border border-white dark:border-slate-900 ${
+                  user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-slate-400"
+                }`} />
+              </Button>
+            )}
             
             {/* Language Toggle */}
             <Button

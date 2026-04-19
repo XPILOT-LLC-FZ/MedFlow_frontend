@@ -25,6 +25,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

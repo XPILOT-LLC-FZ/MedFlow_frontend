@@ -5,12 +5,10 @@ import Link from "next/link";
 import {
   Activity,
   CalendarDays,
-  CheckCircle2,
   CheckCircle,
   Clock3,
   RefreshCw,
   Users,
-  ChevronRight,
   Download,
   TrendingUp,
   DollarSign,
@@ -18,8 +16,6 @@ import {
   Eye
 } from "lucide-react";
 import {
-  Area,
-  AreaChart,
   LineChart,
   Line,
   PieChart,
@@ -35,9 +31,7 @@ import { motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
-import { PageHeader } from "@/components/shared/PageHeader";
 
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
@@ -49,35 +43,8 @@ import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiTreatmentPlan, DashboardDoctorSummaryData, ApiPrescription, ApiPatient } from "@/types";
 
-function statusBadgeVariant(status: ApiTreatmentPlan["status"]) {
-  if (status === "COMPLETED") return "success" as const;
-  if (status === "ACTIVE") return "info" as const;
-  return "warning" as const;
-}
 
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-};
 
-/* --- MOCK DATA --- */
-const mockPatientsOverTime = [
-  { name: 'Jan', patients: 85 },
-  { name: 'Feb', patients: 87 },
-  { name: 'Mar', patients: 78 },
-  { name: 'Apr', patients: 105 },
-  { name: 'May', patients: 98 },
-  { name: 'Jun', patients: 115 },
-  { name: 'Jul', patients: 122 },
-  { name: 'Aug', patients: 108 },
-  { name: 'Sep', patients: 135 },
-  { name: 'Oct', patients: 128 },
-  { name: 'Nov', patients: 145 },
-  { name: 'Dec', patients: 151 },
-];
 
 const mockCaseTypes = [
   { name: 'Hypertension', value: 285, color: '#EF4444' },
@@ -118,7 +85,16 @@ const mockSatisfaction = {
 
 /* --- SUBCOMPONENTS --- */
 
-function StatsCard({ title, value, icon: Icon, trend, trendLabel, theme }: any) {
+interface StatsCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  trend?: "up" | "down" | "none";
+  trendLabel?: string;
+  theme: "blue" | "teal" | "orange";
+}
+
+function StatsCard({ title, value, icon: Icon, trend, trendLabel, theme }: StatsCardProps) {
   const styles = {
     blue: {
       bg: "bg-[#F3F8FF] dark:bg-blue-900/20",
@@ -167,19 +143,6 @@ function StatsCard({ title, value, icon: Icon, trend, trendLabel, theme }: any) 
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-lg border bg-background/95 p-3 shadow-xl backdrop-blur-sm">
-        <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-        <p className="text-sm font-bold text-foreground">
-          {payload[0].value} <span className="font-normal text-muted-foreground ml-1">Patients</span>
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
 
 const isWithinRange = (dateStr: string | Date | null | undefined, range: string) => {
   if (!dateStr) return false;
@@ -208,24 +171,21 @@ export default function DoctorAnalyticsPage() {
   const { fetchDoctors } = useStaffStore();
 
   const [doctorId, setDoctorId] = useState<string | null>(null);
-  const [doctorName, setDoctorName] = useState<string>("");
   const [summary, setSummary] = useState<DashboardDoctorSummaryData | null>(null);
   const [plans, setPlans] = useState<ApiTreatmentPlan[]>([]);
   const [prescriptions, setPrescriptions] = useState<ApiPrescription[]>([]);
   const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState("month");
   const [tableStatusFilter, setTableStatusFilter] = useState<string>("All");
 
   const loadAnalytics = useCallback(
     async (targetDoctorId: string, refresh = false) => {
-      if (refresh) setIsRefreshing(true);
-      else setIsLoading(true);
+      if (!refresh) setIsLoading(true);
 
       try {
         const [doctorSummary, doctorPlans, doctorPrescriptions, allPatients] = await Promise.all([
-          dashboardService.getDoctorSummary({ period: timeRange as any }),
+          dashboardService.getDoctorSummary({ period: timeRange as "day" | "week" | "month" | "year" }),
           treatmentPlanService.getAll({ doctorId: targetDoctorId }),
           prescriptionService.getAll(),
           patientService.getAll(),
@@ -235,11 +195,10 @@ export default function DoctorAnalyticsPage() {
         setPlans(doctorPlans);
         setPrescriptions(doctorPrescriptions);
         setPatients(allPatients);
-      } catch (error) {
+      } catch {
         toast.error(locale === "ar" ? "فشل تحميل تحليلات الطبيب" : "Failed to load doctor analytics");
       } finally {
-        if (refresh) setIsRefreshing(false);
-        else setIsLoading(false);
+        if (!refresh) setIsLoading(false);
       }
     },
     [locale, toast, timeRange],
@@ -262,9 +221,8 @@ export default function DoctorAnalyticsPage() {
         }
 
         setDoctorId(currentDoctor.id);
-        setDoctorName(currentDoctor.fullName);
         await loadAnalytics(currentDoctor.id);
-      } catch (error) {
+      } catch {
         toast.error(locale === "ar" ? "فشل تهيئة صفحة التحليلات" : "Failed to initialize analytics page");
         setIsLoading(false);
       }
@@ -280,27 +238,12 @@ export default function DoctorAnalyticsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
 
-  const activePlansCount = useMemo(() => plans.filter((plan) => plan.status === "ACTIVE").length, [plans]);
-  const completedPlansCount = useMemo(() => plans.filter((plan) => plan.status === "COMPLETED").length, [plans]);
-
-  const computedProgressRate = useMemo(() => {
-    const total = plans.reduce((acc, plan) => acc + Math.max(1, plan.totalSessions), 0);
-    if (!total) return 0;
-    const completed = plans.reduce((acc, plan) => acc + Math.max(0, plan.completedSessions), 0);
-    return Math.round((completed / total) * 100);
-  }, [plans]);
-
-  const progressRate = summary?.summaryCards.completionRate ?? computedProgressRate;
   const todayAppointments = summary?.summaryCards.todayAppointments ?? 0;
   const totalPatients = summary?.summaryCards.totalPatients ?? 0;
   const waitMinutes = summary?.summaryCards.averageWaitMinutes;
+  const completedPlansCount = plans.filter(p => p.status === "COMPLETED").length;
   
   // Fill missing days with 0s if they don't exist for the chart to look better
-  const weeklyPatients = summary?.charts.weeklyPatients ?? [];
-  const chartData = weeklyPatients.length > 0 ? weeklyPatients : [
-    { name: "Mon", patients: 0 }, { name: "Tue", patients: 1 }, { name: "Wed", patients: 0 },
-    { name: "Thu", patients: 0 }, { name: "Fri", patients: 0 }, { name: "Sat", patients: 0 }, { name: "Sun", patients: 0 }
-  ];
 
   const computedMonthlyPatients = useMemo(() => {
     // English/Arabic month names aren't strictly required for keys, but we can match the design's "Jan", "Feb", etc.
@@ -342,11 +285,6 @@ export default function DoctorAnalyticsPage() {
     return result;
   }, [plans, timeRange]);
 
-  const recentPlans = useMemo(
-    () => [...plans].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, 5),
-    [plans],
-  );
-
   const filteredTablePlans = useMemo(() => {
     let result = [...plans]
       .filter(p => isWithinRange(p.createdAt || p.updatedAt, timeRange))
@@ -364,18 +302,20 @@ export default function DoctorAnalyticsPage() {
     const map = new Map<string, number>();
 
     filteredPrescriptions.forEach(p => {
-      let meds: any[] = [];
+      let meds: unknown[] = [];
       if (Array.isArray(p.medications)) {
         meds = p.medications;
       } else if (typeof p.medications === "string") {
-        try { meds = JSON.parse(p.medications); } catch (e) { /* ignore */ }
+        try { meds = JSON.parse(p.medications); } catch { /* ignore */ }
       }
 
       if (Array.isArray(meds)) {
         meds.forEach(med => {
           let name = "Unknown";
           if (typeof med === "string") name = med;
-          else if (med && typeof med === "object" && med.name) name = String(med.name);
+          else if (med && typeof med === "object" && "name" in med) {
+            name = String((med as Record<string, unknown>).name);
+          }
           
           name = name.trim();
           if (name && name !== "Unknown") {
@@ -947,7 +887,7 @@ export default function DoctorAnalyticsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredTablePlans.slice(0, 6).map((plan, index) => (
+                    filteredTablePlans.slice(0, 6).map((plan) => (
                       <tr key={plan.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors group">
                         <td className="px-8 py-5">
                           <div className="flex items-center gap-3.5">

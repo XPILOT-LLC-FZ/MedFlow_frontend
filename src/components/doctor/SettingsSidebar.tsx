@@ -8,12 +8,12 @@ import {
   Clock, 
   Bell, 
   FileText, 
-  Pill, 
-  Lock, 
-  MessageSquare 
+  MessageSquare, 
+  Pill
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/i18n";
 
 const NAV_ITEMS = [
   {
@@ -75,7 +75,7 @@ export function SettingsSidebar() {
                 isActive ? "text-white" : "text-slate-400 dark:text-slate-500",
               )}
             />
-            {t(item.name as any)}
+            {t(item.name as TranslationKey)}
           </Link>
         );
       })}
