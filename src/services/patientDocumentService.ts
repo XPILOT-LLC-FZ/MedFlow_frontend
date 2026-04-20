@@ -17,6 +17,15 @@ export const patientDocumentService = {
     return apiClient.get(`/patients/me/documents/${documentId}/download-token`);
   },
 
+  async getDocumentDownloadUrlForPatient(
+    patientId: string,
+    documentId: string,
+  ): Promise<{ downloadUrl: string }> {
+    return apiClient.get(
+      `/patients/${patientId}/documents/${documentId}/download-token`,
+    );
+  },
+
   async create(
     patientId: string,
     payload: CreatePatientDocumentPayload,
@@ -28,6 +37,16 @@ export const patientDocumentService = {
     payload: CreatePatientDocumentPayload,
   ): Promise<ApiPatientDocument> {
     return apiClient.post(`/patients/me/documents`, payload);
+  },
+
+  async createForCurrentPatientAppointment(
+    appointmentId: string,
+    payload: CreatePatientDocumentPayload,
+  ): Promise<ApiPatientDocument> {
+    return apiClient.post(
+      `/patients/me/appointments/${appointmentId}/documents`,
+      payload,
+    );
   },
 
   async remove(

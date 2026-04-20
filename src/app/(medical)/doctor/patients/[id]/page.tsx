@@ -2,11 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   AlertTriangle,
   CheckCircle2,
+  Eye,
+  FileText,
   HeartPulse,
   Plus,
   Send,
@@ -134,10 +137,35 @@ export default function DoctorPatientDetailsPage() {
   const [selectedInvestigations, setSelectedInvestigations] = useState<Record<string, boolean>>({});
   const [isSavingPrescription, setIsSavingPrescription] = useState(false);
   const [isSendingDiagnosticReport, setIsSendingDiagnosticReport] = useState(false);
+  const [previewFile, setPreviewFile] = useState<ApiPatientDocument | null>(
+    null,
+  );
 
   const [lastPrescriptionId, setLastPrescriptionId] = useState<string | null>(null);
 
   const [favoriteMedications, setFavoriteMedications] = useState<PrescriptionMedicationItem[]>([]);
+
+  const previewDocument = async (document: ApiPatientDocument) => {
+    if (!patientId) {
+      return;
+    }
+
+    try {
+      const result = await patientDocumentService.getDocumentDownloadUrlForPatient(
+        patientId,
+        document.id,
+      );
+      setPreviewFile({ ...document, fileUrl: result.downloadUrl });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "تعذر تحميل الملف"
+            : "Failed to load file";
+      toastError(message);
+    }
+  };
 
   useEffect(() => {
     if (!patientId) {
@@ -582,6 +610,22 @@ export default function DoctorPatientDetailsPage() {
   const chronicConditions = deriveChronicConditions(patient);
   const allergies = Array.isArray(patient.allergies) ? patient.allergies : [];
   const latestVisit = appointments[0];
+  const appointmentLookup = new Map(
+    appointments.map((appointment) => [appointment.id, appointment] as const),
+  );
+  const patientUploadedDocuments = [...documents]
+    .filter((document) => {
+      if (!patient.user?.id) {
+        return false;
+      }
+
+      return document.uploadedBy === patient.user.id;
+    })
+    .sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+    return bTime - aTime;
+    });
 
   return (
     <div className="space-y-5 max-w-7xl">
@@ -787,8 +831,8 @@ export default function DoctorPatientDetailsPage() {
                             className="h-8 px-4 text-xs font-medium bg-background"
                             disabled={!linkedDocument?.fileUrl}
                             onClick={() => {
-                              if (linkedDocument?.fileUrl) {
-                                window.open(linkedDocument.fileUrl, "_blank", "noopener,noreferrer");
+                              if (linkedDocument) {
+                                void previewDocument(linkedDocument as ApiPatientDocument);
                               }
                             }}
                           >
@@ -800,254 +844,384 @@ export default function DoctorPatientDetailsPage() {
                   );
                 })}
               </div>
+
+              <div className="pt-2">
+                <p className="mb-2 text-sm font-semibold">
+                  {locale === "ar" ? "الملفات المرفوعة من المريض" : "Patient Uploaded Files"}
+                </p>
+
+                {patientUploadedDocuments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {locale === "ar"
+                      ? "لا توجد ملفات مرفوعة من المريض"
+                      : "No files uploaded by this patient"}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {patientUploadedDocuments.map((document) => {
+                      const linkedAppointment = document.appointmentId
+                        ? appointmentLookup.get(document.appointmentId)
+                        : null;
+
+                      return (
+                        <article
+                          key={document.id}
+                          className="rounded-xl border bg-muted/10 p-3"
+                        >
+                          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-blue-600" />
+                                <p className="truncate text-sm font-medium">
+                                  {document.name}
+                                </p>
+                              </div>
+                              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                                <span>
+                                  {locale === "ar" ? "تاريخ الرفع" : "Uploaded"}: {formatDate(document.createdAt, locale)}
+                                </span>
+                                {linkedAppointment && (
+                                  <span>
+                                    {locale === "ar"
+                                      ? `موعد: ${formatDate(linkedAppointment.date, locale)} ${linkedAppointment.startTime || ""}`
+                                      : `Appointment: ${formatDate(linkedAppointment.date, locale)} ${linkedAppointment.startTime || ""}`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1.5 px-4 text-xs"
+                              onClick={() => {
+                                void previewDocument(document);
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              {locale === "ar" ? "عرض" : "View"}
+                            </Button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="prescription">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "الملاحظات والوصفة والتحويلات" : "Clinical Notes, Prescription & Investigations"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border p-3 space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">{locale === "ar" ? "Clinical Notes" : "Clinical Notes"}</label>
-                  <textarea
-                    className="w-full min-h-32 rounded-md border bg-background px-3 py-2 text-sm"
-                    placeholder={
-                      locale === "ar"
-                        ? "أدخل الأعراض والانطباع الطبي والتشخيص..."
-                        : "Enter patient symptoms, examination findings, and diagnosis..."
-                    }
-                    value={notesDraft}
-                    onChange={(event) => setNotesDraft(event.target.value)}
-                  />
-                </div>
+          <Card className="border-none shadow-none bg-transparent">
+            {/* Command-style Layout for Diagnostic Reports */}
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Clinical Notes & Diagnosis Section */}
+                <div className="space-y-4">
+                  <div className="rounded-xl border bg-card p-4 space-y-4">
+                    <div className="flex items-center gap-2 border-b pb-2">
+                      <div className="h-2 w-2 rounded-full bg-blue-500" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                        {locale === "ar" ? "الملاحظات السريرية" : "Clinical Context"}
+                      </h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground/70">{locale === "ar" ? "التشخيص الرئيسي" : "Primary Diagnosis"}</label>
+                        <Input
+                          className="h-9 text-sm font-medium border-muted/60 focus-visible:ring-blue-500/20"
+                          value={diagnosisDraft}
+                          onChange={(event) => setDiagnosisDraft(event.target.value)}
+                          placeholder={locale === "ar" ? "التشخيص" : "Impression / Diagnosis"}
+                        />
+                      </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => void saveClinicalNotes()} disabled={isSavingNotes}>
-                    {isSavingNotes
-                      ? locale === "ar"
-                        ? "جارٍ الحفظ..."
-                        : "Saving..."
-                      : locale === "ar"
-                        ? "حفظ الملاحظات"
-                        : "Save Notes"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => toastInfo(locale === "ar" ? "تم إرسال بلاغ للمراجعة" : "Issue reported for review")}
-                  >
-                    {locale === "ar" ? "Report issue" : "Report issue"}
-                  </Button>
-                </div>
-              </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground/70">{locale === "ar" ? "ملاحظات سريرية شاملة" : "Clinical Findings & History"}</label>
+                        <textarea
+                          className="w-full min-h-[120px] rounded-md border border-muted/60 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                          placeholder={
+                            locale === "ar"
+                              ? "أدخل الأعراض والانطباع الطبي والتشخيص..."
+                              : "Enter patient symptoms, examination findings, and clinical summary..."
+                          }
+                          value={notesDraft}
+                          onChange={(event) => setNotesDraft(event.target.value)}
+                        />
+                      </div>
 
-              <div className="rounded-lg border p-3 space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">{locale === "ar" ? "Diagnosis" : "Diagnosis"}</label>
-                  <Input
-                    value={diagnosisDraft}
-                    onChange={(event) => setDiagnosisDraft(event.target.value)}
-                    placeholder={locale === "ar" ? "التشخيص" : "Diagnosis"}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">{locale === "ar" ? "ملاحظات" : "Notes"}</label>
-                  <textarea
-                    className="w-full min-h-20 rounded-md border bg-background px-3 py-2 text-sm"
-                    value={prescriptionNotesDraft}
-                    onChange={(event) => setPrescriptionNotesDraft(event.target.value)}
-                  />
-                </div>
-              </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-muted-foreground/70">{locale === "ar" ? "ملاحظات الوصفة" : "Prescription Remarks"}</label>
+                        <Input
+                          className="h-9 text-sm border-muted/60"
+                          value={prescriptionNotesDraft}
+                          onChange={(event) => setPrescriptionNotesDraft(event.target.value)}
+                          placeholder={locale === "ar" ? "ملاحظات إضافية" : "Additional instructions..."}
+                        />
+                      </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{locale === "ar" ? "الأدوية" : "Prescribed Medications"}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setMedications((prev) => [
-                        ...prev,
-                        { name: "", dosage: "", frequency: "", duration: "" },
-                      ])
-                    }
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-
-                {favoriteMedications.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1 pb-2">
-                    <span className="text-xs text-muted-foreground self-center mr-2">
-                       {locale === "ar" ? "إضافة سريعة:" : "Quick Add:"}
-                    </span>
-                    {favoriteMedications.map((fav, index) => (
-                      <Button
-                        key={`fav-${index}`}
-                        variant="secondary"
-                        size="sm"
-                        className="text-[10px] h-6 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-none"
-                        onClick={() => {
-                          setMedications((prev) => {
-                            const newMeds = [...prev];
-                            // Replace the first empty slot if available, otherwise append
-                            const emptyIdx = newMeds.findIndex(m => !m.name && !m.dosage);
-                            if (emptyIdx !== -1) {
-                              newMeds[emptyIdx] = { ...fav };
-                            } else {
-                              newMeds.push({ ...fav });
-                            }
-                            return newMeds;
-                          });
-                        }}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {fav.name} {fav.dosage && `(${fav.dosage})`}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-
-                {medications.map((item, index) => (
-                  <div key={`medication-${index}`} className="rounded-lg border p-2 grid grid-cols-1 md:grid-cols-4 gap-2">
-                    <Input
-                      placeholder={locale === "ar" ? "الاسم" : "Name"}
-                      value={item.name}
-                      onChange={(event) =>
-                        setMedications((prev) =>
-                          prev.map((entry, entryIndex) =>
-                            entryIndex === index
-                              ? { ...entry, name: event.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
-                    />
-                    <Input
-                      placeholder={locale === "ar" ? "الجرعة" : "Dosage"}
-                      value={item.dosage}
-                      onChange={(event) =>
-                        setMedications((prev) =>
-                          prev.map((entry, entryIndex) =>
-                            entryIndex === index
-                              ? { ...entry, dosage: event.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
-                    />
-                    <Input
-                      placeholder={locale === "ar" ? "التكرار" : "Frequency"}
-                      value={item.frequency}
-                      onChange={(event) =>
-                        setMedications((prev) =>
-                          prev.map((entry, entryIndex) =>
-                            entryIndex === index
-                              ? { ...entry, frequency: event.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
-                    />
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder={locale === "ar" ? "المدة" : "Duration"}
-                        value={item.duration || ""}
-                        onChange={(event) =>
-                          setMedications((prev) =>
-                            prev.map((entry, entryIndex) =>
-                              entryIndex === index
-                                ? { ...entry, duration: event.target.value }
-                                : entry,
-                            ),
-                          )
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setMedications((prev) =>
-                            prev.length === 1
-                              ? prev
-                              : prev.filter((_, entryIndex) => entryIndex !== index),
-                          )
-                        }
-                      >
-                        <X className="h-4 w-4 text-red-500" />
-                      </Button>
+                      <div className="flex gap-2 pt-2">
+                        <Button 
+                          size="sm" 
+                          variant="secondary"
+                          className="h-8 text-xs font-semibold px-4"
+                          onClick={() => void saveClinicalNotes()} 
+                          disabled={isSavingNotes}
+                        >
+                          {isSavingNotes ? "..." : (locale === "ar" ? "حفظ المسودة" : "Save Logic Draft")}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="space-y-2">
-                <p className="text-sm font-medium">{locale === "ar" ? "Investigation Orders" : "Investigation Orders"}</p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {investigationCatalog.map((name) => (
-                    <label key={name} className="rounded-lg border p-2 text-xs flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(selectedInvestigations[name])}
-                        onChange={(event) =>
-                          setSelectedInvestigations((prev) => ({
+                  {/* Investigation Orders */}
+                  <div className="rounded-xl border bg-card p-4 space-y-4">
+                    <div className="flex items-center gap-2 border-b pb-2">
+                      <div className="h-2 w-2 rounded-full bg-amber-500" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                        {locale === "ar" ? "الفحوصات المطلوبة" : "Investigation Orders"}
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {investigationCatalog.map((name) => (
+                        <label key={name} className="flex items-center gap-2 p-2 rounded-lg border border-muted/40 hover:bg-muted/5 transition-colors cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-muted-foreground/30 text-blue-600 focus:ring-blue-500/20"
+                            checked={Boolean(selectedInvestigations[name])}
+                            onChange={(event) =>
+                              setSelectedInvestigations((prev) => ({
+                                ...prev,
+                                [name]: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span className="text-[11px] font-medium group-hover:text-foreground transition-colors">{name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prescription Section */}
+                <div className="space-y-4">
+                  <div className="rounded-xl border bg-card p-4 space-y-4 h-full flex flex-col">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                          {locale === "ar" ? "الوصفة الطبية" : "Medication Plan"}
+                        </h3>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 rounded-full hover:bg-emerald-50"
+                        onClick={() =>
+                          setMedications((prev) => [
                             ...prev,
-                            [name]: event.target.checked,
-                          }))
+                            { name: "", dosage: "", frequency: "", duration: "" },
+                          ])
                         }
-                      />
-                      <span>{name}</span>
-                    </label>
-                  ))}
+                      >
+                        <Plus className="h-4 w-4 text-emerald-600" />
+                      </Button>
+                    </div>
+
+                    <div className="flex-1 space-y-3 overflow-y-auto max-h-[500px] pr-1">
+                      {favoriteMedications.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pb-2">
+                          {favoriteMedications.map((fav, index) => (
+                            <button
+                              key={`fav-${index}`}
+                              className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100/50 transition-colors"
+                              onClick={() => {
+                                setMedications((prev) => {
+                                  const newMeds = [...prev];
+                                  const emptyIdx = newMeds.findIndex(m => !m.name && !m.dosage);
+                                  if (emptyIdx !== -1) newMeds[emptyIdx] = { ...fav };
+                                  else newMeds.push({ ...fav });
+                                  return newMeds;
+                                });
+                              }}
+                            >
+                              + {fav.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {medications.map((item, index) => (
+                        <div key={`medication-${index}`} className="group relative rounded-lg border border-muted/50 p-2 bg-muted/5 space-y-2 hover:border-emerald-200/50 transition-colors">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              placeholder="Name"
+                              className="h-8 text-[11px] bg-background"
+                              value={item.name}
+                              onChange={(event) =>
+                                setMedications((prev) =>
+                                  prev.map((entry, entryIndex) =>
+                                    entryIndex === index ? { ...entry, name: event.target.value } : entry,
+                                  ),
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Dosage"
+                              className="h-8 text-[11px] bg-background"
+                              value={item.dosage}
+                              onChange={(event) =>
+                                setMedications((prev) =>
+                                  prev.map((entry, entryIndex) =>
+                                    entryIndex === index ? { ...entry, dosage: event.target.value } : entry,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              placeholder="Frequency"
+                              className="h-8 text-[11px] bg-background"
+                              value={item.frequency}
+                              onChange={(event) =>
+                                setMedications((prev) =>
+                                  prev.map((entry, entryIndex) =>
+                                    entryIndex === index ? { ...entry, frequency: event.target.value } : entry,
+                                  ),
+                                )
+                              }
+                            />
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Duration"
+                                className="h-8 text-[11px] bg-background flex-1"
+                                value={item.duration || ""}
+                                onChange={(event) =>
+                                  setMedications((prev) =>
+                                    prev.map((entry, entryIndex) =>
+                                      entryIndex === index ? { ...entry, duration: event.target.value } : entry,
+                                    ),
+                                  )
+                                }
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() =>
+                                  setMedications((prev) =>
+                                    prev.length === 1 ? prev : prev.filter((_, entryIndex) => entryIndex !== index),
+                                  )
+                                }
+                              >
+                                <X className="h-3.5 w-3.5 text-red-400" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button
-                  onClick={() => void savePrescriptionAndInvestigations()}
-                  disabled={isSavingPrescription}
-                  className="gap-2"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {isSavingPrescription
-                    ? locale === "ar"
-                      ? "جارٍ الحفظ..."
-                      : "Saving..."
-                    : locale === "ar"
-                      ? "Save Consultation & Send to receptionist"
-                      : "Save Consultation & Send to receptionist"}
-                </Button>
+              {/* Action Toolbar - "Command Layout" Style */}
+              <div className="sticky bottom-0 z-10 flex items-center justify-between p-4 rounded-xl border bg-card shadow-lg ring-1 ring-black/5">
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground/60">{locale === "ar" ? "الحالة" : "Action Status"}</span>
+                    <span className="text-xs font-semibold text-blue-600">
+                      {isSavingPrescription || isSendingDiagnosticReport ? "Processing..." : "Ready to Finalize"}
+                    </span>
+                  </div>
+                </div>
 
-                <Button variant="outline" onClick={() => void sendWhatsAppToPatient()} className="gap-2">
-                  <Send className="h-4 w-4" />
-                  {locale === "ar" ? "Send to whatsapp of patient" : "Send to whatsapp of patient"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-4 text-xs font-bold border-muted-foreground/20 hover:bg-muted"
+                    onClick={() => void sendWhatsAppToPatient()}
+                  >
+                    <Send className="h-3.5 w-3.5 mr-2 opacity-60" />
+                    {locale === "ar" ? "واتساب سريع" : "Quick WhatsApp"}
+                  </Button>
 
-                <Button
-                  variant="outline"
-                  onClick={() => void sendDiagnosticReportToPatient()}
-                  disabled={isSendingDiagnosticReport}
-                  className="gap-2"
-                >
-                  <Send className="h-4 w-4" />
-                  {isSendingDiagnosticReport
-                    ? locale === "ar"
-                      ? "جارٍ إنشاء التقرير..."
-                      : "Generating report..."
-                    : locale === "ar"
-                      ? "إنشاء PDF وإرساله للمريض"
-                      : "Generate PDF & send to patient"}
-                </Button>
+                  <div className="h-6 w-px bg-border mx-1" />
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-4 text-xs font-bold border-blue-200 text-blue-700 hover:bg-blue-50"
+                    onClick={() => void sendDiagnosticReportToPatient()}
+                    disabled={isSendingDiagnosticReport}
+                  >
+                    <Send className="h-3.5 w-3.5 mr-2" />
+                    {isSendingDiagnosticReport
+                      ? (locale === "ar" ? "جارٍ الإنشاء..." : "Generating...")
+                      : (locale === "ar" ? "إصدار تقرير تشخيصي" : "FINALIZE DIAGNOSTIC REPORT")}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    className="h-9 px-5 text-xs font-bold shadow-sm"
+                    onClick={() => void savePrescriptionAndInvestigations()}
+                    disabled={isSavingPrescription}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+                    {isSavingPrescription
+                      ? "..."
+                      : (locale === "ar" ? "حفظ وإرسال للاستقبال" : "COMPLETE CONSULTATION")}
+                  </Button>
+                </div>
               </div>
-            </CardContent>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {previewFile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewFile(null)}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-xl bg-background p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-semibold">{previewFile.name}</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewFile(null)}
+              >
+                {locale === "ar" ? "إغلاق" : "Close"}
+              </Button>
+            </div>
+
+            {previewFile.fileType?.startsWith("image/") ? (
+              <Image
+                src={previewFile.fileUrl}
+                alt={previewFile.name}
+                width={1200}
+                height={900}
+                className="w-full rounded-lg"
+                unoptimized
+              />
+            ) : (
+              <iframe
+                src={previewFile.fileUrl}
+                className="h-[60vh] w-full rounded-lg border"
+                title={previewFile.name}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

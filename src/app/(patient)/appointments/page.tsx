@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search, Calendar, Clock, Star, ChevronRight, Sparkles } from "lucide-react";
+import { Search, Calendar, Clock, Star, ChevronRight, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,9 +20,10 @@ import { useStaffStore } from "@/stores/useStaffStore";
 import { usePatientStore } from "@/stores/usePatientStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { bookingService } from "@/services/bookingService";
+import { patientDocumentService } from "@/services/patientDocumentService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
 import { formatDateKey } from "@/lib/dateUtils";
-import type { ApiService, SmartRecommendation } from "@/types";
+import type { ApiService, SmartRecommendation, Appointment } from "@/types";
 
 const specialtiesList = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"];
 
@@ -88,7 +89,19 @@ export default function AppointmentsPage() {
   const [smartRecommendations, setSmartRecommendations] =
     useState<SmartRecommendation[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [pendingUploadAppointmentId, setPendingUploadAppointmentId] = useState<string | null>(null);
+  const [uploadingAppointmentId, setUploadingAppointmentId] = useState<string | null>(null);
   const prefillAppliedRef = useRef(false);
+  const appointmentUploadInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+  const ALLOWED_UPLOAD_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
+  ];
 
   useEffect(() => {
     if (!selectedDoctor) return;
@@ -371,6 +384,117 @@ export default function AppointmentsPage() {
       toast.success(locale === "ar" ? "تم تأكيد الموعد والدفع عند الحضور" : "Appointment confirmed with onsite payment");
     } catch {
       toast.error("Payment update failed");
+    }
+  };
+
+  const canUploadForAppointment = (appointment: Appointment) => {
+    const normalizedStatus = String(appointment.status || "").toUpperCase().replace("-", "_");
+    return normalizedStatus !== "CANCELLED" && normalizedStatus !== "NO_SHOW";
+  };
+
+  const triggerAppointmentUpload = (appointmentId: string) => {
+    setPendingUploadAppointmentId(appointmentId);
+    appointmentUploadInputRef.current?.click();
+  };
+
+  const handleAppointmentFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = event.target.files;
+    const appointmentId = pendingUploadAppointmentId;
+    const resetInput = () => {
+      if (appointmentUploadInputRef.current) {
+        appointmentUploadInputRef.current.value = "";
+      }
+    };
+
+    if (!files || files.length === 0 || !appointmentId) {
+      resetInput();
+      return;
+    }
+
+    if (!currentPatient?.id) {
+      toast.error(
+        locale === "ar"
+          ? "تعذر رفع الملف بدون ملف مريض مكتمل"
+          : "Cannot upload files without a completed patient profile",
+      );
+      resetInput();
+      setPendingUploadAppointmentId(null);
+      return;
+    }
+
+    const validFiles = Array.from(files).filter((file) => {
+      if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) {
+        toast.error(
+          locale === "ar"
+            ? `نوع غير مدعوم: ${file.name}`
+            : `Unsupported file type: ${file.name}`,
+        );
+        return false;
+      }
+
+      if (file.size > MAX_UPLOAD_SIZE) {
+        toast.error(
+          locale === "ar"
+            ? `الملف كبير جداً: ${file.name}`
+            : `File is too large: ${file.name}`,
+        );
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      resetInput();
+      setPendingUploadAppointmentId(null);
+      return;
+    }
+
+    setUploadingAppointmentId(appointmentId);
+    let uploadedCount = 0;
+
+    try {
+      for (const file of validFiles) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (readerEvent) =>
+            resolve(String(readerEvent.target?.result || ""));
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+
+        await patientDocumentService.createForCurrentPatientAppointment(
+          appointmentId,
+          {
+            name: file.name,
+            fileUrl: dataUrl,
+            fileType: file.type || null,
+          },
+        );
+        uploadedCount += 1;
+      }
+
+      if (uploadedCount > 0) {
+        toast.success(
+          locale === "ar"
+            ? `تم رفع ${uploadedCount} ملف بنجاح`
+            : `Uploaded ${uploadedCount} file(s) successfully`,
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "تعذر رفع الملفات"
+            : "Failed to upload files";
+      toast.error(message);
+    } finally {
+      setUploadingAppointmentId(null);
+      setPendingUploadAppointmentId(null);
+      resetInput();
     }
   };
 
@@ -711,20 +835,81 @@ export default function AppointmentsPage() {
 
         <TabsContent value="upcoming" className="mt-4 space-y-3">
           {patientAppointments
-            .filter((a) => a.status !== "completed" && a.status !== "cancelled")
+            .filter((a) => {
+              const status = String(a.status || "").toUpperCase();
+              return status !== "COMPLETED" && status !== "CANCELLED";
+            })
             .map((apt, i) => (
-              <AppointmentCard key={apt.id} appointment={apt} delay={i * 0.05} />
+              <div key={apt.id} className="space-y-2">
+                <AppointmentCard appointment={apt} delay={i * 0.05} />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    disabled={
+                      !canUploadForAppointment(apt) ||
+                      uploadingAppointmentId === apt.id
+                    }
+                    onClick={() => triggerAppointmentUpload(apt.id)}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadingAppointmentId === apt.id
+                      ? locale === "ar"
+                        ? "جارٍ الرفع..."
+                        : "Uploading..."
+                      : locale === "ar"
+                        ? "رفع ملف لهذا الموعد"
+                        : "Upload File For This Appointment"}
+                  </Button>
+                </div>
+              </div>
             ))}
         </TabsContent>
 
         <TabsContent value="history" className="mt-4 space-y-3">
           {patientAppointments
-            .filter((a) => a.status === "completed" || a.status === "cancelled")
+            .filter((a) => {
+              const status = String(a.status || "").toUpperCase();
+              return status === "COMPLETED" || status === "CANCELLED";
+            })
             .map((apt, i) => (
-              <AppointmentCard key={apt.id} appointment={apt} delay={i * 0.05} />
+              <div key={apt.id} className="space-y-2">
+                <AppointmentCard appointment={apt} delay={i * 0.05} />
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    disabled={
+                      !canUploadForAppointment(apt) ||
+                      uploadingAppointmentId === apt.id
+                    }
+                    onClick={() => triggerAppointmentUpload(apt.id)}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {uploadingAppointmentId === apt.id
+                      ? locale === "ar"
+                        ? "جارٍ الرفع..."
+                        : "Uploading..."
+                      : locale === "ar"
+                        ? "رفع ملف لهذا الموعد"
+                        : "Upload File For This Appointment"}
+                  </Button>
+                </div>
+              </div>
             ))}
         </TabsContent>
       </Tabs>
+
+      <input
+        ref={appointmentUploadInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+        onChange={handleAppointmentFileUpload}
+      />
     </div>
   );
 }

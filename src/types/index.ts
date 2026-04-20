@@ -711,6 +711,7 @@ export type LabResultStatus = "PENDING" | "NORMAL" | "ABNORMAL" | "CRITICAL";
 export interface ApiPatientDocument {
   id: string;
   patientId: string;
+  appointmentId?: string | null;
   name: string;
   fileUrl: string;
   fileType?: string | null;
@@ -722,6 +723,8 @@ export interface CreatePatientDocumentPayload {
   name: string;
   fileUrl: string;
   fileType?: string | null;
+  appointmentId?: string | null;
+  storageMode?: "cloudinary" | "inline-data-url";
 }
 
 export interface ApiLabResult {
