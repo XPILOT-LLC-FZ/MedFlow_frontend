@@ -19,24 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Appointment, DoctorShift } from "@/types";
-
-const dayLabels = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const dayLabelsAr = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-
-function buildDefaultShift(dayOfWeek: number): DoctorShift {
-  return {
-    dayOfWeek,
-    shiftStart: "09:00",
-    shiftEnd: "17:00",
-    lunchStart: "13:00",
-    lunchEnd: "14:00",
-    isAvailable: dayOfWeek >= 1 && dayOfWeek <= 5,
-    branchId: null,
-  };
-}
-
-
+import type { Appointment } from "@/types";
 
 export default function SchedulePage() {
   const { locale } = useTranslation();
