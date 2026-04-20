@@ -715,6 +715,9 @@ export interface ApiPatientDocument {
   name: string;
   fileUrl: string;
   fileType?: string | null;
+  storageMode?: "r2" | "cloudinary" | "inline-data-url" | null;
+  storageProvider?: "r2" | "cloudinary" | "inline-data-url" | null;
+  storageKey?: string | null;
   uploadedBy?: string | null;
   createdAt: string;
 }
@@ -724,7 +727,7 @@ export interface CreatePatientDocumentPayload {
   fileUrl: string;
   fileType?: string | null;
   appointmentId?: string | null;
-  storageMode?: "cloudinary" | "inline-data-url";
+  storageMode?: "r2" | "cloudinary" | "inline-data-url";
 }
 
 export interface ApiLabResult {
@@ -900,7 +903,7 @@ export interface SendDiagnosticReportResponse {
   documentId: string;
   documentName: string;
   downloadUrl: string;
-  storageMode?: "cloudinary" | "inline-data-url";
+  storageMode?: "r2" | "cloudinary" | "inline-data-url";
   mediaAttached?: boolean;
   mediaUrl?: string | null;
   mediaFallbackReason?: string | null;

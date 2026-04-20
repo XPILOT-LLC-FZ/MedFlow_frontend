@@ -1,9 +1,8 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { motion } from "framer-motion";
-import { Phone, MapPin, Calendar, Edit3, FileText, Trash2 } from "lucide-react";
+import { Phone, MapPin, Calendar, Edit3, FileText, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,22 +11,104 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useFilesStore } from "@/stores/useFilesStore";
+import { useToastStore } from "@/stores/useToastStore";
+import {
+  patientDocumentService,
+  PATIENT_DOCUMENTS_ACCESS_BLOCKED,
+} from "@/services/patientDocumentService";
+import type { ApiPatientDocument } from "@/types";
 
 export default function ProfilePage() {
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
-  const { getFilesByPatient, deleteFile } = useFilesStore();
+  const toast = useToastStore();
 
-  const patientId = user?.id ?? "guest";
-  const files = getFilesByPatient(patientId);
+  const [documents, setDocuments] = React.useState<ApiPatientDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.removeItem("clinic-os-files");
+  }, []);
+
+  const loadDocuments = React.useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    setIsLoadingDocuments(true);
+    try {
+      const docs = await patientDocumentService.getCurrentPatientDocuments();
+      setDocuments(docs);
+    } catch (error) {
+      const blocked =
+        error instanceof Error &&
+        error.message === PATIENT_DOCUMENTS_ACCESS_BLOCKED;
+
+      if (!blocked) {
+        toast.error(
+          locale === "ar"
+            ? "تعذر تحميل ملفات المريض"
+            : "Failed to load patient files",
+        );
+      }
+
+      setDocuments([]);
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  }, [locale, toast, user?.id]);
+
+  React.useEffect(() => {
+    void loadDocuments();
+  }, [loadDocuments]);
+
+  const files = React.useMemo(
+    () =>
+      documents.filter(
+        (document) =>
+          !document.name.startsWith("diagnostic-report-") &&
+          (!document.uploadedBy || document.uploadedBy === user?.id),
+      ),
+    [documents, user?.id],
+  );
 
   const displayName = user ? (locale === "ar" ? user.nameAr : user.name) : "John Smith";
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const handleDeleteDocument = async (documentId: string) => {
+    setDeletingId(documentId);
+    try {
+      await patientDocumentService.removeForCurrentPatient(documentId);
+      toast.success(
+        locale === "ar" ? "تم حذف الملف بنجاح" : "File deleted successfully",
+      );
+      await loadDocuments();
+    } catch {
+      toast.error(locale === "ar" ? "فشل حذف الملف" : "Failed to delete file");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleOpenDocument = async (documentId: string) => {
+    setDownloadingId(documentId);
+    try {
+      const response = await patientDocumentService.getDocumentDownloadUrl(documentId);
+      window.open(response.downloadUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error(
+        locale === "ar"
+          ? "تعذر فتح الملف حالياً"
+          : "Unable to open file right now",
+      );
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -133,7 +214,11 @@ export default function ProfilePage() {
               </Badge>
             </CardHeader>
             <CardContent>
-              {files.length === 0 ? (
+              {isLoadingDocuments ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  {locale === "ar" ? "جاري تحميل الملفات..." : "Loading files..."}
+                </p>
+              ) : files.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   {locale === "ar"
                     ? "لا توجد ملفات بعد. يمكنك رفع الملفات من لوحة التحكم."
@@ -144,35 +229,34 @@ export default function ProfilePage() {
                   {files.map((file) => (
                     <div
                       key={file.id}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                     >
-                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0 overflow-hidden">
-                        {file.type === "image" ? (
-                          <Image
-                            src={file.dataUrl}
-                            alt={file.name}
-                            width={48}
-                            height={48}
-                            className="h-full w-full object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <FileText className="h-6 w-6 text-muted-foreground" />
-                        )}
+                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{file.name}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{formatFileSize(file.size)}</span>
-                          <span>{new Date(file.uploadDate).toLocaleDateString()}</span>
+                          <span>{file.fileType || "document"}</span>
+                          <span>{new Date(file.createdAt).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => deleteFile(file.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive p-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => void handleOpenDocument(file.id)}
+                          disabled={downloadingId === file.id}
+                          className="text-muted-foreground p-1 disabled:opacity-50"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => void handleDeleteDocument(file.id)}
+                          disabled={deletingId === file.id}
+                          className="text-destructive p-1 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

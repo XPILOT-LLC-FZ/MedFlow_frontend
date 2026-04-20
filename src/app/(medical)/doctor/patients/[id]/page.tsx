@@ -613,6 +613,9 @@ export default function DoctorPatientDetailsPage() {
   const appointmentLookup = new Map(
     appointments.map((appointment) => [appointment.id, appointment] as const),
   );
+  const documentLookup = new Map(
+    documents.map((document) => [document.id, document] as const),
+  );
   const patientUploadedDocuments = [...documents]
     .filter((document) => {
       if (!patient.user?.id) {
@@ -786,8 +789,11 @@ export default function DoctorPatientDetailsPage() {
               <div className="flex flex-col gap-3">
                 {labResults.map((result) => {
                   const linkedDocument =
-                    result.document ||
-                    documents.find((doc) => doc.id === result.documentId) ||
+                    (result.documentId
+                      ? documentLookup.get(result.documentId)
+                      : result.document?.id
+                        ? documentLookup.get(result.document.id)
+                        : undefined) ||
                     null;
 
                   const statusTone =
@@ -829,14 +835,27 @@ export default function DoctorPatientDetailsPage() {
                             size="sm"
                             variant="outline"
                             className="h-8 px-4 text-xs font-medium bg-background"
-                            disabled={!linkedDocument?.fileUrl}
+                            disabled={!linkedDocument}
+                            title={
+                              linkedDocument
+                                ? undefined
+                                : locale === "ar"
+                                  ? "الملف غير متاح لصلاحياتك"
+                                  : "File unavailable for your access scope"
+                            }
                             onClick={() => {
                               if (linkedDocument) {
-                                void previewDocument(linkedDocument as ApiPatientDocument);
+                                void previewDocument(linkedDocument);
                               }
                             }}
                           >
-                            {locale === "ar" ? "عرض التقرير" : "View Report"}
+                            {linkedDocument
+                              ? locale === "ar"
+                                ? "عرض التقرير"
+                                : "View Report"
+                              : locale === "ar"
+                                ? "الملف غير متاح"
+                                : "Report Unavailable"}
                           </Button>
                         </div>
                       </div>
