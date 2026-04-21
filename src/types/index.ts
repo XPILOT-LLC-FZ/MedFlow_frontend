@@ -4,6 +4,12 @@ export interface TokenPair {
   accessToken: string;
 }
 
+export interface PreviewFileInfo {
+  name: string;
+  fileUrl: string;
+  fileType: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -61,6 +67,73 @@ export interface ApiDoctor {
     isActive: boolean;
     clinicId?: string | null;
   } | null;
+}
+
+export type DoctorCredentialType = "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION";
+
+export interface ApiDoctorCredential {
+  id: string;
+  doctorId: string;
+  credentialType: DoctorCredentialType;
+  name: string;
+  fileType?: string | null;
+  storageMode?: string;
+  storageProvider?: string | null;
+  storageKey?: string | null;
+  isVerified?: boolean;
+  isVisibleToPatients?: boolean;
+  isVisibleToPublic?: boolean;
+  previewUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface DoctorCredentialSummary {
+  hasVerifiedMinistryId: boolean;
+  ministryOfHealthId: {
+    id: string;
+    name: string;
+    fileType?: string | null;
+    previewUrl?: string;
+    createdAt: string;
+  } | null;
+  qualificationCount: number;
+  qualifications: ApiDoctorCredential[];
+}
+
+export interface ApiPublicDoctor {
+  id: string;
+  clinicId?: string | null;
+  fullName: string;
+  specialization?: string | null;
+  bio?: string | null;
+  status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
+  experienceYears: number;
+  rating: number;
+  consultationFee: number;
+  services: string[];
+  user?: {
+    avatarUrl?: string | null;
+  } | null;
+  credentialSummary: DoctorCredentialSummary;
+}
+
+export interface CreateDoctorCredentialPayload {
+  credentialType: DoctorCredentialType;
+  name: string;
+  fileUrl: string;
+  fileType?: string | null;
+  storageMode?: "r2" | "cloudinary" | "inline-data-url";
+}
+
+export interface UpdateDoctorCredentialPayload {
+  name?: string;
+  fileUrl?: string;
+  fileType?: string | null;
+  storageMode?: "r2" | "cloudinary" | "inline-data-url";
+  isVerified?: boolean;
+  isVisibleToPatients?: boolean;
+  isVisibleToPublic?: boolean;
 }
 
 export interface DoctorListFilters {
@@ -791,6 +864,10 @@ export interface ApiPrescription {
   issuedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  doctor?: {
+    id: string;
+    fullName: string;
+  } | null;
 }
 
 export interface CreatePrescriptionPayload {

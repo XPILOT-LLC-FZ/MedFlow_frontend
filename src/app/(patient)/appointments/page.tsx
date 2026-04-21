@@ -10,20 +10,35 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AppointmentCard } from "@/components/shared/AppointmentCard";
 import { MiniCalendar } from "@/components/shared/MiniCalendar";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { FilePreviewDialog } from "@/components/shared/FilePreviewDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
-import { useStaffStore } from "@/stores/useStaffStore";
 import { usePatientStore } from "@/stores/usePatientStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { bookingService } from "@/services/bookingService";
 import { patientDocumentService } from "@/services/patientDocumentService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
+import { staffService } from "@/services/staffService";
 import { formatDateKey } from "@/lib/dateUtils";
-import type { ApiService, SmartRecommendation, Appointment } from "@/types";
+import type {
+  ApiDoctorCredential,
+  ApiPublicDoctor,
+  ApiService,
+  SmartRecommendation,
+  Appointment,
+  PreviewFileInfo,
+} from "@/types";
 
 const specialtiesList = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"];
 
@@ -32,11 +47,11 @@ export default function AppointmentsPage() {
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { appointments, addAppointment, updateAppointment, fetchAppointments } = useBookingStore();
-  const { doctors: staffDoctors, fetchDoctors } = useStaffStore();
   const { currentPatient, fetchMe } = usePatientStore();
   const toast = useToastStore();
 
   const [services, setServices] = useState<ApiService[]>([]);
+  const [staffDoctors, setStaffDoctors] = useState<ApiPublicDoctor[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -59,12 +74,15 @@ export default function AppointmentsPage() {
   const selectableDoctors = staffDoctors
     .filter((doctor) => doctor.status === "ACTIVE")
     .map((s) => ({
+      ...s, // Include raw API properties to satisfy ApiPublicDoctor type
       id: s.id,
       name: s.fullName,
       nameAr: s.fullName, // Fallback as ApiDoctor missing nameAr
       specialty: s.specialization || "",
       specialtyAr: s.specialization || "",
-      image: `https://api.dicebear.com/9.x/avataaars/svg?seed=${s.email}`,
+      image:
+        s.user?.avatarUrl ||
+        `https://api.dicebear.com/9.x/avataaars/svg?seed=${s.id}`,
       rating: s.rating || 4.8, 
       reviewCount: 12,
       experience: s.experienceYears || 5,
@@ -91,6 +109,14 @@ export default function AppointmentsPage() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [pendingUploadAppointmentId, setPendingUploadAppointmentId] = useState<string | null>(null);
   const [uploadingAppointmentId, setUploadingAppointmentId] = useState<string | null>(null);
+  const [credentialDoctor, setCredentialDoctor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [credentialItems, setCredentialItems] = useState<ApiDoctorCredential[]>([]);
+  const [credentialLoading, setCredentialLoading] = useState(false);
+  const [previewingCredentialId, setPreviewingCredentialId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewFileInfo | null>(null);
   const prefillAppliedRef = useRef(false);
   const appointmentUploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -123,7 +149,7 @@ export default function AppointmentsPage() {
 
     const timeout = setTimeout(() => {
       const filters: Record<string, string> = {
-        status: "ACTIVE",
+        search: "",
       };
 
       if (searchQuery.trim().length > 0) {
@@ -138,11 +164,14 @@ export default function AppointmentsPage() {
         filters.serviceId = selectedServiceId;
       }
 
-      void fetchDoctors(filters);
+      void staffService
+        .getPublicDoctors(filters)
+        .then((data) => setStaffDoctors(data))
+        .catch(() => setStaffDoctors([]));
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [user?.id, searchQuery, selectedSpecialty, selectedServiceId, fetchDoctors]);
+  }, [user?.id, searchQuery, selectedSpecialty, selectedServiceId]);
 
   const doctor = selectableDoctors.find((d) => d.id === selectedDoctor);
 
@@ -498,6 +527,70 @@ export default function AppointmentsPage() {
     }
   };
 
+  const openCredentialDialog = (doctor: ApiPublicDoctor) => {
+    setCredentialDoctor({ id: doctor.id, name: doctor.fullName });
+    
+    // Construct items from the summary data which now includes previewUrls
+    const items: ApiDoctorCredential[] = [];
+    
+    if (doctor.credentialSummary.ministryOfHealthId) {
+      items.push({
+        ...doctor.credentialSummary.ministryOfHealthId,
+        doctorId: doctor.id,
+        credentialType: "MINISTRY_OF_HEALTH_ID",
+      } as ApiDoctorCredential);
+    }
+    
+    if (doctor.credentialSummary.qualifications) {
+      doctor.credentialSummary.qualifications.forEach((q) => {
+        items.push(q);
+      });
+    }
+    
+    setCredentialItems(items);
+    setCredentialLoading(false);
+  };
+
+  const openCredentialPreview = async (doctorId: string, item: ApiDoctorCredential) => {
+    // Try to use pre-signed URL first
+    if (item.previewUrl) {
+      setPreviewFile({
+        name: item.name,
+        fileUrl: item.previewUrl,
+        fileType: item.fileType || "application/pdf",
+      });
+      return;
+    }
+
+    setPreviewingCredentialId(item.id);
+
+    try {
+      const result = await staffService.getPatientDoctorCredentialPreview(doctorId, item.id);
+      setPreviewFile({
+        name: item.name,
+        fileUrl: result.previewUrl,
+        fileType: item.fileType || "application/pdf",
+      });
+    } catch {
+      try {
+        const fallbackResult = await staffService.getPublicDoctorCredentialPreview(doctorId, item.id);
+        setPreviewFile({
+          name: item.name,
+          fileUrl: fallbackResult.previewUrl,
+          fileType: item.fileType || "application/pdf",
+        });
+      } catch {
+        toast.error(
+          locale === "ar"
+            ? "تعذر فتح ملف الاعتماد حالياً"
+            : "Failed to open credential file",
+        );
+      }
+    } finally {
+      setPreviewingCredentialId(null);
+    }
+  };
+
   return (
     <div className="max-w-7xl space-y-6">
       <PageHeader
@@ -645,6 +738,27 @@ export default function AppointmentsPage() {
                                 {doc.experience} {t("yearsExp")}
                               </span>
                             </div>
+                            {(doc.credentialSummary.hasVerifiedMinistryId ||
+                              doc.credentialSummary.qualificationCount > 0) && (
+                              <div className="mt-3 flex items-center gap-2">
+                                <Badge variant="outline" className="text-[11px]">
+                                  {locale === "ar"
+                                    ? `اعتمادات موثقة: ${doc.credentialSummary.qualificationCount + (doc.credentialSummary.hasVerifiedMinistryId ? 1 : 0)}`
+                                    : `Verified credentials: ${doc.credentialSummary.qualificationCount + (doc.credentialSummary.hasVerifiedMinistryId ? 1 : 0)}`}
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2 text-[11px]"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openCredentialDialog(doc);
+                                  }}
+                                >
+                                  {locale === "ar" ? "عرض" : "View"}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                           <Badge variant="success" className="self-start">
                             {t("available")}
@@ -901,6 +1015,118 @@ export default function AppointmentsPage() {
             ))}
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={Boolean(credentialDoctor)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCredentialDoctor(null);
+            setCredentialItems([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {locale === "ar"
+                ? `اعتمادات الطبيب ${credentialDoctor?.name || ""}`
+                : `Doctor Credentials${credentialDoctor ? `: ${credentialDoctor.name}` : ""}`}
+            </DialogTitle>
+            <DialogDescription>
+              {locale === "ar"
+                ? "هذه الملفات موثقة من الإدارة قبل ظهورها للمرضى."
+                : "These files are admin-verified before becoming visible to patients."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {credentialLoading ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar" ? "جاري تحميل الاعتمادات..." : "Loading credentials..."}
+            </p>
+          ) : credentialItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar"
+                ? "لا توجد اعتمادات متاحة حالياً لهذا الطبيب."
+                : "No credential files are currently available for this doctor."}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {credentialItems
+                .filter((item) => item.credentialType === "MINISTRY_OF_HEALTH_ID")
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {locale === "ar" ? "ترخيص وزارة الصحة" : "Ministry of Health License"}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={previewingCredentialId === item.id || !credentialDoctor}
+                      onClick={() =>
+                        credentialDoctor &&
+                        void openCredentialPreview(credentialDoctor.id, item)
+                      }
+                    >
+                      {previewingCredentialId === item.id
+                        ? locale === "ar"
+                          ? "جاري الفتح..."
+                          : "Opening..."
+                        : locale === "ar"
+                          ? "معاينة"
+                          : "Preview"}
+                    </Button>
+                  </div>
+                ))}
+
+              {credentialItems
+                .filter((item) => item.credentialType === "QUALIFICATION")
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {locale === "ar" ? "شهادة تأهيل" : "Qualification"}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={previewingCredentialId === item.id || !credentialDoctor}
+                      onClick={() =>
+                        credentialDoctor &&
+                        void openCredentialPreview(credentialDoctor.id, item)
+                      }
+                    >
+                      {previewingCredentialId === item.id
+                        ? locale === "ar"
+                          ? "جاري الفتح..."
+                          : "Opening..."
+                        : locale === "ar"
+                          ? "معاينة"
+                          : "Preview"}
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unified File Preview Dialog */}
+      <FilePreviewDialog
+        open={Boolean(previewFile)}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+        file={previewFile}
+      />
 
       <input
         ref={appointmentUploadInputRef}

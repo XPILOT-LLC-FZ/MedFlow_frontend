@@ -15,26 +15,36 @@ import { StatsCard } from "@/components/shared/StatsCard";
 import { AppointmentCard } from "@/components/shared/AppointmentCard";
 import { MiniCalendar } from "@/components/shared/MiniCalendar";
 import { PageHeader } from "@/components/shared/PageHeader";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { useStaffStore } from "@/stores/useStaffStore";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
+import { staffService } from "@/services/staffService";
 import {
   patientDocumentService,
   PATIENT_DOCUMENTS_ACCESS_BLOCKED,
 } from "@/services/patientDocumentService";
-import type { ApiService, ApiPatientDocument } from "@/types";
+import type { ApiPublicDoctor, ApiService, ApiPatientDocument, ApiDoctorCredential, ApiPrescription, PreviewFileInfo } from "@/types";
+import { prescriptionService } from "@/services/prescriptionService";
+import { FilePreviewDialog } from "@/components/shared/FilePreviewDialog";
+import { PrescriptionDocument } from "@/components/shared/PrescriptionDocument";
 
 export default function PatientDashboard() {
   const { locale, t } = useTranslation();
   const { user } = useAuthStore();
   const { appointments } = useBookingStore();
-  const { doctors: discoverDoctors, fetchDoctors } = useStaffStore();
   const toast = useToastStore();
   const patientId = user?.id ?? "guest";
+  const [discoverDoctors, setDiscoverDoctors] = useState<ApiPublicDoctor[]>([]);
   const [discoverQuery, setDiscoverQuery] = useState("");
   const [discoverSpecialization, setDiscoverSpecialization] = useState("All");
   const [discoverServices, setDiscoverServices] = useState<ApiService[]>([]);
@@ -45,6 +55,16 @@ export default function PatientDashboard() {
   const [isReportsAccessBlocked, setIsReportsAccessBlocked] = useState(false);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [credentialDoctor, setCredentialDoctor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [credentialItems, setCredentialItems] = useState<ApiDoctorCredential[]>([]);
+  const [credentialLoading, setCredentialLoading] = useState(false);
+  const [previewingCredentialId, setPreviewingCredentialId] = useState<string | null>(null);
+  const [prescriptions, setPrescriptions] = useState<ApiPrescription[]>([]);
+  const [isLoadingPrescriptions, setIsLoadingPrescriptions] = useState(false);
+  const [selectedPrescription, setSelectedPrescription] = useState<ApiPrescription | null>(null);
 
   const loadDocuments = React.useCallback(async () => {
     if (!user?.id) return;
@@ -81,6 +101,19 @@ export default function PatientDashboard() {
       setIsLoadingReports(false);
     }
   }, [user?.id]);
+  
+  const loadPrescriptions = React.useCallback(async () => {
+    if (!user?.id) return;
+    setIsLoadingPrescriptions(true);
+    try {
+      const data = await prescriptionService.getAll({ patientId: user.id });
+      setPrescriptions(data.filter(p => p.status === "ISSUED" || p.status === "SENT"));
+    } catch (error) {
+      console.error("Failed to load prescriptions:", error);
+    } finally {
+      setIsLoadingPrescriptions(false);
+    }
+  }, [user?.id]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") {
@@ -99,10 +132,11 @@ export default function PatientDashboard() {
         .then((services) => setDiscoverServices(services))
         .catch(() => setDiscoverServices([]));
 
-      // Load documents
+      // Load documents & prescriptions
       void loadDocuments();
+      void loadPrescriptions();
     }
-  }, [user?.id, loadDocuments]);
+  }, [user?.id, loadDocuments, loadPrescriptions]);
 
   React.useEffect(() => {
     if (!user?.id) return;
@@ -114,11 +148,14 @@ export default function PatientDashboard() {
       if (discoverSpecialization !== "All") filters.specialization = discoverSpecialization;
       if (discoverServiceId) filters.serviceId = discoverServiceId;
 
-      void fetchDoctors(filters);
+      void staffService
+        .getPublicDoctors(filters)
+        .then((data) => setDiscoverDoctors(data))
+        .catch(() => setDiscoverDoctors([]));
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [user?.id, discoverQuery, discoverSpecialization, discoverServiceId, fetchDoctors]);
+  }, [user?.id, discoverQuery, discoverSpecialization, discoverServiceId]);
 
   const patientAppointments = appointments.filter((a) => a.patientId === patientId);
   const upcoming = patientAppointments
@@ -153,7 +190,7 @@ export default function PatientDashboard() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [previewFile, setPreviewFile] = useState<ApiPatientDocument | null>(null);
+  const [previewFile, setPreviewFile] = useState<PreviewFileInfo | null>(null);
   const [uploadError, setUploadError] = useState("");
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -254,6 +291,70 @@ export default function PatientDashboard() {
     }
   };
 
+  const openCredentialDialog = (doctor: ApiPublicDoctor) => {
+    setCredentialDoctor({ id: doctor.id, name: doctor.fullName });
+    
+    // Construct items from the summary data which now includes previewUrls
+    const items: ApiDoctorCredential[] = [];
+    
+    if (doctor.credentialSummary.ministryOfHealthId) {
+      items.push({
+        ...doctor.credentialSummary.ministryOfHealthId,
+        doctorId: doctor.id,
+        credentialType: "MINISTRY_OF_HEALTH_ID",
+      } as ApiDoctorCredential);
+    }
+    
+    if (doctor.credentialSummary.qualifications) {
+      doctor.credentialSummary.qualifications.forEach((q) => {
+        items.push(q);
+      });
+    }
+    
+    setCredentialItems(items);
+    setCredentialLoading(false);
+  };
+
+  const openCredentialPreview = async (doctorId: string, credential: ApiDoctorCredential) => {
+    // Try to use pre-signed URL first
+    if (credential.previewUrl) {
+      setPreviewFile({
+        name: credential.name,
+        fileUrl: credential.previewUrl,
+        fileType: credential.fileType || "application/pdf",
+      });
+      return;
+    }
+
+    setPreviewingCredentialId(credential.id);
+
+    try {
+      const result = await staffService.getPatientDoctorCredentialPreview(doctorId, credential.id);
+      setPreviewFile({
+        name: credential.name,
+        fileUrl: result.previewUrl,
+        fileType: credential.fileType || "application/pdf",
+      });
+    } catch {
+      try {
+        const fallbackResult = await staffService.getPublicDoctorCredentialPreview(doctorId, credential.id);
+        setPreviewFile({
+          name: credential.name,
+          fileUrl: fallbackResult.previewUrl,
+          fileType: credential.fileType || "application/pdf",
+        });
+      } catch {
+        toast.error(
+          locale === "ar"
+            ? "تعذر فتح ملف الاعتماد حالياً"
+            : "Failed to open credential file",
+        );
+      }
+    } finally {
+      setPreviewingCredentialId(null);
+    }
+  };
+
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -323,6 +424,23 @@ export default function PatientDashboard() {
                 <p className="text-xs text-muted-foreground mt-1">
                   {doctor.experienceYears} {t("yearsExp")}
                 </p>
+                {(doctor.credentialSummary.hasVerifiedMinistryId || doctor.credentialSummary.qualificationCount > 0) && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <p className="text-xs text-emerald-700">
+                      {locale === "ar"
+                        ? `اعتمادات موثقة: ${doctor.credentialSummary.qualificationCount + (doctor.credentialSummary.hasVerifiedMinistryId ? 1 : 0)}`
+                        : `Verified credentials: ${doctor.credentialSummary.qualificationCount + (doctor.credentialSummary.hasVerifiedMinistryId ? 1 : 0)}`}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => openCredentialDialog(doctor)}
+                    >
+                      {locale === "ar" ? "عرض" : "View"}
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
             {discoverDoctors.length === 0 && (
@@ -345,6 +463,75 @@ export default function PatientDashboard() {
               </Button>
             </Link>
           </div>
+
+      {/* Received Prescriptions Section */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
+                <FileText className="h-5 w-5" />
+              </div>
+              <CardTitle className="text-base text-slate-800 dark:text-slate-100">
+                {locale === "ar" ? "الوصفات الطبية" : "My Prescriptions"}
+              </CardTitle>
+            </div>
+            <Badge variant="outline" className="text-xs border-emerald-100 text-emerald-700 bg-emerald-50">
+              {prescriptions.length} {locale === "ar" ? "وصفة" : "active"}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            {isLoadingPrescriptions ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+              </div>
+            ) : prescriptions.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-8 w-8 text-muted-foreground/30" />}
+                title={locale === "ar" ? "لا توجد وصفات طبية" : "No prescriptions found"}
+                description={locale === "ar" ? "ستظهر الوصفات الطبية المرسلة من أطبائك هنا" : "Official prescriptions from your doctors will appear here."}
+              />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {prescriptions.map((prescription) => (
+                  <motion.div
+                    key={prescription.id}
+                    whileHover={{ y: -2 }}
+                    className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => setSelectedPrescription(prescription)}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex flex-col items-center justify-center shrink-0 border border-emerald-100/50">
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase">Rx</span>
+                        <FileText className="h-4 w-4 text-emerald-600/60" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {prescription.diagnosis || (locale === "ar" ? "وصفة طبية معتمدة" : "Prescription")}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {new Date(prescription.issuedAt || prescription.createdAt).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { day: 'numeric', month: 'short' })}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-2">
+                           <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                           <p className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                             {prescription.medications.length} {locale === "ar" ? "أدوية" : "medications"}
+                           </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                          <Eye className="h-3.5 w-3.5" />
+                       </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
           <div className="space-y-3">
             {upcoming.length === 0 ? (
               <EmptyState
@@ -445,7 +632,11 @@ export default function PatientDashboard() {
                           setDownloadingReportId(report.id);
                           try {
                             const result = await patientDocumentService.getDocumentDownloadUrl(report.id);
-                            setPreviewFile({ ...report, fileUrl: result.downloadUrl });
+                            setPreviewFile({ 
+                              name: report.name, 
+                              fileUrl: result.downloadUrl,
+                              fileType: report.fileType || "application/pdf"
+                            });
                             toast.success(locale === "ar" ? "جاري عرض التقرير" : "Opening report preview");
                           } catch (error) {
                             toast.error(locale === "ar" ? "فشل تنزيل التقرير" : "Failed to download report");
@@ -545,15 +736,22 @@ export default function PatientDashboard() {
                   >
                     {/* Preview */}
                     <div
-                      className="h-32 bg-muted/50 flex items-center justify-center cursor-pointer"
-                      onClick={() => setPreviewFile(doc)}
+                      className="h-32 bg-muted/50 flex items-center justify-center cursor-pointer overflow-hidden"
+                      onClick={() => setPreviewFile({
+                        name: doc.name,
+                        fileUrl: doc.fileUrl,
+                        fileType: doc.fileType || "application/pdf"
+                      })}
                     >
                       {doc.fileType?.startsWith("image/") ? (
-                        <div className="relative h-full w-full">
+                        <div className="relative h-full w-full group-hover:scale-105 transition-transform duration-500">
                           <Image src={doc.fileUrl} alt={doc.name} fill className="object-cover" unoptimized />
                         </div>
                       ) : (
-                        <FileText className="h-12 w-12 text-muted-foreground/50" />
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground/40 group-hover:text-primary/40 transition-colors">
+                          <FileText className="h-10 w-10" />
+                          <span className="text-[10px] font-bold tracking-widest uppercase">PDF Preview</span>
+                        </div>
                       )}
                     </div>
 
@@ -573,7 +771,11 @@ export default function PatientDashboard() {
                     {/* Actions overlay */}
                     <div className="absolute top-2 right-2 rtl:right-auto rtl:left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={() => setPreviewFile(doc)}
+                        onClick={() => setPreviewFile({
+                          name: doc.name,
+                          fileUrl: doc.fileUrl,
+                          fileType: doc.fileType || "application/pdf"
+                        })}
                         className="h-7 w-7 rounded-md bg-background/90 border flex items-center justify-center hover:bg-background"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -609,39 +811,98 @@ export default function PatientDashboard() {
         </Card>
       </motion.div>
 
-      {/* File preview modal */}
-      {previewFile && (
-        <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-          onClick={() => setPreviewFile(null)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-background rounded-xl max-w-3xl max-h-[80vh] overflow-auto w-full p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">{previewFile.name}</h3>
-              <Button variant="ghost" size="sm" onClick={() => setPreviewFile(null)}>
-                {t("close")}
-              </Button>
+      {/* Unified File Preview Dialog */}
+      <FilePreviewDialog
+        open={Boolean(previewFile || selectedPrescription)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewFile(null);
+            setSelectedPrescription(null);
+          }
+        }}
+        file={previewFile}
+      >
+        {selectedPrescription && (
+          <PrescriptionDocument 
+            prescription={selectedPrescription} 
+            doctorName={selectedPrescription.doctor?.fullName}
+          />
+        )}
+      </FilePreviewDialog>
+
+      <Dialog
+        open={Boolean(credentialDoctor)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCredentialDoctor(null);
+            setCredentialItems([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {locale === "ar"
+                ? `اعتمادات الطبيب ${credentialDoctor?.name || ""}`
+                : `Doctor Credentials${credentialDoctor ? `: ${credentialDoctor.name}` : ""}`}
+            </DialogTitle>
+            <DialogDescription>
+              {locale === "ar"
+                ? "هذه الملفات معتمدة ومرئية للمرضى."
+                : "These files are verified and visible to patients."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {credentialLoading ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar" ? "جاري تحميل الاعتمادات..." : "Loading credentials..."}
+            </p>
+          ) : credentialItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {locale === "ar"
+                ? "لا توجد ملفات اعتماد متاحة حالياً."
+                : "No credential files are currently available."}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {credentialItems.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.credentialType === "MINISTRY_OF_HEALTH_ID"
+                        ? locale === "ar"
+                          ? "ترخيص وزارة الصحة"
+                          : "Ministry of Health License"
+                        : locale === "ar"
+                          ? "شهادة تأهيل"
+                          : "Qualification"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={previewingCredentialId === item.id}
+                    onClick={() => {
+                      if (credentialDoctor) {
+                        void openCredentialPreview(credentialDoctor.id, item);
+                      }
+                    }}
+                  >
+                    {previewingCredentialId === item.id
+                      ? locale === "ar"
+                        ? "جاري الفتح..."
+                        : "Opening..."
+                      : locale === "ar"
+                        ? "معاينة"
+                        : "Preview"}
+                  </Button>
+                </div>
+              ))}
             </div>
-            {previewFile.fileType?.startsWith("image/") ? (
-              <Image
-                src={previewFile.fileUrl}
-                alt={previewFile.name}
-                width={1200}
-                height={900}
-                className="w-full rounded-lg"
-                unoptimized
-              />
-            ) : (
-              <iframe src={previewFile.fileUrl} className="w-full h-[60vh] rounded-lg border" title={previewFile.name} />
-            )}
-          </motion.div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

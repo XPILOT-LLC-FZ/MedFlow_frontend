@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { Save, Upload, User, Mail, Phone, FileBadge2, Stethoscope, Award, Calendar } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Save, Upload, User, Mail, Phone, FileBadge2, Stethoscope, Award, Calendar, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { UpdateDoctorPayload } from "@/types";
+import { staffService } from "@/services/staffService";
+import type { ApiDoctorCredential, UpdateDoctorPayload } from "@/types";
+import { FilePreviewDialog } from "@/components/shared/FilePreviewDialog";
 import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 
 export default function DoctorProfileSettingsPage() {
@@ -29,6 +32,29 @@ export default function DoctorProfileSettingsPage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [credentials, setCredentials] = useState<ApiDoctorCredential[]>([]);
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+  const [uploadingCredentialType, setUploadingCredentialType] = useState<
+    "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION" | null
+  >(null);
+  const [previewingCredentialId, setPreviewingCredentialId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    name: string;
+    fileUrl: string;
+    fileType: string;
+  } | null>(null);
+  const [deletingCredentialId, setDeletingCredentialId] = useState<string | null>(null);
+
+  const ministryFileInputRef = useRef<HTMLInputElement>(null);
+  const qualificationFileInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_CREDENTIAL_SIZE = 10 * 1024 * 1024;
+  const ALLOWED_CREDENTIAL_TYPES = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+  ];
 
   const doctorRecord = useMemo(
     () =>
@@ -44,6 +70,27 @@ export default function DoctorProfileSettingsPage() {
   useEffect(() => {
     void fetchDoctors();
   }, [fetchDoctors]);
+
+  const loadDoctorCredentials = React.useCallback(async () => {
+    if (!doctorRecord?.id) {
+      setCredentials([]);
+      return;
+    }
+
+    setIsLoadingCredentials(true);
+    try {
+      const records = await staffService.getDoctorCredentials(doctorRecord.id);
+      setCredentials(records);
+    } catch {
+      setCredentials([]);
+    } finally {
+      setIsLoadingCredentials(false);
+    }
+  }, [doctorRecord?.id]);
+
+  useEffect(() => {
+    void loadDoctorCredentials();
+  }, [loadDoctorCredentials]);
 
   useEffect(() => {
     const defaultFullName = user?.name ?? doctorRecord?.fullName ?? "";
@@ -140,6 +187,193 @@ export default function DoctorProfileSettingsPage() {
       error(message);
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const validateCredentialFile = (file: File): boolean => {
+    if (!ALLOWED_CREDENTIAL_TYPES.includes(file.type)) {
+      error(
+        locale === "ar"
+          ? "نوع الملف غير مدعوم. استخدم PDF أو صورة."
+          : "Unsupported file type. Use PDF or image files.",
+      );
+      return false;
+    }
+
+    if (file.size > MAX_CREDENTIAL_SIZE) {
+      error(
+        locale === "ar"
+          ? "حجم الملف يتجاوز 10 ميجابايت"
+          : "File size exceeds 10 MB",
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const uploadCredentialFiles = async (
+    files: FileList,
+    credentialType: "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION",
+  ) => {
+    if (!doctorRecord?.id) {
+      error(locale === "ar" ? "تعذر العثور على ملف الطبيب" : "Doctor profile not found");
+      return;
+    }
+
+    const validFiles = Array.from(files).filter(validateCredentialFile);
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    if (credentialType === "QUALIFICATION") {
+      const qualificationCount = credentials.filter(
+        (item) => item.credentialType === "QUALIFICATION",
+      ).length;
+      const remaining = Math.max(0, 5 - qualificationCount);
+
+      if (remaining <= 0) {
+        error(
+          locale === "ar"
+            ? "تم الوصول للحد الأقصى لشهادات التأهيل (5)"
+            : "Qualification files limit reached (5)",
+        );
+        return;
+      }
+
+      if (validFiles.length > remaining) {
+        error(
+          locale === "ar"
+            ? `يمكن رفع ${remaining} ملف(ات) فقط حالياً`
+            : `You can upload only ${remaining} more file(s)`,
+        );
+      }
+    }
+
+    const filesToUpload =
+      credentialType === "QUALIFICATION"
+        ? validFiles.slice(
+            0,
+            Math.max(
+              0,
+              5 - credentials.filter((item) => item.credentialType === "QUALIFICATION").length,
+            ),
+          )
+        : validFiles.slice(0, 1);
+
+    setUploadingCredentialType(credentialType);
+
+    try {
+      for (const file of filesToUpload) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(String(event.target?.result || ""));
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
+
+        await staffService.createDoctorCredential(doctorRecord.id, {
+          credentialType,
+          name: file.name,
+          fileUrl: dataUrl,
+          fileType: file.type || null,
+        });
+      }
+
+      success(
+        locale === "ar"
+          ? "تم رفع ملفات الاعتماد بنجاح"
+          : "Credential files uploaded successfully",
+      );
+      await loadDoctorCredentials();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : locale === "ar"
+            ? "تعذر رفع ملفات الاعتماد"
+            : "Failed to upload credential files";
+      error(message);
+    } finally {
+      setUploadingCredentialType(null);
+      if (ministryFileInputRef.current) {
+        ministryFileInputRef.current.value = "";
+      }
+      if (qualificationFileInputRef.current) {
+        qualificationFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const openCredentialPreview = async (credential: ApiDoctorCredential) => {
+    if (!doctorRecord?.id) {
+      return;
+    }
+
+    // Try to use a pre-signed URL first to avoid extra API calls and 401s
+    if (credential.previewUrl) {
+      setPreviewFile({
+        name: credential.name,
+        fileUrl: credential.previewUrl,
+        fileType: credential.fileType || "application/pdf"
+      });
+      return;
+    }
+
+    setPreviewingCredentialId(credential.id);
+    try {
+      const result = await staffService.getDoctorCredentialPreview(
+        doctorRecord.id,
+        credential.id,
+      );
+      
+      setPreviewFile({
+        name: credential.name,
+        fileUrl: result.previewUrl,
+        fileType: credential.fileType || "application/pdf"
+      });
+    } catch {
+      error(
+        locale === "ar"
+          ? "تعذر فتح ملف الاعتماد"
+          : "Failed to open credential file",
+      );
+    } finally {
+      setPreviewingCredentialId(null);
+    }
+  };
+
+  const deleteCredential = async (credentialId: string) => {
+    if (!doctorRecord?.id) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      locale === "ar"
+        ? "هل تريد حذف ملف الاعتماد؟"
+        : "Delete this credential file?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingCredentialId(credentialId);
+    try {
+      await staffService.deleteDoctorCredential(doctorRecord.id, credentialId);
+      success(
+        locale === "ar"
+          ? "تم حذف ملف الاعتماد"
+          : "Credential file deleted",
+      );
+      await loadDoctorCredentials();
+    } catch {
+      error(
+        locale === "ar"
+          ? "فشل حذف ملف الاعتماد"
+          : "Failed to delete credential file",
+      );
+    } finally {
+      setDeletingCredentialId(null);
     }
   };
 
@@ -328,6 +562,172 @@ export default function DoctorProfileSettingsPage() {
         </CardContent>
       </Card>
 
+      <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 overflow-hidden transition-colors duration-200">
+        <CardHeader className="pb-4 border-b border-slate-50 dark:border-slate-800/50">
+          <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+            {locale === "ar" ? "ملفات الاعتماد" : "Credential Files"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-6">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {locale === "ar"
+              ? "يراجع المشرف الملفات قبل ظهورها للمرضى أو العرض العام."
+              : "Admins review and verify files before they become visible to patients or public visitors."}
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-slate-200/70 dark:border-slate-800 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {locale === "ar" ? "ترخيص وزارة الصحة" : "Ministry of Health ID"}
+                </span>
+                <Badge variant="outline">
+                  {credentials.filter((item) => item.credentialType === "MINISTRY_OF_HEALTH_ID").length}/1
+                </Badge>
+              </div>
+              <input
+                ref={ministryFileInputRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(event) => {
+                  if (event.target.files && event.target.files.length > 0) {
+                    void uploadCredentialFiles(event.target.files, "MINISTRY_OF_HEALTH_ID");
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full"
+                disabled={uploadingCredentialType !== null}
+                onClick={() => ministryFileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {uploadingCredentialType === "MINISTRY_OF_HEALTH_ID"
+                  ? locale === "ar"
+                    ? "جارٍ الرفع..."
+                    : "Uploading..."
+                  : locale === "ar"
+                    ? "رفع أو استبدال"
+                    : "Upload or Replace"}
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-slate-200/70 dark:border-slate-800 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {locale === "ar" ? "شهادات التأهيل" : "Qualification Files"}
+                </span>
+                <Badge variant="outline">
+                  {credentials.filter((item) => item.credentialType === "QUALIFICATION").length}/5
+                </Badge>
+              </div>
+              <input
+                ref={qualificationFileInputRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                className="hidden"
+                multiple
+                onChange={(event) => {
+                  if (event.target.files && event.target.files.length > 0) {
+                    void uploadCredentialFiles(event.target.files, "QUALIFICATION");
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full"
+                disabled={uploadingCredentialType !== null}
+                onClick={() => qualificationFileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {uploadingCredentialType === "QUALIFICATION"
+                  ? locale === "ar"
+                    ? "جارٍ الرفع..."
+                    : "Uploading..."
+                  : locale === "ar"
+                    ? "رفع شهادات"
+                    : "Upload Qualifications"}
+              </Button>
+            </div>
+          </div>
+
+          {isLoadingCredentials ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {locale === "ar" ? "جاري تحميل الملفات..." : "Loading files..."}
+            </p>
+          ) : credentials.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {locale === "ar"
+                ? "لا توجد ملفات اعتماد مرفوعة بعد"
+                : "No credential files uploaded yet"}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {credentials.map((item) => {
+                const statusLabel = item.isVerified
+                  ? locale === "ar"
+                    ? "موثق"
+                    : "Verified"
+                  : locale === "ar"
+                    ? "قيد المراجعة"
+                    : "Pending";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-3 rounded-lg border border-slate-200/70 dark:border-slate-800 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {item.credentialType === "MINISTRY_OF_HEALTH_ID"
+                          ? locale === "ar"
+                            ? "ترخيص وزارة الصحة"
+                            : "Ministry of Health ID"
+                          : locale === "ar"
+                            ? "شهادة تأهيل"
+                            : "Qualification"}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Badge variant={item.isVerified ? "success" : "outline"}>
+                        {statusLabel}
+                      </Badge>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        disabled={previewingCredentialId === item.id}
+                        onClick={() => void openCredentialPreview(item)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        disabled={deletingCredentialId === item.id}
+                        onClick={() => void deleteCredential(item.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-rose-600" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end pt-2">
         <Button 
           onClick={() => void handleSaveProfile()} 
@@ -345,6 +745,11 @@ export default function DoctorProfileSettingsPage() {
         </Button>
       </div>
 
+      <FilePreviewDialog
+        open={Boolean(previewFile)}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+        file={previewFile}
+      />
     </div>
   );
 }

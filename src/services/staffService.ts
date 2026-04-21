@@ -3,11 +3,15 @@
  */
 import { apiClient } from "@/lib/apiClient";
 import type {
+  ApiDoctorCredential,
   ApiDoctor,
+  ApiPublicDoctor,
+  CreateDoctorCredentialPayload,
   CreateDoctorPayload,
   DoctorListFilters,
   DoctorShift,
   ResetDoctorPasswordPayload,
+  UpdateDoctorCredentialPayload,
   UpdateDoctorPayload,
 } from "@/types";
 
@@ -34,8 +38,79 @@ export const staffService = {
     return apiClient.get(`/doctors${toQueryString(filters)}`);
   },
 
+  async getPublicDoctors(filters?: {
+    specialization?: string;
+    search?: string;
+    serviceId?: string;
+    clinicId?: string;
+  }): Promise<ApiPublicDoctor[]> {
+    return apiClient.get(`/doctors/public/list${toQueryString(filters)}`);
+  },
+
   async getDoctorById(id: string): Promise<ApiDoctor> {
     return apiClient.get(`/doctors/${id}`);
+  },
+
+  async getDoctorCredentials(doctorId: string): Promise<ApiDoctorCredential[]> {
+    return apiClient.get(`/doctors/${doctorId}/credentials`);
+  },
+
+  async getPublicDoctorCredentials(doctorId: string): Promise<ApiDoctorCredential[]> {
+    return apiClient.get(`/doctors/${doctorId}/credentials/public`);
+  },
+
+  async getPatientVisibleDoctorCredentials(doctorId: string): Promise<ApiDoctorCredential[]> {
+    return apiClient.get(`/doctors/${doctorId}/credentials/patient`);
+  },
+
+  async createDoctorCredential(
+    doctorId: string,
+    payload: CreateDoctorCredentialPayload,
+  ): Promise<ApiDoctorCredential> {
+    return apiClient.post(`/doctors/${doctorId}/credentials`, payload);
+  },
+
+  async updateDoctorCredential(
+    doctorId: string,
+    credentialId: string,
+    payload: UpdateDoctorCredentialPayload,
+  ): Promise<ApiDoctorCredential> {
+    return apiClient.patch(
+      `/doctors/${doctorId}/credentials/${credentialId}`,
+      payload,
+    );
+  },
+
+  async deleteDoctorCredential(
+    doctorId: string,
+    credentialId: string,
+  ): Promise<{ deleted: boolean }> {
+    return apiClient.delete(`/doctors/${doctorId}/credentials/${credentialId}`);
+  },
+
+  async getDoctorCredentialPreview(
+    doctorId: string,
+    credentialId: string,
+  ): Promise<{ previewUrl: string }> {
+    return apiClient.get(`/doctors/${doctorId}/credentials/${credentialId}/preview`);
+  },
+
+  async getPublicDoctorCredentialPreview(
+    doctorId: string,
+    credentialId: string,
+  ): Promise<{ previewUrl: string }> {
+    return apiClient.get(
+      `/doctors/${doctorId}/credentials/public/${credentialId}/preview`,
+    );
+  },
+
+  async getPatientDoctorCredentialPreview(
+    doctorId: string,
+    credentialId: string,
+  ): Promise<{ previewUrl: string }> {
+    return apiClient.get(
+      `/doctors/${doctorId}/credentials/patient/${credentialId}/preview`,
+    );
   },
 
   async createDoctor(data: CreateDoctorPayload): Promise<ApiDoctor> {
