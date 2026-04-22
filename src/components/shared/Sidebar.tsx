@@ -85,8 +85,21 @@ export function Sidebar() {
   };
 
   const renderLogo = () => {
+    if (isDoctorSidebar) {
+      return (
+        <Link href="/doctor/dashboard" className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-sm">
+            <Activity className="h-5 w-5 text-white" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">ClinicFlow</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider leading-tight">Medical Suite</span>
+          </div>
+        </Link>
+      );
+    }
     return (
-      <Link href={isDoctorSidebar ? "/doctor/dashboard" : "/main"} className="flex items-center">
+      <Link href="/main" className="flex items-center">
         <BrandLogo
           className="gap-2"
           iconClassName="h-9 w-9 rounded-xl"
@@ -115,6 +128,7 @@ export function Sidebar() {
       <motion.aside
         className={cn(
           "fixed top-0 z-50 h-full w-64 border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto",
+          isDoctorSidebar && "bg-white border-slate-100 dark:bg-slate-950 dark:border-slate-800",
           isRTL ? "right-0 border-l border-r-0" : "left-0",
           sidebarOpen
             ? "translate-x-0"
@@ -124,67 +138,88 @@ export function Sidebar() {
         )}
       >
         {/* Logo */}
-        <div className={cn("flex items-center justify-between h-16 px-5 border-b border-slate-100", isDoctorSidebar && "h-[72px]")}>
+        <div className={cn("flex items-center justify-between h-16 px-6", isDoctorSidebar ? "border-none" : "border-b border-slate-100 dark:border-slate-800")}>
           {renderLogo()}
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-muted">
             <X className="h-4 w-4" />
           </button>
         </div>
 
+        {isDoctorSidebar && <div className="mx-6 border-b border-slate-100 dark:border-slate-800/50 mb-2" />}
+
         {/* Nav items */}
-        <nav className={cn("flex-1 overflow-y-auto p-3 space-y-1", isDoctorSidebar && "px-3 py-4")}>
+        <nav className={cn("flex-1 overflow-y-auto p-4 space-y-1.5", isDoctorSidebar && "px-5 py-4")}>
           {items.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
             const Icon = item.icon;
-            const isSettings = isDoctorSidebar && item.label === "Settings";
             return (
               <Link
                 key={`${role}:${item.href}:${item.label}`}
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                  isDoctorSidebar && "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100",
+                  "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  isDoctorSidebar && isActive && "bg-blue-600 text-white shadow-none dark:bg-blue-500",
-                  isDoctorSidebar && isSettings && !isActive && "text-slate-500 dark:text-slate-400"
+                  isDoctorSidebar && (
+                    isActive 
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-200/50 dark:shadow-none" 
+                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100"
+                  )
                 )}
               >
-                <Icon className={cn("h-4 w-4 shrink-0", isDoctorSidebar && "h-[17px] w-[17px]")} />
+                <Icon className={cn("h-4 w-4 shrink-0", isDoctorSidebar && "h-[18px] w-[18px]")} />
                 <span>{locale === "ar" ? item.labelAr : item.label}</span>
               </Link>
             );
           })}
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-2">
-            <button
-              type="button"
-              onClick={async () => {
-                setSidebarOpen(false);
-                await handleLogout();
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
-            >
-              <LogOut className={cn("h-4 w-4", isDoctorSidebar && "h-[17px] w-[17px]")} />
-              <span>{t("logout")}</span>
-            </button>
-          </div>
+          {isDoctorSidebar && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setSidebarOpen(false);
+                  await handleLogout();
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+              >
+                <LogOut className="h-[18px] w-[18px]" />
+                <span>{t("logout")}</span>
+              </button>
+            </div>
+          )}
+
+          {!isDoctorSidebar && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setSidebarOpen(false);
+                  await handleLogout();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>{t("logout")}</span>
+              </button>
+            </div>
+          )}
         </nav>
 
         {/* Footer */}
-        <div className={cn("p-3 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800" : "border-sidebar-border")}>
+        <div className={cn("p-4 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30" : "border-sidebar-border")}>
           {user && (
-            <div className="flex items-center gap-3 rounded-xl px-2 py-1">
-              <Avatar className="h-9 w-9 border border-border">
+            <div className={cn("flex items-center gap-3 rounded-xl px-2", isDoctorSidebar ? "py-1.5" : "py-1")}>
+              <Avatar className={cn("border border-border", isDoctorSidebar ? "h-10 w-10" : "h-9 w-9")}>
                 <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
                 <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{profileName}</p>
+                <p className={cn("truncate font-semibold text-slate-800 dark:text-slate-100", isDoctorSidebar ? "text-sm" : "text-sm")}>{profileName}</p>
                 {isDoctorSidebar ? (
-                  <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">Cardiologist</p>
+                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Cardiologist</p>
                 ) : (
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("settings")}</p>
                 )}

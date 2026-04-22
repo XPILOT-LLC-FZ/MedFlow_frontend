@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { Phone, Video, MoreVertical, Paperclip, Mic, Send, Check, CheckCheck } from "lucide-react";
+import { Phone, Video, Info, MoreHorizontal, Paperclip, Mic, Send, Check, CheckCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { StatusBadge } from "./StatusBadge";
 import Image from "next/image";
 
 interface Message {
@@ -43,14 +42,14 @@ export function DoctorChatMain({
   onSend,
   onInputChange,
 }: DoctorChatMainProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   if (!recipient) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-white p-8 text-center text-slate-400 transition-colors duration-300 dark:bg-[#020617]">
+      <div className="flex flex-1 items-center justify-center bg-white p-8 text-center text-slate-400 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-3xl flex items-center justify-center shadow-sm">
-             <MoreVertical size={32} className="opacity-20" />
+          <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-3xl flex items-center justify-center shadow-sm">
+             <MoreHorizontal size={32} className="opacity-20" />
           </div>
           <p className="font-bold text-slate-900 dark:text-white">{t("noResults")}</p>
         </div>
@@ -59,86 +58,89 @@ export function DoctorChatMain({
   }
 
   return (
-    <div className="flex h-full flex-1 flex-col overflow-hidden bg-white transition-colors duration-300 dark:bg-slate-950">
+    <div className="flex h-full flex-1 flex-col overflow-hidden bg-white dark:bg-slate-950 transition-all duration-500">
       {/* Chat Header */}
-      <header className="flex h-[74px] flex-shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-950">
+      <header className="flex h-[80px] flex-shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 dark:border-slate-800 dark:bg-slate-950 shadow-sm z-10">
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 ring-2 ring-slate-50 dark:ring-slate-900 transition-all duration-300">
+            <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 ring-2 ring-white dark:ring-slate-950 shadow-sm">
               {recipient.avatar ? (
-                <Image src={recipient.avatar} alt={recipient.name} width={40} height={40} className="w-full h-full object-cover" />
+                <Image src={recipient.avatar} alt={recipient.name} width={48} height={48} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 text-blue-600 dark:text-blue-400 font-bold text-base">
+                <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-600 font-bold text-lg">
                   {recipient.name.charAt(0)}
                 </div>
               )}
             </div>
-            <div className="absolute -bottom-0.5 -inline-end-0.5">
-              <StatusBadge status={recipient.status} className="h-3.5 w-3.5 border-2 border-white dark:border-slate-900 shadow-sm" />
-            </div>
+            {recipient.status === "online" && (
+              <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950" />
+            )}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-slate-800 dark:text-white text-base tracking-tight">{recipient.name}</h2>
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+            <h2 className="font-bold text-slate-900 dark:text-white text-[16px] tracking-tight">{recipient.name}</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {recipient.status === "online" ? (locale === "ar" ? "متصل" : "Online") : (locale === "ar" ? "غير متصل" : "Offline")}
+                </span>
+              </div>
+              <span className="h-4 w-px bg-slate-200 mx-1" />
+              <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest">
                 {recipient.role}
               </span>
-            </div>
-            <div className="flex items-center gap-1.5 leading-none">
-               <span className={cn(
-                 "w-1.5 h-1.5 rounded-full",
-                 recipient.status === "online" ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
-               )} />
-               <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 capitalize">{recipient.status}</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-all hover:bg-slate-50 hover:text-blue-600 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
+          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
                <Video size={18} />
           </button>
-          <button className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-all hover:bg-slate-50 hover:text-blue-600 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800">
+          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
                <Phone size={18} />
           </button>
-          <button className="rounded-lg border border-slate-200 p-2 text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
-            <MoreVertical size={18} />
+          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
+               <Info size={18} />
+          </button>
+          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
+            <MoreHorizontal size={18} />
           </button>
         </div>
       </header>
 
       {/* Messages Area */}
-      <div className="flex-1 space-y-4 overflow-y-auto bg-[#F6F9FF] p-6 [scrollbar-width:none] transition-colors duration-300 dark:bg-[#020617] [&::-webkit-scrollbar]:hidden">
-        {messages.map((msg, idx) => {
-          const showTime = idx === 0 || messages[idx-1].time !== msg.time;
+      <div className="flex-1 space-y-6 overflow-y-auto bg-[#F8FAFC] p-6 no-scrollbar dark:bg-slate-950/50 transition-all duration-500">
+        {messages.map((msg) => {
           return (
             <div key={msg.id} className={cn(
               "flex flex-col",
               msg.isMine ? "items-end" : "items-start"
             )}>
-              {showTime && (
-                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600 mb-2 uppercase tracking-[0.2em]">{msg.time}</span>
-              )}
               <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
                 className={cn(
-                  "max-w-[78%] rounded-2xl px-4 py-2.5 text-sm font-medium leading-relaxed transition-all duration-300",
+                  "max-w-[75%] rounded-[20px] px-5 py-3 text-[14px] font-medium leading-relaxed shadow-sm",
                   msg.isMine 
-                    ? "rounded-br-md bg-[#2F6DF6] text-white shadow-sm" 
-                    : "rounded-bl-md border border-slate-200 bg-white text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                    ? "bg-[#2563EB] text-white" 
+                    : "bg-white border border-slate-100 text-slate-700 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-200"
                 )}
               >
                 <p>{msg.text}</p>
-                
+              </motion.div>
+              <div className="flex items-center gap-2 mt-1.5 px-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{msg.time}</span>
                 {msg.isMine && (
-                  <div className="flex justify-end mt-1 opacity-70">
-                    {msg.status === "sent" && <Check size={12} className="text-white" />}
-                    {msg.status === "delivered" && <CheckCheck size={12} className="text-white" />}
-                    {msg.status === "seen" && <CheckCheck size={12} className="text-white" />}
+                  <div className="flex">
+                    {msg.status === "seen" ? (
+                      <CheckCheck size={12} className="text-blue-500" />
+                    ) : (
+                      <Check size={12} className="text-slate-400" />
+                    )}
                   </div>
                 )}
-              </motion.div>
+              </div>
             </div>
           );
         })}
@@ -149,55 +151,56 @@ export function DoctorChatMain({
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 5 }}
-              className="flex items-center gap-3 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 self-start"
+              className="flex items-center gap-3 self-start"
             >
-              <div className="flex gap-1">
+              <div className="flex gap-1 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" />
               </div>
-              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t("typing")}</span>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Message Input */}
-      <div className="flex-shrink-0 border-t border-slate-200 bg-white p-4 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950">
-        <div className="relative flex items-center gap-2 rounded-xl border border-slate-200 bg-[#F7FAFF] p-1.5 ps-3 transition-all duration-300 focus-within:border-blue-300 dark:border-slate-800 dark:bg-slate-900">
-          <button className="rounded-lg p-1 text-slate-400 transition-all duration-300 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400">
-            <Paperclip size={18} />
+      {/* Message Input Footer */}
+      <div className="flex-shrink-0 border-t border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
+        <div className="flex items-center gap-3">
+          <button className="h-11 w-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all dark:bg-slate-900 dark:text-slate-500">
+            <Paperclip size={20} />
           </button>
 
-          <textarea
-            rows={1}
-            placeholder={t("typeMessage")}
-            className="max-h-32 flex-1 resize-none border-none bg-transparent py-2 text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400 dark:text-slate-200"
-            value={inputValue}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-          />
+          <div className="relative flex flex-1 items-center bg-[#F1F5F9]/60 rounded-xl px-4 dark:bg-slate-900/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+            <textarea
+              rows={1}
+              placeholder={locale === "ar" ? "اكتب رسالة..." : "Type a message..."}
+              className="w-full max-h-32 resize-none border-none bg-transparent py-3 text-[14px] font-medium text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-200"
+              value={inputValue}
+              onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  onSend();
+                }
+              }}
+            />
+          </div>
 
-          <div className="flex items-center gap-1 pe-1">
-            <button className="rounded-lg p-2 text-slate-400 transition-all duration-300 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400">
-              <Mic size={18} />
+          <div className="flex items-center gap-2">
+            <button className="h-11 w-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all dark:bg-slate-900 dark:text-slate-500">
+              <Mic size={20} />
             </button>
             <button 
               onClick={onSend}
               disabled={!inputValue.trim()}
               className={cn(
-                "rounded-lg p-2.5 transition-all duration-300",
+                "h-11 w-11 flex items-center justify-center rounded-xl shadow-lg transition-all",
                 inputValue.trim() 
-                  ? "bg-[#7EA5FF] text-white hover:bg-[#2F6DF6]" 
-                  : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
+                  ? "bg-[#2563EB] text-white shadow-blue-600/20" 
+                  : "bg-blue-200 text-white cursor-not-allowed"
               )}
             >
-              <Send size={16} className={cn(inputValue.trim() && "transform -rotate-12")} />
+              <Send size={18} className={cn(inputValue.trim() && "transform -rotate-12")} />
             </button>
           </div>
         </div>

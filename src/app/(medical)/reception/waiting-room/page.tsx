@@ -13,7 +13,9 @@ import { bookingService } from "@/services/bookingService";
 import { surveyService } from "@/services/surveyService";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
-import type { ApiReceptionHandoff, Appointment } from "@/types";
+import type { ApiReceptionHandoff, Appointment, ApiDoctor } from "@/types";
+import { notificationsService, type ReceptionInboxMessage } from "@/services/notificationsService";
+import { staffService } from "@/services/staffService";
 
 const QUEUE_STATUSES: Appointment["status"][] = [
   "scheduled",
@@ -86,6 +88,10 @@ export default function WaitingRoomPage() {
   const [isLoadingHandoffs, setIsLoadingHandoffs] = useState(false);
   const [reviewingHandoffId, setReviewingHandoffId] = useState<string | null>(null);
 
+  const [inboxMessages, setInboxMessages] = useState<ReceptionInboxMessage[]>([]);
+  const [isLoadingInbox, setIsLoadingInbox] = useState(false);
+  const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
+
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
 
   const loadQueue = useCallback(async () => {
@@ -103,6 +109,22 @@ export default function WaitingRoomPage() {
     } finally {
       setIsLoadingHandoffs(false);
     }
+
+    setIsLoadingInbox(true);
+    try {
+      const inboxItems = await notificationsService.getReceptionInbox({
+        status: "NEW",
+        limit: 20,
+      });
+      setInboxMessages(inboxItems);
+      
+      const doctorsList = await staffService.getDoctors({ limit: 100 });
+      setDoctors(doctorsList);
+    } catch {
+      setInboxMessages([]);
+    } finally {
+      setIsLoadingInbox(false);
+    }
   }, [fetchAppointments, todayKey]);
 
   useEffect(() => {
@@ -110,10 +132,30 @@ export default function WaitingRoomPage() {
 
     const interval = setInterval(() => {
       void loadQueue();
-    }, 15000);
+    }, 30000); // 30s instead of 15s to be safe
 
     return () => clearInterval(interval);
   }, [loadQueue]);
+
+  const handleAssignInbox = async (id: string, doctorId: string) => {
+    try {
+      await notificationsService.assignReceptionInbox(id, doctorId);
+      setInboxMessages(prev => prev.filter(m => m.id !== id));
+      toast.success(locale === "ar" ? "تم تعيين الرسالة للطبيب" : "Message assigned to doctor");
+    } catch {
+      toast.error(locale === "ar" ? "فشل التعيين" : "Failed to assign");
+    }
+  };
+
+  const handleResolveInbox = async (id: string) => {
+    try {
+      await notificationsService.resolveReceptionInbox(id);
+      setInboxMessages(prev => prev.filter(m => m.id !== id));
+      toast.success(locale === "ar" ? "تم حل الاستفسار" : "Inquiry resolved");
+    } catch {
+      toast.error(locale === "ar" ? "فشل التحديث" : "Failed to resolve");
+    }
+  };
 
   const queue = useMemo(() => {
     return appointments
@@ -369,58 +411,111 @@ export default function WaitingRoomPage() {
         </Badge>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {locale === "ar" ? "المهام الواردة من الأطباء" : "Doctor Handoffs"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {isLoadingHandoffs && handoffs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {locale === "ar" ? "جارٍ تحميل المهام..." : "Loading handoffs..."}
-            </p>
-          ) : handoffs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {locale === "ar"
-                ? "لا توجد مهام جديدة من الأطباء"
-                : "No new doctor handoffs"}
-            </p>
-          ) : (
-            handoffs.slice(0, 8).map((handoff) => (
-              <div
-                key={handoff.id}
-                className="rounded-lg border p-3 flex items-start justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{handoff.patientName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {handoff.doctorName} • {new Date(handoff.createdAt).toLocaleString(locale === "ar" ? "ar-EG" : "en-US")}
-                  </p>
-                  {handoff.diagnosis && (
-                    <p className="text-xs text-foreground/80">{handoff.diagnosis}</p>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs"
-                  disabled={reviewingHandoffId === handoff.id}
-                  onClick={() => void handleMarkHandoffReviewed(handoff.id)}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {locale === "ar" ? "المهام الواردة من الأطباء" : "Doctor Handoffs"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isLoadingHandoffs && handoffs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {locale === "ar" ? "جارٍ تحميل المهام..." : "Loading handoffs..."}
+              </p>
+            ) : handoffs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {locale === "ar"
+                  ? "لا توجد مهام جديدة من الأطباء"
+                  : "No new doctor handoffs"}
+              </p>
+            ) : (
+              handoffs.slice(0, 8).map((handoff) => (
+                <div
+                  key={handoff.id}
+                  className="rounded-lg border p-3 flex items-start justify-between gap-3"
                 >
-                  {reviewingHandoffId === handoff.id
-                    ? locale === "ar"
-                      ? "جارٍ الحفظ..."
-                      : "Saving..."
-                    : locale === "ar"
-                      ? "تمت المراجعة"
-                      : "Mark Reviewed"}
-                </Button>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{handoff.patientName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {handoff.doctorName} • {new Date(handoff.createdAt).toLocaleString(locale === "ar" ? "ar-EG" : "en-US")}
+                    </p>
+                    {handoff.diagnosis && (
+                      <p className="text-xs text-foreground/80">{handoff.diagnosis}</p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    disabled={reviewingHandoffId === handoff.id}
+                    onClick={() => void handleMarkHandoffReviewed(handoff.id)}
+                  >
+                    {reviewingHandoffId === handoff.id
+                      ? locale === "ar"
+                        ? "جارٍ الحفظ..."
+                        : "Saving..."
+                      : locale === "ar"
+                        ? "تمت المراجعة"
+                        : "Mark Reviewed"}
+                  </Button>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span>{locale === "ar" ? "صندوق وارد الواتساب" : "WhatsApp Inbox"}</span>
+              <Badge variant="info">{inboxMessages.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {isLoadingInbox && inboxMessages.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {locale === "ar" ? "جارٍ التحميل..." : "Loading..."}
+              </p>
+            ) : inboxMessages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {locale === "ar" ? "لا توجد رسائل جديدة" : "No new messages"}
+              </p>
+            ) : (
+              inboxMessages.map((msg) => (
+                <div key={msg.id} className="rounded-lg border p-3 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold">{msg.phoneNumber}</p>
+                      <p className="text-xs text-foreground/90 bg-slate-50 dark:bg-slate-800 p-2 rounded italic">
+                        &quot;{msg.messageText}&quot;
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(msg.receivedAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <select 
+                      className="text-[10px] border rounded px-1 h-7 bg-transparent"
+                      onChange={(e) => handleAssignInbox(msg.id, e.target.value)}
+                      defaultValue=""
+                    >
+                      <option value="" disabled>{locale === "ar" ? "تعيين لطبيب" : "Assign to Doctor"}</option>
+                      {doctors.map(d => (
+                        <option key={d.id} value={d.userId}>{d.fullName}</option>
+                      ))}
+                    </select>
+                    <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => handleResolveInbox(msg.id)}>
+                      {locale === "ar" ? "حل" : "Resolve"}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="space-y-3">
         {isLoading && queue.length === 0 && (

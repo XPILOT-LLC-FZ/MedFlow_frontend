@@ -1,23 +1,26 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   AlertTriangle,
-  CheckCircle2,
-  Eye,
   FileText,
   HeartPulse,
   Plus,
   Send,
   UserRound,
   X,
+  Mic,
+  LinkIcon,
+  RefreshCw,
+  Check,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -127,7 +130,6 @@ export default function DoctorPatientDetailsPage() {
 
   const [activeTab, setActiveTab] = useState("history");
   const [notesDraft, setNotesDraft] = useState("");
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   const [diagnosisDraft, setDiagnosisDraft] = useState("");
   const [prescriptionNotesDraft, setPrescriptionNotesDraft] = useState("");
@@ -308,38 +310,6 @@ export default function DoctorPatientDetailsPage() {
       isCancelled = true;
     };
   }, [locale, patientId, toastError, toastInfo]);
-
-
-  const saveClinicalNotes = async () => {
-    const latestAppointmentId = appointments[0]?.id;
-    if (!latestAppointmentId) {
-      toastError(
-        locale === "ar"
-          ? "لا يوجد موعد مرتبط لحفظ الملاحظات"
-          : "No appointment available to save notes",
-      );
-      return;
-    }
-
-    if (notesDraft.trim().length < 4) {
-      toastError(locale === "ar" ? "أدخل ملاحظات صالحة" : "Please enter valid notes");
-      return;
-    }
-
-    setIsSavingNotes(true);
-    try {
-      await bookingService.saveManualSummary(latestAppointmentId, {
-        mode: "NORMAL",
-        content: notesDraft.trim(),
-        sendToPatient: false,
-      });
-      toastSuccess(locale === "ar" ? "تم حفظ الملاحظات" : "Notes saved");
-    } catch (error) {
-      toastError(error instanceof Error ? error.message : "Failed to save notes");
-    } finally {
-      setIsSavingNotes(false);
-    }
-  };
 
   const savePrescriptionAndInvestigations = async () => {
     if (!patientId || !patient) return;
@@ -610,595 +580,557 @@ export default function DoctorPatientDetailsPage() {
   const chronicConditions = deriveChronicConditions(patient);
   const allergies = Array.isArray(patient.allergies) ? patient.allergies : [];
   const latestVisit = appointments[0];
-  const appointmentLookup = new Map(
-    appointments.map((appointment) => [appointment.id, appointment] as const),
-  );
   const documentLookup = new Map(
     documents.map((document) => [document.id, document] as const),
   );
   const patientUploadedDocuments = [...documents]
     .filter((document) => {
-      if (!patient.user?.id) {
-        return false;
-      }
-
-      return document.uploadedBy === patient.user.id;
+      // Include if explicitly marked as patient uploaded OR if uploader matches patient user ID
+      const isExplicitlyPatient = document.uploadedByPatient === true;
+      const matchesPatientId = patient.user?.id && document.uploadedBy === patient.user.id;
+      return isExplicitlyPatient || matchesPatientId;
     })
     .sort((a, b) => {
-    const aTime = new Date(a.createdAt).getTime();
-    const bTime = new Date(b.createdAt).getTime();
-    return bTime - aTime;
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return bTime - aTime;
     });
 
   return (
-    <div className="space-y-5 max-w-7xl">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/doctor/patients" className="inline-flex items-center gap-1 hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          {locale === "ar" ? "المرضى" : "Patients"}
+    <div className="space-y-6 max-w-7xl">
+      {/* Breadcrumbs & Navigation */}
+      <div className="flex items-center gap-4">
+        <Link href="/doctor/patients">
+          <Button variant="ghost" className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 p-0 hover:bg-slate-200">
+            <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+          </Button>
         </Link>
-        <span>/</span>
-        <span className="text-foreground">{patient.fullName}</span>
+        <div className="flex items-center gap-2 text-[15px] font-medium text-slate-500 dark:text-slate-400">
+          <span className="hover:text-slate-900 transition-colors">{locale === "ar" ? "المرضى" : "Patients"}</span>
+          <span className="text-slate-300">/</span>
+          <span className="text-slate-900 dark:text-slate-100 font-bold">{patient.fullName}</span>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div>
-              <div className="flex items-start gap-3">
-                <div className="grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-                  <UserRound className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-base font-semibold">{patient.fullName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {age !== null ? `${age} years` : locale === "ar" ? "العمر غير متاح" : "Age N/A"}
-                  </p>
-                  <Badge variant="outline" className="mt-1 text-[10px]">{patient.bloodType || "A+"}</Badge>
+      <Card className="border-none shadow-none overflow-hidden rounded-[24px] bg-white dark:bg-slate-950">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+            {/* Profile Panel */}
+            <div className="lg:col-span-4 flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBF5FF] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-[4px] border-white dark:border-slate-900 shadow-sm">
+                <UserRound className="h-7 w-7" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-[20px] font-black text-slate-900 dark:text-slate-100 leading-tight">
+                  {patient.fullName}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+                    {age !== null ? `${age} ${locale === "ar" ? "سنة" : "y/o"}` : locale === "ar" ? "العمر غير متاح" : "Age N/A"}
+                  </span>
+                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <Badge className="bg-[#EBF5FF] dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border-none px-2 py-0.5 text-[11px] font-bold rounded-md">
+                    {patient.bloodType || "A+"}
+                  </Badge>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-              <p className="text-xs font-semibold text-red-700 inline-flex items-center gap-1">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {locale === "ar" ? "الحساسية" : "ALLERGIES"}
-              </p>
-              <ul className="mt-2 space-y-1 text-xs text-red-600">
-                {allergies.length === 0 && <li>{locale === "ar" ? "لا توجد حساسية مسجلة" : "No known allergies"}</li>}
-                {allergies.map((item) => (
-                  <li key={item}>• {item}</li>
-                ))}
+            {/* Allergies Panel */}
+            <div className="lg:col-span-4 rounded-2xl bg-[#FFF5F5] dark:bg-rose-950/20 border border-[#FFEAEA] dark:border-rose-900/40 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-[#FF5A5A]" />
+                <span className="text-[12px] font-black text-[#FF5A5A] uppercase tracking-wider">
+                  {locale === "ar" ? "الحساسية" : "ALLERGIES"}
+                </span>
+              </div>
+              <ul className="flex flex-wrap gap-2">
+                {allergies.length === 0 ? (
+                  <li className="text-[12px] font-medium text-[#FF5A5A]/70">
+                    {locale === "ar" ? "لا توجد" : "None"}
+                  </li>
+                ) : (
+                  allergies.map((item) => (
+                    <li key={item} className="px-2 py-0.5 rounded-md bg-white/50 border border-[#FFEAEA] text-[12px] font-bold text-[#FF5A5A]">
+                      {item}
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
 
-            <div className="rounded-xl border p-3">
-              <p className="text-xs font-semibold inline-flex items-center gap-1">
-                <HeartPulse className="h-3.5 w-3.5 text-blue-600" />
-                {locale === "ar" ? "الأمراض المزمنة" : "Chronic Conditions"}
-              </p>
-              <div className="mt-2 space-y-1.5">
-                {chronicConditions.length === 0 && (
-                  <p className="text-xs text-muted-foreground">{locale === "ar" ? "لا يوجد" : "None"}</p>
+            {/* Chronic Conditions Panel */}
+            <div className="lg:col-span-4 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 h-full">
+              <div className="flex items-center gap-2 mb-2">
+                <HeartPulse className="h-4 w-4 text-blue-500" />
+                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100">
+                  {locale === "ar" ? "الأمراض المزمنة" : "Conditions"}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {chronicConditions.length === 0 ? (
+                  <p className="text-[12px] font-medium text-slate-400">
+                    {locale === "ar" ? "لا يوجد" : "None"}
+                  </p>
+                ) : (
+                  chronicConditions.map((condition) => (
+                    <div key={condition} className="rounded-lg bg-[#FFF9F0] dark:bg-amber-950/20 border border-[#FFF0D8] dark:border-amber-900/40 px-3 py-1 text-[12px] font-bold text-[#D97706]">
+                      {condition}
+                    </div>
+                  ))
                 )}
-                {chronicConditions.map((condition) => (
-                  <div key={condition} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
-                    {condition}
-                  </div>
-                ))}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 rounded-xl bg-muted/40 p-3 text-xs">
-            <div className="rounded-lg bg-background p-2">
-              <p className="text-muted-foreground">{locale === "ar" ? "معرف المريض" : "Patient ID"}</p>
-              <p className="font-medium">PAT-{patient.id.slice(0, 8)}</p>
-            </div>
-            <div className="rounded-lg bg-background p-2">
-              <p className="text-muted-foreground">{locale === "ar" ? "الهاتف" : "Phone"}</p>
-              <p className="font-medium">{patient.phone || "-"}</p>
-            </div>
-            <div className="rounded-lg bg-background p-2">
-              <p className="text-muted-foreground">{locale === "ar" ? "آخر زيارة" : "Last Visit"}</p>
-              <p className="font-medium">{formatDate(latestVisit?.date, locale)}</p>
-            </div>
-            <div className="rounded-lg bg-background p-2">
-              <p className="text-muted-foreground">{locale === "ar" ? "إجمالي الزيارات" : "Total Visits"}</p>
-              <p className="font-medium">{patient.totalVisits || 0}</p>
-            </div>
-            <div className="rounded-lg bg-background p-2">
-              <p className="text-muted-foreground">{locale === "ar" ? "الوصفات" : "Prescriptions"}</p>
-              <p className="font-medium">{prescriptions.length}</p>
+          {/* Metrics Row */}
+          <div className="mt-6 rounded-[20px] bg-[#F4F9FF] dark:bg-blue-950/20 p-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "معرف المريض" : "ID"}</span>
+                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">PAT-{patient.id.slice(-6).toUpperCase()}</span>
+              </div>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الهاتف" : "Phone"}</span>
+                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{patient.phone || "-"}</span>
+              </div>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "آخر زيارة" : "Last Visit"}</span>
+                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{formatDate(latestVisit?.date, locale)}</span>
+              </div>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الموقع" : "Location"}</span>
+                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100 truncate">{patient.address || "Hadeka, Giza"}</span>
+              </div>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الزيارات" : "Visits"}</span>
+                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{patient.totalVisits || 0}</span>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex items-center gap-1.5 w-full bg-muted/30 p-1.5 rounded-xl h-auto border">
-          <TabsTrigger 
-            value="history" 
-            className="flex-1 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
-          >
-            {locale === "ar" ? "سجل الزيارات" : "Visit history"}
-          </TabsTrigger>
-          <TabsTrigger 
-            value="labs" 
-            className="flex-1 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
-          >
-            {locale === "ar" ? "نتائج التحاليل" : "Lab results"}
-          </TabsTrigger>
-          <TabsTrigger 
-            value="prescription" 
-            className="flex-1 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all duration-200"
-          >
-            {locale === "ar" ? "الملاحظات والوصفة" : "Clinical Notes & Prescription"}
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="flex items-center justify-start gap-4 w-full bg-slate-50/50 dark:bg-slate-900/50 p-1.5 h-auto border-none rounded-[18px] mb-8">
+          {["history", "labs", "clinical"].map((tab) => (
+            <TabsTrigger 
+              key={tab}
+              value={tab} 
+              className="px-6 py-2.5 rounded-xl bg-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-600/20 text-[13px] font-bold text-slate-600 dark:text-slate-400 transition-all duration-300 border-none"
+            >
+              {tab === "history" && (locale === "ar" ? "سجل الزيارات" : "Visit history")}
+              {tab === "labs" && (locale === "ar" ? "نتائج التحاليل" : "Lab results")}
+              {tab === "clinical" && (locale === "ar" ? "الاستشارة الطبية" : "Clinical & Prescription")}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "سجل الزيارات" : "Visit history"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {appointments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {locale === "ar" ? "لا توجد زيارات مسجلة" : "No recorded visits"}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {appointments.map((visit) => (
-                    <article key={visit.id} className="rounded-lg border p-4 bg-muted/5">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold">{visit.serviceName || (locale === "ar" ? "متابعة طبية" : "Clinical follow-up")}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{visit.doctorName || "-"}</p>
-                        </div>
-                        <div className="flex items-center gap-3 text-[11px] text-muted-foreground bg-background px-3 py-1.5 rounded-md border w-fit">
-                          <span className="font-medium">{formatDate(visit.date, locale)}</span>
-                          <span className="opacity-30">|</span>
-                          <span>{visit.startTime}</span>
-                          <Badge variant="outline" className="ml-2 text-[10px] uppercase">{visit.status}</Badge>
-                        </div>
-                      </div>
-                      <div className="mt-3 text-xs text-muted-foreground leading-relaxed border-t pt-3">
-                        {visit.consultationSession?.notes || visit.notes || (locale === "ar" ? "بدون ملاحظات" : "No clinical notes preserved")}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="labs">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{locale === "ar" ? "نتائج التحاليل" : "Lab results"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {labResults.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {locale === "ar" ? "لا توجد نتائج تحاليل" : "No lab results found"}
-                </p>
-              )}
-
-              <div className="flex flex-col gap-3">
-                {labResults.map((result) => {
-                  const linkedDocument =
-                    (result.documentId
-                      ? documentLookup.get(result.documentId)
-                      : result.document?.id
-                        ? documentLookup.get(result.document.id)
-                        : undefined) ||
-                    null;
-
-                  const statusTone =
-                    result.status === "NORMAL"
-                      ? "bg-emerald-50/50 border-emerald-100"
-                      : result.status === "ABNORMAL" || result.status === "CRITICAL"
-                        ? "bg-amber-50/50 border-amber-100"
-                        : "bg-muted/5 border-border";
-
-                  return (
-                    <article key={result.id} className={`rounded-xl border p-4 ${statusTone}`}>
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <TabsContent value="history" className="mt-0">
+          <div className="space-y-4">
+            {appointments.length === 0 ? (
+              <Card className="border-dashed border-slate-200 bg-slate-50/50 rounded-2xl">
+                <CardContent className="py-10 text-center">
+                  <p className="text-slate-500 text-[13px] font-medium">
+                    {locale === "ar" ? "لا توجد زيارات" : "No recorded visits"}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {appointments.map((visit) => (
+                  <article key={visit.id} className="relative rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-200 group">
+                    {/* Status Dot */}
+                    <div className="absolute left-6 top-7 h-2.5 w-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
+                    
+                    <div className="pl-6">
+                      <div className="flex items-start justify-between mb-2">
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold">{result.testName}</p>
-                            <Badge
-                              variant={
-                                result.status === "NORMAL"
-                                  ? "secondary"
-                                  : result.status === "CRITICAL"
-                                    ? "destructive"
-                                    : "outline"
-                              }
-                              className="text-[10px] h-4"
-                            >
-                              {result.status}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {result.resultSummary || (locale === "ar" ? "بدون ملخص" : "No summary available for this test")}
+                          <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
+                            {visit.serviceName || (locale === "ar" ? "متابعة" : "Follow-up visit")}
+                          </h4>
+                          <p className="text-[11px] font-bold text-slate-400">
+                            {formatDate(visit.date, locale)}
                           </p>
                         </div>
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                          Dr. {visit.doctorName?.split(' ').pop()}
+                        </span>
+                      </div>
 
-                        <div className="flex items-center gap-3">
-                          <span className="text-[11px] text-muted-foreground bg-background px-2 py-1 rounded border">
+                      <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800">
+                        <h5 className="text-[13px] font-black text-slate-800 dark:text-slate-200 mb-3">
+                          {locale === "ar" ? "الوصفات" : "Prescriptions"}
+                        </h5>
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                          {visit.consultationSession?.medications && Array.isArray(visit.consultationSession?.medications) ? (
+                            visit.consultationSession.medications.map((med: PrescriptionMedicationItem, idx: number) => (
+                              <li key={idx} className="flex items-center gap-2 text-[13px] font-medium text-slate-600 dark:text-slate-400">
+                                <span className="text-slate-300">•</span>
+                                {med.name} {med.dosage}
+                              </li>
+                            ))
+                          ) : (
+                            <li className="text-[12px] font-medium text-slate-400 italic">
+                              {locale === "ar" ? "لا توجد أدوية مسجلة" : "No prescriptions recorded"}
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="labs" className="mt-0">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              {labResults.length === 0 && patientUploadedDocuments.length === 0 ? (
+                <Card className="border-dashed border-slate-200 bg-slate-50/50 rounded-[24px]">
+                  <CardContent className="py-12 text-center">
+                    <p className="text-slate-500 text-[14px] font-medium">
+                      {locale === "ar" ? "لا توجد نتائج أو ملفات" : "No lab results or uploaded files"}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {/* Structured Lab Results */}
+                  {labResults.map((result) => {
+                    const linkedDocument =
+                      (result.documentId
+                        ? documentLookup.get(result.documentId)
+                        : result.document?.id
+                          ? documentLookup.get(result.document.id)
+                          : undefined) ||
+                      null;
+
+                    const isNormal = result.status === "NORMAL";
+                    const cardStyles = isNormal
+                      ? "bg-[#F0FDF4] border-[#DCFCE7] dark:bg-emerald-950/20 dark:border-emerald-900/30"
+                      : "bg-[#FFF7ED] border-[#FFEDD5] dark:bg-orange-950/20 dark:border-orange-900/30";
+                    
+                    const badgeStyles = isNormal
+                      ? "bg-[#DCFCE7] text-[#166534]"
+                      : "bg-[#FFEDD5] text-[#9A3412]";
+
+                    return (
+                      <article key={result.id} className={`relative rounded-[18px] border p-6 transition-all hover:shadow-sm ${cardStyles}`}>
+                        <div className="flex justify-between items-start mb-4">
+                          <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{result.testName}</h4>
+                          <span className="text-[11px] font-bold text-slate-400">
                             {formatDate(result.resultDate, locale)}
                           </span>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 px-4 text-xs font-medium bg-background"
-                            disabled={!linkedDocument}
-                            title={
-                              linkedDocument
-                                ? undefined
-                                : locale === "ar"
-                                  ? "الملف غير متاح لصلاحياتك"
-                                  : "File unavailable for your access scope"
-                            }
-                            onClick={() => {
-                              if (linkedDocument) {
-                                void previewDocument(linkedDocument);
-                              }
-                            }}
-                          >
-                            {linkedDocument
-                              ? locale === "ar"
-                                ? "عرض التقرير"
-                                : "View Report"
-                              : locale === "ar"
-                                ? "الملف غير متاح"
-                                : "Report Unavailable"}
-                          </Button>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-
-              <div className="pt-2">
-                <p className="mb-2 text-sm font-semibold">
-                  {locale === "ar" ? "الملفات المرفوعة من المريض" : "Patient Uploaded Files"}
-                </p>
-
-                {patientUploadedDocuments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {locale === "ar"
-                      ? "لا توجد ملفات مرفوعة من المريض"
-                      : "No files uploaded by this patient"}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {patientUploadedDocuments.map((document) => {
-                      const linkedAppointment = document.appointmentId
-                        ? appointmentLookup.get(document.appointmentId)
-                        : null;
-
-                      return (
-                        <article
-                          key={document.id}
-                          className="rounded-xl border bg-muted/10 p-3"
-                        >
-                          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-blue-600" />
-                                <p className="truncate text-sm font-medium">
-                                  {document.name}
-                                </p>
-                              </div>
-                              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                                <span>
-                                  {locale === "ar" ? "تاريخ الرفع" : "Uploaded"}: {formatDate(document.createdAt, locale)}
-                                </span>
-                                {linkedAppointment && (
-                                  <span>
-                                    {locale === "ar"
-                                      ? `موعد: ${formatDate(linkedAppointment.date, locale)} ${linkedAppointment.startTime || ""}`
-                                      : `Appointment: ${formatDate(linkedAppointment.date, locale)} ${linkedAppointment.startTime || ""}`}
-                                  </span>
-                                )}
-                              </div>
+                        
+                        <div className="space-y-4">
+                          <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400">
+                            {result.resultSummary || (locale === "ar" ? "بدون ملخص" : "No result summary available")}
+                          </p>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-medium text-slate-400">{locale === "ar" ? "النتيجة" : "Result"}</span>
+                              <Badge className={`px-2 py-0.5 rounded-md border-none text-[11px] font-black uppercase tracking-tight shadow-none ${badgeStyles}`}>
+                                {isNormal ? (locale === "ar" ? "طبيعي" : "normal") : (locale === "ar" ? "غير طبيعي" : "abnormal")}
+                              </Badge>
                             </div>
 
                             <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 gap-1.5 px-4 text-xs"
-                              onClick={() => {
-                                void previewDocument(document);
-                              }}
+                              className="h-10 px-6 rounded-2xl bg-[#4F46E5] text-white hover:bg-[#4338CA] font-bold text-[13px] transition-all shadow-md shadow-indigo-600/10"
+                              disabled={!linkedDocument}
+                              onClick={() => linkedDocument && void previewDocument(linkedDocument)}
                             >
-                              <Eye className="h-3.5 w-3.5" />
-                              {locale === "ar" ? "عرض" : "View"}
+                              {locale === "ar" ? "فتح PDF" : "open pdf"}
                             </Button>
                           </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                        </div>
+                      </article>
+                    );
+                  })}
 
-        <TabsContent value="prescription">
-          <Card className="border-none shadow-none bg-transparent">
-            {/* Command-style Layout for Diagnostic Reports */}
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Clinical Notes & Diagnosis Section */}
-                <div className="space-y-4">
-                  <div className="rounded-xl border bg-card p-4 space-y-4">
-                    <div className="flex items-center gap-2 border-b pb-2">
-                      <div className="h-2 w-2 rounded-full bg-blue-500" />
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                        {locale === "ar" ? "الملاحظات السريرية" : "Clinical Context"}
-                      </h3>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground/70">{locale === "ar" ? "التشخيص الرئيسي" : "Primary Diagnosis"}</label>
-                        <Input
-                          className="h-9 text-sm font-medium border-muted/60 focus-visible:ring-blue-500/20"
-                          value={diagnosisDraft}
-                          onChange={(event) => setDiagnosisDraft(event.target.value)}
-                          placeholder={locale === "ar" ? "التشخيص" : "Impression / Diagnosis"}
-                        />
+                  {/* Patient Uploaded Documents (Styled as Results) */}
+                  {patientUploadedDocuments.map((document) => (
+                    <article key={document.id} className="relative rounded-[18px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 transition-all hover:border-blue-200">
+                      <div className="flex justify-between items-start mb-4">
+                        <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{document.name}</h4>
+                        <span className="text-[11px] font-bold text-slate-400">
+                          {formatDate(document.createdAt, locale)}
+                        </span>
                       </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-blue-500" />
+                          <span className="text-[13px] font-medium text-slate-500 uppercase tracking-widest">
+                            {locale === "ar" ? "ملف مرفوع" : "Patient Upload"}
+                          </span>
+                        </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground/70">{locale === "ar" ? "ملاحظات سريرية شاملة" : "Clinical Findings & History"}</label>
-                        <textarea
-                          className="w-full min-h-[120px] rounded-md border border-muted/60 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                          placeholder={
-                            locale === "ar"
-                              ? "أدخل الأعراض والانطباع الطبي والتشخيص..."
-                              : "Enter patient symptoms, examination findings, and clinical summary..."
-                          }
-                          value={notesDraft}
-                          onChange={(event) => setNotesDraft(event.target.value)}
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground/70">{locale === "ar" ? "ملاحظات الوصفة" : "Prescription Remarks"}</label>
-                        <Input
-                          className="h-9 text-sm border-muted/60"
-                          value={prescriptionNotesDraft}
-                          onChange={(event) => setPrescriptionNotesDraft(event.target.value)}
-                          placeholder={locale === "ar" ? "ملاحظات إضافية" : "Additional instructions..."}
-                        />
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          className="h-8 text-xs font-semibold px-4"
-                          onClick={() => void saveClinicalNotes()} 
-                          disabled={isSavingNotes}
+                        <Button
+                          className="h-10 px-6 rounded-2xl bg-slate-800 text-white hover:bg-slate-900 font-bold text-[13px] transition-all"
+                          onClick={() => void previewDocument(document)}
                         >
-                          {isSavingNotes ? "..." : (locale === "ar" ? "حفظ المسودة" : "Save Logic Draft")}
+                          {locale === "ar" ? "عرض الملف" : "view file"}
                         </Button>
                       </div>
-                    </div>
-                  </div>
+                    </article>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
-                  {/* Investigation Orders */}
-                  <div className="rounded-xl border bg-card p-4 space-y-4">
-                    <div className="flex items-center gap-2 border-b pb-2">
-                      <div className="h-2 w-2 rounded-full bg-amber-500" />
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                        {locale === "ar" ? "الفحوصات المطلوبة" : "Investigation Orders"}
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {investigationCatalog.map((name) => (
-                        <label key={name} className="flex items-center gap-2 p-2 rounded-lg border border-muted/40 hover:bg-muted/5 transition-colors cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            className="h-3.5 w-3.5 rounded border-muted-foreground/30 text-blue-600 focus:ring-blue-500/20"
-                            checked={Boolean(selectedInvestigations[name])}
-                            onChange={(event) =>
-                              setSelectedInvestigations((prev) => ({
-                                ...prev,
-                                [name]: event.target.checked,
-                              }))
-                            }
-                          />
-                          <span className="text-[11px] font-medium group-hover:text-foreground transition-colors">{name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
+        <TabsContent value="clinical" className="mt-0">
+          <div className="space-y-6">
+            {/* 1. Clinical Notes & Diagnosis */}
+            <div className="rounded-[24px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                    {locale === "ar" ? "الملاحظات السريرية والتشخيص" : "Clinical Notes & Diagnosis"}
+                  </h3>
                 </div>
+                <Button
+                  size="sm"
+                  className="h-9 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-[12px] font-bold shadow-md shadow-blue-600/10 transition-all gap-2"
+                >
+                  <Mic className="h-4 w-4" />
+                  {locale === "ar" ? "الإدخال الصوتي" : "Voice Input"}
+                </Button>
+              </div>
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                placeholder={locale === "ar" ? "أدخل الأعراض والنتائج والتشخيص..." : "Enter patient symptoms, examination findings, and diagnosis..."}
+                className="w-full min-h-[120px] rounded-xl bg-white border border-slate-100 p-4 text-[14px] font-medium focus:ring-2 focus:ring-blue-600/5 transition-all resize-none"
+              />
+            </div>
 
-                {/* Prescription Section */}
-                <div className="space-y-4">
-                  <div className="rounded-xl border bg-card p-4 space-y-4 h-full flex flex-col">
-                    <div className="flex items-center justify-between border-b pb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                          {locale === "ar" ? "الوصفة الطبية" : "Medication Plan"}
-                        </h3>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 rounded-full hover:bg-emerald-50"
-                        onClick={() =>
-                          setMedications((prev) => [
-                            ...prev,
-                            { name: "", dosage: "", frequency: "", duration: "" },
-                          ])
+            {/* 2. Prescription */}
+            <div className="rounded-[24px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                    {locale === "ar" ? "الوصفة الطبية" : "Prescription"}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-3 text-blue-600 font-bold hover:bg-blue-50 text-[12px] rounded-xl"
+                    onClick={() => setMedications([...medications, { name: "", dosage: "", frequency: "", duration: "" }])}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    {locale === "ar" ? "إضافة دواء" : "Add Medication"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-9 px-4 bg-blue-50 text-blue-600 hover:bg-blue-100 border-none rounded-xl text-[12px] font-bold transition-all gap-2"
+                    onClick={() => {
+                      if (lastPrescriptionId) {
+                        const latest = prescriptions[0];
+                        if (latest && Array.isArray(latest.medications)) {
+                          setMedications(latest.medications);
+                          toastSuccess(locale === "ar" ? "تم تكرار الوصفة السابقة" : "Last prescription repeated");
                         }
-                      >
-                        <Plus className="h-4 w-4 text-emerald-600" />
-                      </Button>
-                    </div>
-
-                    <div className="flex-1 space-y-3 overflow-y-auto max-h-[500px] pr-1">
-                      {favoriteMedications.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pb-2">
-                          {favoriteMedications.map((fav, index) => (
-                            <button
-                              key={`fav-${index}`}
-                              className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100/50 transition-colors"
-                              onClick={() => {
-                                setMedications((prev) => {
-                                  const newMeds = [...prev];
-                                  const emptyIdx = newMeds.findIndex(m => !m.name && !m.dosage);
-                                  if (emptyIdx !== -1) newMeds[emptyIdx] = { ...fav };
-                                  else newMeds.push({ ...fav });
-                                  return newMeds;
-                                });
-                              }}
-                            >
-                              + {fav.name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {medications.map((item, index) => (
-                        <div key={`medication-${index}`} className="group relative rounded-lg border border-muted/50 p-2 bg-muted/5 space-y-2 hover:border-emerald-200/50 transition-colors">
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              placeholder="Name"
-                              className="h-8 text-[11px] bg-background"
-                              value={item.name}
-                              onChange={(event) =>
-                                setMedications((prev) =>
-                                  prev.map((entry, entryIndex) =>
-                                    entryIndex === index ? { ...entry, name: event.target.value } : entry,
-                                  ),
-                                )
-                              }
-                            />
-                            <Input
-                              placeholder="Dosage"
-                              className="h-8 text-[11px] bg-background"
-                              value={item.dosage}
-                              onChange={(event) =>
-                                setMedications((prev) =>
-                                  prev.map((entry, entryIndex) =>
-                                    entryIndex === index ? { ...entry, dosage: event.target.value } : entry,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              placeholder="Frequency"
-                              className="h-8 text-[11px] bg-background"
-                              value={item.frequency}
-                              onChange={(event) =>
-                                setMedications((prev) =>
-                                  prev.map((entry, entryIndex) =>
-                                    entryIndex === index ? { ...entry, frequency: event.target.value } : entry,
-                                  ),
-                                )
-                              }
-                            />
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="Duration"
-                                className="h-8 text-[11px] bg-background flex-1"
-                                value={item.duration || ""}
-                                onChange={(event) =>
-                                  setMedications((prev) =>
-                                    prev.map((entry, entryIndex) =>
-                                      entryIndex === index ? { ...entry, duration: event.target.value } : entry,
-                                    ),
-                                  )
-                                }
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() =>
-                                  setMedications((prev) =>
-                                    prev.length === 1 ? prev : prev.filter((_, entryIndex) => entryIndex !== index),
-                                  )
-                                }
-                              >
-                                <X className="h-3.5 w-3.5 text-red-400" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                      }
+                    }}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {locale === "ar" ? "تكرار آخر وصفة" : "Repeat Last"}
+                  </Button>
                 </div>
               </div>
 
-              {/* Action Toolbar - "Command Layout" Style */}
-              <div className="sticky bottom-0 z-10 flex items-center justify-between p-4 rounded-xl border bg-card shadow-lg ring-1 ring-black/5">
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase text-muted-foreground/60">{locale === "ar" ? "الحالة" : "Action Status"}</span>
-                    <span className="text-xs font-semibold text-blue-600">
-                      {isSavingPrescription || isSendingDiagnosticReport ? "Processing..." : "Ready to Finalize"}
-                    </span>
+              {/* Favorites Quick Access */}
+              {favoriteMedications.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                    {locale === "ar" ? "المفضلة" : "Favorite Meds"}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {favoriteMedications.map((fav, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setMedications([...medications, { ...fav }])}
+                        className="px-3 py-1.5 rounded-full bg-blue-50/50 border border-blue-100/50 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition-all"
+                      >
+                        + {fav.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-4 text-xs font-bold border-muted-foreground/20 hover:bg-muted"
-                    onClick={() => void sendWhatsAppToPatient()}
-                  >
-                    <Send className="h-3.5 w-3.5 mr-2 opacity-60" />
-                    {locale === "ar" ? "واتساب سريع" : "Quick WhatsApp"}
-                  </Button>
-
-                  <div className="h-6 w-px bg-border mx-1" />
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 px-4 text-xs font-bold border-blue-200 text-blue-700 hover:bg-blue-50"
-                    onClick={() => void sendDiagnosticReportToPatient()}
-                    disabled={isSendingDiagnosticReport}
-                  >
-                    <Send className="h-3.5 w-3.5 mr-2" />
-                    {isSendingDiagnosticReport
-                      ? (locale === "ar" ? "جارٍ الإنشاء..." : "Generating...")
-                      : (locale === "ar" ? "إصدار تقرير تشخيصي" : "FINALIZE DIAGNOSTIC REPORT")}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    className="h-9 px-5 text-xs font-bold shadow-sm"
-                    onClick={() => void savePrescriptionAndInvestigations()}
-                    disabled={isSavingPrescription}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
-                    {isSavingPrescription
-                      ? "..."
-                      : (locale === "ar" ? "حفظ وإرسال للاستقبال" : "COMPLETE CONSULTATION")}
-                  </Button>
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  {medications.map((med, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 rounded-2xl bg-[#F0F7FF] border border-blue-50 group">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">
+                        <Input
+                          placeholder={locale === "ar" ? "الدواء" : "Medicine"}
+                          value={med.name}
+                          onChange={(e) => {
+                            const next = [...medications];
+                            next[index].name = e.target.value;
+                            setMedications(next);
+                          }}
+                          className="h-9 bg-white border-slate-100 text-[13px] font-bold rounded-lg shadow-sm"
+                        />
+                        <Input
+                          placeholder={locale === "ar" ? "الجرعة" : "Dosage"}
+                          value={med.dosage}
+                          onChange={(e) => {
+                            const next = [...medications];
+                            next[index].dosage = e.target.value;
+                            setMedications(next);
+                          }}
+                          className="h-9 bg-white border-slate-100 text-[13px] font-medium rounded-lg shadow-sm"
+                        />
+                        <Input
+                          placeholder={locale === "ar" ? "التكرار" : "Frequency"}
+                          value={med.frequency}
+                          onChange={(e) => {
+                            const next = [...medications];
+                            next[index].frequency = e.target.value;
+                            setMedications(next);
+                          }}
+                          className="h-9 bg-white border-slate-100 text-[13px] font-medium rounded-lg shadow-sm"
+                        />
+                        <Input
+                          placeholder={locale === "ar" ? "المدة" : "Duration"}
+                          value={med.duration}
+                          onChange={(e) => {
+                            const next = [...medications];
+                            next[index].duration = e.target.value;
+                            setMedications(next);
+                          }}
+                          className="h-9 bg-white border-slate-100 text-[13px] font-medium rounded-lg shadow-sm"
+                        />
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        onClick={() => setMedications(medications.filter((_, i) => i !== index))}
+                        disabled={medications.length === 1}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          </Card>
+
+            {/* 3. Investigation Orders */}
+            <div className="rounded-[24px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 shadow-sm space-y-6">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-1 bg-blue-600 rounded-full" />
+                <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                  {locale === "ar" ? "طلبات الفحوصات" : "Investigation Orders"}
+                </h3>
+              </div>
+
+              <div className="space-y-8">
+                {/* Lab Tests */}
+                <div className="space-y-4">
+                  <h4 className="text-[12px] font-bold text-slate-400">
+                    {locale === "ar" ? "الفحوصات المخبرية" : "Laboratory tests"}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {investigationCatalog.slice(0, 6).map((test) => (
+                      <button
+                        key={test}
+                        onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
+                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${
+                          selectedInvestigations[test]
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
+                        }`}
+                      >
+                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${
+                          selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
+                        }`}>
+                          {selectedInvestigations[test] && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                        <span className="text-[12px] font-bold text-slate-700">{test}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Radiology */}
+                <div className="space-y-4">
+                  <h4 className="text-[12px] font-bold text-slate-400">
+                    {locale === "ar" ? "الأشعة والتصوير" : "Radiology & Imaging"}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {investigationCatalog.slice(6).map((test) => (
+                      <button
+                        key={test}
+                        onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
+                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${
+                          selectedInvestigations[test]
+                            ? "bg-blue-50 border-blue-200"
+                            : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
+                        }`}
+                      >
+                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${
+                          selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
+                        }`}>
+                          {selectedInvestigations[test] && <Check className="h-3 w-3 text-white" />}
+                        </div>
+                        <span className="text-[12px] font-bold text-slate-700">{test}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Footer Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-14 border-blue-100 text-blue-700 hover:bg-blue-50 rounded-2xl text-[14px] font-black gap-3"
+                onClick={() => void sendDiagnosticReportToPatient()}
+                disabled={isSendingDiagnosticReport}
+              >
+                <FileText className="h-5 w-5" />
+                {isSendingDiagnosticReport ? "..." : (locale === "ar" ? "تقرير PDF" : "SEND PDF REPORT")}
+              </Button>
+
+              <Button
+                size="lg"
+                className="h-14 bg-blue-600 text-white hover:bg-blue-700 rounded-2xl text-[14px] font-black shadow-lg shadow-blue-600/10 gap-3"
+                onClick={() => void savePrescriptionAndInvestigations()}
+                disabled={isSavingPrescription}
+              >
+                <Save className="h-5 w-5" />
+                {locale === "ar" ? "حفظ وإرسال للاستقبال" : "SAVE & SEND TO RECEPTION"}
+              </Button>
+
+              <Button
+                size="lg"
+                className="h-14 bg-[#5850EC] text-white hover:bg-[#4F46E5] rounded-2xl text-[14px] font-black shadow-lg shadow-indigo-600/10 gap-3"
+                onClick={() => void sendWhatsAppToPatient()}
+              >
+                <Send className="h-5 w-5" />
+                {locale === "ar" ? "إرسال لواتساب المريض" : "SEND TO WHATSAPP"}
+              </Button>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -1244,3 +1176,4 @@ export default function DoctorPatientDetailsPage() {
     </div>
   );
 }
+

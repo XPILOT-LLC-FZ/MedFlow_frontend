@@ -10,6 +10,16 @@ export interface PreviewFileInfo {
   fileType: string;
 }
 
+export type InAppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  payload: Record<string, unknown> | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
 export interface User {
   id: string;
   name: string;
@@ -143,6 +153,8 @@ export interface DoctorListFilters {
   search?: string;
   serviceId?: string;
   role?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface DoctorShift {
@@ -219,6 +231,7 @@ export interface Appointment {
 }
 
 export interface ApiAppointment {
+  createdAt: string | number | Date;
   id: string;
   patientId?: string;
   patientName: string;
@@ -240,6 +253,7 @@ export interface ApiAppointment {
     savedToPatient: boolean;
     chatLog?: Record<string, unknown> | null;
     endedAt?: string | null;
+    medications?: PrescriptionMedicationItem[] | null;
   } | null;
 }
 
@@ -701,6 +715,7 @@ export interface Patient {
 }
 
 export interface ApiPatient {
+  address: string;
   id: string;
   fullName: string;
   email?: string;
@@ -782,6 +797,7 @@ export interface CreatePatientPayload {
 export type LabResultStatus = "PENDING" | "NORMAL" | "ABNORMAL" | "CRITICAL";
 
 export interface ApiPatientDocument {
+  uploadedByPatient: boolean;
   id: string;
   patientId: string;
   appointmentId?: string | null;
@@ -1054,6 +1070,13 @@ export interface ApiPromotion {
   clinicId?: string;
 }
 
+export interface ClinicSettings {
+  receptionWhatsAppNumber?: string;
+  receptionReminderDelayMinutes?: number;
+  doctorDailySummaryHour?: number;
+  [key: string]: unknown;
+}
+
 export interface ApiClinic {
   id: string;
   name: string;
@@ -1064,7 +1087,19 @@ export interface ApiClinic {
   description?: string;
   logoUrl?: string;
   workingHours?: Record<string, unknown>;
-  settings?: Record<string, unknown>;
+  settings?: ClinicSettings;
+}
+
+export interface ApiNotificationTemplate {
+  id: string;
+  key: string;
+  language: string;
+  channel: "WHATSAPP" | "EMAIL" | "SMS";
+  audience: "PATIENT" | "DOCTOR" | "RECEPTION";
+  content: string;
+  externalId?: string | null;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface ApiBranch {

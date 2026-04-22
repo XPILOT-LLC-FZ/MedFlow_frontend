@@ -1,20 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Moon, Sun, Bell, Search, UsersRound } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Role, Appointment } from "@/types";
-import {
-  LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
-  Package, BarChart3, Clock, FileText, Settings, MessageSquare, Sparkles, Activity
-} from "lucide-react";
+import type { Role, InAppNotification } from "@/types";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { formatDateKey } from "@/lib/dateUtils";
+import { cn } from "@/lib/utils";
+import { notificationsService } from "@/services/notificationsService";
+import { formatDistanceToNow } from "date-fns";
+import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
+import {
+  AlertCircle, CheckCircle2, 
+  LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
+  Package, BarChart3, Clock, FileText, Settings, MessageSquare, Sparkles, Activity,
+  Moon, Sun, Bell, Search, UsersRound, ChevronRight
+} from "lucide-react";
 
 const roleLabels: Record<Role, { en: string; ar: string }> = {
   PATIENT: { en: "Patient", ar: "مريض" },
@@ -80,6 +85,33 @@ export function DashboardTopbar() {
   const { locale, setLocale, theme, toggleTheme } = useStore();
   const { user } = useAuthStore();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [isFullNotificationsOpen, setIsFullNotificationsOpen] = useState(false);
+  const [realNotifications, setRealNotifications] = useState<InAppNotification[]>([]);
+  
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const data = await notificationsService.getInAppNotifications();
+      setRealNotifications(data);
+    } catch (err) {
+      console.error("Failed to fetch notifications in Topbar", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Defer the initial fetch to avoid sync setState in effect
+    const timeoutId = setTimeout(() => {
+      void refreshNotifications();
+    }, 0);
+
+    const intervalId = setInterval(() => {
+      void refreshNotifications();
+    }, 60000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
+  }, [refreshNotifications]);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -186,198 +218,269 @@ export function DashboardTopbar() {
   };
 
   return (
-    <div className="hidden lg:flex w-full border-b border-slate-200/60 dark:border-slate-800/60 bg-white/90 dark:bg-slate-950/90 backdrop-blur-3xl p-6 flex-col gap-3 transition-all duration-300">
-      
+    <div className="hidden lg:flex w-full border-b border-slate-100/80 dark:border-slate-800/60 bg-white dark:bg-slate-950 px-7 py-4 flex-col gap-2 transition-all duration-300">
       <div className="flex items-start justify-between w-full">
-        {/* Greeting Section */}
-        <div className="flex flex-col">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-            {`${getGreeting()}, ${firstName || (locale === "ar" ? "مستخدم" : "User")}`}
-          </h1>
-          <p className="mt-1 text-[13px] mt-2 font-medium text-slate-500 dark:text-slate-400">
-            {getSubtitle()}
-          </p>
-        </div>
+        {/* Left Side: Greeting & Search */}
+        <div className="flex flex-col gap-4 flex-1 max-w-2xl">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-[17px] font-bold text-slate-900 dark:text-slate-50 leading-tight truncate mb-1">
+                {user?.role === "DOCTOR" 
+                  ? `${getGreeting()}, Dr. ${firstName || "User"}`
+                  : `${getGreeting()}, ${firstName || "User"}`}
+              </h1>
+              <p className="mt-0.5 text-[12px] font-medium text-slate-500 dark:text-slate-400 truncate">
+                {getSubtitle()}
+              </p>
+            </div>
+          </div>
 
-        {/* Right Side Panel (Account, Theme, etc.) */}
-        <div className="flex items-center gap-3">
-          {/* Actions Group */}
-          <div className="flex items-center gap-1.5 p-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
-            {/* Notifications */}
-            <div className="relative">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={`h-8 w-8 rounded-full border hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${notifOpen ? "bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700" : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"}`} 
-                onClick={() => setNotifOpen(!notifOpen)}
-              >
-                <Bell className="h-[18px] w-[18px] text-slate-600 dark:text-slate-300" />
-                {appointments.length > 0 && <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />}
-              </Button>
-              {notifOpen && (
-                <div className="absolute top-full mt-3 right-0 rtl:right-auto rtl:left-0 w-80 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white shadow-xl dark:bg-slate-950 p-4 z-50">
-                  <p className="text-sm font-bold mb-3 px-1 text-slate-900 dark:text-slate-50">
-                    {locale === "ar" ? "الإشعارات" : "Notifications"}
-                  </p>
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                    {appointments.filter((a) => a.status === "scheduled" || a.status === "in-progress").length > 0 ? (
-                      appointments
-                        .filter((a) => a.status === "scheduled" || a.status === "in-progress")
-                        .slice(0, 5)
-                        .map((a: Appointment) => (
-                          <div key={a.id} className="text-xs text-slate-600 dark:text-slate-400 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-800">
-                            <span className="block font-semibold mb-1 text-slate-800 dark:text-slate-200">
-                              {locale === "ar" ? `موعد مجدول: ${a.patientName}` : `Scheduled: ${a.patientName}`}
-                            </span>
-                            {locale === "ar" ? `التاريخ: ${a.date} | الوقت: ${a.time}` : `Date: ${a.date} | Time: ${a.time}`}
-                          </div>
-                      ))
-                    ) : (
-                      <div className="text-xs text-slate-500 p-3 text-center">
-                        {locale === "ar" ? "لا توجد إشعارات جديدة" : "No new notifications"}
-                      </div>
-                    )}
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
-                       <Link 
-                         href="/doctor/notifications" 
-                         className="flex items-center justify-center py-2 text-[11px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
-                         onClick={() => setNotifOpen(false)}
-                       >
-                          {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
-                       </Link>
+          {/* Search Bar */}
+          <div className="relative group w-full max-w-xl" ref={searchRef}>
+            <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-600" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              placeholder={
+                locale === "ar"
+                  ? "ابحث في صفحات لوحة التحكم، المرضى، أو المواعيد..."
+                  : "Search patients, appointments, or medical records..."
+              }
+              className="h-10 w-full rounded-sm border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-5 text-[13px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all group-hover:bg-white dark:group-hover:bg-slate-900"
+            />
+            
+            {/* Search Results Dropdown */}
+            {isSearchFocused && searchQuery.trim() && (
+              <div className="absolute top-full mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-[100] animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                {searchResults.length > 0 ? (
+                  <div className="flex flex-col">
+                    <span className="px-5 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                      {locale === "ar" ? "النتائج" : "Results Found"}
+                    </span>
+                    {searchResults.map((route, i) => (
+                      <button
+                        key={`${route.href}-${i}`}
+                        onClick={() => handleRouteNavigate(route.href)}
+                        className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-900 text-left transition-colors"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600">
+                          <route.icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                            {locale === "ar" ? route.labelAr : route.label}
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-400 truncate uppercase tracking-wider mt-0.5">
+                            {route.href}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-6 py-10 text-center flex flex-col items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
+                      <Search className="h-6 w-6 text-slate-300" />
+                    </div>
+                    <div className="text-sm font-bold text-slate-400">
+                      {locale === "ar" ? "لم يتم العثور على نتائج." : "No results found."}
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-
-            {/* Availability Toggle */}
-            {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.preventDefault();
-                  useAuthStore.getState().toggleAvailability();
-                }}
-                className={`relative h-8 w-8 rounded-full border transition-all duration-300 ${
-                  user.isAvailable 
-                    ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400" 
-                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400 grayscale"
-                }`}
-                title={
-                  locale === "ar" 
-                    ? (user.isAvailable ? "متاح" : "غير متاح")
-                    : (user.isAvailable ? "Available" : "Unavailable")
-                }
-              >
-                <UsersRound className={`h-[18px] w-[18px] ${user.isAvailable ? "animate-pulse-subtle" : ""}`} />
-                <span className={`absolute top-0.5 right-0.5 h-2 w-2 rounded-full border border-white dark:border-slate-900 ${
-                  user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-slate-400"
-                }`} />
-              </Button>
+                )}
+              </div>
             )}
-            
-            {/* Language Toggle */}
-            <Button
-              variant="ghost" 
-              size="icon"
-              onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-              className="h-8 w-8 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-xs text-slate-700 dark:text-slate-300"
-            >
-              {locale === "en" ? "AR" : "EN"}
-            </Button>
-  
-            {/* Theme Toggle */}
+          </div>
+        </div>
+
+        {/* Right Side: Action Icons */}
+        <div className="flex items-center gap-2">
+          {/* Notifications */}
+          <div className="relative">
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={toggleTheme}
-              className="h-8 w-8 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+              className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-2xl transition-all duration-300 border-2 border-slate-50 dark:border-slate-800",
+                  notifOpen 
+                    ? "bg-blue-600 text-white ring-4 ring-blue-50 dark:ring-blue-900/20" 
+                    : "bg-white dark:bg-slate-900 text-slate-400 hover:text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/20"
+                )} 
+              onClick={() => setNotifOpen(!notifOpen)}
             >
-              {theme === "light" 
-                ? <Moon className="h-5 w-5 text-slate-600" /> 
-                : <Sun className="h-5 w-5 text-amber-400" />}
+              <Bell className="h-[17px] w-[17px]" />
+              {realNotifications.filter(n => !n.readAt).length > 0 && (
+                <span className={cn(
+                  "absolute top-1.5 right-1.5 h-2 w-2 rounded-full border border-white dark:border-slate-900",
+                  notifOpen ? "bg-white" : "bg-rose-500"
+                )} />
+              )}
             </Button>
-          </div>
-  
-          {/* User Info & Avatar */}
-          {user && (
-            <div className="flex items-center gap-4 pl-3 rtl:pl-0 rtl:pr-3 border-l rtl:border-l-0 rtl:border-r border-slate-200 dark:border-slate-800">
-              <div className="flex flex-col text-right rtl:text-left">
-                <span className="text-[15px] font-bold text-slate-900 dark:text-slate-50 leading-tight">{firstName}</span>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-tight mt-1">{roleLabel}</span>
+            {notifOpen && (
+              <div className="absolute top-full mt-3 right-0 rtl:right-auto rtl:left-0 w-85 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="px-5 py-4 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                  <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    {locale === "ar" ? "الإشعارات" : "Notifications"}
+                  </p>
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                    {realNotifications.filter(n => !n.readAt).length}
+                  </span>
+                </div>
+                
+                <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-50 dark:divide-slate-800/50">
+                  {realNotifications.length > 0 ? (
+                    realNotifications.slice(0, 8).map((n) => (
+                      <div 
+                        key={n.id} 
+                        className={cn(
+                          "group relative flex items-start gap-3 p-4 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer",
+                          !n.readAt && "bg-blue-50/20 dark:bg-blue-900/5"
+                        )}
+                      >
+                        <div className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110",
+                          n.type === "CRITICAL" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
+                          n.type === "SUCCESS" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500" :
+                          "bg-blue-50 dark:bg-blue-900/20 text-blue-500"
+                        )}>
+                          {n.type === "CRITICAL" ? <AlertCircle className="h-4.5 w-4.5" /> : 
+                           n.type === "SUCCESS" ? <CheckCircle2 className="h-4.5 w-4.5" /> : 
+                           <Bell className="h-4.5 w-4.5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">
+                              {n.title}
+                            </p>
+                             {!n.readAt && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600" />}
+                          </div>
+                          <p className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                            {n.body}
+                          </p>
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                              {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                            </span>
+                            {!n.readAt && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
+                                }}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                Mark Read
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-12 text-center px-6">
+                      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 mb-3">
+                        <Bell className="h-6 w-6 text-slate-300" />
+                      </div>
+                      <p className="text-sm font-medium text-slate-400">
+                        {locale === "ar" ? "لا توجد إشعارات جديدة" : "No new notifications"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-3 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800/50">
+                   <button 
+                     onClick={() => {
+                       setNotifOpen(false);
+                       setIsFullNotificationsOpen(true);
+                     }}
+                     className="flex h-9 w-full items-center justify-center rounded-xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-[11px] font-bold text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+                   >
+                      {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
+                      <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
+                   </button>
+                </div>
               </div>
-              <Link href={role === "DOCTOR" ? "/doctor/profile" : (role === "PATIENT" ? "/profile" : (role === "STAFF" ? "/reception/profile" : "#"))}>
-                <Avatar className="h-10 w-10 cursor-pointer border border-slate-200 dark:border-slate-800">
-                  <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
-                  <AvatarFallback className="bg-primary text-white font-bold">{firstName.charAt(0)}</AvatarFallback>
-                </Avatar>
-              </Link>
-            </div>
+            )}
+          </div>
+
+          {/* Theme Toggle */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleTheme}
+            className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
+          >
+            {theme === "light" 
+              ? <Moon className="h-[18px] w-[18px]" /> 
+              : <Sun className="h-[18px] w-[18px] text-amber-400" />}
+          </Button>
+
+          {/* Language Toggle */}
+          <Button
+            variant="ghost" 
+            size="icon"
+            onClick={() => setLocale(locale === "en" ? "ar" : "en")}
+            className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 font-bold text-[10px]"
+          >
+            {locale === "en" ? "AR" : "EN"}
+          </Button>
+
+          {/* Availability Toggle */}
+          {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.preventDefault();
+                useAuthStore.getState().toggleAvailability();
+              }}
+              className={cn(
+                "h-9 w-9 rounded-xl transition-all duration-200 relative",
+                user.isAvailable 
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900" 
+                  : "bg-slate-100 dark:bg-slate-900 text-slate-400 grayscale"
+              )}
+            >
+              <UsersRound className={cn("h-[18px] w-[18px]", user.isAvailable && "animate-pulse-subtle")} />
+              <span className={cn(
+                "absolute top-2 right-2 h-2 w-2 rounded-full border border-white dark:border-slate-900",
+                user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-slate-400"
+              )} />
+            </Button>
+          )}
+
+          {/* Profile Section */}
+          {user && (
+            <Link 
+              href={role === "DOCTOR" ? "/doctor/profile" : (role === "PATIENT" ? "/profile" : (role === "STAFF" ? "/reception/profile" : "#"))}
+              className="flex items-center gap-3 pl-3 border-l border-slate-100 dark:border-slate-800 ml-2 group"
+            >
+              <div className="hidden xl:flex flex-col items-end min-w-0">
+                <p className="text-[13px] font-bold text-slate-900 dark:text-slate-50 truncate max-w-[120px]">
+                  {user.name}
+                </p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                  {roleLabel}
+                </p>
+              </div>
+              <Avatar className="h-9 w-9 cursor-pointer border-2 border-white dark:border-slate-900 transition-all group-hover:scale-105">
+                <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
+                <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">{firstName.charAt(0)}</AvatarFallback>
+              </Avatar>
+            </Link>
           )}
         </div>
       </div>
 
-      {/* Global Search Strip */}
-      <div className="max-w-3xl relative group" ref={searchRef}>
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setIsSearchFocused(true)}
-            placeholder={
-              locale === "ar"
-                ? "ابحث في صفحات لوحة التحكم، المرضى، أو المواعيد..."
-                : "Search patients, appointments, or dashboard pages..."
-            }
-            className="h-11 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 pl-12 pr-5 text-[15px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all group-hover:bg-white dark:group-hover:bg-slate-900"
-          />
-        </div>
-        
-        {/* Search Results Dropdown */}
-        {isSearchFocused && searchQuery.trim() && (
-          <div className="absolute top-full w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden py-3 z-50 animate-in fade-in slide-in-from-top-2 duration-200" style={{ maxHeight: "60vh", overflowY: "auto" }}>
-            {searchResults.length > 0 ? (
-              <div className="flex flex-col">
-                <span className="px-5 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-[0.1em]">
-                  {locale === "ar" ? "الصفحات" : "Results Found"}
-                </span>
-                {searchResults.map((route, i) => (
-                  <button
-                    key={`${route.href}-${i}`}
-                    onClick={() => handleRouteNavigate(route.href)}
-                    className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-900 text-left transition-colors"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <route.icon className="h-5 w-5" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                        {locale === "ar" ? route.labelAr : route.label}
-                      </span>
-                      <span className="text-[11px] font-medium text-slate-400 truncate uppercase tracking-wider mt-0.5">
-                        {route.href}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="px-6 py-10 text-center flex flex-col items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
-                  <Search className="h-6 w-6 text-slate-300" />
-                </div>
-                <div className="text-sm font-bold text-slate-400">
-                  {locale === "ar" ? "لم يتم العثور على نتائج." : "No results found."}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <NotificationsDialog 
+        isOpen={isFullNotificationsOpen}
+        onOpenChange={setIsFullNotificationsOpen}
+        notifications={realNotifications}
+        onRefresh={refreshNotifications}
+        locale={locale}
+      />
     </div>
   );
 }

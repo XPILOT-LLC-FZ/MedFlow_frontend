@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { clinicService } from "@/services/clinicService";
-import type { ApiClinic, ApiBranch } from "@/types";
+import { notificationsService } from "@/services/notificationsService";
+import type { ApiClinic, ApiBranch, ApiNotificationTemplate, ClinicSettings } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 
@@ -39,16 +40,32 @@ export default function ClinicManagementPage() {
   const [branchForm, setBranchForm] = useState(emptyBranchForm);
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [isBranchSaving, setIsBranchSaving] = useState(false);
+  
+  const [commTemplates, setCommTemplates] = useState<ApiNotificationTemplate[]>([]);
+  const [commSettings, setCommSettings] = useState<ClinicSettings>({
+    receptionWhatsAppNumber: "",
+    receptionReminderDelayMinutes: 15,
+    doctorDailySummaryHour: 8,
+  });
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [clinicData, branchesData] = await Promise.all([
+      const [clinicData, branchesData, templatesData] = await Promise.all([
         clinicService.getClinic(),
-        clinicService.getBranches()
+        clinicService.getBranches(),
+        notificationsService.getTemplates().catch(() => [])
       ]);
       setClinic(clinicData);
       setBranches(branchesData);
+      setCommTemplates(templatesData);
+      
+      const settings = clinicData.settings || {};
+      setCommSettings({
+        receptionWhatsAppNumber: settings.receptionWhatsAppNumber || "",
+        receptionReminderDelayMinutes: settings.receptionReminderDelayMinutes || 15,
+        doctorDailySummaryHour: settings.doctorDailySummaryHour || 8,
+      });
     } catch {
       error("Failed to load clinic data");
     } finally {
@@ -163,6 +180,9 @@ export default function ClinicManagementPage() {
           </TabsTrigger>
           <TabsTrigger value="branches" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all duration-300">
              {locale === "ar" ? "الفروع" : "Branches"}
+          </TabsTrigger>
+          <TabsTrigger value="communication" className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all duration-300">
+             {locale === "ar" ? "التواصل" : "Communication"}
           </TabsTrigger>
         </TabsList>
 
@@ -363,6 +383,138 @@ export default function ClinicManagementPage() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="communication" className="space-y-6">
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+             <div className="lg:col-span-2 space-y-6">
+                <Card>
+                   <CardHeader>
+                      <CardTitle>{locale === "ar" ? "قواعد الإشعارات والواتساب" : "WhatsApp & Notification Rules"}</CardTitle>
+                   </CardHeader>
+                   <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div className="space-y-2">
+                            <label className="text-sm font-semibold">{locale === "ar" ? "رقم استقبال واتساب" : "Reception WhatsApp #"}</label>
+                            <Input 
+                               value={commSettings.receptionWhatsAppNumber}
+                               onChange={(e) => setCommSettings(prev => ({...prev, receptionWhatsAppNumber: e.target.value}))}
+                               placeholder="+966..."
+                            />
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-sm font-semibold">{locale === "ar" ? "تأخير تذكير الاستقبال (دقائق)" : "Reception Reminder Delay (min)"}</label>
+                            <Input 
+                               type="number"
+                               value={commSettings.receptionReminderDelayMinutes}
+                               onChange={(e) => setCommSettings(prev => ({...prev, receptionReminderDelayMinutes: parseInt(e.target.value)}))}
+                            />
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-sm font-semibold">{locale === "ar" ? "ساعة تقرير الأطباء" : "Doctor Daily Summary Hour"}</label>
+                            <Input 
+                               type="number"
+                               min="0"
+                               max="23"
+                               value={commSettings.doctorDailySummaryHour}
+                               onChange={(e) => setCommSettings(prev => ({...prev, doctorDailySummaryHour: parseInt(e.target.value)}))}
+                            />
+                         </div>
+                      </div>
+                      <Button 
+                        onClick={async () => {
+                           try {
+                              await notificationsService.updateSettings(commSettings);
+                              success("Communication settings updated");
+                           } catch {
+                              error("Failed to update settings");
+                           }
+                        }}
+                      >
+                         {locale === "ar" ? "حفظ الإعدادات" : "Save Settings"}
+                      </Button>
+                   </CardContent>
+                </Card>
+
+                <Card>
+                   <CardHeader>
+                      <CardTitle>{locale === "ar" ? "نماذج الرسائل" : "System Message Templates"}</CardTitle>
+                   </CardHeader>
+                   <CardContent className="space-y-4">
+                      {["APPOINTMENT_REMINDER_24H", "APPOINTMENT_REMINDER_2H", "PATIENT_FEEDBACK_PROMPT"].map(key => {
+                         const template = commTemplates.find(t => t.key === key && t.language === "en");
+                         return (
+                            <div key={key} className="p-4 border rounded-xl space-y-2">
+                               <div className="flex justify-between items-center">
+                                  <Badge variant="outline" className="text-[10px] font-mono">{key}</Badge>
+                                  <Badge variant={template?.isActive ? "outline" : "secondary"}>{template?.isActive ? "Active" : "New"}</Badge>
+                               </div>
+                               <div className="flex gap-2">
+                                  <textarea 
+                                     className="flex-1 text-xs p-2 border rounded bg-slate-50 dark:bg-slate-900"
+                                     placeholder="Message content..."
+                                     defaultValue={template?.content || ""}
+                                     onBlur={async (e) => {
+                                        try {
+                                           await notificationsService.upsertTemplate({
+                                              key,
+                                              language: "en",
+                                              channel: "WHATSAPP",
+                                              audience: key.includes("RECEPTION") ? "RECEPTION" : "PATIENT",
+                                              content: e.target.value,
+                                              externalId: template?.externalId,
+                                              isActive: true
+                                           });
+                                           success(`Template ${key} saved`);
+                                        } catch {
+                                           error(`Failed to save ${key}`);
+                                        }
+                                     }}
+                                  />
+                                  <div className="w-32 space-y-1">
+                                     <label className="text-[9px] uppercase font-bold opacity-60">Content SID</label>
+                                     <Input 
+                                        className="h-7 text-[10px]"
+                                        placeholder="HX..."
+                                        defaultValue={template?.externalId || ""}
+                                        onBlur={async (e) => {
+                                           try {
+                                              await notificationsService.upsertTemplate({
+                                                 key,
+                                                 language: "en",
+                                                 channel: "WHATSAPP",
+                                                 audience: key.includes("RECEPTION") ? "RECEPTION" : "PATIENT",
+                                                 content: template?.content || "",
+                                                 externalId: e.target.value,
+                                                 isActive: true
+                                              });
+                                              success(`SID for ${key} updated`);
+                                           } catch {
+                                              error(`Failed to update SID`);
+                                           }
+                                        }}
+                                     />
+                                  </div>
+                               </div>
+                            </div>
+                         );
+                      })}
+                   </CardContent>
+                </Card>
+             </div>
+             <div className="space-y-6">
+                <Card className="bg-blue-600 text-white">
+                   <CardHeader>
+                      <CardTitle className="text-sm">Quick Help</CardTitle>
+                   </CardHeader>
+                   <CardContent className="text-xs space-y-2 opacity-90">
+                      <p>• {`{patientName}`} maps to the patient full name</p>
+                      <p>• {`{doctorName}`} maps to the doctor full name</p>
+                      <p>• {`{appointmentDate}`} and {`{appointmentTime}`} are dynamic</p>
+                   </CardContent>
+                </Card>
+             </div>
+           </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -16,6 +16,7 @@ type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 interface RequestOptions extends RequestInit {
   data?: unknown;
+  params?: Record<string, string | number | boolean | undefined>;
 }
 
 type ApiClientError = Error & {
@@ -94,9 +95,23 @@ class ApiClient {
 
   private async request<T = unknown>(endpoint: string, method: HttpMethod, options: RequestOptions = {}, attempt = 0): Promise<T> {
     const normalizedEndpoint = this.normalizeEndpointPath(endpoint);
-    const url = normalizedEndpoint.startsWith("http")
+    let url = normalizedEndpoint.startsWith("http")
       ? normalizedEndpoint
       : `${API_BASE_URL}${normalizedEndpoint}`;
+
+    // Append query parameters if present
+    if (options.params) {
+      const searchParams = new URLSearchParams();
+      Object.entries(options.params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          searchParams.append(key, String(value));
+        }
+      });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url += (url.includes("?") ? "&" : "?") + queryString;
+      }
+    }
     
     // Get access token from Zustand store
     const state = useAuthStore.getState();

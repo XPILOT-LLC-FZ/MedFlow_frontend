@@ -12,22 +12,9 @@ type Query = {
   status?: LabResultStatus;
 };
 
-const toQuery = (query?: Query) => {
-  if (!query) return "";
-
-  const params = new URLSearchParams();
-  Object.entries(query).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") return;
-    params.set(key, String(value));
-  });
-
-  const serialized = params.toString();
-  return serialized ? `?${serialized}` : "";
-};
-
 export const labResultService = {
   async getAll(query?: Query): Promise<ApiLabResult[]> {
-    return apiClient.get(`/lab-results${toQuery(query)}`);
+    return apiClient.get("/lab-results", { params: query });
   },
 
   async create(payload: CreateLabResultPayload): Promise<ApiLabResult> {

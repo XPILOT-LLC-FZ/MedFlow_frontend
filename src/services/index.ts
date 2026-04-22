@@ -13,3 +13,4 @@ export { treatmentPlanService } from "./treatmentPlanService";
 export { surveyService } from "./surveyService";
 export { chatService } from "./chatService";
 export { userService } from "./userService";
+export { notificationsService } from "./notificationsService";

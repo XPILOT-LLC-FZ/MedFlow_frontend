@@ -1,11 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Filter, MoreVertical } from "lucide-react";
-import { motion } from "framer-motion";
+import { Search, Users, ShieldCheck, ShieldAlert, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { StatusBadge } from "./StatusBadge";
 import Image from "next/image";
 
 interface ConversationItem {
@@ -16,8 +14,6 @@ interface ConversationItem {
   unreadCount?: number;
   avatar?: string;
   status: "online" | "offline";
-  ticketStatus?: "OPEN" | "PENDING" | "RESOLVED" | "CLOSED";
-  priority?: "LOW" | "NORMAL" | "HIGH" | "URGENT";
   role: string;
 }
 
@@ -34,16 +30,19 @@ export function DoctorChatSidebar({
   onSelect,
   onFilterChange,
 }: DoctorChatSidebarProps) {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   const filters = ["All", "Patients", "Staff", "Admin"];
-  const filterLabels: Record<string, string> = {
-    All: t("all"),
-    Patients: t("patients"),
-    Staff: t("reception"),
-    Admin: t("admin"),
+  
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "PATIENT": return <Users size={12} className="text-blue-500" />;
+      case "DOCTOR": return <ShieldCheck size={12} className="text-emerald-500" />;
+      case "ADMIN": return <ShieldAlert size={12} className="text-amber-500" />;
+      default: return <User size={12} className="text-slate-400" />;
+    }
   };
 
   const filteredConversations = conversations.filter((c) => {
@@ -59,27 +58,24 @@ export function DoctorChatSidebar({
   });
 
   return (
-    <div className="flex h-full min-w-[320px] w-[320px] flex-col border-e border-slate-200 bg-[#F8FAFF] dark:border-slate-800 dark:bg-slate-900 transition-colors duration-300">
-      <div className="p-5 pb-3">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-[#2F6DF6] tracking-tight">{t("messages")}</h1>
-          <button className="rounded-xl p-2 text-slate-400 transition-all duration-300 hover:bg-white hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white">
-            <MoreVertical size={18} />
-          </button>
-        </div>
+    <div className="flex h-full min-w-[280px] w-[280px] flex-col border-e border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950 transition-all duration-500">
+      <div className="p-5 space-y-5">
+        <h1 className="text-[24px] font-black text-[#2563EB] tracking-tight">
+          {locale === "ar" ? "الرسائل" : "Messages"}
+        </h1>
 
-        <div className="group relative mb-5">
-          <Search className="absolute start-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-blue-600" size={16} />
+        <div className="relative group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={16} />
           <input
             type="text"
-            placeholder={t("search")}
-            className="w-full rounded-2xl border border-slate-100 bg-white py-2.5 pe-4 ps-10 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white"
+            placeholder={locale === "ar" ? "بحث..." : "Search..."}
+            className="w-full h-10 bg-[#F1F5F9]/60 border-none rounded-full pl-11 pr-4 text-[13px] font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:bg-[#F1F5F9] transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {filters.map((filter) => (
             <button
               key={filter}
@@ -88,96 +84,75 @@ export function DoctorChatSidebar({
                 onFilterChange(filter);
               }}
               className={cn(
-                "whitespace-nowrap rounded-xl px-4 py-1.5 text-xs font-bold transition-all duration-300",
+                "h-8 px-4 rounded-xl text-[12px] font-bold transition-all shrink-0",
                 activeFilter === filter
-                  ? "bg-[#2F6DF6] text-white shadow-sm"
-                  : "bg-white text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+                  ? "bg-[#2563EB] text-white shadow-lg shadow-blue-600/20"
+                  : "bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-900/50"
               )}
             >
-              {filterLabels[filter] || filter}
+              {filter === "All" ? (locale === "ar" ? "الكل" : "All") : 
+               filter === "Patients" ? (locale === "ar" ? "مرضى" : "Patients") :
+               filter === "Staff" ? (locale === "ar" ? "طاقم" : "Staff") :
+               (locale === "ar" ? "مدير" : "Admin")}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {filteredConversations.length > 0 ? (
-          <div className="space-y-1">
-            {filteredConversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => onSelect(conv.id)}
-                className={cn(
-                  "group relative flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-all duration-300",
-                  selectedId === conv.id
-                    ? "bg-[#EAF1FF] dark:bg-blue-900/20"
-                    : "hover:bg-white/90 dark:hover:bg-slate-800/50"
+      <div className="flex-1 overflow-y-auto px-0 pb-6 no-scrollbar divide-y divide-slate-50 dark:divide-slate-900/50">
+        {filteredConversations.map((conv) => (
+          <button
+            key={conv.id}
+            onClick={() => onSelect(conv.id)}
+            className={cn(
+              "relative flex w-full items-center gap-3 p-4 text-left transition-all hover:bg-slate-50/50 dark:hover:bg-slate-900/30",
+              selectedId === conv.id && "bg-[#F0F7FF] dark:bg-blue-900/10 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-[#2563EB]"
+            )}
+          >
+            <div className="relative shrink-0">
+              <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-white dark:ring-slate-950 shadow-sm">
+                {conv.avatar ? (
+                  <Image src={conv.avatar} alt={conv.name} width={40} height={40} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-blue-50 text-blue-600 font-bold text-base">
+                    {conv.name.charAt(0)}
+                  </div>
                 )}
-              >
-                {selectedId === conv.id && (
-                  <motion.div
-                    layoutId="active-indicator"
-                    className="absolute start-1 h-8 w-1 rounded-full bg-[#2F6DF6]"
-                  />
-                )}
-
-                <div className="relative flex-shrink-0">
-                  <div className="h-11 w-11 overflow-hidden rounded-full bg-slate-100 ring-2 ring-white transition-all duration-300 dark:bg-slate-800 dark:ring-slate-900">
-                    {conv.avatar ? (
-                      <Image src={conv.avatar} alt={conv.name} width={44} height={44} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 text-base font-bold text-blue-600 dark:from-blue-900/40 dark:to-blue-800/40 dark:text-blue-400">
-                        {conv.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute -bottom-1 -inline-end-1">
-                    <StatusBadge status={conv.status} className="h-3.5 w-3.5 border-2 border-white shadow-sm dark:border-slate-900" />
-                  </div>
-                </div>
-
-                <div className="flex-1 min-w-0 text-left py-1 rtl:text-right">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className={cn(
-                      "truncate text-sm font-bold tracking-tight transition-colors",
-                      selectedId === conv.id ? "text-blue-900 dark:text-blue-200" : "text-slate-900 group-hover:text-blue-600 dark:text-slate-100 dark:group-hover:text-blue-400"
-                    )}>
-                      {conv.name}
-                    </h3>
-                    <span className="mt-1 text-[11px] font-semibold text-slate-400">{conv.time}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={cn(
-                      "flex-1 truncate text-xs font-medium transition-colors",
-                      conv.unreadCount ? "text-slate-700 dark:text-white" : "text-slate-400 dark:text-slate-500"
-                    )}>
-                      {conv.lastMessage}
-                    </p>
-
-                    {conv.unreadCount ? (
-                      <div className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-[#2F6DF6] px-1.5 text-[10px] font-bold text-white shadow-sm">
-                        {conv.unreadCount}
-                      </div>
-                    ) : (
-                      conv.role === "PATIENT" && (
-                        <div className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700" />
-                      )
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mx-4 flex h-64 flex-col items-center justify-center rounded-[2rem] bg-slate-50/50 p-8 text-center text-slate-400 dark:bg-slate-800/20">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-slate-900">
-              <Filter size={24} className="opacity-20 text-slate-900 dark:text-white" />
+              </div>
+              {conv.status === "online" && (
+                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950" />
+              )}
             </div>
-            <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">{t("noResults")}</p>
-            <p className="text-xs font-medium text-slate-400">{locale === "ar" ? "جرّب تعديل عوامل التصفية أو البحث" : "Try adjusting your filters or search"}</p>
-          </div>
-        )}
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1">
+                  <h3 className="truncate text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                    {conv.name}
+                  </h3>
+                  {getRoleIcon(conv.role)}
+                </div>
+                <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                  {conv.time}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <p className={cn(
+                  "truncate text-[12px] transition-colors",
+                  conv.unreadCount ? "font-bold text-slate-700 dark:text-slate-200" : "font-medium text-slate-400 dark:text-slate-500"
+                )}>
+                  {conv.lastMessage}
+                </p>
+                {conv.unreadCount && (
+                  <div className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-[9px] font-black text-white shadow-sm">
+                    {conv.unreadCount}
+                  </div>
+                )}
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );

@@ -508,7 +508,7 @@ export default function DoctorChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/60 transition-all duration-500">
+    <div className="flex h-[calc(100vh-130px)] md:h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6 transition-all duration-500">
       <DoctorChatSidebar 
         conversations={sidebarConversations}
         selectedId={selectedConversationId}

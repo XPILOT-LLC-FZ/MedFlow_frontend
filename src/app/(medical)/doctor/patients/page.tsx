@@ -3,31 +3,41 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
-  CalendarDays,
+  Activity,
+  Calendar,
+  Check,
   Download,
+  Droplet,
+  FileText,
   FilterX,
+  Funnel,
+  History,
+  Mail,
+  MapPin,
+  Phone,
   Plus,
   Search,
   UserPlus,
   UserRound,
+  Users,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { PageHeader } from "@/components/shared/PageHeader";
+// import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { patientService } from "@/services/patientService";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiPatient, CreatePatientPayload } from "@/types";
+import { cn } from "@/lib/utils";
 
 const chronicFilters = [
   "Hypertension",
@@ -432,135 +442,173 @@ export default function DoctorPatientsPage() {
   const hasNoMatches = !isLoading && patients.length > 0 && filteredPatients.length === 0;
 
   return (
-    <div className="space-y-6 max-w-7xl">
-      <PageHeader
-        title={locale === "ar" ? "دليل المرضى" : "Patients Directory"}
-        description={
-          locale === "ar"
-            ? "إدارة سجلات المرضى والتاريخ الطبي"
-            : "Manage patient records and medical history"
-        }
-        action={
-          <Button className="gap-2" onClick={() => setIsAddDialogOpen(true)}>
-            <Plus className="h-4 w-4" />
-            {locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}
-          </Button>
-        }
-      />
+    <div className="doctor-dashboard space-y-4 max-w-7xl pb-10">
+      <section className="space-y-4">
+        {/* Modernized Header */}
+        <div className="rounded-md border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-7 py-5 transition-all duration-300">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
+                <UserRound className="h-6 w-6" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-[20px] font-black text-slate-900 dark:text-slate-100 leading-tight">
+                  {locale === "ar" ? "دليل المرضى" : "Patients Directory"}
+                </h2>
+                <p className="mt-1 text-[13px] font-medium text-slate-500 dark:text-slate-400">
+                  {locale === "ar"
+                    ? "إدارة سجلات المرضى والتاريخ الطبي"
+                    : "Manage patient records and medical history"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="ghost" 
+                onClick={exportPatients}
+                className="h-11 px-5 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-bold text-[13px] border border-blue-100/50 dark:border-blue-800/50 hover:bg-blue-100 transition-all flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {locale === "ar" ? "تصدير البيانات" : "Export Data"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-7 relative group">
+            <Search className="absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <Input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={
+                locale === "ar"
+                  ? "ابحث عن المرضى بالاسم أو الهاتف أو السجل الطبي..."
+                  : "Search patients by name, phone, or medical history..."
+              }
+              className="h-13 w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-12 text-[14px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white dark:focus:bg-slate-950 transition-all"
+            />
+          </div>
+        </div>
+      </section>
 
       <Dialog
         open={isAddDialogOpen}
         onOpenChange={(open) => {
           setIsAddDialogOpen(open);
-          if (!open) {
-            setAddPatientForm(getInitialAddPatientForm());
-          }
+          if (!open) setAddPatientForm(getInitialAddPatientForm());
         }}
       >
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}</DialogTitle>
+        <DialogContent className="max-w-3xl rounded-[32px] border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-0 overflow-hidden shadow-2xl">
+          <DialogHeader className="px-10 py-7 border-b border-slate-100 dark:border-slate-800/50">
+            <DialogTitle className="flex items-center gap-3.5 text-[22px] font-black text-slate-900 dark:text-slate-100">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
+                <UserPlus className="h-6 w-6" />
+              </div>
+              {locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{locale === "ar" ? "الاسم الكامل" : "Full Name"} *</label>
+          <div className="space-y-8 px-10 py-10 overflow-y-auto max-h-[75vh]">
+            {/* Name & Age Row */}
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                  {locale === "ar" ? "الاسم الكامل" : "Full Name"} *
+                </label>
                 <Input
                   value={addPatientForm.fullName}
-                  onChange={(event) =>
-                    setAddPatientForm((prev) => ({ ...prev, fullName: event.target.value }))
-                  }
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, fullName: e.target.value }))}
                   placeholder={locale === "ar" ? "أدخل اسم المريض" : "Enter patient name"}
+                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] focus:ring-4 focus:ring-blue-600/5 transition-all"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{locale === "ar" ? "العمر" : "Age"}</label>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                  {locale === "ar" ? "العمر" : "Age"} *
+                </label>
                 <Input
                   value={addPatientForm.age}
-                  onChange={(event) =>
-                    setAddPatientForm((prev) => ({ ...prev, age: event.target.value }))
-                  }
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, age: e.target.value }))}
                   placeholder={locale === "ar" ? "أدخل العمر" : "Enter age"}
+                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{locale === "ar" ? "رقم الهاتف" : "Phone Number"}</label>
+            {/* Phone & Email Row */}
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                  <Phone className="h-4.5 w-4.5 text-blue-500" />
+                  {locale === "ar" ? "رقم الهاتف" : "Phone Number"} *
+                </label>
                 <Input
                   value={addPatientForm.phone}
-                  onChange={(event) =>
-                    setAddPatientForm((prev) => ({ ...prev, phone: event.target.value }))
-                  }
-                  placeholder={locale === "ar" ? "0555 123 4567" : "0555 123 4567"}
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="(555) 123-4567"
+                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{locale === "ar" ? "البريد الإلكتروني" : "Email"}</label>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                  <Mail className="h-4.5 w-4.5 text-blue-500" />
+                  {locale === "ar" ? "البريد الإلكتروني" : "Email"} *
+                </label>
                 <Input
                   value={addPatientForm.email}
-                  onChange={(event) =>
-                    setAddPatientForm((prev) => ({ ...prev, email: event.target.value }))
-                  }
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="patient@email.com"
+                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{locale === "ar" ? "العنوان" : "Address"}</label>
+            {/* Address Row */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                <MapPin className="h-4.5 w-4.5 text-blue-500" />
+                {locale === "ar" ? "العنوان" : "Address"} *
+              </label>
               <Input
                 value={addPatientForm.address}
-                onChange={(event) =>
-                  setAddPatientForm((prev) => ({ ...prev, address: event.target.value }))
-                }
-                placeholder={locale === "ar" ? "23 Main St, City" : "23 Main St, City, State ZIP"}
+                onChange={(e) => setAddPatientForm(prev => ({ ...prev, address: e.target.value }))}
+                placeholder={locale === "ar" ? "123 شارع رئيسي، المدينة، الدولة ZIP" : "123 Main St, City, State ZIP"}
+                className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{locale === "ar" ? "نوع الهوية" : "ID Type"}</label>
-                <Input
-                  value={addPatientForm.idType}
-                  onChange={(event) =>
-                    setAddPatientForm((prev) => ({ ...prev, idType: event.target.value }))
-                  }
-                  placeholder={locale === "ar" ? "الرقم القومي / جواز" : "National ID / Passport"}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground">{locale === "ar" ? "فصيلة الدم" : "Blood Type"}</label>
+            {/* Blood Type & Allergies Row */}
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                  <Droplet className="h-4.5 w-4.5 text-blue-500" />
+                  {locale === "ar" ? "فصيلة الدم" : "Blood Type"} *
+                </label>
                 <Input
                   value={addPatientForm.bloodType}
-                  onChange={(event) =>
-                    setAddPatientForm((prev) => ({ ...prev, bloodType: event.target.value }))
-                  }
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, bloodType: e.target.value }))}
                   placeholder="O+"
+                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+                  {locale === "ar" ? "الحساسية" : "Allergies"}
+                </label>
+                <Input
+                  value={addPatientForm.allergies}
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, allergies: e.target.value }))}
+                  placeholder={locale === "ar" ? "افصل بين القيم بفاصلة" : "Separate with commas"}
+                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
                 />
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">{locale === "ar" ? "الحساسية" : "Allergies"}</label>
-              <Input
-                value={addPatientForm.allergies}
-                onChange={(event) =>
-                  setAddPatientForm((prev) => ({ ...prev, allergies: event.target.value }))
-                }
-                placeholder={
-                  locale === "ar"
-                    ? "افصل بين القيم بفاصلة"
-                    : "Separate with commas"
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">{locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}</p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {/* Chronic Diseases Section */}
+            <div className="space-y-4">
+              <p className="text-[14px] font-black text-slate-700 dark:text-slate-300">
+                {locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
                 {chronicFilters.map((condition) => (
                   <button
                     key={`new-${condition}`}
@@ -573,65 +621,41 @@ export default function DoctorPatientsPage() {
                           : [...prev.chronicDiseases, condition],
                       }))
                     }
-                    className={`rounded-md border px-2 py-1.5 text-xs ${
+                    className={cn(
+                      "flex h-14 items-center justify-center rounded-2xl border px-4 text-[14px] font-bold transition-all duration-200",
                       addPatientForm.chronicDiseases.includes(condition)
-                        ? "border-primary/60 bg-primary/10 text-primary"
-                        : "border-border"
-                    }`}
+                        ? "border-blue-600 bg-blue-50/50 text-blue-600 dark:bg-blue-900/20 dark:border-blue-500 shadow-sm"
+                        : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
+                    )}
                   >
                     {condition}
                   </button>
                 ))}
               </div>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <Button variant="outline" className="flex-1" onClick={() => setIsAddDialogOpen(false)}>
-                {locale === "ar" ? "إلغاء" : "Cancel"}
-              </Button>
-              <Button className="flex-1" disabled={isSavingPatient} onClick={() => void handleCreatePatient()}>
-                {isSavingPatient
-                  ? locale === "ar"
-                    ? "جارٍ الإضافة..."
-                    : "Adding..."
-                  : locale === "ar"
-                    ? "إضافة المريض"
-                    : "Add Patient"}
-              </Button>
-            </div>
+          <div className="flex items-center gap-4 p-10 pt-0">
+            <Button
+              variant="ghost"
+              onClick={() => setIsAddDialogOpen(false)}
+              className="flex-1 h-14 rounded-2xl font-black text-[16px] text-slate-500 bg-[#E9EEF4] dark:bg-slate-800 hover:bg-[#DDE5EF] transition-all"
+            >
+              {locale === "ar" ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              onClick={() => void handleCreatePatient()}
+              disabled={isSavingPatient}
+              className="flex-1 h-14 rounded-2xl bg-[#2563EB] text-white font-black text-[16px] hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all disabled:opacity-50"
+            >
+              {isSavingPatient ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...") : (locale === "ar" ? "إضافة المريض" : "Add Patient")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base font-semibold">
-              {locale === "ar" ? "بحث وفلاتر" : "Search & Filters"}
-            </h3>
-            <Button variant="outline" size="sm" className="gap-2" onClick={exportPatients}>
-              <Download className="h-3.5 w-3.5" />
-              {locale === "ar" ? "تصدير البيانات" : "Export Data"}
-            </Button>
-          </div>
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={
-                locale === "ar"
-                  ? "ابحث باسم المريض أو الهاتف أو السجل الطبي"
-                  : "Search patients, appointments, or medical records..."
-              }
-              className="pl-9 rtl:pl-3 rtl:pr-9"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-9 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12 mt-6 items-start">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:col-span-9 xl:grid-cols-3 items-start">
           {isLoading &&
             Array.from({ length: 6 }).map((_, index) => (
               <div key={`skeleton-${index}`} className="h-56 rounded-2xl border bg-muted/30" />
@@ -660,74 +684,87 @@ export default function DoctorPatientsPage() {
             filteredPatients.map((patient) => {
               const age = getAge(patient.dateOfBirth);
               const conditions = deriveConditionsForCard(patient);
+              const lastVisitDate = new Date(patient.updatedAt || patient.createdAt || Date.now()).toLocaleDateString(
+                locale === "ar" ? "ar-EG" : "en-US",
+                { month: "short", day: "numeric", year: "numeric" },
+              );
 
               return (
-                <article key={patient.id} className="rounded-2xl border bg-background p-4 shadow-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-primary">
-                      <UserRound className="h-4 w-4" />
+                <Link key={patient.id} href={`/doctor/patients/${patient.id}`}>
+                  <article className="group relative rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all duration-300 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-xl hover:shadow-blue-500/5 cursor-pointer">
+                    <div className="flex items-start gap-4 mb-8">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBF5FF] dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                        <UserRound className="h-8 w-8" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-[17px] font-black text-slate-800 dark:text-slate-100 leading-tight mb-1">
+                          {patient.fullName}
+                        </h4>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[13px] font-medium text-slate-600 dark:text-slate-400">
+                            {age !== null ? `${age} ${locale === "ar" ? "سنة" : "years"}` : locale === "ar" ? "العمر غير متاح" : "AGE N/A"}
+                          </span>
+                          <span className="text-[12px] font-medium text-slate-400 dark:text-slate-500">
+                            ID: PAT-2024-{patient.id.slice(-3).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold leading-6">
-                        {patient.fullName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {age !== null ? `${age} years` : locale === "ar" ? "العمر غير متاح" : "Age N/A"}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {`ID: PAT-${patient.id.slice(0, 8)}`}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="mt-3">
-                    <p className="text-[10px] text-muted-foreground">
-                      {locale === "ar" ? "الحالة الصحية" : "Health Status"}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {conditions.map((condition) => (
-                        <span key={`${patient.id}-${condition}`} className="rounded-md bg-red-50 px-2 py-0.5 text-[10px] text-red-600 border border-red-100">
-                          {condition}
+                    <div className="mb-8">
+                      <p className="text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-3">
+                        {locale === "ar" ? "الحالة الصحية" : "Health Status"}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {conditions.length > 0 ? (
+                          conditions.map((condition) => (
+                            <span 
+                              key={`${patient.id}-${condition}`} 
+                              className="rounded-lg bg-[#FFF0F0] dark:bg-rose-950/30 px-3 py-1.5 text-[12px] font-bold text-[#FF6B6B] border border-[#FFDADA] dark:border-rose-900/50"
+                            >
+                              {condition}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="rounded-lg bg-[#EBF8FF] dark:bg-blue-950/30 px-3 py-1.5 text-[12px] font-bold text-[#3182CE] border border-[#BEE3F8] dark:border-blue-900/50">
+                            {locale === "ar" ? "ربو" : "Asthma"}
+                          </span>
+                        )}
+                        <span className="rounded-lg bg-[#F0FFF4] dark:bg-emerald-950/30 px-3 py-1.5 text-[12px] font-bold text-[#48BB78] border border-[#C6F6D5] dark:border-emerald-900/50">
+                          {locale === "ar" ? "متحكم به جيداً" : "Well Controlled"}
                         </span>
-                      ))}
-                      <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] text-emerald-600 border border-emerald-100">
-                        Well Controlled
-                      </span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mt-3 border-t pt-2.5">
-                    <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {locale === "ar" ? "آخر زيارة:" : "Last visit:"}{" "}
-                      {new Date(patient.updatedAt || patient.createdAt || Date.now()).toLocaleDateString(
-                        locale === "ar" ? "ar-EG" : "en-US",
-                        { month: "short", day: "numeric", year: "numeric" },
-                      )}
-                    </p>
-                    <p className="mt-2 text-[10px] text-muted-foreground">
-                      {locale === "ar" ? "اتجاه المؤشرات الحيوية" : "Recent Vitals Trend"}
-                    </p>
-                    <div className="mt-1 h-2 w-full rounded-full bg-muted">
-                      <div
-                        className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
-                        style={{ width: `${Math.min(100, 35 + (patient.totalVisits || 0) * 8)}%` }}
-                      />
+                    <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-slate-800/60">
+                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                        <Calendar className="h-4.5 w-4.5 text-slate-400" />
+                        <span className="text-[13px] font-medium">
+                          {locale === "ar" ? "آخر زيارة:" : "Last visit:"} {lastVisitDate}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <p className="text-[12px] font-bold text-slate-500 dark:text-slate-400">
+                          {locale === "ar" ? "اتجاه العلامات الحيوية الحديثة" : "Recent Vitals Trend"}
+                        </p>
+                        <div className="relative h-6 w-full opacity-80">
+                          <svg className="h-full w-full overflow-visible" preserveAspectRatio="none">
+                            <path
+                              d="M0,12 Q10,2 20,12 T40,12 T60,12 T80,12 T100,12 T120,12 T140,12 T160,12 T180,12 T200,12"
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              className="transition-all duration-500 group-hover:stroke-blue-600"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          </svg>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between gap-2">
-                    <Badge variant="outline" className="text-[10px]">
-                      {(patient.totalVisits ?? 0).toString()} {locale === "ar" ? "زيارات" : "visits"}
-                    </Badge>
-                    <Link href={`/doctor/patients/${patient.id}`}>
-                      <Button size="sm" className="gap-1.5 h-8">
-                        {locale === "ar" ? "تفاصيل" : "Details"}
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
-                  </div>
-                </article>
+                  </article>
+                </Link>
               );
             })}
 
@@ -750,131 +787,237 @@ export default function DoctorPatientsPage() {
           )}
         </section>
 
-        <aside className="space-y-3 xl:col-span-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
+        <aside className="space-y-5 xl:col-span-3">
+          {/* Modernized Advanced Filters */}
+          <section className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
+                <Funnel className="h-4.5 w-4.5" />
+              </div>
+              <h3 className="text-[14px] font-black text-slate-900 dark:text-slate-100">
                 {locale === "ar" ? "فلاتر متقدمة" : "Advanced Filters"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+              </h3>
+            </div>
+
+            <div className="space-y-6">
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
                   {locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}
                 </p>
-                <div className="space-y-1.5">
-                  {chronicFilters.map((condition) => (
-                    <label key={condition} className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs">
-                      <span>{condition}</span>
-                      <input
-                        type="checkbox"
-                        checked={selectedConditions.includes(condition)}
-                        onChange={(event) =>
+                <div className="space-y-2">
+                  {chronicFilters.map((condition) => {
+                    const isSelected = selectedConditions.includes(condition);
+                    return (
+                      <button
+                        key={condition}
+                        onClick={() =>
                           setSelectedConditions((prev) =>
-                            event.target.checked
-                              ? [...prev, condition]
-                              : prev.filter((value) => value !== condition),
+                            isSelected ? prev.filter((v) => v !== condition) : [...prev, condition]
                           )
                         }
-                      />
-                    </label>
-                  ))}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 transition-all duration-200",
+                          isSelected
+                            ? "border-blue-100 bg-blue-50/30 dark:bg-blue-900/10"
+                            : "border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                        )}
+                      >
+                        <span className={cn(
+                          "text-[12px] font-bold transition-colors",
+                          isSelected ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
+                        )}>
+                          {condition}
+                        </span>
+                        <div className={cn(
+                          "h-4.5 w-4.5 rounded-md border-2 transition-all flex items-center justify-center",
+                          isSelected 
+                            ? "bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500" 
+                            : "border-slate-200 dark:border-slate-700"
+                        )}>
+                          {isSelected && <Check className="h-3 w-3 text-white stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
+                <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
                   {locale === "ar" ? "الفئة العمرية" : "Age Group"}
                 </p>
-                <div className="space-y-1.5">
-                  <label className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs">
-                    <span>{locale === "ar" ? "الكل" : "All"}</span>
-                    <input
-                      type="radio"
-                      name="age-group"
-                      checked={selectedAgeBucket === null}
-                      onChange={() => setSelectedAgeBucket(null)}
-                    />
-                  </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setSelectedAgeBucket(null)}
+                    className={cn(
+                      "rounded-xl border px-3 py-2 text-[12px] font-bold transition-all",
+                      selectedAgeBucket === null
+                        ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                        : "border-slate-50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
+                    )}
+                  >
+                    {locale === "ar" ? "الكل" : "All"}
+                  </button>
                   {ageBuckets.map((bucket) => (
-                    <label
+                    <button
                       key={bucket}
-                      className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs"
+                      onClick={() => setSelectedAgeBucket(bucket)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2 text-[12px] font-bold transition-all",
+                        selectedAgeBucket === bucket
+                          ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                          : "border-slate-50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
+                      )}
                     >
-                      <span>{bucket}</span>
-                      <input
-                        type="radio"
-                        name="age-group"
-                        checked={selectedAgeBucket === bucket}
-                        onChange={() => setSelectedAgeBucket(bucket)}
-                      />
-                    </label>
+                      {bucket}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              <div className="space-y-2 pt-1">
-                <label className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs">
-                  <span>{locale === "ar" ? "نشاط حديث" : "Recent Activity"}</span>
-                  <input
-                    type="checkbox"
-                    checked={showRecentActivity}
-                    onChange={(event) => setShowRecentActivity(event.target.checked)}
-                  />
-                </label>
-                <label className="flex items-center justify-between rounded-md border px-2 py-1.5 text-xs">
-                  <span>{locale === "ar" ? "نتائج معلقة" : "Pending Results"}</span>
-                  <input
-                    type="checkbox"
-                    checked={showPendingResults}
-                    onChange={(event) => setShowPendingResults(event.target.checked)}
-                  />
-                </label>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={resetFilters}
+              <div className="space-y-2.5">
+                <button
+                  onClick={() => setShowRecentActivity(!showRecentActivity)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl border p-3.5 transition-all duration-300",
+                    showRecentActivity
+                      ? "border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 shadow-sm"
+                      : "border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-950"
+                  )}
                 >
-                  {locale === "ar" ? "إعادة تعيين الفلاتر" : "Reset Filters"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
+                      showRecentActivity ? "bg-blue-600 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-500"
+                    )}>
+                      <History className="h-4 w-4" />
+                    </div>
+                    <span className={cn(
+                      "text-[13px] font-black",
+                      showRecentActivity ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
+                    )}>
+                      {locale === "ar" ? "نشط حديث" : "Recent Activity"}
+                    </span>
+                  </div>
+                  <div className={cn(
+                    "h-5 w-5 rounded-lg border-2 transition-all flex items-center justify-center",
+                    showRecentActivity 
+                      ? "bg-blue-600 border-blue-600" 
+                      : "border-slate-200 dark:border-slate-700"
+                  )}>
+                    {showRecentActivity && <Check className="h-3.5 w-3.5 text-white stroke-[3]" />}
+                  </div>
+                </button>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
+                <button
+                  onClick={() => setShowPendingResults(!showPendingResults)}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-xl border p-3.5 transition-all duration-300",
+                    showPendingResults
+                      ? "border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 shadow-sm"
+                      : "border-slate-50 dark:border-slate-800/50 bg-white dark:bg-slate-950"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-xl transition-colors",
+                      showPendingResults ? "bg-blue-600 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-500"
+                    )}>
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <span className={cn(
+                      "text-[13px] font-black",
+                      showPendingResults ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
+                    )}>
+                      {locale === "ar" ? "نتائج معلقة" : "Pending Results"}
+                    </span>
+                  </div>
+                  <div className={cn(
+                    "h-5 w-5 rounded-lg border-2 transition-all flex items-center justify-center",
+                    showPendingResults 
+                      ? "bg-blue-600 border-blue-600" 
+                      : "border-slate-200 dark:border-slate-700"
+                  )}>
+                    {showPendingResults && <Check className="h-3.5 w-3.5 text-white stroke-[3]" />}
+                  </div>
+                </button>
+              </div>
+
+              <Button
+                variant="ghost"
+                onClick={resetFilters}
+                className="w-full h-10 rounded-xl text-slate-500 font-bold text-[12px] hover:bg-slate-50 hover:text-slate-900 transition-all border border-transparent hover:border-slate-100"
+              >
+                {locale === "ar" ? "إعادة تعيين الفلاتر" : "Reset All Filters"}
+              </Button>
+            </div>
+          </section>
+
+          {/* Modernized Directory Statistics Card */}
+          <section className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden shadow-sm">
+            <div className="relative px-5 py-4 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/5 border-b border-slate-100/50 dark:border-slate-800/50">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Activity className="h-12 w-12 text-blue-600" />
+              </div>
+              <h3 className="relative z-10 text-[14px] font-black text-slate-900 dark:text-slate-100">
                 {locale === "ar" ? "إحصائيات الدليل" : "Directory Statistics"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-xs">
+              </h3>
+            </div>
+            
+            <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">{locale === "ar" ? "إجمالي المرضى" : "Total Patients"}</span>
-                <span className="font-semibold">{stats.total}</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {locale === "ar" ? "إجمالي المرضى" : "Total Patients"}
+                  </span>
+                </div>
+                <span className="text-[18px] font-black text-slate-900 dark:text-slate-100">
+                  {stats.total}
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">{locale === "ar" ? "نشط" : "Active"}</span>
-                <span className="font-semibold text-emerald-600">{stats.active}</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600">
+                    <Activity className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {locale === "ar" ? "نشط" : "Active"}
+                  </span>
+                </div>
+                <span className="text-[18px] font-black text-emerald-600 dark:text-emerald-400">
+                  {stats.active}
+                </span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">{locale === "ar" ? "نتائج معلقة" : "Pending Results"}</span>
-                <span className="font-semibold text-amber-600">{stats.pending}</span>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-50 dark:bg-orange-900/30 text-orange-600">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {locale === "ar" ? "نتائج معلقة" : "Pending Results"}
+                  </span>
+                </div>
+                <span className="text-[18px] font-black text-orange-600 dark:text-orange-400">
+                  {stats.pending}
+                </span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </aside>
       </div>
 
       <button
         type="button"
         onClick={() => setIsAddDialogOpen(true)}
-        className="fixed bottom-6 right-6 rtl:right-auto rtl:left-6 grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-xl transition hover:scale-105"
+        className="fixed bottom-28 right-6 rtl:right-auto rtl:left-6 grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-500/40 transition-all hover:scale-110 active:scale-95 z-50 group/fab"
         aria-label={locale === "ar" ? "إضافة مريض جديد" : "Add new patient"}
       >
-        <Plus className="h-5 w-5" />
+        <Plus className="h-6 w-6 group-hover/fab:rotate-90 transition-transform duration-300 stroke-[3]" />
       </button>
     </div>
   );

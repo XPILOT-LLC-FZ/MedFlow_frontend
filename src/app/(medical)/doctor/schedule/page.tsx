@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, MessageSquare } from "lucide-react";
+import { CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, MessageSquare, ChevronLeft, ChevronRight, User, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
@@ -20,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Appointment } from "@/types";
+import { cn } from "@/lib/utils";
 
 export default function SchedulePage() {
   const { locale } = useTranslation();
@@ -282,12 +284,24 @@ export default function SchedulePage() {
 
   const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
   const timelineDates = useMemo(() => {
-    return Array.from({ length: 9 }).map((_, index) => {
+    return Array.from({ length: 13 }).map((_, index) => {
       const date = new Date(selectedDate);
-      date.setDate(selectedDate.getDate() - 7 + index);
+      date.setDate(selectedDate.getDate() - 6 + index);
       return date;
     });
   }, [selectedDate]);
+
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(selectedDate.getDate() - 1);
+    setSelectedDate(newDate);
+  };
+
+  const handleNextDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(selectedDate.getDate() + 1);
+    setSelectedDate(newDate);
+  };
 
   const doctorAppointments = useMemo(() => {
     const aliases = new Set(
@@ -336,20 +350,25 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="doctor-dashboard space-y-6 max-w-7xl pb-10">
+    <div className="doctor-dashboard space-y-4 max-w-7xl pb-10">
       <section className="space-y-4">
-        <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 transition-colors duration-200 shadow-sm">
-          <h2 className="flex items-center gap-2 text-[24px] font-semibold text-slate-900 dark:text-slate-100">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
-              <CalendarDays className="h-4 w-4" />
-            </span>
-            {locale === "ar" ? "المواعيد" : "Appointments"}
-          </h2>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {locale === "ar" ? "إدارة جدولك اليومي" : "Manage your daily schedule"}
-          </p>
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="rounded-md border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-7 py-5 transition-all duration-300">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+              <CalendarDays className="h-6 w-6" />
+            </div>
+            <div className="flex flex-col">
+              <h2 className="text-[18px] font-bold text-slate-800 dark:text-slate-100 leading-tight mb-1">
+                {locale === "ar" ? "المواعيد" : "Appointments"}
+              </h2>
+              <p className="mt-1 text-[12px] font-medium text-slate-500 dark:text-slate-400">
+                {locale === "ar" ? "إدارة جدولك اليومي" : "Manage your daily schedule"}
+              </p>
+            </div>
+          </div>
+
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
             <Input
               placeholder={
                 locale === "ar"
@@ -358,152 +377,355 @@ export default function SchedulePage() {
               }
               value={scheduleSearch}
               onChange={(event) => setScheduleSearch(event.target.value)}
-              className="h-10 border-slate-100 dark:border-slate-800 pl-10 bg-slate-50/50 dark:bg-slate-950/50 focus:bg-white dark:focus:bg-slate-950 transition-all"
+              className="h-12 w-full rounded-md border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 pl-11"
             />
           </div>
         </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
-          <div className="space-y-3 xl:col-span-9">
-            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm transition-colors duration-200">
-              <div className="grid grid-cols-9 items-center text-center text-xs text-slate-500">
-                {timelineDates.map((slot) => {
-                  const isActive = slot.toISOString().slice(0, 10) === dateKey;
-                  return (
-                    <button
-                      key={slot.toISOString()}
-                      type="button"
-                      onClick={() => setSelectedDate(slot)}
-                      className={`mx-0.5 rounded-lg py-2 transition-all duration-200 ${isActive ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500"}`}
-                    >
-                      <p className="text-[10px]">{slot.toLocaleDateString("en-US", { weekday: "short" })}</p>
-                      <p className="text-lg font-semibold leading-5">{slot.getDate()}</p>
-                      <p className={`text-[10px] ${isActive ? "text-blue-100" : "text-slate-400 dark:text-slate-500"}`}>
-                        {slot.toLocaleDateString("en-US", { month: "short" })}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              {dayAppointments.length === 0 && (
-                <p className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 text-sm text-slate-500 dark:text-slate-400 shadow-sm transition-colors duration-200">
-                  {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments for this day"}
-                </p>
-              )}
-              {dayAppointments.map((item, index) => {
-                const statusTag = getStatusTag(item);
+        
+        {/* Horizontal Date Picker - Full Width */}
+        <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-none mb-6">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handlePrevDay}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+            >
+              <ChevronLeft className="h-4.5 w-4.5" />
+            </button>
+            
+            <div className="flex-1 flex items-center justify-between gap-1">
+              {timelineDates.map((slot) => {
+                const isActive = slot.toISOString().slice(0, 10) === dateKey;
+                const dStr = slot.toISOString().slice(0, 10);
+                const dayAppts = appointments.filter(a => a.date.slice(0, 10) === dStr);
+                
+                let dotColor = "transparent";
+                if (dayAppts.length > 0) {
+                  const hasUrgent = dayAppts.some(a => a.type?.toLowerCase().includes("urgent") || a.type?.toLowerCase().includes("emergency"));
+                  dotColor = hasUrgent ? "bg-rose-500" : dayAppts.length > 4 ? "bg-emerald-500" : "bg-amber-500";
+                }
 
                 return (
-                <div key={item.id} className="grid grid-cols-[72px_1fr] gap-2">
-                  <p className="pt-4 text-[11px] font-medium text-slate-400 dark:text-slate-500">{item.time}</p>
-                  <article className={`rounded-xl border p-4 transition-colors duration-200 shadow-sm ${index === 2 ? "border-blue-200 dark:border-blue-800/60 bg-[linear-gradient(135deg,rgba(219,234,254,0.6),rgba(255,255,255,0.8))] dark:bg-[linear-gradient(135deg,rgba(30,58,138,0.2),rgba(15,23,42,0.4))]" : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900"}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.patientName}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{item.specialty}</p>
-                      </div>
-                      <div className="relative">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActionsDropdownId(actionsDropdownId === item.id ? null : item.id);
-                          }}
-                          className="p-1 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                        >
-                          <MoreVertical className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                        </button>
-                        {actionsDropdownId === item.id && (
-                          <div className="absolute right-0 top-full mt-1 z-30 w-52 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
-                            <button 
-                              onClick={() => openRescheduleForm(item)}
-                              disabled={activeActionId === item.id}
-                              className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                            >
-                              {locale === "ar" ? "إعادة جدولة" : "Reschedule Appointment"}
-                            </button>
-                            <button 
-                              onClick={() => openManualSummaryForm(item)}
-                              disabled={activeActionId === item.id}
-                              className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                            >
-                              {locale === "ar" ? "إرسال ملخص يدوي" : "Send Manual Summary"}
-                            </button>
-                            <button 
-                               onClick={() => router.push(`/doctor/chat?appointmentId=${item.id}`)}
-                              disabled={activeActionId === item.id}
-                              className="flex w-full items-center gap-2 px-4 py-2 text-[13px] font-bold text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
-                            >
-                              <MessageSquare className="h-4 w-4" />
-                              {locale === "ar" ? "دردشة مع المريض" : "Chat with Patient"}
-                            </button>
-                            <button 
-                              onClick={() => openAiSummaryForm(item)}
-                              disabled={activeActionId === item.id}
-                              className="flex w-full items-center px-4 py-2 text-[13px] font-medium text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
-                            >
-                              {locale === "ar" ? "إنشاء ملخص AI" : "Generate AI Summary"}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-slate-500 dark:text-slate-400">
-                      <p className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" />{item.time} • 30 min</p>
-                      <p className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />{item.patientId}</p>
-                    </div>
-                    <p className={`mt-2 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold ${statusTag.className === "bg-emerald-50 text-emerald-600" ? "bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400" : statusTag.className === "bg-slate-100 text-slate-500" ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400" : "bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"}`}>{statusTag.label}</p>
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-medium">Reason: {item.type}</p>
-                  </article>
+                  <button
+                    key={slot.toISOString()}
+                    type="button"
+                    onClick={() => setSelectedDate(slot)}
+                    className={cn(
+                      "flex flex-col items-center justify-center rounded-xl py-3 px-1 transition-all duration-300 relative min-w-[56px]",
+                      isActive 
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400 dark:text-slate-500"
+                    )}
+                  >
+                    <p className={cn("text-[10px] font-bold uppercase tracking-wider mb-1.5", isActive ? "text-blue-100" : "text-slate-400")}>
+                      {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" })}
+                    </p>
+                    <p className="text-[18px] font-black leading-none mb-1.5">
+                      {slot.getDate()}
+                    </p>
+                    <p className={cn("text-[9px] font-bold uppercase", isActive ? "text-blue-100" : "text-slate-400")}>
+                      {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short" })}
+                    </p>
+                    <div className={cn(
+                      "mt-1.5 h-1.5 w-1.5 rounded-full transition-all",
+                      isActive ? "bg-white" : dotColor
+                    )} />
+                  </button>
+                );
+              })}
+            </div>
+
+            <button 
+              onClick={handleNextDay}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+            >
+              <ChevronRight className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <div className="xl:col-span-9 space-y-6">
+            {/* Vertical Timeline List */}
+            <div className="relative pl-14 space-y-6">
+              {/* Vertical Line */}
+              <div className="absolute left-7 top-0 bottom-0 w-px bg-slate-100 dark:bg-slate-800/60" />
+              
+              {dayAppointments.length === 0 && (
+                <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-10 text-center">
+                  <p className="text-sm font-medium text-slate-500">
+                    {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments scheduled for this day"}
+                  </p>
                 </div>
-              )})}
+              )}
+
+              {dayAppointments.map((item) => {
+                const statusTag = getStatusTag(item);
+                const isUrgent = item.type?.toLowerCase().includes("urgent") || item.type?.toLowerCase().includes("emergency");
+                
+                // Detection logic for "Current Appointment"
+                const now = new Date();
+                const [time, period] = item.time.split(" ");
+                const [hours, minutes] = time.split(":").map(Number);
+                let h = hours;
+                if (period === "PM" && h < 12) h += 12;
+                if (period === "AM" && h === 12) h = 0;
+                
+                const appointmentDate = new Date(selectedDate);
+                appointmentDate.setHours(h, minutes, 0, 0);
+                
+                const duration = 30; // default duration
+                const endTime = new Date(appointmentDate.getTime() + duration * 60000);
+                
+                const isCurrent = now >= appointmentDate && now < endTime && appointmentDate.toDateString() === now.toDateString();
+
+                return (
+                  <div key={item.id} className="relative group/slot">
+                    {/* Time Marker */}
+                    <div className="absolute -left-14 top-2 text-[10px] font-black text-slate-400 dark:text-slate-500 text-right w-10 uppercase tracking-tighter">
+                      {item.time}
+                    </div>
+                    {/* Dot on Line */}
+                    <div className={cn(
+                      "absolute -left-[30px] top-[10px] h-3 w-3 rounded-full border-2 border-white dark:border-slate-950 z-10 transition-all duration-500",
+                      isCurrent 
+                        ? "bg-blue-600 scale-125 shadow-[0_0_15px_rgba(37,99,235,0.4)] ring-4 ring-blue-600/10" 
+                        : (isUrgent ? "bg-rose-500" : "bg-slate-200 dark:bg-slate-800 group-hover/slot:bg-blue-400")
+                    )}>
+                      {isCurrent && (
+                        <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-25" />
+                      )}
+                    </div>
+
+                    <article className={cn(
+                      "rounded-2xl border transition-all duration-500 relative overflow-hidden",
+                      isCurrent 
+                        ? "border-blue-500 bg-gradient-to-br from-blue-50/40 via-white to-white dark:from-blue-900/10 dark:via-slate-950 dark:to-slate-950 shadow-2xl shadow-blue-500/5" 
+                        : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-blue-200 dark:hover:border-blue-800/60"
+                    )}>
+                      {isCurrent && (
+                        <div className="absolute top-0 left-0 z-20">
+                          <div className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-[0.1em] px-3 py-1.5 rounded-br-2xl shadow-md flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-white animate-pulse" />
+                            {locale === "ar" ? "الموعد الحالي" : "Current Appointment"}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={cn("p-5", isCurrent ? "pt-10" : "")}>
+                        <div className="flex items-start justify-between mb-5">
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-300",
+                              isCurrent 
+                                ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 shadow-inner" 
+                                : "bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover/slot:bg-blue-50 dark:group-hover/slot:bg-blue-900/30 group-hover/slot:text-blue-600"
+                            )}>
+                              <User className="h-6 w-6" />
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <h4 className="text-[15px] font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                                {item.patientName}
+                              </h4>
+                              <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500">
+                                45 years
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="relative">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActionsDropdownId(actionsDropdownId === item.id ? null : item.id);
+                              }}
+                              className="p-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                            >
+                              <MoreVertical className="h-5 w-5 text-slate-400" />
+                            </button>
+                            
+                            {actionsDropdownId === item.id && (
+                              <div className="absolute right-0 top-full mt-2 z-30 w-56 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-2 shadow-2xl shadow-slate-200/50 dark:shadow-none animate-in fade-in zoom-in-95 duration-200">
+                                <button 
+                                  onClick={() => openRescheduleForm(item)}
+                                  disabled={activeActionId === item.id}
+                                  className="flex w-full items-center px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                >
+                                  {locale === "ar" ? "إعادة جدولة" : "Reschedule Appointment"}
+                                </button>
+                                <button 
+                                  onClick={() => openManualSummaryForm(item)}
+                                  disabled={activeActionId === item.id}
+                                  className="flex w-full items-center px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                >
+                                  {locale === "ar" ? "إرسال ملخص طبي يدوي" : "Send Manual Medical Summary"}
+                                </button>
+                                <div className="my-2 border-t border-slate-50 dark:border-slate-800" />
+                                <button 
+                                  onClick={() => router.push(`/doctor/chat?appointmentId=${item.id}`)}
+                                  disabled={activeActionId === item.id}
+                                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] font-black text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
+                                >
+                                  <MessageSquare className="h-4 w-4" />
+                                  {locale === "ar" ? "دردشة مع المريض" : "Chat with Patient"}
+                                </button>
+                                <button 
+                                  onClick={() => openAiSummaryForm(item)}
+                                  disabled={activeActionId === item.id}
+                                  className="flex w-full items-center px-4 py-2.5 text-[13px] font-black text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
+                                >
+                                  {locale === "ar" ? "إنشاء ملخص AI" : "Generate AI Summary"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                          <div className="space-y-2.5">
+                            <div className="flex items-center gap-3 text-[12px] font-bold text-slate-500 dark:text-slate-400">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                <Clock3 className="h-3.5 w-3.5 text-blue-600" />
+                              </div>
+                              {item.time} • 30 min
+                            </div>
+                            <div className="flex items-center gap-3 text-[12px] font-bold text-slate-500 dark:text-slate-400">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+                                <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                              </div>
+                              {item.patientId}
+                            </div>
+                          </div>
+
+                          <div className="flex items-start md:justify-end">
+                            <span className={cn(
+                              "inline-flex items-center rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-tight",
+                              statusTag.className.includes("emerald") 
+                                ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                                : statusTag.className.includes("blue")
+                                ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                            )}>
+                              {statusTag.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-5 border-t border-slate-50 dark:border-slate-800/60">
+                          <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-slate-400/80 tracking-widest shrink-0">Reason:</span> 
+                            <span className="truncate">{item.type}</span>
+                          </p>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <aside className="space-y-3 xl:col-span-3">
-            <section className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm transition-colors duration-200">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                <Funnel className="h-3.5 w-3.5 text-sky-500" />
-                {locale === "ar" ? "فلاتر سريعة" : "Quick Filters"}
-              </p>
-              <div className="mt-2.5 space-y-2">
-                <label className="flex items-center justify-between rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-2 text-xs text-emerald-700 dark:text-emerald-400 font-medium"><span>{locale === "ar" ? "مؤكد" : "Confirmed"}</span><input type="checkbox" checked={showConfirmed} onChange={(event) => setShowConfirmed(event.target.checked)} className="rounded border-emerald-200" /></label>
-                <label className="flex items-center justify-between rounded-md bg-amber-50 dark:bg-amber-900/20 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-400 font-medium"><span>{locale === "ar" ? "معلق" : "Pending"}</span><input type="checkbox" checked={showPending} onChange={(event) => setShowPending(event.target.checked)} className="rounded border-amber-200" /></label>
-                <label className="flex items-center justify-between rounded-md bg-slate-50 dark:bg-slate-800/40 px-2.5 py-2 text-xs text-slate-600 dark:text-slate-400 font-medium"><span>{locale === "ar" ? "ملغي" : "Cancelled"}</span><input type="checkbox" checked={showCancelled} onChange={(event) => setShowCancelled(event.target.checked)} className="rounded border-slate-200" /></label>
+          <aside className="xl:col-span-3 space-y-6">
+            {/* Quick Filters */}
+            <section className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-none">
+              <div className="flex items-center gap-2 mb-5">
+                <Funnel className="h-4.5 w-4.5 text-blue-600" />
+                <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
+                  {locale === "ar" ? "فلاتر سريعة" : "Quick Filters"}
+                </h3>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-xl bg-emerald-50/60 dark:bg-emerald-900/10 px-4 py-3 transition-all">
+                  <span className="text-[13px] font-bold text-emerald-700 dark:text-emerald-400">
+                    {locale === "ar" ? "مؤكد" : "Confirmed"}
+                  </span>
+                  <Switch 
+                    checked={showConfirmed} 
+                    onCheckedChange={setShowConfirmed} 
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between rounded-xl bg-amber-50/60 dark:bg-amber-900/10 px-4 py-3 transition-all">
+                  <span className="text-[13px] font-bold text-amber-700 dark:text-amber-400">
+                    {locale === "ar" ? "معلق" : "Pending"}
+                  </span>
+                  <Switch 
+                    checked={showPending} 
+                    onCheckedChange={setShowPending} 
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-900 px-4 py-3 transition-all">
+                  <span className="text-[13px] font-bold text-slate-600 dark:text-slate-400">
+                    {locale === "ar" ? "ملغي" : "Cancelled"}
+                  </span>
+                  <Switch 
+                    checked={showCancelled} 
+                    onCheckedChange={setShowCancelled} 
+                  />
+                </div>
               </div>
             </section>
 
-            <section className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-sm transition-colors duration-200">
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{locale === "ar" ? "ملخص اليوم" : "Today's Summary"}</p>
-              <div className="mt-2.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
-                <div className="flex items-center justify-between"><span>{locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"}</span><span className="font-bold text-slate-900 dark:text-slate-100">{dayAppointments.length}</span></div>
-                <div className="flex items-center justify-between"><span>{locale === "ar" ? "مكتمل" : "Completed"}</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{completedCount}</span></div>
-                <div className="flex items-center justify-between"><span>{locale === "ar" ? "متبقي" : "Remaining"}</span><span className="font-bold text-blue-600 dark:text-blue-400">{remainingCount}</span></div>
+            {/* Today's Summary */}
+            <section className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 relative overflow-hidden group">
+              {/* Subtle Gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
+              
+              <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 mb-6 relative z-10">
+                {locale === "ar" ? "ملخص اليوم" : "Today's Summary"}
+              </h3>
+              
+              <div className="space-y-4 relative z-10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+                    {locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"}
+                  </span>
+                  <span className="text-[18px] font-black text-slate-900 dark:text-slate-100">
+                    {dayAppointments.length}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+                    {locale === "ar" ? "مكتمل" : "Completed"}
+                  </span>
+                  <span className="text-[18px] font-black text-emerald-600 dark:text-emerald-400">
+                    {completedCount}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+                    {locale === "ar" ? "متبقي" : "Remaining"}
+                  </span>
+                  <span className="text-[18px] font-black text-blue-600 dark:text-blue-400">
+                    {remainingCount}
+                  </span>
+                </div>
               </div>
             </section>
-
-             <button
-               type="button"
-               aria-label="Add appointment"
-               onClick={() => setShowAddAppointmentModal(true)}
-               className="fixed right-6 bottom-6 md:right-10 md:bottom-10 z-20 grid h-14 w-14 place-items-center rounded-2xl bg-blue-600 text-white shadow-xl shadow-blue-500/30 transition-all hover:bg-blue-700 hover:scale-110 active:scale-95 group"
-             >
-               <Plus className="h-6 w-6 stroke-[3] group-hover:rotate-90 transition-transform duration-300" />
-             </button>
-           </aside>
+          </aside>
         </div>
+
+        <button
+          type="button"
+          aria-label="Add appointment"
+          onClick={() => setShowAddAppointmentModal(true)}
+          className="fixed right-6 bottom-24 md:right-10 md:bottom-28 z-20 grid h-14 w-14 place-items-center rounded-2xl bg-blue-600 text-white shadow-xl shadow-blue-500/40 dark:shadow-none transition-all hover:bg-blue-700 hover:scale-110 active:scale-95 group"
+        >
+          <Plus className="h-6 w-6 stroke-[3] group-hover:rotate-90 transition-transform duration-300" />
+        </button>
       </section>
-
-
 
       {showAddAppointmentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 px-8 py-5">
-              <h3 className="flex items-center gap-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-                <CalendarDays className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <div className="w-full max-w-2xl rounded-[32px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-2xl overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 px-10 py-6">
+              <h3 className="flex items-center gap-3 text-[20px] font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
+                  <CalendarDays className="h-5 w-5" />
+                </div>
                 {locale === "ar" ? "إضافة موعد جديد" : "Add New Appointment"}
               </h3>
               <button
@@ -515,62 +737,73 @@ export default function SchedulePage() {
               </button>
             </div>
 
-            <div className="space-y-6 px-8 py-7 overflow-y-auto max-h-[70vh]">
+            <div className="space-y-6 px-10 py-8 overflow-y-auto max-h-[75vh]">
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "اسم المريض" : "Patient Name"}</label>
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                    <User className="h-3.5 w-3.5 text-blue-500" />
+                    {locale === "ar" ? "اسم المريض" : "Patient Name"}
+                  </label>
                   <Input
                     value={newAppointmentForm.patientName}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, patientName: event.target.value }))}
                     placeholder={locale === "ar" ? "ادخل اسم المريض" : "Enter patient name"}
-                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
+                    className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 focus:ring-4 focus:ring-blue-600/5 transition-all"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "العمر" : "Age"}</label>
+                <div className="space-y-2.5">
+                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{locale === "ar" ? "العمر" : "Age"}</label>
                   <Input
                     value={newAppointmentForm.age}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, age: event.target.value }))}
                     placeholder={locale === "ar" ? "ادخل العمر" : "Enter age"}
-                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
+                    className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 transition-all"
                   />
                 </div>
               </div>
 
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "رقم الهاتف" : "Phone Number"}</label>
-                  <Input
-                    value={newAppointmentForm.phoneNumber}
-                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
-                    placeholder="(555) 123-4567"
-                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
-                  />
-                </div>
+              <div className="space-y-2.5">
+                <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                  {locale === "ar" ? "رقم الهاتف" : "Phone Number"}
+                </label>
+                <Input
+                  value={newAppointmentForm.phoneNumber}
+                  onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, phoneNumber: event.target.value }))}
+                  placeholder="(555) 123-4567"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 transition-all"
+                />
+              </div>
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "التاريخ" : "Date"}</label>
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                    <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
+                    {locale === "ar" ? "التاريخ" : "Date"}
+                  </label>
                   <Input
                     type="date"
                     value={newAppointmentForm.date}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, date: event.target.value }))}
-                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
+                    className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 transition-all"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الوقت" : "Time"}</label>
+                <div className="space-y-2.5">
+                  <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                    <Clock3 className="h-3.5 w-3.5 text-blue-500" />
+                    {locale === "ar" ? "الوقت" : "Time"}
+                  </label>
                   <Input
                     type="time"
                     value={newAppointmentForm.time}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, time: event.target.value }))}
-                    className="h-11 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50"
+                    className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 transition-all"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "نوع الزيارة" : "Visit Type"}</label>
+                <div className="space-y-2.5">
+                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{locale === "ar" ? "نوع الزيارة" : "Visit Type"}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -578,10 +811,10 @@ export default function SchedulePage() {
                         setVisitTypeOpen((prev) => !prev);
                         setDurationOpen(false);
                       }}
-                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                       <span>{newAppointmentForm.visitType}</span>
-                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${visitTypeOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-200", visitTypeOpen && "rotate-180")} />
                     </button>
                     {visitTypeOpen && (
                       <div className="absolute z-60 mt-2 max-h-48 w-full overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-200">
@@ -605,8 +838,8 @@ export default function SchedulePage() {
                     )}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "المدة (بالدقائق)" : "Duration (minutes)"}</label>
+                <div className="space-y-2.5">
+                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{locale === "ar" ? "المدة (بالدقائق)" : "Duration (minutes)"}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -614,14 +847,14 @@ export default function SchedulePage() {
                         setDurationOpen((prev) => !prev);
                         setVisitTypeOpen(false);
                       }}
-                      className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                       <span>{`${newAppointmentForm.duration} minutes`}</span>
-                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${durationOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-200", durationOpen && "rotate-180")} />
                     </button>
                     {durationOpen && (
                       <div className="absolute z-60 mt-2 max-h-48 w-full overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                        {["10", "20", "30", "40", "50", "60"].map((option) => (
+                        {["15", "30", "45", "60", "90"].map((option) => (
                           <button
                             key={option}
                             type="button"
@@ -634,7 +867,7 @@ export default function SchedulePage() {
                             <span className="w-4 flex items-center justify-center">
                               {newAppointmentForm.duration === option ? <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" /> : null}
                             </span>
-                            <span>{option} minutes</span>
+                            <span>{`${option} minutes`}</span>
                           </button>
                         ))}
                       </div>
@@ -643,34 +876,35 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-               <div className="space-y-2">
-                <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "سبب الزيارة" : "Reason for Visit"}</label>
+              <div className="space-y-2.5">
+                <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                  <AlertCircle className="h-3.5 w-3.5 text-blue-500" />
+                  {locale === "ar" ? "سبب الزيارة" : "Reason for Visit"}
+                </label>
                 <textarea
                   value={newAppointmentForm.reason}
                   onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, reason: event.target.value }))}
                   placeholder={locale === "ar" ? "ادخل سبب الزيارة" : "Enter reason for visit"}
-                  className="min-h-[100px] w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
+                  rows={4}
+                  className="w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-600/5 transition-all outline-none resize-none"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-3 px-8 pb-8 pt-2">
+            <div className="flex items-center gap-4 px-10 py-8 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-50 dark:border-slate-800/50">
               <Button
                 variant="ghost"
-                className="h-12 flex-1 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                 onClick={() => setShowAddAppointmentModal(false)}
-                disabled={isSubmittingAppointment}
+                className="flex-1 h-14 rounded-2xl font-black text-[15px] text-slate-500 hover:bg-white hover:text-slate-900 shadow-sm border border-transparent hover:border-slate-100 transition-all bg-[#E9EEF4] dark:bg-slate-800"
               >
                 {locale === "ar" ? "إلغاء" : "Cancel"}
               </Button>
               <Button
-                className="h-12 flex-1 rounded-2xl bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 shadow-lg shadow-blue-500/20 text-white font-bold transition-all"
-                onClick={() => void handleCreateAppointment()}
+                onClick={handleCreateAppointment}
                 disabled={isSubmittingAppointment}
+                className="flex-[1.5] h-14 rounded-2xl bg-blue-600 text-white font-black text-[15px] hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all disabled:opacity-50"
               >
-                {isSubmittingAppointment
-                  ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...")
-                  : (locale === "ar" ? "إضافة موعد" : "Add Appointment")}
+                {isSubmittingAppointment ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...") : (locale === "ar" ? "إضافة موعد" : "Add Appointment")}
               </Button>
             </div>
           </div>
@@ -830,7 +1064,7 @@ export default function SchedulePage() {
                   </div>
                 </div>
               )}
-              </div>
+            </div>
           </DialogContent>
         </Dialog>
       )}
