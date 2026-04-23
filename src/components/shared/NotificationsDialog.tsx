@@ -125,7 +125,10 @@ export function NotificationsDialog({
                         {n.title}
                         {!n.readAt && <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse" />}
                       </h4>
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap uppercase tracking-tight">
+                      <span 
+                        title={new Date(n.createdAt).toLocaleString()}
+                        className="text-[10px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap uppercase tracking-tight"
+                      >
                         {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                       </span>
                     </div>
@@ -146,7 +149,10 @@ export function NotificationsDialog({
                           </button>
                         )}
                       </div>
-                      <button className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500 hover:text-rose-600">
+                      <button 
+                        onClick={() => notificationsService.deleteInAppNotification(n.id).then(onRefresh)}
+                        className="flex items-center gap-1.5 text-[11px] font-bold text-rose-500 hover:text-rose-600"
+                      >
                         <Trash2 className="h-3.5 w-3.5" />
                         {locale === "ar" ? "حذف" : "Delete"}
                       </button>

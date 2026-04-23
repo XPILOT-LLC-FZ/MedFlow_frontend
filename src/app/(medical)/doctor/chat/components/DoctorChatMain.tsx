@@ -6,6 +6,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import Image from "next/image";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Star, Archive, BellOff, Trash2 } from "lucide-react";
 
 interface Message {
   id: string;
@@ -23,6 +31,8 @@ interface Recipient {
   avatar?: string;
   role: string;
   status: "online" | "offline";
+  isFavorite?: boolean;
+  isMuted?: boolean;
 }
 
 interface DoctorChatMainProps {
@@ -32,6 +42,10 @@ interface DoctorChatMainProps {
   isTyping?: boolean;
   onSend: () => void;
   onInputChange: (val: string) => void;
+  onFavorite?: () => void;
+  onArchive?: () => void;
+  onMute?: () => void;
+  onDelete?: () => void;
 }
 
 export function DoctorChatMain({
@@ -41,6 +55,10 @@ export function DoctorChatMain({
   isTyping,
   onSend,
   onInputChange,
+  onFavorite,
+  onArchive,
+  onMute,
+  onDelete,
 }: DoctorChatMainProps) {
   const { t, locale } = useTranslation();
 
@@ -103,9 +121,48 @@ export function DoctorChatMain({
           <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
                <Info size={18} />
           </button>
-          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
-            <MoreHorizontal size={18} />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
+                <MoreHorizontal size={18} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-xl border-slate-100 dark:border-slate-800">
+              <DropdownMenuItem 
+                onClick={onFavorite}
+                className="rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200"
+              >
+                <Star className={cn("h-4 w-4", recipient.isFavorite && "fill-amber-400 text-amber-400")} />
+                <span>{recipient.isFavorite ? (locale === "ar" ? "إزالة من المفضلة" : "Remove from favorites") : (locale === "ar" ? "إضافة إلى المفضلة" : "Add to favorites")}</span>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem 
+                onClick={onArchive}
+                className="rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200"
+              >
+                <Archive className="h-4 w-4" />
+                <span>{locale === "ar" ? "أرشفة المحادثة" : "Archive chat"}</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem 
+                onClick={onMute}
+                className="rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200"
+              >
+                <BellOff className={cn("h-4 w-4", recipient.isMuted && "text-blue-500")} />
+                <span>{recipient.isMuted ? (locale === "ar" ? "إلغاء كتم التنبيهات" : "Unmute notifications") : (locale === "ar" ? "كتم التنبيهات" : "Mute notifications")}</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-900" />
+              
+              <DropdownMenuItem 
+                onClick={onDelete}
+                className="rounded-xl px-3 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 focus:bg-red-50 focus:text-red-600 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>{locale === "ar" ? "حذف المحادثة" : "Delete chat"}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

@@ -39,10 +39,11 @@ import { dashboardService } from "@/services/dashboardService";
 import { treatmentPlanService } from "@/services/treatmentPlanService";
 import { prescriptionService } from "@/services/prescriptionService";
 import { patientService } from "@/services/patientService";
+import { surveyService } from "@/services/surveyService";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
-import type { ApiTreatmentPlan, DashboardDoctorSummaryData, ApiPrescription, ApiPatient } from "@/types";
+import type { ApiTreatmentPlan, DashboardDoctorSummaryData, ApiPrescription, ApiPatient, DoctorSurveyStats } from "@/types";
 import { cn } from "@/lib/utils";
 
 const isWithinRange = (dateStr: string | Date | null | undefined, range: string) => {
@@ -89,17 +90,7 @@ const mockDemographics = [
   { name: 'Senior (65+)', value: 16, color: '#F59E0B' },
 ];
 
-const mockSatisfaction = {
-  rating: 4.8,
-  reviews: 342,
-  distribution: [
-    { stars: 5, count: 256, max: 256 },
-    { stars: 4, count: 56, max: 256 },
-    { stars: 3, count: 16, max: 256 },
-    { stars: 2, count: 7, max: 256 },
-    { stars: 1, count: 3, max: 256 },
-  ]
-};
+// Mock Satisfaction removed in favor of real data from surveyService
 
 /* --- SUBCOMPONENTS --- */
 
@@ -175,9 +166,10 @@ interface VisitDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   plan: ApiTreatmentPlan | null;
+  patient: ApiPatient | null;
 }
 
-function VisitDetailsModal({ isOpen, onClose, plan }: VisitDetailsModalProps) {
+function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModalProps) {
   if (!plan) return null;
 
   return (
@@ -232,11 +224,11 @@ function VisitDetailsModal({ isOpen, onClose, plan }: VisitDetailsModalProps) {
                     </div>
                     <div className="flex items-center gap-1.5 text-slate-500 text-[12px] font-bold">
                       <Phone size={14} className="text-slate-400" />
-                      +1 (555) 123-4567
+                      {patient?.phone || "N/A"}
                     </div>
                     <div className="flex items-center gap-1.5 text-slate-500 text-[12px] font-bold">
                       <Mail size={14} className="text-slate-400" />
-                      patient@email.com
+                      {patient?.email || "N/A"}
                     </div>
                   </div>
                 </div>
@@ -277,30 +269,7 @@ function VisitDetailsModal({ isOpen, onClose, plan }: VisitDetailsModalProps) {
                 </div>
               </div>
 
-              {/* Vital Signs */}
-              <div className="p-5 rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-8 w-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-                    <TrendingUp size={16} />
-                  </div>
-                  <h4 className="text-[14px] font-black text-slate-900 dark:text-white uppercase tracking-wider">Vital Signs</h4>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Blood Pressure", value: "120/80 mmHg" },
-                    { label: "Heart Rate", value: "72 bpm" },
-                    { label: "Temperature", value: "98.6°F" },
-                    { label: "Weight", value: "165 lbs" },
-                    { label: "Height", value: "5'8\"" },
-                    { label: "BMI", value: "25.1" },
-                  ].map((vital) => (
-                    <div key={vital.label} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">{vital.label}</p>
-                      <p className="text-[13px] font-black text-slate-800 dark:text-white leading-none">{vital.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* Note: Vital Signs are currently not linked to treatment plans */}
             </div>
 
             {/* Footer */}
@@ -329,6 +298,7 @@ export default function DoctorAnalyticsPage() {
 
   const [doctorId, setDoctorId] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardDoctorSummaryData | null>(null);
+  const [surveyStats, setSurveyStats] = useState<DoctorSurveyStats | null>(null);
   const [plans, setPlans] = useState<ApiTreatmentPlan[]>([]);
   const [prescriptions, setPrescriptions] = useState<ApiPrescription[]>([]);
   const [patients, setPatients] = useState<ApiPatient[]>([]);
@@ -337,10 +307,13 @@ export default function DoctorAnalyticsPage() {
   const [tableStatusFilter, setTableStatusFilter] = useState<string>("All");
 
   const [selectedPlan, setSelectedPlan] = useState<ApiTreatmentPlan | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<ApiPatient | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleViewVisit = (plan: ApiTreatmentPlan) => {
     setSelectedPlan(plan);
+    const patient = patients.find(p => p.id === plan.patientId);
+    setSelectedPatient(patient || null);
     setIsModalOpen(true);
   };
 
@@ -349,17 +322,19 @@ export default function DoctorAnalyticsPage() {
       if (!refresh) setIsLoading(true);
 
       try {
-        const [doctorSummary, doctorPlans, doctorPrescriptions, allPatients] = await Promise.all([
+        const [doctorSummary, doctorPlans, doctorPrescriptions, allPatients, stats] = await Promise.all([
           dashboardService.getDoctorSummary({ period: timeRange as "day" | "week" | "month" | "year" }),
           treatmentPlanService.getAll({ doctorId: targetDoctorId }),
           prescriptionService.getAll(),
           patientService.getAll(),
+          surveyService.getDoctorStats(),
         ]);
 
         setSummary(doctorSummary);
         setPlans(doctorPlans);
         setPrescriptions(doctorPrescriptions);
         setPatients(allPatients);
+        setSurveyStats(stats);
       } catch {
         toast.error(locale === "ar" ? "فشل تحميل تحليلات الطبيب" : "Failed to load doctor analytics");
       } finally {
@@ -407,25 +382,9 @@ export default function DoctorAnalyticsPage() {
   const totalPatients = summary?.summaryCards.totalPatients ?? 0;
   const waitMinutes = summary?.summaryCards.averageWaitMinutes;
   const completedPlansCount = plans.filter(p => p.status === "COMPLETED").length;
-
-  // Fill missing days with 0s if they don't exist for the chart to look better
-
-  const computedMonthlyPatients = useMemo(() => {
-    // English/Arabic month names aren't strictly required for keys, but we can match the design's "Jan", "Feb", etc.
-    const monthsArray = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const counts = new Array(12).fill(0);
-
-    const filteredPlans = timeRange === "all" ? plans : plans.filter(p => isWithinRange(p.createdAt || p.updatedAt, timeRange));
-
-    filteredPlans.forEach(plan => {
-      const d = plan.createdAt ? new Date(plan.createdAt) : new Date(plan.updatedAt);
-      if (!isNaN(d.getTime())) {
-        counts[d.getMonth()] += 1;
-      }
-    });
-
-    return monthsArray.map((month, i) => ({ name: month, patients: counts[i] }));
-  }, [plans, timeRange]);
+  const satisfactionRating = summary?.summaryCards.satisfaction ?? null;
+  const completionRate = summary?.summaryCards.completionRate ?? 0;
+  const monthlyPatients = useMemo(() => summary?.charts.monthlyPatients || [], [summary?.charts.monthlyPatients]);
 
   const computedCaseTypes = useMemo(() => {
     const filteredPlans = plans.filter(p => isWithinRange(p.createdAt || p.updatedAt, timeRange));
@@ -544,8 +503,8 @@ export default function DoctorAnalyticsPage() {
 
     const currentMonth = new Date().getMonth();
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const currentMonthPatients = computedMonthlyPatients[currentMonth]?.patients || 0;
-    const prevMonthPatients = computedMonthlyPatients[prevMonth]?.patients || 0;
+    const currentMonthPatients = monthlyPatients[currentMonth]?.patients || 0;
+    const prevMonthPatients = monthlyPatients[prevMonth]?.patients || 0;
 
     let growthString = "0%";
     if (prevMonthPatients === 0) {
@@ -560,7 +519,7 @@ export default function DoctorAnalyticsPage() {
       averageWaitTime: waitStr,
       patientGrowth: growthString
     };
-  }, [computedCaseTypes, summary, computedMonthlyPatients]);
+  }, [computedCaseTypes, summary?.summaryCards.averageWaitMinutes, monthlyPatients]);
 
   if (isLoading && !summary) {
     return (
@@ -623,35 +582,30 @@ export default function DoctorAnalyticsPage() {
       >
         <StatsCard
           title={locale === "ar" ? "إجمالي المرضى" : "Total Patients"}
-          value={totalPatients || 487}
+          value={totalPatients}
           icon={Users}
           theme="blue"
-          trend="up"
-          trendLabel="+12%"
+          trend={computedInsightsMetrics.patientGrowth.startsWith("+") ? "up" : computedInsightsMetrics.patientGrowth.startsWith("-") ? "down" : "none"}
+          trendLabel={computedInsightsMetrics.patientGrowth}
         />
         <StatsCard
           title={locale === "ar" ? "متوسط وقت الاستشارة" : "Avg. Consultation Time"}
-          value={waitMinutes !== null && waitMinutes !== undefined ? `${waitMinutes}m` : "18m"}
+          value={waitMinutes !== null && waitMinutes !== undefined ? `${waitMinutes}m` : "--"}
           icon={Clock3}
           theme="green"
-          trend="up"
-          trendLabel="-3 min"
         />
         <StatsCard
           title={locale === "ar" ? "الحالات المكتملة" : "Completed Cases"}
-          value={completedPlansCount || 983}
+          value={completedPlansCount}
           icon={CheckCircle}
           theme="orange"
-          trend="none"
-          trendLabel="+5.7%"
+          trendLabel={`${completionRate}% Rate`}
         />
         <StatsCard
           title={locale === "ar" ? "المتابعات" : "Follow-ups"}
-          value={todayAppointments || 156}
+          value={todayAppointments}
           icon={TrendingUp}
           theme="teal"
-          trend="up"
-          trendLabel="+18%"
         />
       </motion.div>
 
@@ -681,7 +635,7 @@ export default function DoctorAnalyticsPage() {
             <CardContent className="px-2 pt-6 pb-6">
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={computedMonthlyPatients} margin={{ top: 20, right: 30, left: -20, bottom: 0 }}>
+                  <LineChart data={monthlyPatients} margin={{ top: 20, right: 30, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="currentColor" className="text-slate-200 dark:text-slate-800" />
                     <XAxis
                       dataKey="name"
@@ -951,42 +905,46 @@ export default function DoctorAnalyticsPage() {
             </CardHeader>
             <CardContent className="px-7 pb-7 pt-2 flex flex-col flex-1">
               <div className="flex flex-col items-center justify-center py-4 text-center">
-                <h2 className="text-[34px] font-black tracking-tight text-slate-900 dark:text-slate-100 mb-2">{mockSatisfaction.rating}</h2>
+                <h2 className="text-[34px] font-black tracking-tight text-slate-900 dark:text-slate-100 mb-2">{satisfactionRating || "--"}</h2>
                 <div className="flex items-center gap-1.5 mb-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`h-5 w-5 ${star <= Math.floor(mockSatisfaction.rating) ? "fill-[#527FF4] text-[#527FF4]" : "fill-blue-100 dark:fill-blue-900/40 text-blue-100 dark:text-blue-900/40"}`}
+                      className={`h-5 w-5 ${satisfactionRating && star <= Math.floor(satisfactionRating) ? "fill-[#527FF4] text-[#527FF4]" : "fill-blue-100 dark:fill-blue-900/40 text-blue-100 dark:text-blue-900/40"}`}
                     />
                   ))}
                 </div>
-                <p className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">Based on {mockSatisfaction.reviews} reviews</p>
+                <p className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">
+                  {surveyStats?.totalReviews ? `Based on ${surveyStats.totalReviews} reviews` : `No ratings yet`}
+                </p>
               </div>
 
               <div className="mt-4 space-y-3.5 pt-2">
-                {mockSatisfaction.distribution.map((dist) => (
-                  <div key={dist.stars} className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 w-6 text-[13px] font-bold text-slate-500 dark:text-slate-400">
-                      {dist.stars} <Star className="h-3.5 w-3.5 fill-[#527FF4] text-[#527FF4]" />
+                {(surveyStats?.distribution || [5, 4, 3, 2, 1].map(s => ({ stars: s, count: 0 }))).map((dist) => {
+                  const maxCount = surveyStats?.totalReviews || 1;
+                  return (
+                    <div key={dist.stars} className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5 w-6 text-[13px] font-bold text-slate-500 dark:text-slate-400">
+                        {dist.stars} <Star className="h-3.5 w-3.5 fill-[#527FF4] text-[#527FF4]" />
+                      </div>
+                      <div className="h-[6px] flex-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#527FF4]"
+                          style={{ width: `${(dist.count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                      <div className="w-8 text-right text-[12px] font-bold text-slate-500 dark:text-slate-400">
+                        {dist.count}
+                      </div>
                     </div>
-                    <div className="h-[6px] flex-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-[#527FF4]"
-                        style={{ width: `${(dist.count / dist.max) * 100}%` }}
-                      />
-                    </div>
-                    <div className="w-8 text-right text-[12px] font-bold text-slate-500 dark:text-slate-400">
-                      {dist.count}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </motion.div> 
       </div>
     </div>
-
       {/* Row 3: Recent Patient Visits Table */}
       <div className="pt-4">
         <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-[24px] overflow-hidden transition-colors duration-200">
@@ -1116,8 +1074,9 @@ export default function DoctorAnalyticsPage() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         plan={selectedPlan}
+        patient={selectedPatient}
       />
 
-    </div >
+    </div>
   );
 }

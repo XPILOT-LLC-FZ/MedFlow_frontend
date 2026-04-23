@@ -162,15 +162,25 @@ export default function WorkingHoursSettingsPage() {
 
       setDoctorId(doctor.id);
 
+      // Fetch doctor shifts
       const fetchedShifts = await staffService.getDoctorShifts(doctor.id);
       const normalized = normalizeShifts(fetchedShifts);
       setShifts(normalized);
-      
+
       // Seed global breaks if the first available shift has them
       const firstAvailable = normalized.find(s => s.isAvailable);
       if (firstAvailable && firstAvailable.lunchStart && firstAvailable.lunchEnd) {
         setGlobalBreakStart(firstAvailable.lunchStart);
         setGlobalBreakEnd(firstAvailable.lunchEnd);
+      }
+
+      // Load preferences from API
+      const myProfile = await staffService.getMyDoctorProfile();
+      if (myProfile.preferences && typeof myProfile.preferences === "object") {
+        const prefs = myProfile.preferences as Record<string, unknown>;
+        if (typeof prefs.consultationDuration === "number") setConsultationDuration(prefs.consultationDuration);
+        if (typeof prefs.bufferTime === "number") setBufferTime(prefs.bufferTime);
+        if (typeof prefs.autoScheduling === "boolean") setAutoScheduling(prefs.autoScheduling);
       }
     } catch {
       error(locale === "ar" ? "فشل تحميل أوقات العمل" : "Failed to load working hours");
@@ -247,7 +257,14 @@ export default function WorkingHoursSettingsPage() {
 
       await staffService.updateDoctorShifts(doctorId, payload);
       
-      // Save local preferences
+      // Save preferences to backend
+      await staffService.updateMyPreferences({
+        consultationDuration,
+        bufferTime,
+        autoScheduling
+      });
+      
+      // Keep local storage as fallback
       localStorage.setItem(`doctor-settings-${doctorId}`, JSON.stringify({
         consultationDuration,
         bufferTime,
@@ -320,6 +337,21 @@ export default function WorkingHoursSettingsPage() {
             <div className="flex flex-col items-center justify-center min-w-[80px]">
                <span className="text-3xl font-bold text-blue-600 dark:text-blue-500">{consultationDuration}</span>
                <span className="text-[10px] uppercase font-semibold text-slate-400">minutes</span>
+            </div>
+          </div>
+
+          {/* Effective Duration Summary */}
+          <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/20 rounded-xl">
+            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+               <HelpCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex flex-col">
+               <span className="text-[11px] font-semibold text-blue-800 dark:text-blue-300">
+                  {locale === "ar" ? "إجمالي وقت الموعد" : "Effective Appointment Duration"}
+               </span>
+               <span className="text-[10px] text-blue-600/70 dark:text-blue-400/60">
+                  {consultationDuration} min consultation + {bufferTime} min buffer = <span className="font-bold text-blue-700 dark:text-blue-300">{consultationDuration + bufferTime} min</span> total
+               </span>
             </div>
           </div>
           

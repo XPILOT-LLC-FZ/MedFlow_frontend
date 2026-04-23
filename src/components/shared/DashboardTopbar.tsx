@@ -15,7 +15,7 @@ import { notificationsService } from "@/services/notificationsService";
 import { formatDistanceToNow } from "date-fns";
 import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
 import {
-  AlertCircle, CheckCircle2, 
+  AlertCircle, CheckCircle2,
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
   Package, BarChart3, Clock, FileText, Settings, MessageSquare, Sparkles, Activity,
   Moon, Sun, Bell, Search, UsersRound, ChevronRight
@@ -358,22 +358,36 @@ export function DashboardTopbar() {
                           <p className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                             {n.body}
                           </p>
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                              {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                            </span>
-                            {!n.readAt && (
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
-                                }}
-                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                            <div className="flex items-center gap-2">
+                              <span 
+                                title={new Date(n.createdAt).toLocaleString()}
+                                className="text-[10px] font-bold text-slate-400 uppercase tracking-tight"
                               >
-                                Mark Read
-                              </button>
-                            )}
-                          </div>
+                                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                              </span>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {!n.readAt && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
+                                    }}
+                                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                                  >
+                                    {locale === "ar" ? "مقروء" : "Read"}
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    notificationsService.deleteInAppNotification(n.id).then(() => refreshNotifications());
+                                  }}
+                                  className="text-[10px] font-bold text-rose-500 hover:text-rose-600"
+                                >
+                                  {locale === "ar" ? "حذف" : "Delete"}
+                                </button>
+                              </div>
+                            </div>
                         </div>
                       </div>
                     ))

@@ -53,22 +53,44 @@ const ensureClinicContextReady = async (): Promise<boolean> => {
   return clinicContextCheckInFlight;
 };
 
-const mapToLocal = (api: ApiAppointment): Appointment => ({
-  id: api.id,
-  patientId: api.patientId || "guest",
-  patientName: api.patientName,
-  doctorId: api.doctorId || "unknown",
-  doctorName: api.doctorName || "Unknown Doctor",
-  specialty: api.serviceName || "Specialist",
-  date: api.date,
-  time: api.startTime,
-  status: api.status.toLowerCase().replace("_", "-") as Appointment["status"],
-  type: api.type.charAt(0) + api.type.slice(1).toLowerCase(),
-  notes:
-    api.consultationSession?.savedToPatient && api.consultationSession?.notes
-      ? api.consultationSession.notes
-      : api.notes,
-});
+const calculateAge = (dob?: string | Date | null) => {
+  if (!dob) return undefined;
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age > 0 ? `${age} years` : undefined;
+};
+
+const mapToLocal = (api: ApiAppointment): Appointment => {
+  const patient = api.patient;
+  const rawPhone = patient?.phone || undefined;
+  const patientPhone = rawPhone && !isUuid(rawPhone) ? rawPhone : undefined;
+
+  return {
+    id: api.id,
+    patientId: api.patientId || "guest",
+    patientName: patient?.fullName || api.patientName,
+    patientPhone,
+    patientAge: calculateAge(patient?.dateOfBirth),
+    patientAvatar: patient?.user?.avatarUrl || undefined,
+    doctorId: api.doctorId || "unknown",
+    doctorName: api.doctorName || "Unknown Doctor",
+    specialty: api.serviceName || "Specialist",
+    date: api.date,
+    time: api.startTime,
+    duration: api.durationMinutes ? `${api.durationMinutes} min` : undefined,
+    status: api.status.toLowerCase().replace("_", "-") as Appointment["status"],
+    type: api.type.charAt(0) + api.type.slice(1).toLowerCase(),
+    notes:
+      api.consultationSession?.savedToPatient && api.consultationSession?.notes
+        ? api.consultationSession.notes
+        : api.notes,
+  };
+};
 
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(

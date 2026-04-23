@@ -4,6 +4,7 @@ import type {
   RequestSurveyPayload,
   RequestSurveyResponse,
   SubmitSurveyPayload,
+  DoctorSurveyStats,
 } from "@/types";
 
 export const surveyService = {
@@ -20,5 +21,9 @@ export const surveyService = {
     payload: SubmitSurveyPayload,
   ): Promise<ApiSurvey> {
     return apiClient.patch(`/surveys/${surveyId}/submit`, payload);
+  },
+
+  async getDoctorStats(): Promise<DoctorSurveyStats> {
+    return apiClient.get("/surveys/doctor-stats");
   },
 };

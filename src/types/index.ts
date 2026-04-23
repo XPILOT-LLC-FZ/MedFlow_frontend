@@ -11,6 +11,7 @@ export interface PreviewFileInfo {
 }
 
 export type InAppNotification = {
+  isRead: boolean;
   id: string;
   type: string;
   title: string;
@@ -220,11 +221,15 @@ export interface Appointment {
   id: string;
   patientId: string;
   patientName: string;
+  patientPhone?: string;
+  patientAge?: string;
+  patientAvatar?: string;
   doctorId: string;
   doctorName: string;
   specialty: string;
   date: string;
   time: string;
+  duration?: string;
   status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress" | "no-show" | "rescheduled";
   type: string;
   notes?: string;
@@ -235,8 +240,10 @@ export interface ApiAppointment {
   id: string;
   patientId?: string;
   patientName: string;
+  patient?: ApiPatient;
   doctorId?: string;
   doctorName?: string;
+  doctor?: ApiDoctor;
   serviceId?: string;
   serviceName?: string;
   date: string;
@@ -255,6 +262,8 @@ export interface ApiAppointment {
     endedAt?: string | null;
     medications?: PrescriptionMedicationItem[] | null;
   } | null;
+  prescriptions?: ApiPrescription[];
+  investigationOrders?: ApiInvestigation[];
 }
 
 export interface RescheduleAppointmentPayload {
@@ -320,6 +329,7 @@ export interface ApiReceptionHandoff {
   createdAt: string;
   reviewedAt?: string | null;
   reviewedByUserId?: string | null;
+  appointment?: ApiAppointment;
 }
 
 export interface QueryReceptionHandoffsParams {
@@ -455,6 +465,13 @@ export interface SubmitSurveyPayload {
   doctorRating: number;
   wouldRecommend: boolean;
   feedback?: string;
+}
+
+export interface DoctorSurveyStats {
+  averageRating: number;
+  totalReviews: number;
+  distribution: Array<{ stars: number; count: number }>;
+  wouldRecommendRate: number;
 }
 
 export interface DashboardRange {
@@ -645,6 +662,8 @@ export interface DashboardStaffSummaryData {
 }
 
 export interface DashboardDoctorScheduleItem {
+  notes: string;
+  patientPhone: string;
   id: string;
   patientName: string;
   type: string;
@@ -666,6 +685,7 @@ export interface DashboardDoctorSummaryData {
   };
   charts: {
     weeklyPatients: Array<{ name: string; patients: number }>;
+    monthlyPatients: Array<{ name: string; patients: number }>;
   };
 }
 
@@ -737,6 +757,7 @@ export interface ApiPatient {
   user?: {
     id: string;
     email: string;
+    avatarUrl?: string | null;
     isOnboarded: boolean;
     isActive: boolean;
     createdAt: string;
@@ -774,6 +795,53 @@ export interface PatientsPaginationMeta {
   totalPages: number;
 }
 
+// Quick Task Types
+export type TaskStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type TaskPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
+
+export interface ApiQuickTask {
+  id: string;
+  clinicId: string;
+  title: string;
+  description?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string | null;
+  doctorId: string;
+  createdByUserId: string;
+  patientId?: string | null;
+  appointmentId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  doctor?: ApiDoctor;
+  patient?: ApiPatient;
+  appointment?: ApiAppointment;
+}
+
+export interface CreateQuickTaskPayload {
+  title: string;
+  description?: string;
+  priority?: TaskPriority;
+  dueDate?: string;
+  doctorId: string;
+  patientId?: string;
+  appointmentId?: string;
+}
+
+export interface UpdateQuickTaskPayload {
+  title?: string;
+  description?: string;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  dueDate?: string;
+  doctorId?: string;
+}
+
+export interface QuickTaskListFilters {
+  doctorId?: string;
+  status?: TaskStatus;
+}
+
 export interface PaginatedPatientsResponse {
   data: ApiPatient[];
   meta: PatientsPaginationMeta;
@@ -786,6 +854,7 @@ export interface CreatePatientPayload {
   dateOfBirth?: string | null;
   gender?: string | null;
   bloodType?: string | null;
+  address?: string | null;
   allergies?: string[];
   medicalHistory?: Record<string, unknown> | null;
   notes?: string | null;
@@ -898,6 +967,7 @@ export interface CreatePrescriptionPayload {
 }
 
 export interface UpdatePrescriptionPayload {
+  appointmentId?: string | null;
   diagnosis?: string | null;
   notes?: string | null;
   medications?: PrescriptionMedicationItem[];
@@ -949,6 +1019,7 @@ export interface CreateInvestigationPayload {
 }
 
 export interface UpdateInvestigationPayload {
+  appointmentId?: string | null;
   category?: InvestigationCategory;
   testName?: string;
   status?: InvestigationStatus;

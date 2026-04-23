@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, MessageSquare, ChevronLeft, ChevronRight, User, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Check, ChevronDown, ChevronLeft, ChevronRight, User, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -184,25 +184,6 @@ export default function SchedulePage() {
     setActionsDropdownId(null);
   };
 
-  const openManualSummaryForm = (appointment: Appointment) => {
-    setOpenForm({ appointmentId: appointment.id, type: "manual-summary" });
-    setManualSummaryForm({
-      content: appointment.notes ?? "",
-      sendToPatient: true,
-    });
-    setActionsDropdownId(null);
-  };
-
-  const openAiSummaryForm = (appointment: Appointment) => {
-    setOpenForm({ appointmentId: appointment.id, type: "ai-summary" });
-    setAiSummaryForm({
-      consultationNotes: appointment.notes ?? "",
-      format: "clinical",
-      sendToPatient: true,
-    });
-    setActionsDropdownId(null);
-  };
-
   const handleRescheduleSubmit = async (appointment: Appointment) => {
     if (!rescheduleForm.date || !rescheduleForm.startTime) {
       error(
@@ -339,16 +320,6 @@ export default function SchedulePage() {
   const completedCount = dayAppointments.filter((appointment) => appointment.status === "completed").length;
   const remainingCount = Math.max(0, dayAppointments.length - completedCount);
 
-  const getStatusTag = (appointment: Appointment) => {
-    if (appointment.status === "completed" || appointment.status === "confirmed") {
-      return { label: locale === "ar" ? "مؤكد" : "Confirmed", className: "bg-emerald-50 text-emerald-600" };
-    }
-    if (appointment.status === "cancelled" || appointment.status === "no-show") {
-      return { label: locale === "ar" ? "ملغي" : "Cancelled", className: "bg-slate-100 text-slate-500" };
-    }
-    return { label: locale === "ar" ? "متابعة" : "Follow-up", className: "bg-blue-50 text-blue-600" };
-  };
-
   return (
     <div className="doctor-dashboard space-y-4 max-w-7xl pb-10">
       <section className="space-y-4">
@@ -400,8 +371,8 @@ export default function SchedulePage() {
                 
                 let dotColor = "transparent";
                 if (dayAppts.length > 0) {
-                  const hasUrgent = dayAppts.some(a => a.type?.toLowerCase().includes("urgent") || a.type?.toLowerCase().includes("emergency"));
-                  dotColor = hasUrgent ? "bg-rose-500" : dayAppts.length > 4 ? "bg-emerald-500" : "bg-amber-500";
+                  const hasConfirmed = dayAppts.some(a => a.status === "confirmed" || a.status === "completed");
+                  dotColor = hasConfirmed ? "bg-emerald-500" : "bg-orange-500";
                 }
 
                 return (
@@ -410,23 +381,23 @@ export default function SchedulePage() {
                     type="button"
                     onClick={() => setSelectedDate(slot)}
                     className={cn(
-                      "flex flex-col items-center justify-center rounded-xl py-3 px-1 transition-all duration-300 relative min-w-[56px]",
+                      "flex flex-col items-center justify-center rounded-2xl py-3 px-1 transition-all duration-300 relative min-w-[64px]",
                       isActive 
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
+                        ? "bg-blue-600 text-white shadow-xl shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
                         : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400 dark:text-slate-500"
                     )}
                   >
-                    <p className={cn("text-[10px] font-bold uppercase tracking-wider mb-1.5", isActive ? "text-blue-100" : "text-slate-400")}>
+                    <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1.5", isActive ? "text-blue-100" : "text-slate-400")}>
                       {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" })}
                     </p>
-                    <p className="text-[18px] font-black leading-none mb-1.5">
+                    <p className="text-[20px] font-black leading-none mb-1.5">
                       {slot.getDate()}
                     </p>
-                    <p className={cn("text-[9px] font-bold uppercase", isActive ? "text-blue-100" : "text-slate-400")}>
+                    <p className={cn("text-[10px] font-bold uppercase", isActive ? "text-blue-100" : "text-slate-400")}>
                       {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short" })}
                     </p>
                     <div className={cn(
-                      "mt-1.5 h-1.5 w-1.5 rounded-full transition-all",
+                      "mt-2 h-1.5 w-1.5 rounded-full transition-all",
                       isActive ? "bg-white" : dotColor
                     )} />
                   </button>
@@ -446,9 +417,9 @@ export default function SchedulePage() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           <div className="xl:col-span-9 space-y-6">
             {/* Vertical Timeline List */}
-            <div className="relative pl-14 space-y-6">
+            <div className="relative pl-24 space-y-6">
               {/* Vertical Line */}
-              <div className="absolute left-7 top-0 bottom-0 w-px bg-slate-100 dark:bg-slate-800/60" />
+              <div className="absolute left-16 top-0 bottom-0 w-px bg-blue-50 dark:bg-blue-900/10" />
               
               {dayAppointments.length === 0 && (
                 <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-10 text-center">
@@ -458,10 +429,19 @@ export default function SchedulePage() {
                 </div>
               )}
 
-              {dayAppointments.map((item) => {
-                const statusTag = getStatusTag(item);
-                const isUrgent = item.type?.toLowerCase().includes("urgent") || item.type?.toLowerCase().includes("emergency");
+              {dayAppointments.map((item, index) => {                
+                const apptHourNum = parseInt(item.time.split(":")[0], 10);
+                const apptPeriod = item.time.includes("PM") ? "PM" : "AM";
+                const hourKey = `${apptHourNum} ${apptPeriod}`;
                 
+                const prevItem = index > 0 ? dayAppointments[index - 1] : null;
+                const prevHourNum = prevItem ? parseInt(prevItem.time.split(":")[0], 10) : null;
+                const prevPeriod = prevItem ? (prevItem.time.includes("PM") ? "PM" : "AM") : null;
+                const prevHourKey = prevItem ? `${prevHourNum} ${prevPeriod}` : null;
+                
+                const showTimeMarker = hourKey !== prevHourKey;
+                const timeMarkerText = `${apptHourNum}:00 ${apptPeriod}`;
+
                 // Detection logic for "Current Appointment"
                 const now = new Date();
                 const [time, period] = item.time.split(" ");
@@ -481,15 +461,18 @@ export default function SchedulePage() {
                 return (
                   <div key={item.id} className="relative group/slot">
                     {/* Time Marker */}
-                    <div className="absolute -left-14 top-2 text-[10px] font-black text-slate-400 dark:text-slate-500 text-right w-10 uppercase tracking-tighter">
-                      {item.time}
+                    <div className={cn(
+                      "absolute -left-24 top-[14px] text-[11px] font-bold text-right w-[60px] uppercase tracking-tight transition-colors duration-500",
+                      "text-slate-400 dark:text-slate-500"
+                    )}>
+                      {showTimeMarker ? timeMarkerText : ""}
                     </div>
                     {/* Dot on Line */}
                     <div className={cn(
-                      "absolute -left-[30px] top-[10px] h-3 w-3 rounded-full border-2 border-white dark:border-slate-950 z-10 transition-all duration-500",
+                      "absolute -left-[35px] top-[18px] h-2.5 w-2.5 rounded-full border-2 border-white dark:border-slate-950 z-10 transition-all duration-500",
                       isCurrent 
                         ? "bg-blue-600 scale-125 shadow-[0_0_15px_rgba(37,99,235,0.4)] ring-4 ring-blue-600/10" 
-                        : (isUrgent ? "bg-rose-500" : "bg-slate-200 dark:bg-slate-800 group-hover/slot:bg-blue-400")
+                        : "bg-slate-300 dark:bg-slate-700"
                     )}>
                       {isCurrent && (
                         <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-25" />
@@ -497,15 +480,14 @@ export default function SchedulePage() {
                     </div>
 
                     <article className={cn(
-                      "rounded-2xl border transition-all duration-500 relative overflow-hidden",
+                      "rounded-[28px] border transition-all duration-500 relative",
                       isCurrent 
-                        ? "border-blue-500 bg-gradient-to-br from-blue-50/40 via-white to-white dark:from-blue-900/10 dark:via-slate-950 dark:to-slate-950 shadow-2xl shadow-blue-500/5" 
+                        ? "border-blue-400 bg-gradient-to-br from-blue-50/80 via-white to-white dark:from-blue-900/20 dark:via-slate-950 dark:to-slate-950 shadow-[0_20px_50px_rgba(59,130,246,0.1)] z-10" 
                         : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-blue-200 dark:hover:border-blue-800/60"
                     )}>
                       {isCurrent && (
-                        <div className="absolute top-0 left-0 z-20">
-                          <div className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-[0.1em] px-3 py-1.5 rounded-br-2xl shadow-md flex items-center gap-1.5">
-                            <span className="h-1 w-1 rounded-full bg-white animate-pulse" />
+                        <div className="absolute -top-3 left-8 z-20">
+                          <div className="bg-[#818cf8] text-white text-[11px] font-bold px-4 py-1.5 rounded-full shadow-lg shadow-indigo-200/50 dark:shadow-none flex items-center gap-1.5 border border-white/20">
                             {locale === "ar" ? "الموعد الحالي" : "Current Appointment"}
                           </div>
                         </div>
@@ -523,11 +505,14 @@ export default function SchedulePage() {
                               <User className="h-6 w-6" />
                             </div>
                             <div className="flex flex-col gap-0.5">
-                              <h4 className="text-[15px] font-black text-slate-900 dark:text-slate-100 tracking-tight">
+                              <h4 className={cn(
+                                "text-[15px] font-black tracking-tight",
+                                isCurrent ? "text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"
+                              )}>
                                 {item.patientName}
                               </h4>
                               <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500">
-                                45 years
+                                {item.patientAge || "Age N/A"}
                               </p>
                             </div>
                           </div>
@@ -544,36 +529,36 @@ export default function SchedulePage() {
                             </button>
                             
                             {actionsDropdownId === item.id && (
-                              <div className="absolute right-0 top-full mt-2 z-30 w-56 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-2 shadow-2xl shadow-slate-200/50 dark:shadow-none animate-in fade-in zoom-in-95 duration-200">
+                              <div className="absolute right-0 top-full mt-2 z-30 w-48 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-2.5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                                 <button 
                                   onClick={() => openRescheduleForm(item)}
                                   disabled={activeActionId === item.id}
-                                  className="flex w-full items-center px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                  className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                                 >
-                                  {locale === "ar" ? "إعادة جدولة" : "Reschedule Appointment"}
+                                  <span className="ml-10">reschedule</span>
                                 </button>
+                                
                                 <button 
-                                  onClick={() => openManualSummaryForm(item)}
-                                  disabled={activeActionId === item.id}
-                                  className="flex w-full items-center px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
+                                  onClick={() => router.push(`/doctor/patients/${item.patientId}`)}
+                                  className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 >
-                                  {locale === "ar" ? "إرسال ملخص طبي يدوي" : "Send Manual Medical Summary"}
+                                  <span className="ml-10">open file</span>
                                 </button>
-                                <div className="my-2 border-t border-slate-50 dark:border-slate-800" />
+
+                                <button 
+                                  onClick={() => router.push(`/doctor/patients/${item.patientId}?tab=clinical`)}
+                                  className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative"
+                                >
+                                  <Check className="absolute left-4 h-4 w-4 text-slate-900 dark:text-slate-100" />
+                                  <span className="ml-10">prescription</span>
+                                </button>
+
                                 <button 
                                   onClick={() => router.push(`/doctor/chat?appointmentId=${item.id}`)}
                                   disabled={activeActionId === item.id}
-                                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-[13px] font-black text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
+                                  className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                                 >
-                                  <MessageSquare className="h-4 w-4" />
-                                  {locale === "ar" ? "دردشة مع المريض" : "Chat with Patient"}
-                                </button>
-                                <button 
-                                  onClick={() => openAiSummaryForm(item)}
-                                  disabled={activeActionId === item.id}
-                                  className="flex w-full items-center px-4 py-2.5 text-[13px] font-black text-blue-600 hover:bg-blue-50/50 disabled:opacity-50"
-                                >
-                                  {locale === "ar" ? "إنشاء ملخص AI" : "Generate AI Summary"}
+                                  <span className="ml-10">open chat</span>
                                 </button>
                               </div>
                             )}
@@ -592,20 +577,22 @@ export default function SchedulePage() {
                               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
                                 <Phone className="h-3.5 w-3.5 text-emerald-600" />
                               </div>
-                              {item.patientId}
+                              {item.patientPhone || "-"}
                             </div>
                           </div>
 
                           <div className="flex items-start md:justify-end">
                             <span className={cn(
                               "inline-flex items-center rounded-xl px-3 py-1.5 text-[10px] font-black uppercase tracking-tight",
-                              statusTag.className.includes("emerald") 
+                              item.type?.toLowerCase().includes("follow") 
                                 ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" 
-                                : statusTag.className.includes("blue")
+                                : item.type?.toLowerCase().includes("new")
                                 ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                                : item.type?.toLowerCase().includes("emergency") || item.type?.toLowerCase().includes("urgent")
+                                ? "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
                                 : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                             )}>
-                              {statusTag.label}
+                              {item.type}
                             </span>
                           </div>
                         </div>
@@ -613,7 +600,7 @@ export default function SchedulePage() {
                         <div className="pt-5 border-t border-slate-50 dark:border-slate-800/60">
                           <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
                             <span className="text-[10px] font-black uppercase text-slate-400/80 tracking-widest shrink-0">Reason:</span> 
-                            <span className="truncate">{item.type}</span>
+                            <span className="truncate">{item.notes || "Regular checkup"}</span>
                           </p>
                         </div>
                       </div>

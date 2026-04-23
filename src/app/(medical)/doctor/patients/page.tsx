@@ -226,6 +226,7 @@ export default function DoctorPatientsPage() {
   const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [selectedAgeBucket, setSelectedAgeBucket] = useState<string | null>(null);
   const [showRecentActivity, setShowRecentActivity] = useState(true);
@@ -236,12 +237,20 @@ export default function DoctorPatientsPage() {
     getInitialAddPatientForm(),
   );
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const loadPatients = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await patientService.getPage({
         take: 80,
         page: 1,
+        search: debouncedSearch.trim() || undefined,
         sortBy: "createdAt",
         sortOrder: "desc",
       });
@@ -257,7 +266,7 @@ export default function DoctorPatientsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [locale, toastError]);
+  }, [locale, toastError, debouncedSearch]);
 
   useEffect(() => {
     void loadPatients();
@@ -391,9 +400,6 @@ export default function DoctorPatientsPage() {
     const allergyList = parseCsvTags(addPatientForm.allergies);
     const medicalHistory: Record<string, unknown> = {};
 
-    if (addPatientForm.address.trim()) {
-      medicalHistory.address = addPatientForm.address.trim();
-    }
     if (addPatientForm.idType.trim()) {
       medicalHistory.idType = addPatientForm.idType.trim();
     }
@@ -410,6 +416,7 @@ export default function DoctorPatientsPage() {
       email: normalizedEmail || undefined,
       dateOfBirth: ageToDateOfBirthIso(normalizedAge),
       bloodType: addPatientForm.bloodType.trim() || undefined,
+      address: addPatientForm.address.trim() || undefined,
       allergies: allergyList,
       medicalHistory:
         Object.keys(medicalHistory).length > 0 ? medicalHistory : undefined,
@@ -497,118 +504,118 @@ export default function DoctorPatientsPage() {
           if (!open) setAddPatientForm(getInitialAddPatientForm());
         }}
       >
-        <DialogContent className="max-w-3xl rounded-[32px] border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-0 overflow-hidden shadow-2xl">
-          <DialogHeader className="px-10 py-7 border-b border-slate-100 dark:border-slate-800/50">
-            <DialogTitle className="flex items-center gap-3.5 text-[22px] font-black text-slate-900 dark:text-slate-100">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
-                <UserPlus className="h-6 w-6" />
+        <DialogContent className="max-w-2xl rounded-[28px] border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-0 overflow-hidden shadow-2xl">
+          <DialogHeader className="px-8 py-5 border-b border-slate-100 dark:border-slate-800/50">
+            <DialogTitle className="flex items-center gap-3 text-[18px] font-black text-slate-900 dark:text-slate-100">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
+                <UserPlus className="h-5 w-5" />
               </div>
               {locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-8 px-10 py-10 overflow-y-auto max-h-[75vh]">
+          <div className="space-y-6 px-8 py-8 overflow-y-auto max-h-[80vh]">
             {/* Name & Age Row */}
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                   {locale === "ar" ? "الاسم الكامل" : "Full Name"} *
                 </label>
                 <Input
                   value={addPatientForm.fullName}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, fullName: e.target.value }))}
                   placeholder={locale === "ar" ? "أدخل اسم المريض" : "Enter patient name"}
-                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] focus:ring-4 focus:ring-blue-600/5 transition-all"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] focus:ring-4 focus:ring-blue-600/5 transition-all"
                 />
               </div>
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                   {locale === "ar" ? "العمر" : "Age"} *
                 </label>
                 <Input
                   value={addPatientForm.age}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, age: e.target.value }))}
                   placeholder={locale === "ar" ? "أدخل العمر" : "Enter age"}
-                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
             </div>
 
             {/* Phone & Email Row */}
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
-                  <Phone className="h-4.5 w-4.5 text-blue-500" />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
+                  <Phone className="h-4 w-4 text-blue-500" />
                   {locale === "ar" ? "رقم الهاتف" : "Phone Number"} *
                 </label>
                 <Input
                   value={addPatientForm.phone}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="(555) 123-4567"
-                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
-                  <Mail className="h-4.5 w-4.5 text-blue-500" />
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
+                  <Mail className="h-4 w-4 text-blue-500" />
                   {locale === "ar" ? "البريد الإلكتروني" : "Email"} *
                 </label>
                 <Input
                   value={addPatientForm.email}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="patient@email.com"
-                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
             </div>
 
             {/* Address Row */}
-            <div className="space-y-3">
-              <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
-                <MapPin className="h-4.5 w-4.5 text-blue-500" />
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
+                <MapPin className="h-4 w-4 text-blue-500" />
                 {locale === "ar" ? "العنوان" : "Address"} *
               </label>
               <Input
                 value={addPatientForm.address}
                 onChange={(e) => setAddPatientForm(prev => ({ ...prev, address: e.target.value }))}
                 placeholder={locale === "ar" ? "123 شارع رئيسي، المدينة، الدولة ZIP" : "123 Main St, City, State ZIP"}
-                className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
               />
             </div>
 
             {/* Blood Type & Allergies Row */}
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
-                  <Droplet className="h-4.5 w-4.5 text-blue-500" />
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
+                  <Droplet className="h-4 w-4 text-blue-500" />
                   {locale === "ar" ? "فصيلة الدم" : "Blood Type"} *
                 </label>
                 <Input
                   value={addPatientForm.bloodType}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, bloodType: e.target.value }))}
                   placeholder="O+"
-                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
-              <div className="space-y-3">
-                <label className="flex items-center gap-2.5 text-[14px] font-black text-slate-700 dark:text-slate-300">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                   {locale === "ar" ? "الحساسية" : "Allergies"}
                 </label>
                 <Input
                   value={addPatientForm.allergies}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, allergies: e.target.value }))}
                   placeholder={locale === "ar" ? "افصل بين القيم بفاصلة" : "Separate with commas"}
-                  className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-5 text-[15px] transition-all"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
             </div>
 
             {/* Chronic Diseases Section */}
-            <div className="space-y-4">
-              <p className="text-[14px] font-black text-slate-700 dark:text-slate-300">
+            <div className="space-y-3">
+              <p className="text-[13px] font-black text-slate-700 dark:text-slate-300">
                 {locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {chronicFilters.map((condition) => (
                   <button
                     key={`new-${condition}`}
@@ -622,7 +629,7 @@ export default function DoctorPatientsPage() {
                       }))
                     }
                     className={cn(
-                      "flex h-14 items-center justify-center rounded-2xl border px-4 text-[14px] font-bold transition-all duration-200",
+                      "flex h-12 items-center justify-center rounded-xl border px-3 text-[13px] font-bold transition-all duration-200",
                       addPatientForm.chronicDiseases.includes(condition)
                         ? "border-blue-600 bg-blue-50/50 text-blue-600 dark:bg-blue-900/20 dark:border-blue-500 shadow-sm"
                         : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
@@ -635,18 +642,18 @@ export default function DoctorPatientsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 p-10 pt-0">
+          <div className="flex items-center gap-3 p-8 pt-0">
             <Button
               variant="ghost"
               onClick={() => setIsAddDialogOpen(false)}
-              className="flex-1 h-14 rounded-2xl font-black text-[16px] text-slate-500 bg-[#E9EEF4] dark:bg-slate-800 hover:bg-[#DDE5EF] transition-all"
+              className="flex-1 h-12 rounded-xl font-black text-[15px] text-slate-500 bg-[#E9EEF4] dark:bg-slate-800 hover:bg-[#DDE5EF] transition-all"
             >
               {locale === "ar" ? "إلغاء" : "Cancel"}
             </Button>
             <Button
               onClick={() => void handleCreatePatient()}
               disabled={isSavingPatient}
-              className="flex-1 h-14 rounded-2xl bg-[#2563EB] text-white font-black text-[16px] hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all disabled:opacity-50"
+              className="flex-1 h-12 rounded-xl bg-[#2563EB] text-white font-black text-[15px] hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all disabled:opacity-50"
             >
               {isSavingPatient ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...") : (locale === "ar" ? "إضافة المريض" : "Add Patient")}
             </Button>
@@ -691,72 +698,72 @@ export default function DoctorPatientsPage() {
 
               return (
                 <Link key={patient.id} href={`/doctor/patients/${patient.id}`}>
-                  <article className="group relative rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all duration-300 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-xl hover:shadow-blue-500/5 cursor-pointer">
-                    <div className="flex items-start gap-4 mb-8">
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBF5FF] dark:bg-blue-950 text-blue-600 dark:text-blue-400">
-                        <UserRound className="h-8 w-8" />
+                  <article className="group relative rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-7 transition-all duration-300 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-2xl hover:shadow-blue-500/10 cursor-pointer h-full">
+                    <div className="flex items-start gap-5 mb-7">
+                      <div className="flex h-18 w-18 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        <UserRound className="h-9 w-9" />
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="text-[17px] font-black text-slate-800 dark:text-slate-100 leading-tight mb-1">
+                      <div className="min-w-0 pt-1">
+                        <h4 className="text-[20px] font-bold text-[#1E293B] dark:text-slate-100 leading-tight mb-1">
                           {patient.fullName}
                         </h4>
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-[13px] font-medium text-slate-600 dark:text-slate-400">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[15px] font-medium text-[#64748B] dark:text-slate-400">
                             {age !== null ? `${age} ${locale === "ar" ? "سنة" : "years"}` : locale === "ar" ? "العمر غير متاح" : "AGE N/A"}
                           </span>
-                          <span className="text-[12px] font-medium text-slate-400 dark:text-slate-500">
+                          <span className="text-[13px] font-medium text-[#94A3B8] dark:text-slate-500 uppercase tracking-wide">
                             ID: PAT-2024-{patient.id.slice(-3).toUpperCase()}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mb-8">
-                      <p className="text-[13px] font-bold text-slate-500 dark:text-slate-400 mb-3">
+                    <div className="mb-7">
+                      <p className="text-[14px] font-bold text-[#64748B] dark:text-slate-400 mb-3.5">
                         {locale === "ar" ? "الحالة الصحية" : "Health Status"}
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2.5">
                         {conditions.length > 0 ? (
                           conditions.map((condition) => (
                             <span 
                               key={`${patient.id}-${condition}`} 
-                              className="rounded-lg bg-[#FFF0F0] dark:bg-rose-950/30 px-3 py-1.5 text-[12px] font-bold text-[#FF6B6B] border border-[#FFDADA] dark:border-rose-900/50"
+                              className="rounded-[10px] bg-[#FFF1F2] dark:bg-rose-950/30 px-3.5 py-1.5 text-[13px] font-bold text-[#F43F5E] border border-[#FFE4E6] dark:border-rose-900/50"
                             >
                               {condition}
                             </span>
                           ))
                         ) : (
-                          <span className="rounded-lg bg-[#EBF8FF] dark:bg-blue-950/30 px-3 py-1.5 text-[12px] font-bold text-[#3182CE] border border-[#BEE3F8] dark:border-blue-900/50">
-                            {locale === "ar" ? "ربو" : "Asthma"}
+                          <span className="rounded-[10px] bg-[#EFF6FF] dark:bg-blue-950/30 px-3.5 py-1.5 text-[13px] font-bold text-[#3B82F6] border border-[#DBEAFE] dark:border-blue-900/50">
+                            {locale === "ar" ? "فحص عام" : "General Checkup"}
                           </span>
                         )}
-                        <span className="rounded-lg bg-[#F0FFF4] dark:bg-emerald-950/30 px-3 py-1.5 text-[12px] font-bold text-[#48BB78] border border-[#C6F6D5] dark:border-emerald-900/50">
+                        <span className="rounded-[10px] bg-[#F0FDF4] dark:bg-emerald-950/30 px-3.5 py-1.5 text-[13px] font-bold text-[#22C55E] border border-[#DCFCE7] dark:border-emerald-900/50">
                           {locale === "ar" ? "متحكم به جيداً" : "Well Controlled"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-slate-800/60">
-                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                        <Calendar className="h-4.5 w-4.5 text-slate-400" />
-                        <span className="text-[13px] font-medium">
+                    <div className="space-y-5 pt-7 border-t border-[#F1F5F9] dark:border-slate-800/60">
+                      <div className="flex items-center gap-2.5 text-[#64748B] dark:text-slate-400">
+                        <Calendar className="h-5 w-5 text-[#94A3B8]" />
+                        <span className="text-[14px] font-bold">
                           {locale === "ar" ? "آخر زيارة:" : "Last visit:"} {lastVisitDate}
                         </span>
                       </div>
                       
-                      <div className="space-y-3">
-                        <p className="text-[12px] font-bold text-slate-500 dark:text-slate-400">
+                      <div className="space-y-3.5">
+                        <p className="text-[13px] font-bold text-[#64748B] dark:text-slate-400">
                           {locale === "ar" ? "اتجاه العلامات الحيوية الحديثة" : "Recent Vitals Trend"}
                         </p>
-                        <div className="relative h-6 w-full opacity-80">
+                        <div className="relative h-8 w-full opacity-90">
                           <svg className="h-full w-full overflow-visible" preserveAspectRatio="none">
                             <path
-                              d="M0,12 Q10,2 20,12 T40,12 T60,12 T80,12 T100,12 T120,12 T140,12 T160,12 T180,12 T200,12"
+                              d="M0,15 C20,13 40,17 60,15 C80,13 100,17 120,15 C140,13 160,17 180,15 C200,13 220,17 240,15"
                               fill="none"
-                              stroke="#3b82f6"
+                              stroke="#2563EB"
                               strokeWidth="2.5"
                               strokeLinecap="round"
-                              className="transition-all duration-500 group-hover:stroke-blue-600"
+                              className="transition-all duration-500 group-hover:stroke-blue-700"
                               vectorEffect="non-scaling-stroke"
                             />
                           </svg>

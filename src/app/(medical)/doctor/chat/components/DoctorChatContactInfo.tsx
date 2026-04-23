@@ -1,11 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Phone, Video, Mail, FileText, Download, Activity, MapPin, Calendar } from "lucide-react";
+import { useState } from "react";
+import { X, Phone, Video, Mail, FileText, Activity, MapPin, Calendar, Eye } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useTranslation } from "@/hooks/useTranslation";
+import { patientDocumentService } from "@/services/patientDocumentService";
 import type { TranslationKey } from "@/lib/i18n";
 
 interface ContactInfoProps {
@@ -22,14 +29,35 @@ interface ContactInfoProps {
     lastVisit?: string;
   } | null;
   activity: Array<{ id: string; date: string; title: string }>;
-  files: Array<{ id: string; name: string; size: string; date: string }>;
+  files: Array<{ id: string; name: string; size: string; date: string; fileUrl?: string }>;
   onClose?: () => void;
 }
 
 export function DoctorChatContactInfo({ user, activity, files, onClose }: ContactInfoProps) {
   const { t, locale } = useTranslation();
   const [activeTab, setActiveTab] = useState("Details");
+  const [viewingFile, setViewingFile] = useState<{ id: string; name: string; size: string; date: string; fileUrl?: string } | null>(null);
+  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const tabs = ["Details", "History", "Files"];
+
+  const handleViewFile = async (file: { id: string; name: string; size: string; date: string; fileUrl?: string }) => {
+    if (!user || user.role !== t("patient")) {
+      // For non-patients, just show the dialog with basic info or fallback
+      setViewingFile(file);
+      return;
+    }
+
+    setViewingFile(file);
+    setIsFetchingUrl(true);
+    try {
+      const result = await patientDocumentService.getDocumentDownloadUrlForPatient(user.id, file.id);
+      setViewingFile({ ...file, fileUrl: result.downloadUrl });
+    } catch (error) {
+      console.error("Failed to get document URL", error);
+    } finally {
+      setIsFetchingUrl(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -167,43 +195,121 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
 
             {activeTab === "History" && (
               <div className="space-y-4">
+                <div className="px-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{locale === "ar" ? "النشاط الأخير" : "Recent Activity"}</p>
+                </div>
                 {activity.map((item) => (
-                  <div key={item.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
-                    <div className="mt-1 h-8 w-8 rounded-xl bg-white flex items-center justify-center text-blue-600 shadow-sm dark:bg-slate-800">
-                      <Activity size={14} />
+                  <div key={item.id} className="flex items-start gap-4 p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md">
+                    <div className="mt-1 h-9 w-9 rounded-2xl bg-white flex items-center justify-center text-blue-600 shadow-sm dark:bg-slate-800 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                      <Activity size={16} />
                     </div>
-                    <div>
-                      <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-tight mb-1">{item.title}</p>
-                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{item.date}</p>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{item.date}</p>
+                      <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-tight">{item.title}</p>
                     </div>
                   </div>
                 ))}
+                {activity.length === 0 && (
+                  <div className="py-8 text-center">
+                     <p className="text-[12px] font-medium text-slate-400">{locale === "ar" ? "لا يوجد نشاط مؤخراً" : "No recent activity"}</p>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === "Files" && (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                <div className="px-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{locale === "ar" ? "الملفات المشتركة" : "Shared Files"}</p>
+                </div>
                 {files.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-blue-600 shadow-sm dark:bg-slate-800">
-                        <FileText size={18} />
+                  <div key={file.id} className="flex items-center justify-between p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md">
+                    <div className="flex items-center gap-4">
+                      <div className="h-11 w-11 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm dark:bg-blue-900/20 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                        <FileText size={20} />
                       </div>
-                      <div>
-                        <p className="max-w-[120px] truncate text-[13px] font-bold text-slate-800 dark:text-slate-200">{file.name}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{file.size} • {file.date}</p>
+                      <div className="min-w-0">
+                        <p className="max-w-[120px] truncate text-[14px] font-bold text-slate-800 dark:text-slate-200 mb-0.5">{file.name}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{file.size}</span>
+                          <span className="h-1 w-1 rounded-full bg-slate-300" />
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{file.date}</span>
+                        </div>
                       </div>
                     </div>
-                    <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white text-slate-400 hover:text-blue-600 transition-all dark:hover:bg-slate-800">
-                      <Download size={16} />
+                    <button 
+                      onClick={() => handleViewFile(file)}
+                      className="h-9 w-9 flex items-center justify-center rounded-xl bg-white text-slate-400 hover:text-blue-600 hover:shadow-sm transition-all dark:bg-slate-800"
+                    >
+                      <Eye size={18} />
                     </button>
                   </div>
                 ))}
+                {files.length === 0 && (
+                  <div className="py-8 text-center">
+                     <p className="text-[12px] font-medium text-slate-400">{locale === "ar" ? "لا توجد ملفات" : "No shared files"}</p>
+                  </div>
+                )}
               </div>
             )}
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <Dialog open={!!viewingFile} onOpenChange={(open) => !open && setViewingFile(null)}>
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden rounded-[28px] border-none shadow-2xl bg-white dark:bg-slate-950">
+          <div className="flex flex-col h-[80vh]">
+            <DialogHeader className="p-6 border-b border-slate-50 dark:border-slate-900 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
+                    <FileText size={20} />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-[16px] font-black text-slate-900 dark:text-white mb-0.5">
+                      {viewingFile?.name}
+                    </DialogTitle>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{viewingFile?.size}</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-200" />
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{viewingFile?.date}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 bg-slate-50 dark:bg-slate-900/50 p-4 overflow-hidden">
+              {isFetchingUrl ? (
+                <div className="h-full w-full flex flex-col items-center justify-center gap-4">
+                  <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">
+                    {locale === "ar" ? "جاري التحميل..." : "Loading Viewer..."}
+                  </p>
+                </div>
+              ) : viewingFile?.fileUrl ? (
+                <iframe
+                  src={viewingFile.fileUrl}
+                  className="h-full w-full rounded-2xl border-none bg-white shadow-sm"
+                  title={viewingFile.name}
+                />
+              ) : (
+                <div className="h-full w-full flex flex-col items-center justify-center text-center p-12">
+                   <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 mb-4">
+                     <FileText size={32} />
+                   </div>
+                   <p className="text-[14px] font-bold text-slate-600 dark:text-slate-300 mb-2">
+                     {locale === "ar" ? "تعذر عرض الملف" : "Unable to display file"}
+                   </p>
+                   <p className="text-[12px] font-medium text-slate-400 max-w-xs">
+                     {locale === "ar" ? "حاول تحميل الملف مباشرة لعرض محتوياته." : "Try downloading the file directly to view its contents."}
+                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="p-4 text-center">
         <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700">MedFlow Secure Session</p>

@@ -17,6 +17,7 @@ import { patientDocumentService } from "@/services/patientDocumentService";
 import { DoctorChatSidebar } from "./components/DoctorChatSidebar";
 import { DoctorChatMain } from "./components/DoctorChatMain";
 import { DoctorChatContactInfo } from "./components/DoctorChatContactInfo";
+import { ConfirmDeleteModal } from "./components/ConfirmDeleteModal";
 import { Loader2, AlertCircle } from "lucide-react";
 
 function formatTime(iso: string) {
@@ -62,6 +63,33 @@ export default function DoctorChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; conversationId: string }>({
+    isOpen: false,
+    conversationId: "",
+  });
+
+  // Conversation metadata (favorites, archived, muted)
+  const [convMeta, setConvMeta] = useState<Record<string, { isFavorite?: boolean; isArchived?: boolean; isMuted?: boolean }>>({});
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("doctor_chat_meta");
+    if (saved) {
+      try {
+        setConvMeta(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse chat meta", e);
+      }
+    }
+  }, []);
+
+  // Save to localStorage whenever meta changes
+  useEffect(() => {
+    if (Object.keys(convMeta).length > 0) {
+      localStorage.setItem("doctor_chat_meta", JSON.stringify(convMeta));
+    }
+  }, [convMeta]);
+
   // Right sidebar data
   const [showContactInfo, setShowContactInfo] = useState(true);
   const [patientDetails, setPatientDetails] = useState<
@@ -83,27 +111,6 @@ export default function DoctorChatPage() {
     Array<{ id: string; name: string; size: string; date: string }>
   >([]);
   const lastSyncedLatestRef = useRef<Record<string, string>>({});
-
-  const selectedConversation = useMemo(() => 
-    conversations.find(c => c.id === selectedConversationId),
-    [conversations, selectedConversationId]
-  );
-
-  const markSeen = useCallback(async () => {
-    if (!selectedConversationId) return;
-    try {
-      const result = await doctorChatService.markConversationSeen(selectedConversationId);
-      setUnreadByConversation((prev) => ({
-        ...prev,
-        [selectedConversationId]: 0,
-      }));
-      setMessages((prev) =>
-        applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt)
-      );
-    } catch {
-      // non-blocking
-    }
-  }, [selectedConversationId]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
@@ -158,6 +165,88 @@ export default function DoctorChatPage() {
       setIsLoading(false);
     }
   }, [locale, selectedConversationId, user?.id]);
+
+  const handleFavorite = useCallback((id: string) => {
+    setConvMeta(prev => ({
+      ...prev,
+      [id]: { ...prev[id], isFavorite: !prev[id]?.isFavorite }
+    }));
+  }, []);
+
+  const handleArchive = useCallback((id: string) => {
+    setConvMeta(prev => ({
+      ...prev,
+      [id]: { ...prev[id], isArchived: true }
+    }));
+    
+    if (id === selectedConversationId) {
+      const remaining = conversations.filter(c => c.id !== id && !convMeta[c.id]?.isArchived);
+      if (remaining.length > 0) {
+        handleSelectConversation(remaining[0].id);
+      } else {
+        handleSelectConversation("");
+      }
+    }
+  }, [selectedConversationId, conversations, convMeta, handleSelectConversation]);
+
+  const handleMute = useCallback((id: string) => {
+    setConvMeta(prev => ({
+      ...prev,
+      [id]: { ...prev[id], isMuted: !prev[id]?.isMuted }
+    }));
+  }, []);
+
+  const handleDelete = useCallback((id: string) => {
+    setDeleteModal({ isOpen: true, conversationId: id });
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    const id = deleteModal.conversationId;
+    if (!id) return;
+
+    try {
+      // Soft delete locally first
+      setConversations(prev => prev.filter(c => c.id !== id));
+      if (id === selectedConversationId) {
+        const remaining = conversations.filter(c => c.id !== id);
+        if (remaining.length > 0) {
+          handleSelectConversation(remaining[0].id);
+        } else {
+          handleSelectConversation("");
+        }
+      }
+      
+      // Phase 6: Call backend delete
+      await doctorChatService.deleteConversation(id);
+      
+      setDeleteModal({ isOpen: false, conversationId: "" });
+    } catch (err) {
+      console.error("Failed to delete conversation", err);
+      // Rollback or show error if needed
+      void loadConversations();
+    }
+  }, [deleteModal.conversationId, selectedConversationId, handleSelectConversation, conversations, loadConversations]);
+
+  const selectedConversation = useMemo(() => 
+    conversations.find(c => c.id === selectedConversationId),
+    [conversations, selectedConversationId]
+  );
+
+  const markSeen = useCallback(async () => {
+    if (!selectedConversationId) return;
+    try {
+      const result = await doctorChatService.markConversationSeen(selectedConversationId);
+      setUnreadByConversation((prev) => ({
+        ...prev,
+        [selectedConversationId]: 0,
+      }));
+      setMessages((prev) =>
+        applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt)
+      );
+    } catch {
+      // non-blocking
+    }
+  }, [selectedConversationId]);
 
   useEffect(() => {
     void loadConversations();
@@ -446,21 +535,25 @@ export default function DoctorChatPage() {
   }, [input, isSending, selectedConversationId, user]);
 
   const sidebarConversations = useMemo(() => {
-    return conversations.map((conversation) => ({
-      id: conversation.id,
-      name: conversation.otherParticipantName || "User",
-      lastMessage: conversation.latestMessage?.text || "No messages yet",
-      time: conversation.latestMessage
-        ? new Date(conversation.latestMessage.createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : "",
-      unreadCount: unreadByConversation[conversation.id],
-      status: "online" as const, // For now
-      role: conversation.otherParticipantRole || "PATIENT",
-    }));
-  }, [conversations, unreadByConversation]);
+    return conversations
+      .filter(c => !convMeta[c.id]?.isArchived)
+      .map((conversation) => ({
+        id: conversation.id,
+        name: conversation.otherParticipantName || "User",
+        lastMessage: conversation.latestMessage?.text || "No messages yet",
+        time: conversation.latestMessage
+          ? new Date(conversation.latestMessage.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
+        unreadCount: unreadByConversation[conversation.id],
+        status: "online" as const, // For now
+        role: conversation.otherParticipantRole || "PATIENT",
+        isFavorite: convMeta[conversation.id]?.isFavorite,
+        isMuted: convMeta[conversation.id]?.isMuted,
+      }));
+  }, [conversations, unreadByConversation, convMeta]);
 
   const chatMessages = useMemo(() => {
     return messages.map((message) => ({
@@ -514,6 +607,10 @@ export default function DoctorChatPage() {
         selectedId={selectedConversationId}
         onSelect={handleSelectConversation}
         onFilterChange={() => {}} // TODO: Role filtering
+        onFavorite={handleFavorite}
+        onArchive={handleArchive}
+        onMute={handleMute}
+        onDelete={handleDelete}
       />
       
       <DoctorChatMain 
@@ -527,12 +624,18 @@ export default function DoctorChatPage() {
               : selectedConversation.otherParticipantRole === "DOCTOR"
               ? t("doctor")
               : t("user" as TranslationKey),
+          isFavorite: convMeta[selectedConversation.id]?.isFavorite,
+          isMuted: convMeta[selectedConversation.id]?.isMuted,
         } : null}
         messages={chatMessages}
         inputValue={input}
         onInputChange={setInput}
         onSend={handleSend}
         isTyping={false}
+        onFavorite={() => handleFavorite(selectedConversationId)}
+        onArchive={() => handleArchive(selectedConversationId)}
+        onMute={() => handleMute(selectedConversationId)}
+        onDelete={() => handleDelete(selectedConversationId)}
       />
 
       {showContactInfo && (
@@ -543,6 +646,12 @@ export default function DoctorChatPage() {
           onClose={() => setShowContactInfo(false)}
         />
       )}
+
+      <ConfirmDeleteModal 
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, conversationId: "" })}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

@@ -88,10 +88,10 @@ const investigationCatalog = [
 
 const deriveChronicConditions = (patient: ApiPatient) => {
   const conditions: Set<string> = new Set();
-  
+
   // Directly pull structured data (populated by backend from onboarding)
   const history = patient.medicalHistory as Record<string, unknown> | undefined;
-  
+
   if (Array.isArray(history?.chronicDiseases)) {
     (history?.chronicDiseases as unknown[]).forEach(item => conditions.add(String(item)));
   } else if (typeof history?.chronicDiseases === 'string') {
@@ -279,12 +279,12 @@ export default function DoctorPatientDetailsPage() {
         // Load doctor's prescription preferences
         if (doctorProfileResult.status === "fulfilled") {
           const doctorData = doctorProfileResult.value;
-          const prefs = doctorData.preferences as { 
-            prescriptionSettings?: { 
-              favoriteMedications?: PrescriptionMedicationItem[] 
-            } 
+          const prefs = doctorData.preferences as {
+            prescriptionSettings?: {
+              favoriteMedications?: PrescriptionMedicationItem[]
+            }
           } | null;
-          
+
           if (prefs?.prescriptionSettings?.favoriteMedications?.length) {
             setFavoriteMedications(prefs.prescriptionSettings.favoriteMedications);
           }
@@ -339,6 +339,7 @@ export default function DoctorPatientDetailsPage() {
     try {
       if (lastPrescriptionId) {
         await prescriptionService.update(lastPrescriptionId, {
+          appointmentId: latestAppointmentId,
           diagnosis: diagnosisDraft || null,
           notes: prescriptionNotesDraft || null,
           medications: normalizedMeds,
@@ -348,6 +349,7 @@ export default function DoctorPatientDetailsPage() {
       } else {
         const created = await prescriptionService.create({
           patientId,
+          appointmentId: latestAppointmentId,
           diagnosis: diagnosisDraft || null,
           notes: prescriptionNotesDraft || null,
           medications: normalizedMeds,
@@ -366,6 +368,7 @@ export default function DoctorPatientDetailsPage() {
         if (existingNames.has(testName)) continue;
         await investigationService.create({
           patientId,
+          appointmentId: latestAppointmentId,
           category: testName.toLowerCase().includes("x-ray") || testName.toLowerCase().includes("ct") || testName.toLowerCase().includes("mri")
             ? "IMAGING"
             : "LAB",
@@ -385,10 +388,16 @@ export default function DoctorPatientDetailsPage() {
       let handoffCreated = false;
       if (latestAppointmentId) {
         try {
+          // Comprehensive Clinical Snapshot
+
+          const snapshotParts = [
+            notesDraft.trim() || "",
+            prescriptionNotesDraft.trim() ? `\n---\n${locale === "ar" ? "ملاحظات إضافية:" : "Additional Notes:"}\n${prescriptionNotesDraft.trim()}` : ""
+          ].filter(Boolean).join("\n");
+
           await bookingService.createReceptionHandoff(latestAppointmentId, {
             diagnosis: diagnosisDraft.trim() || undefined,
-            notesSnapshot:
-              prescriptionNotesDraft.trim() || notesDraft.trim() || undefined,
+            notesSnapshot: snapshotParts || undefined,
           });
           handoffCreated = true;
         } catch (handoffError) {
@@ -510,17 +519,17 @@ export default function DoctorPatientDetailsPage() {
         } else {
           toastInfo(
             result.mediaFallbackReason ||
-              (locale === "ar"
-                ? "تم إنشاء التقرير وإرسال رابط التنزيل عبر واتساب"
-                : "Report generated and a download link was sent via WhatsApp"),
+            (locale === "ar"
+              ? "تم إنشاء التقرير وإرسال رابط التنزيل عبر واتساب"
+              : "Report generated and a download link was sent via WhatsApp"),
           );
         }
       } else {
         toastInfo(
           result.whatsapp.reason ||
-            (locale === "ar"
-              ? "تم إنشاء التقرير لكن لم يتم الإرسال عبر واتساب"
-              : "Report generated but WhatsApp delivery was not completed"),
+          (locale === "ar"
+            ? "تم إنشاء التقرير لكن لم يتم الإرسال عبر واتساب"
+            : "Report generated but WhatsApp delivery was not completed"),
         );
       }
     } catch (error) {
@@ -614,22 +623,22 @@ export default function DoctorPatientDetailsPage() {
 
       <Card className="border-none shadow-none overflow-hidden rounded-[24px] bg-white dark:bg-slate-950">
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-center">
             {/* Profile Panel */}
             <div className="lg:col-span-4 flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#EBF5FF] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-[4px] border-white dark:border-slate-900 shadow-sm">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#F0F7FF] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-[4px] border-white dark:border-slate-900 shadow-sm">
                 <UserRound className="h-7 w-7" />
               </div>
               <div className="space-y-1">
-                <h2 className="text-[20px] font-black text-slate-900 dark:text-slate-100 leading-tight">
+                <h2 className="text-[20px] font-black text-slate-900 dark:text-slate-100 leading-none">
                   {patient.fullName}
                 </h2>
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
-                    {age !== null ? `${age} ${locale === "ar" ? "سنة" : "y/o"}` : locale === "ar" ? "العمر غير متاح" : "Age N/A"}
+                  <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">
+                    {age !== null ? `${age} years` : "Age N/A"}
                   </span>
                   <span className="h-1 w-1 rounded-full bg-slate-300" />
-                  <Badge className="bg-[#EBF5FF] dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border-none px-2 py-0.5 text-[11px] font-bold rounded-md">
+                  <Badge className="bg-[#EBF5FF] dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 border-none px-2 py-0.5 text-[11px] font-black rounded-lg">
                     {patient.bloodType || "A+"}
                   </Badge>
                 </div>
@@ -637,21 +646,22 @@ export default function DoctorPatientDetailsPage() {
             </div>
 
             {/* Allergies Panel */}
-            <div className="lg:col-span-4 rounded-2xl bg-[#FFF5F5] dark:bg-rose-950/20 border border-[#FFEAEA] dark:border-rose-900/40 p-4">
+            <div className="lg:col-span-3 rounded-[16px] bg-[#FFF8F8] dark:bg-rose-950/20 border border-[#FFEAEA] dark:border-rose-900/40 p-4 min-h-[80px]">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-[#FF5A5A]" />
-                <span className="text-[12px] font-black text-[#FF5A5A] uppercase tracking-wider">
+                <AlertTriangle className="h-3.5 w-3.5 text-[#C53030]" />
+                <span className="text-[11px] font-black text-[#C53030] uppercase tracking-wider">
                   {locale === "ar" ? "الحساسية" : "ALLERGIES"}
                 </span>
               </div>
-              <ul className="flex flex-wrap gap-2">
+              <ul className="space-y-1">
                 {allergies.length === 0 ? (
-                  <li className="text-[12px] font-medium text-[#FF5A5A]/70">
+                  <li className="text-[12px] font-bold text-[#C53030]/60">
                     {locale === "ar" ? "لا توجد" : "None"}
                   </li>
                 ) : (
                   allergies.map((item) => (
-                    <li key={item} className="px-2 py-0.5 rounded-md bg-white/50 border border-[#FFEAEA] text-[12px] font-bold text-[#FF5A5A]">
+                    <li key={item} className="flex items-center gap-2 text-[12px] font-bold text-[#C53030]">
+                      <span className="text-[16px] leading-none">•</span>
                       {item}
                     </li>
                   ))
@@ -660,21 +670,21 @@ export default function DoctorPatientDetailsPage() {
             </div>
 
             {/* Chronic Conditions Panel */}
-            <div className="lg:col-span-4 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 h-full">
+            <div className="lg:col-span-5 rounded-[20px] border border-slate-100 dark:border-slate-800 p-4 h-full bg-slate-50/10">
               <div className="flex items-center gap-2 mb-2">
                 <HeartPulse className="h-4 w-4 text-blue-500" />
-                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100">
-                  {locale === "ar" ? "الأمراض المزمنة" : "Conditions"}
+                <span className="text-[13px] font-black text-slate-900 dark:text-slate-100">
+                  {locale === "ar" ? "الأمراض المزمنة" : "Chronic Conditions"}
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {chronicConditions.length === 0 ? (
                   <p className="text-[12px] font-medium text-slate-400">
-                    {locale === "ar" ? "لا يوجد" : "None"}
+                    {locale === "ar" ? "لا يوجد" : "No chronic conditions"}
                   </p>
                 ) : (
                   chronicConditions.map((condition) => (
-                    <div key={condition} className="rounded-lg bg-[#FFF9F0] dark:bg-amber-950/20 border border-[#FFF0D8] dark:border-amber-900/40 px-3 py-1 text-[12px] font-bold text-[#D97706]">
+                    <div key={condition} className="rounded-lg bg-[#FFF9F0] dark:bg-amber-950/20 border border-[#FFE9C8] dark:border-amber-900/40 px-3 py-1.5 text-[12px] font-bold text-[#B45309]">
                       {condition}
                     </div>
                   ))
@@ -684,44 +694,46 @@ export default function DoctorPatientDetailsPage() {
           </div>
 
           {/* Metrics Row */}
-          <div className="mt-6 rounded-[20px] bg-[#F4F9FF] dark:bg-blue-950/20 p-3">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "معرف المريض" : "ID"}</span>
-                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">PAT-{patient.id.slice(-6).toUpperCase()}</span>
+          <div className="mt-6 rounded-[22px] bg-[#EEF5FC] dark:bg-blue-950/30 p-2.5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm shadow-blue-500/5">
+                <span className="text-[11px] font-bold text-slate-400">{locale === "ar" ? "معرف المريض" : "ID"}</span>
+                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100">PAT-{patient.id.slice(-6).toUpperCase()}</span>
               </div>
-              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الهاتف" : "Phone"}</span>
-                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{patient.phone || "-"}</span>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm shadow-blue-500/5">
+                <span className="text-[11px] font-bold text-slate-400">{locale === "ar" ? "الهاتف" : "Phone"}</span>
+                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100">{patient.phone || "-"}</span>
               </div>
-              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "آخر زيارة" : "Last Visit"}</span>
-                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{formatDate(latestVisit?.date, locale)}</span>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm shadow-blue-500/5">
+                <span className="text-[11px] font-bold text-slate-400">{locale === "ar" ? "آخر زيارة" : "Last Visit"}</span>
+                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100">{formatDate(latestVisit?.date, locale)}</span>
               </div>
-              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الموقع" : "Location"}</span>
-                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100 truncate">{patient.address || "Hadeka, Giza"}</span>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm shadow-blue-500/5">
+                <span className="text-[11px] font-bold text-slate-400">{locale === "ar" ? "الموقع" : "Location"}</span>
+                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100 truncate max-w-[100px]">{patient.address || "Giza, Egypt"}</span>
               </div>
-              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex flex-col gap-0.5 shadow-sm shadow-blue-500/5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الزيارات" : "Visits"}</span>
-                <span className="text-[13px] font-black text-slate-800 dark:text-slate-100">{patient.totalVisits || 0}</span>
+              <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 flex items-center justify-between shadow-sm shadow-blue-500/5">
+                <span className="text-[11px] font-bold text-slate-400">{locale === "ar" ? "الزيارات" : "Visits"}</span>
+                <span className="text-[12px] font-black text-slate-900 dark:text-slate-100">{patient.totalVisits || 0}</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="flex items-center justify-start gap-4 w-full bg-slate-50/50 dark:bg-slate-900/50 p-1.5 h-auto border-none rounded-[18px] mb-8">
-          {["history", "labs", "clinical"].map((tab) => (
-            <TabsTrigger 
-              key={tab}
-              value={tab} 
-              className="px-6 py-2.5 rounded-xl bg-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-600/20 text-[13px] font-bold text-slate-600 dark:text-slate-400 transition-all duration-300 border-none"
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="flex items-center justify-between w-full bg-white dark:bg-slate-950 p-1 h-auto border border-slate-100 dark:border-slate-800 rounded-[20px] mb-5 shadow-sm">
+          {[
+            { id: "history", en: "Visit history", ar: "سجل الزيارات" },
+            { id: "labs", en: "Lab results", ar: "نتائج التحاليل" },
+            { id: "clinical", en: "Clinical Notes & Diagnosis", ar: "الملاحظات السريرية" },
+          ].map((tab) => (
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="flex-1 py-2.5 rounded-xl bg-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-600/20 text-[14px] font-bold text-slate-500 dark:text-slate-400 transition-all duration-300 border-none"
             >
-              {tab === "history" && (locale === "ar" ? "سجل الزيارات" : "Visit history")}
-              {tab === "labs" && (locale === "ar" ? "نتائج التحاليل" : "Lab results")}
-              {tab === "clinical" && (locale === "ar" ? "الاستشارة الطبية" : "Clinical & Prescription")}
+              {locale === "ar" ? tab.ar : tab.en}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -739,43 +751,45 @@ export default function DoctorPatientDetailsPage() {
             ) : (
               <div className="space-y-4">
                 {appointments.map((visit) => (
-                  <article key={visit.id} className="relative rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-200 group">
-                    {/* Status Dot */}
-                    <div className="absolute left-6 top-7 h-2.5 w-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" />
-                    
-                    <div className="pl-6">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="space-y-1">
-                          <h4 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">
-                            {visit.serviceName || (locale === "ar" ? "متابعة" : "Follow-up visit")}
-                          </h4>
-                          <p className="text-[11px] font-bold text-slate-400">
-                            {formatDate(visit.date, locale)}
-                          </p>
-                        </div>
-                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
-                          Dr. {visit.doctorName?.split(' ').pop()}
-                        </span>
-                      </div>
+                  <article key={visit.id} className="relative rounded-[20px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-100 group">
+                    <div className="flex items-start gap-4">
+                      {/* Status Indicator */}
+                      <div className="h-3 w-3 rounded-full bg-[#1D61F2] shrink-0 mt-1.5 shadow-sm shadow-blue-500/20" />
 
-                      <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800">
-                        <h5 className="text-[13px] font-black text-slate-800 dark:text-slate-200 mb-3">
-                          {locale === "ar" ? "الوصفات" : "Prescriptions"}
-                        </h5>
-                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                          {visit.consultationSession?.medications && Array.isArray(visit.consultationSession?.medications) ? (
-                            visit.consultationSession.medications.map((med: PrescriptionMedicationItem, idx: number) => (
-                              <li key={idx} className="flex items-center gap-2 text-[13px] font-medium text-slate-600 dark:text-slate-400">
-                                <span className="text-slate-300">•</span>
-                                {med.name} {med.dosage}
+                      <div className="flex-1 space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-100">
+                              {visit.serviceName || (locale === "ar" ? "متابعة" : "General Check-up")}
+                            </h4>
+                            <p className="text-[12px] font-bold text-slate-400">
+                              {formatDate(visit.date, locale)}
+                            </p>
+                          </div>
+                          <span className="text-[11px] font-bold text-slate-400">
+                            Dr. {visit.doctorName || "Mitchell"}
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h5 className="text-[14px] font-black text-slate-800 dark:text-slate-200">
+                            {locale === "ar" ? "الوصفات" : "Prescriptions"}
+                          </h5>
+                          <ul className="space-y-1.5">
+                            {visit.consultationSession?.medications && Array.isArray(visit.consultationSession?.medications) && visit.consultationSession.medications.length > 0 ? (
+                              visit.consultationSession.medications.map((med: PrescriptionMedicationItem, idx: number) => (
+                                <li key={idx} className="flex items-center gap-2 text-[13px] font-medium text-slate-600 dark:text-slate-400">
+                                  <span className="text-slate-900 dark:text-slate-100">•</span>
+                                  {med.name} {med.dosage}
+                                </li>
+                              ))
+                            ) : (
+                              <li className="text-[12px] font-medium text-slate-400 italic">
+                                {locale === "ar" ? "لا توجد أدوية مسجلة" : "No prescriptions recorded"}
                               </li>
-                            ))
-                          ) : (
-                            <li className="text-[12px] font-medium text-slate-400 italic">
-                              {locale === "ar" ? "لا توجد أدوية مسجلة" : "No prescriptions recorded"}
-                            </li>
-                          )}
-                        </ul>
+                            )}
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </article>
@@ -784,7 +798,6 @@ export default function DoctorPatientDetailsPage() {
             )}
           </div>
         </TabsContent>
-
         <TabsContent value="labs" className="mt-0">
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
@@ -810,37 +823,39 @@ export default function DoctorPatientDetailsPage() {
 
                     const isNormal = result.status === "NORMAL";
                     const cardStyles = isNormal
-                      ? "bg-[#F0FDF4] border-[#DCFCE7] dark:bg-emerald-950/20 dark:border-emerald-900/30"
-                      : "bg-[#FFF7ED] border-[#FFEDD5] dark:bg-orange-950/20 dark:border-orange-900/30";
-                    
+                      ? "bg-[#F3FAF5] border-[#E2F2E9] dark:bg-emerald-950/10 dark:border-emerald-900/20"
+                      : "bg-[#FFF9F2] border-[#FCECD8] dark:bg-orange-950/10 dark:border-orange-900/20";
+
                     const badgeStyles = isNormal
-                      ? "bg-[#DCFCE7] text-[#166534]"
-                      : "bg-[#FFEDD5] text-[#9A3412]";
+                      ? "bg-[#D1FADF] text-[#027A48]"
+                      : "bg-[#FEE4E2] text-[#B42318]";
 
                     return (
-                      <article key={result.id} className={`relative rounded-[18px] border p-6 transition-all hover:shadow-sm ${cardStyles}`}>
-                        <div className="flex justify-between items-start mb-4">
-                          <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{result.testName}</h4>
-                          <span className="text-[11px] font-bold text-slate-400">
-                            {formatDate(result.resultDate, locale)}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400">
-                            {result.resultSummary || (locale === "ar" ? "بدون ملخص" : "No result summary available")}
-                          </p>
-                          
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[13px] font-medium text-slate-400">{locale === "ar" ? "النتيجة" : "Result"}</span>
-                              <Badge className={`px-2 py-0.5 rounded-md border-none text-[11px] font-black uppercase tracking-tight shadow-none ${badgeStyles}`}>
+                      <article key={result.id} className={`relative rounded-[16px] border p-5 transition-all hover:shadow-sm ${cardStyles}`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 space-y-4">
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{result.testName}</h4>
+                              <span className="text-[12px] font-bold text-slate-400">
+                                {formatDate(result.resultDate, locale)}
+                              </span>
+                            </div>
+
+                            <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400">
+                              {result.resultSummary || (locale === "ar" ? "بدون ملخص" : "No result summary available")}
+                            </p>
+
+                            <div className="flex items-center gap-3">
+                              <span className="text-[13px] font-bold text-slate-400">{locale === "ar" ? "النتيجة" : "Result"}</span>
+                              <Badge className={`px-2.5 py-1 rounded-lg border-none text-[11px] font-black uppercase tracking-tight shadow-none ${badgeStyles}`}>
                                 {isNormal ? (locale === "ar" ? "طبيعي" : "normal") : (locale === "ar" ? "غير طبيعي" : "abnormal")}
                               </Badge>
                             </div>
+                          </div>
 
+                          <div className="ml-6 self-end">
                             <Button
-                              className="h-10 px-6 rounded-2xl bg-[#4F46E5] text-white hover:bg-[#4338CA] font-bold text-[13px] transition-all shadow-md shadow-indigo-600/10"
+                              className="h-10 px-6 rounded-xl bg-[#4A55EA] text-white hover:bg-[#3F48C7] font-bold text-[13px] transition-all shadow-lg shadow-blue-600/10"
                               disabled={!linkedDocument}
                               onClick={() => linkedDocument && void previewDocument(linkedDocument)}
                             >
@@ -861,7 +876,7 @@ export default function DoctorPatientDetailsPage() {
                           {formatDate(document.createdAt, locale)}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-blue-500" />
@@ -1052,15 +1067,13 @@ export default function DoctorPatientDetailsPage() {
                       <button
                         key={test}
                         onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
-                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${
-                          selectedInvestigations[test]
+                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${selectedInvestigations[test]
                             ? "bg-blue-50 border-blue-200"
                             : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
-                        }`}
+                          }`}
                       >
-                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${
-                          selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
-                        }`}>
+                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
+                          }`}>
                           {selectedInvestigations[test] && <Check className="h-3 w-3 text-white" />}
                         </div>
                         <span className="text-[12px] font-bold text-slate-700">{test}</span>
@@ -1079,15 +1092,13 @@ export default function DoctorPatientDetailsPage() {
                       <button
                         key={test}
                         onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
-                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${
-                          selectedInvestigations[test]
+                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${selectedInvestigations[test]
                             ? "bg-blue-50 border-blue-200"
                             : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
-                        }`}
+                          }`}
                       >
-                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${
-                          selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
-                        }`}>
+                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
+                          }`}>
                           {selectedInvestigations[test] && <Check className="h-3 w-3 text-white" />}
                         </div>
                         <span className="text-[12px] font-bold text-slate-700">{test}</span>

@@ -26,6 +26,10 @@ class NotificationsService {
     await apiClient.patch(`/notifications/in-app/${id}/read`);
   }
 
+  async deleteInAppNotification(id: string): Promise<void> {
+    await apiClient.delete(`/notifications/in-app/${id}`);
+  }
+
   async getReceptionInbox(params?: {
     status?: string;
     limit?: number;

@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Users, ShieldCheck, ShieldAlert, User } from "lucide-react";
+import { Search, Users, ShieldCheck, ShieldAlert, User, MoreVertical, Star, Archive, BellOff, Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import Image from "next/image";
@@ -15,6 +22,9 @@ interface ConversationItem {
   avatar?: string;
   status: "online" | "offline";
   role: string;
+  isFavorite?: boolean;
+  isArchived?: boolean;
+  isMuted?: boolean;
 }
 
 interface DoctorChatSidebarProps {
@@ -22,6 +32,10 @@ interface DoctorChatSidebarProps {
   selectedId: string;
   onSelect: (id: string) => void;
   onFilterChange: (filter: string) => void;
+  onFavorite?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onMute?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function DoctorChatSidebar({
@@ -29,6 +43,10 @@ export function DoctorChatSidebar({
   selectedId,
   onSelect,
   onFilterChange,
+  onFavorite,
+  onArchive,
+  onMute,
+  onDelete,
 }: DoctorChatSidebarProps) {
   const { locale } = useTranslation();
   const [activeFilter, setActiveFilter] = useState("All");
@@ -101,57 +119,110 @@ export function DoctorChatSidebar({
 
       <div className="flex-1 overflow-y-auto px-0 pb-6 no-scrollbar divide-y divide-slate-50 dark:divide-slate-900/50">
         {filteredConversations.map((conv) => (
-          <button
+          <div
             key={conv.id}
-            onClick={() => onSelect(conv.id)}
             className={cn(
-              "relative flex w-full items-center gap-3 p-4 text-left transition-all hover:bg-slate-50/50 dark:hover:bg-slate-900/30",
+              "group relative flex w-full items-center gap-3 p-4 text-left transition-all hover:bg-slate-50/50 dark:hover:bg-slate-900/30",
               selectedId === conv.id && "bg-[#F0F7FF] dark:bg-blue-900/10 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-[#2563EB]"
             )}
           >
-            <div className="relative shrink-0">
-              <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-white dark:ring-slate-950 shadow-sm">
-                {conv.avatar ? (
-                  <Image src={conv.avatar} alt={conv.name} width={40} height={40} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-blue-50 text-blue-600 font-bold text-base">
-                    {conv.name.charAt(0)}
-                  </div>
-                )}
-              </div>
-              {conv.status === "online" && (
-                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950" />
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-0.5">
-                <div className="flex items-center gap-1">
-                  <h3 className="truncate text-[14px] font-bold text-slate-900 dark:text-slate-100">
-                    {conv.name}
-                  </h3>
-                  {getRoleIcon(conv.role)}
+            <button
+              onClick={() => onSelect(conv.id)}
+              className="flex-1 flex items-center gap-3 min-w-0"
+            >
+              <div className="relative shrink-0">
+                <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-white dark:ring-slate-950 shadow-sm">
+                  {conv.avatar ? (
+                    <Image src={conv.avatar} alt={conv.name} width={40} height={40} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-blue-50 text-blue-600 font-bold text-base">
+                      {conv.name.charAt(0)}
+                    </div>
+                  )}
                 </div>
-                <span className="text-[10px] font-medium text-slate-400 shrink-0">
-                  {conv.time}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <p className={cn(
-                  "truncate text-[12px] transition-colors",
-                  conv.unreadCount ? "font-bold text-slate-700 dark:text-slate-200" : "font-medium text-slate-400 dark:text-slate-500"
-                )}>
-                  {conv.lastMessage}
-                </p>
-                {conv.unreadCount && (
-                  <div className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-[9px] font-black text-white shadow-sm">
-                    {conv.unreadCount}
-                  </div>
+                {conv.status === "online" && (
+                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-950" />
                 )}
               </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="flex items-center gap-1">
+                    <h3 className="truncate text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                      {conv.name}
+                    </h3>
+                    {getRoleIcon(conv.role)}
+                    {conv.isFavorite && <Star size={10} className="text-amber-400 fill-amber-400" />}
+                  </div>
+                  <span className="text-[10px] font-medium text-slate-400 shrink-0">
+                    {conv.time}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <p className={cn(
+                    "truncate text-[12px] transition-colors",
+                    conv.unreadCount ? "font-bold text-slate-700 dark:text-slate-200" : "font-medium text-slate-400 dark:text-slate-500"
+                  )}>
+                    {conv.lastMessage}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {conv.isMuted && <BellOff size={10} className="text-slate-400" />}
+                    {conv.unreadCount && (
+                      <div className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-[#2563EB] text-[9px] font-black text-white shadow-sm">
+                        {conv.unreadCount}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">
+                    <MoreVertical size={16} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-xl border-slate-100 dark:border-slate-800">
+                  <DropdownMenuItem 
+                    onClick={() => onFavorite?.(conv.id)}
+                    className="rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200"
+                  >
+                    <Star className={cn("h-4 w-4", conv.isFavorite && "fill-amber-400 text-amber-400")} />
+                    <span>{conv.isFavorite ? (locale === "ar" ? "إزالة من المفضلة" : "Remove from favorites") : (locale === "ar" ? "إضافة إلى المفضلة" : "Add to favorites")}</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => onArchive?.(conv.id)}
+                    className="rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200"
+                  >
+                    <Archive className="h-4 w-4" />
+                    <span>{locale === "ar" ? "أرشفة المحادثة" : "Archive chat"}</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem 
+                    onClick={() => onMute?.(conv.id)}
+                    className="rounded-xl px-3 py-2 text-[13px] font-bold text-slate-700 dark:text-slate-200"
+                  >
+                    <BellOff className={cn("h-4 w-4", conv.isMuted && "text-blue-500")} />
+                    <span>{conv.isMuted ? (locale === "ar" ? "إلغاء كتم التنبيهات" : "Unmute notifications") : (locale === "ar" ? "كتم التنبيهات" : "Mute notifications")}</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-900" />
+                  
+                  <DropdownMenuItem 
+                    onClick={() => onDelete?.(conv.id)}
+                    className="rounded-xl px-3 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 focus:bg-red-50 focus:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>{locale === "ar" ? "حذف المحادثة" : "Delete chat"}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>

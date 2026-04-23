@@ -71,4 +71,7 @@ export const doctorChatService = {
       `/chat/messages/${conversationId}/seen`
     );
   },
+  deleteConversation(conversationId: string): Promise<void> {
+    return apiClient.delete(`/chat/conversations/${conversationId}`);
+  },
 };

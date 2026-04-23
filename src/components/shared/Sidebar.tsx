@@ -54,6 +54,7 @@ const navByRole: Record<Role, NavItem[]> = {
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
     { label: "Patients", labelAr: "المرضى", href: "/reception/patients", icon: User },
+    { label: "Doctor Orders", labelAr: "أوامر الطبيب", href: "/reception/handoffs", icon: ClipboardList },
     { label: "Booking", labelAr: "الحجز", href: "/reception/booking", icon: Calendar },
     { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/reception/smart-scheduler", icon: Sparkles },
     { label: "Waiting Room", labelAr: "غرفة الانتظار", href: "/reception/waiting-room", icon: Clock },

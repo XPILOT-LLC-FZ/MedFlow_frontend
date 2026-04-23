@@ -13,7 +13,6 @@ import {
   FilePenLine,
   MessageSquare,
   Bell,
-  Phone,
   FileText,
   ClipboardCheck,
   CheckSquare,
@@ -21,6 +20,9 @@ import {
   FlaskConical,
   Calendar,
   Mic,
+  Plus,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -36,13 +38,16 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
 import { notificationsService } from "@/services/notificationsService";
 import { bookingService } from "@/services/bookingService";
-import { labResultService } from "@/services/labResultService";
-import { prescriptionService } from "@/services/prescriptionService";
 import type { DashboardDoctorSummaryData, InAppNotification } from "@/types";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
+import { tasksService } from "@/services/tasksService";
+import { ApiQuickTask, TaskStatus, TaskPriority } from "@/types";
+import { useAuthStore } from "@/stores/useAuthStore";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 interface DashboardActivity {
   key: string;
@@ -51,40 +56,41 @@ interface DashboardActivity {
   type: string;
 }
 
-interface DashboardTask {
-  key: string;
-  title: string;
-  due?: string;
-  tone: string;
-  completed: boolean;
-}
+
 
 export default function DoctorDashboard() {
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
   const { t, locale } = useTranslation();
+  const { user } = useAuthStore();
   const router = useRouter();
   const [dashboardData, setDashboardData] = React.useState<DashboardDoctorSummaryData | null>(null);
   const [realNotifications, setRealNotifications] = useState<InAppNotification[]>([]);
   const [realActivity, setRealActivity] = useState<DashboardActivity[]>([]);
-  const [realTasks, setRealTasks] = useState<DashboardTask[]>([]);
+  const [tasks, setTasks] = useState<ApiQuickTask[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isChatLoading, setIsChatLoading] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
+  // New task state
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("NORMAL");
+
   const refreshDashboard = React.useCallback(async () => {
     try {
       setError(null);
-      const [summary, notifications, recentAppts, abnormalLabs, drafts] = await Promise.all([
+      const [summary, notifications, recentAppts, allTasks] = await Promise.all([
         dashboardService.getDoctorSummary({ period: "month" }),
         notificationsService.getInAppNotifications({ limit: 8 }),
         bookingService.getAll({ status: "COMPLETED", limit: 5 }),
-        labResultService.getAll({ status: "ABNORMAL" }),
-        prescriptionService.getAll({ status: "DRAFT" }),
+        tasksService.getAll({}),
       ]);
 
       setDashboardData(summary);
       setRealNotifications(notifications);
+      setTasks(allTasks);
       
       // Map Activity
       setRealActivity(recentAppts.map(a => ({
@@ -95,24 +101,7 @@ export default function DoctorDashboard() {
       })));
 
       // Map Tasks
-      const tasks = [
-        ...abnormalLabs.map(l => ({
-          key: `lab-${l.id}`,
-          title: locale === "ar" ? `مراجعة: ${l.testName}` : `Review ${l.testName}`,
-          due: locale === "ar" ? "عاجل" : "Urgent",
-          tone: "alert",
-          completed: false
-        })),
-        ...drafts.map(p => ({
-          key: `pre-${p.id}`,
-          title: locale === "ar" ? `توقيع وصفة: ${p.patientId}` : `Sign prescription for ${p.id.slice(0, 5)}`,
-          tone: "default",
-          completed: false
-        }))
-      ];
-      setRealTasks(tasks.length > 0 ? tasks : [
-        { key: "records", title: locale === "ar" ? "تحديث السجلات الصباحية" : "Update medical records", tone: "default", completed: false }
-      ]);
+      // (Removed mock tasks logic as it is now handled by QuickTaskWidget)
 
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load dashboard data";
@@ -154,7 +143,8 @@ export default function DoctorDashboard() {
         title: n.title,
         body: n.body,
         time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }),
-        unread: !n.readAt
+        unread: !n.readAt,
+        isFallback: false
       }))
     : [
       {
@@ -162,13 +152,11 @@ export default function DoctorDashboard() {
         tone: "success",
         title: locale === "ar" ? "مرحباً دكتور" : "Welcome Doctor",
         body: locale === "ar" ? "لا توجد تنبيهات عاجلة اليوم" : "You have no urgent alerts today.",
+        time: "",
+        unread: false,
+        isFallback: true
       }
     ];
-  const [taskState, setTaskState] = React.useState<Record<string, boolean>>({});
-
-  const toggleTask = (key: string) => {
-    setTaskState((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const handleChatWithPatient = async (appointmentId: string) => {
     setIsChatLoading(appointmentId);
@@ -181,11 +169,56 @@ export default function DoctorDashboard() {
     }
   };
 
-  const quickTasks = realTasks.map(t => ({
-    ...t,
-    completed: !!taskState[t.key]
-  }));
-  
+  const toggleTask = async (task: ApiQuickTask) => {
+    const newStatus: TaskStatus = task.status === "COMPLETED" ? "PENDING" : "COMPLETED";
+    try {
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+      await tasksService.update(task.id, { status: newStatus });
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
+      // Revert on failure
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: task.status } : t));
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim() || !user?.id) return;
+
+    setIsSubmittingTask(true);
+    try {
+      const newTask = await tasksService.create({
+        title: newTaskTitle,
+        priority: newTaskPriority,
+        doctorId: ""
+      });
+      setTasks(prev => [newTask, ...prev]);
+      setIsCreateTaskOpen(false);
+      setNewTaskTitle("");
+      setNewTaskPriority("NORMAL");
+    } catch (err) {
+      console.error("Failed to create task:", err);
+    } finally {
+      setIsSubmittingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    try {
+      // Optimistic update
+      setTasks(prev => prev.filter(t => t.id !== id));
+      await tasksService.delete(id);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      // Refresh list on failure
+      void refreshDashboard();
+    }
+  };
+
+  const pendingTasks = tasks.filter(t => t.status !== "COMPLETED");
+  const completedTasks = tasks.filter(t => t.status === "COMPLETED");
+
   const recentActivity = realActivity;
 
   return (
@@ -344,7 +377,7 @@ export default function DoctorDashboard() {
                                 {p.patientName}
                               </h3>
                               <p className="mt-1 text-[12px] font-medium text-slate-400 dark:text-slate-500">
-                                {`${Math.max(24, 30 + i * 7)} years • ${i % 2 === 0 ? "Female" : "Male"}`}
+                                {p.patientName || (locale === "ar" ? "العمر غير متوفر" : "Age N/A")} • {p.patientPhone || "-"}
                               </p>
                             </div>
                             {isNext && (
@@ -376,7 +409,7 @@ export default function DoctorDashboard() {
                           <div className="mt-4 pt-3 border-t border-slate-100/60 dark:border-slate-800/60 flex items-center justify-between">
                             <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate mr-4">
                               <span className="text-slate-500 dark:text-slate-400 font-bold mr-1">Reason:</span>
-                              {p.type.replace("_", " ")}
+                              {p.notes || p.type}
                             </p>
                             <div className="flex items-center gap-4">
                               <button
@@ -645,7 +678,7 @@ export default function DoctorDashboard() {
                 {notificationItems.map((item) => (
                   <div
                     key={item.key}
-                    className="flex items-start gap-4 p-5 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                    className="group relative flex items-start gap-4 p-5 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
                   >
                     <div className={cn(
                       "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
@@ -655,18 +688,52 @@ export default function DoctorDashboard() {
                     )}>
                       {item.tone === "critical" ? <AlertCircle className="h-5 w-5" /> :
                         item.tone === "success" ? <CheckCircle2 className="h-5 w-5" /> :
-                          <Users className="h-5 w-5" />}
+                          <Bell className="h-5 w-5" />}
                     </div>
-                    <div className="flex flex-col min-w-0">
-                      <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                        {item.title}
-                      </p>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-tight truncate">
+                          {item.title}
+                        </p>
+                        {item.unread && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />}
+                      </div>
                       <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-normal line-clamp-2">
                         {item.body}
                       </p>
-                      <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                        {locale === "ar" ? "منذ ٥ دقائق" : "5 min ago"}
-                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        {item.time && (
+                          <p 
+                            title={!item.isFallback ? new Date(realNotifications.find(n => n.id === item.key)?.createdAt || "").toLocaleString() : ""}
+                            className="text-[10px] font-bold text-slate-400 uppercase tracking-tight"
+                          >
+                            {item.time}
+                          </p>
+                        )}
+                        {!item.isFallback && (
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {item.unread && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  notificationsService.markInAppRead(item.key).then(() => refreshDashboard());
+                                }}
+                                className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
+                              >
+                                {locale === "ar" ? "مقروء" : "Read"}
+                              </button>
+                            )}
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                notificationsService.deleteInAppNotification(item.key).then(() => refreshDashboard());
+                              }}
+                              className="text-[10px] font-bold text-rose-500 hover:text-rose-600"
+                            >
+                              {locale === "ar" ? "حذف" : "Delete"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -683,7 +750,7 @@ export default function DoctorDashboard() {
           </Card>
 
           <Card className="rounded-2xl border-slate-100 dark:border-slate-800/60 shadow-sm transition-all hover:shadow-md dark:bg-slate-900/40 overflow-hidden">
-            <CardHeader className="px-5 pb-3 pt-5 border-b border-slate-50 dark:border-slate-800/50">
+            <CardHeader className="px-5 pb-3 pt-5 border-b border-slate-50 dark:border-slate-800/50 flex flex-row items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600">
                   <CheckSquare className="h-4.5 w-4.5" />
@@ -693,26 +760,29 @@ export default function DoctorDashboard() {
                     {locale === "ar" ? "المهام السريعة" : "Quick Tasks"}
                   </CardTitle>
                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    {locale === "ar" ? "٤ مهام معلقة" : "4 tasks pending"}
+                    {pendingTasks.length} {locale === "ar" ? "مهام معلقة" : "tasks pending"}
                   </p>
                 </div>
               </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsCreateTaskOpen(true)}
+                className="h-8 w-8 p-0 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="space-y-3 p-5">
-              {quickTasks
-                .filter((task) => !task.completed)
-                .map((task) => {
-                  const TaskIcon = task.key === "call-sarah" ? Phone :
-                    task.key === "sign-michael" ? FileText :
-                      task.key === "review-emma" ? AlertCircle :
-                        ClipboardCheck;
+              {pendingTasks.map((task) => {
+                  const TaskIcon = task.priority === "URGENT" ? AlertCircle : ClipboardCheck;
                   return (
                     <div
-                      key={task.key}
-                      onClick={() => toggleTask(task.key)}
+                      key={task.id}
+                      onClick={() => toggleTask(task)}
                       className={cn(
                         "group cursor-pointer rounded-xl border p-3.5 transition-all shadow-none",
-                        task.tone === "alert"
+                        task.priority === "URGENT"
                           ? "border-rose-100 bg-rose-50/40 dark:border-rose-900/30 dark:bg-rose-900/10"
                           : "border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50"
                       )}
@@ -723,33 +793,39 @@ export default function DoctorDashboard() {
                           <div className="flex items-center gap-2">
                             <TaskIcon className={cn(
                               "h-4 w-4 shrink-0",
-                              task.tone === "alert" ? "text-rose-500" : "text-slate-400"
+                              task.priority === "URGENT" ? "text-rose-500" : "text-slate-400"
                             )} />
                             <p className="text-[12px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
                               {task.title}
                             </p>
                           </div>
-                          {task.due && (
-                            <p className="mt-1.5 ml-6 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
-                              {task.due}
-                            </p>
-                          )}
+                          <p className="mt-1.5 ml-6 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
+                            {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+                          </p>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDeleteTask(task.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-300 hover:text-rose-500 transition-all ml-auto"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   );
                 })}
 
-              <div className="pt-2">
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                  {locale === "ar" ? "مكتملة" : "Completed"}
-                </p>
-                {quickTasks
-                  .filter((task) => task.completed)
-                  .map((task) => (
+              {completedTasks.length > 0 && (
+                <div className="pt-2">
+                  <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                    {locale === "ar" ? "مكتملة" : "Completed"}
+                  </p>
+                  {completedTasks.map((task) => (
                     <div
-                      key={task.key}
-                      onClick={() => toggleTask(task.key)}
+                      key={task.id}
+                      onClick={() => toggleTask(task)}
                       className="group cursor-pointer rounded-xl border border-transparent bg-slate-50/30 dark:bg-slate-900/10 p-3.5 transition-all hover:bg-slate-50"
                     >
                       <div className="flex items-center gap-3">
@@ -762,10 +838,20 @@ export default function DoctorDashboard() {
                             {task.title}
                           </p>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDeleteTask(task.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-300 hover:text-rose-500 transition-all ml-auto"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -870,6 +956,73 @@ export default function DoctorDashboard() {
           </CardContent>
         </Card>
       </section>
+
+      {/* Create Task Dialog */}
+      <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden border-none dark:bg-slate-900">
+          <form onSubmit={handleCreateTask}>
+            <DialogHeader className="px-6 py-5 border-b border-slate-50 dark:border-slate-800/50">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <DialogTitle className="text-[18px] font-bold text-slate-800 dark:text-slate-100">
+                  {locale === "ar" ? "إضافة مهمة جديدة" : "Add New Task"}
+                </DialogTitle>
+              </div>
+            </DialogHeader>
+
+            <div className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                  {locale === "ar" ? "عنوان المهمة" : "Task Title"}
+                </label>
+                <Input
+                  placeholder={locale === "ar" ? "مثلاً: الاتصال بالمريض" : "e.g. Follow up with patient"}
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  className="rounded-xl h-11"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                  {locale === "ar" ? "الأولوية" : "Priority"}
+                </label>
+                <Select
+                  value={newTaskPriority}
+                  onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
+                  options={[
+                    { value: "LOW", label: locale === "ar" ? "منخفضة" : "Low" },
+                    { value: "NORMAL", label: locale === "ar" ? "عادية" : "Normal" },
+                    { value: "HIGH", label: locale === "ar" ? "عالية" : "High" },
+                    { value: "URGENT", label: locale === "ar" ? "عاجلة" : "Urgent" },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div className="p-6 pt-0 flex gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsCreateTaskOpen(false)}
+                className="flex-1 rounded-xl font-bold"
+              >
+                {locale === "ar" ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmittingTask || !newTaskTitle.trim()}
+                className="flex-1 rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700"
+              >
+                {isSubmittingTask ? <Loader2 className="h-4 w-4 animate-spin" /> : (locale === "ar" ? "حفظ" : "Save")}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

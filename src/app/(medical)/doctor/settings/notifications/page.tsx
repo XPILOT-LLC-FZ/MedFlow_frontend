@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 import { staffService } from "@/services/staffService";
+import { notificationsService } from "@/services/notificationsService";
 
 interface NotificationPrefs {
   patientArrival: boolean;
@@ -36,6 +37,7 @@ export default function NotificationsSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   const initialize = useCallback(async () => {
     setIsLoading(true);
@@ -47,6 +49,32 @@ export default function NotificationsSettingsPage() {
 
       if (storedPrefs && typeof storedPrefs === "object") {
         setPrefs((prev) => ({ ...prev, ...storedPrefs }));
+      }
+
+      // Fetch recent unread notifications to show badges
+      try {
+        const notifications = await notificationsService.getInAppNotifications({ limit: 50 });
+        const counts: Record<string, number> = {};
+        
+        notifications.forEach(n => {
+          if (n.isRead) return;
+          
+          let key: keyof NotificationPrefs | null = null;
+          if (n.type === "RECEPTION_HANDOFF") key = "patientMessages";
+          else if (n.type === "APPOINTMENT_EVENT") {
+            const payload = n.payload as Record<string, unknown>;
+            if (payload?.action === "created") key = "appointmentReminders";
+            else if (payload?.newStatus === "CANCELLED") key = "appointmentCancellations";
+            else if (payload?.newStatus === "IN_PROGRESS") key = "patientArrival";
+          }
+          
+          if (key) {
+            counts[key] = (counts[key] || 0) + 1;
+          }
+        });
+        setUnreadCounts(counts);
+      } catch (err) {
+        console.error("Failed to fetch notification counts", err);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load settings";
@@ -185,6 +213,12 @@ export default function NotificationsSettingsPage() {
                   {locale === "ar" ? opt.desc_ar : opt.desc_en}
                 </span>
               </div>
+              
+              {unreadCounts[opt.id] > 0 && (
+                <div className="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded-full border border-blue-200/50 dark:border-blue-800/50">
+                  {unreadCounts[opt.id]} {locale === "ar" ? "جديد" : "new"}
+                </div>
+              )}
             </div>
 
             <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-4 rtl:ml-0 rtl:mr-4">

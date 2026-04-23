@@ -12,6 +12,7 @@ import { StatsCard } from "@/components/shared/StatsCard";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
+import { QuickTaskWidget } from "@/components/shared/QuickTaskWidget";
 import type {
   DashboardAppointmentStatus,
   DashboardStaffSummaryData,
@@ -185,6 +186,9 @@ export default function ReceptionDashboard() {
               )}
             </CardContent>
           </Card>
+          <div className="mt-6">
+            <QuickTaskWidget isReception />
+          </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
