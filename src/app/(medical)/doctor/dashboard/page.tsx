@@ -23,6 +23,9 @@ import {
   Plus,
   Loader2,
   Trash2,
+  Stethoscope,
+  User,
+  ShieldCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -124,6 +127,41 @@ export default function DoctorDashboard() {
   const summaryCards = dashboardData?.summaryCards;
   const schedule = dashboardData?.schedule;
   const visibleAppointments = (schedule?.today ?? []).slice(0, 4);
+
+  const isTimeExpired = (timeStr: string) => {
+    if (!timeStr) return false;
+    try {
+      const [time, modifier] = timeStr.split(" ");
+      const [hoursStr, minutesStr] = time.split(":");
+      let hours = Number(hoursStr);
+      const minutes = Number(minutesStr);
+      if (modifier === "PM" && hours < 12) hours += 12;
+      if (modifier === "AM" && hours === 12) hours = 0;
+      const now = new Date();
+      const apptTime = new Date();
+      apptTime.setHours(hours, minutes, 0, 0);
+      // More than 30 minutes past = expired
+      return now.getTime() - apptTime.getTime() > 30 * 60 * 1000;
+    } catch { return false; }
+  };
+
+  const calculateAge = (dateOfBirth?: string) => {
+    if (!dateOfBirth) return null;
+    const dob = new Date(dateOfBirth);
+    if (Number.isNaN(dob.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const firstAvailableScheduledIndex = visibleAppointments.findIndex(p => 
+    p.status === "SCHEDULED" && !isTimeExpired(p.time)
+  );
+
   const todayAppointments = schedule?.today ?? [];
   const waitingCount = todayAppointments.filter((item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS").length;
   const completedCount = todayAppointments.filter((item) => item.status === "COMPLETED" || item.status === "CONFIRMED").length;
@@ -140,20 +178,24 @@ export default function DoctorDashboard() {
     ? realNotifications.map(n => ({
         key: n.id,
         tone: n.type === "CRITICAL" ? "critical" : n.type === "SUCCESS" ? "success" : "info",
+        type: n.type,
         title: n.title,
         body: n.body,
         time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }),
         unread: !n.readAt,
+        role: n.payload?.role as string | undefined,
         isFallback: false
       }))
     : [
       {
         key: "welcome",
         tone: "success",
+        type: "SUCCESS",
         title: locale === "ar" ? "مرحباً دكتور" : "Welcome Doctor",
         body: locale === "ar" ? "لا توجد تنبيهات عاجلة اليوم" : "You have no urgent alerts today.",
         time: "",
         unread: false,
+        role: "System",
         isFallback: true
       }
     ];
@@ -337,22 +379,24 @@ export default function DoctorDashboard() {
                 </div>
               ) : (
                 visibleAppointments.map((p, i) => {
-                  const isNow = i === 1;
-                  const isNext = i === 2;
+                  const expired = p.status === "SCHEDULED" && isTimeExpired(p.time);
+                  const isPast = ["COMPLETED", "CANCELLED", "RESCHEDULED"].includes(p.status) || expired;
+                  const isNow = p.status === "IN_PROGRESS";
+                  const isNext = p.status === "SCHEDULED" && i === firstAvailableScheduledIndex;
+                  const isNormal = !isPast && !isNow && !isNext;
 
                   return (
                     <div
                       key={p.id}
                       className={cn(
-                        "group relative rounded-2xl border p-4 transition-all duration-300",
-                        isNow
-                          ? "border-blue-500 bg-white dark:bg-slate-900 ring-1 ring-blue-500/20"
-                          : isNext
-                            ? "border-blue-100 bg-blue-50/30 dark:border-blue-900/30 dark:bg-blue-900/10"
-                            : "border-slate-100 bg-slate-50/30 dark:border-slate-800/50 dark:bg-slate-900/20 hover:bg-white dark:hover:bg-slate-900 transition-colors"
+                        "group relative rounded-2xl border transition-all duration-300",
+                        isPast && "border-slate-100 bg-slate-50/20 dark:border-slate-800/50 dark:bg-slate-900/10 opacity-60 grayscale",
+                        isNow && "border-blue-500 bg-white dark:bg-slate-900 shadow-[0_8px_30px_rgb(59,130,246,0.12)] ring-1 ring-blue-500/20",
+                        isNext && "border-blue-200 bg-blue-50/50 dark:border-blue-900/30 dark:bg-blue-900/10",
+                        isNormal && "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900 hover:shadow-md"
                       )}
                     >
-                      <div className="flex items-start gap-4">
+                      <div className="flex items-start gap-4 p-4 sm:p-5">
                         {/* Time Column */}
                         <div className="flex flex-col items-center justify-center pt-1 w-20 shrink-0">
                           <Clock3 className={cn("h-4 w-4 mb-1.5", isNow ? "text-blue-600" : "text-slate-400")} />
@@ -363,7 +407,7 @@ export default function DoctorDashboard() {
                             {p.time}
                           </span>
                           {isNow && (
-                            <span className="mt-2 rounded-full bg-blue-600 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider">
+                            <span className="mt-2 rounded-full bg-blue-600 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-blue-200">
                               {locale === "ar" ? "الآن" : "NOW"}
                             </span>
                           )}
@@ -373,22 +417,35 @@ export default function DoctorDashboard() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 truncate">
+                              <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100 truncate">
                                 {p.patientName}
                               </h3>
                               <p className="mt-1 text-[12px] font-medium text-slate-400 dark:text-slate-500">
-                                {p.patientName || (locale === "ar" ? "العمر غير متوفر" : "Age N/A")} • {p.patientPhone || "-"}
+                                {(() => {
+                                  const age = calculateAge(p.patientDateOfBirth);
+                                  const gender = p.patientGender || (locale === "ar" ? "غير محدد" : "N/A");
+                                  const translatedGender = locale === "ar" 
+                                    ? (gender === "MALE" || gender === "Male" ? "ذكر" : gender === "FEMALE" || gender === "Female" ? "أنثى" : gender)
+                                    : gender;
+                                  
+                                  if (age !== null) {
+                                    return locale === "ar" 
+                                      ? `${age} عاماً • ${translatedGender}`
+                                      : `${age} years • ${translatedGender}`;
+                                  }
+                                  return translatedGender;
+                                })()}
                               </p>
                             </div>
                             {isNext && (
-                              <span className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-2.5 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                              <span className="rounded-full bg-blue-100/80 dark:bg-blue-900/40 px-3 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
                                 {locale === "ar" ? "التالي" : "Up Next"}
                               </span>
                             )}
                           </div>
 
                           {/* Vitals */}
-                          <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] font-bold">
+                          <div className="mt-4 flex flex-wrap items-center gap-4 text-[11px] font-bold">
                             <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                               <span className="h-2 w-2 rounded-full bg-blue-500" />
                               BP: <span className="text-slate-400 dark:text-slate-500">120/80</span>
@@ -397,7 +454,7 @@ export default function DoctorDashboard() {
                               <span className="h-2 w-2 rounded-full bg-rose-500" />
                               HR: <span className="text-slate-400 dark:text-slate-500">72 bpm</span>
                             </span>
-                            {isNow && (
+                            {(isNow || isNormal) && (
                               <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                                 <span className="h-2 w-2 rounded-full bg-amber-400" />
                                 Temp: <span className="text-slate-400 dark:text-slate-500">98.6°F</span>
@@ -405,33 +462,36 @@ export default function DoctorDashboard() {
                             )}
                           </div>
 
-                          {/* Footer: Reason & Link */}
-                          <div className="mt-4 pt-3 border-t border-slate-100/60 dark:border-slate-800/60 flex items-center justify-between">
+                          {/* Footer: Reason & Actions */}
+                          <div className="mt-5 pt-4 border-t border-slate-100/60 dark:border-slate-800/60 flex items-center justify-between">
                             <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate mr-4">
                               <span className="text-slate-500 dark:text-slate-400 font-bold mr-1">Reason:</span>
-                              {p.notes || p.type}
+                              {p.notes || p.type || (locale === "ar" ? "فحص دوري" : "Routine Checkup")}
                             </p>
-                            <div className="flex items-center gap-4">
-                              <button
-                                type="button"
-                                onClick={() => handleChatWithPatient(p.id)}
-                                disabled={isChatLoading === p.id}
-                                className={cn(
-                                  "inline-flex items-center gap-1.5 text-[12px] font-bold transition-colors",
-                                  isChatLoading === p.id ? "text-slate-400" : "text-blue-600 hover:text-blue-700"
-                                )}
-                              >
-                                <MessageSquare className="h-4 w-4" />
-                                {locale === "ar" ? "دردشة" : "Chat"}
-                              </button>
-                              <Link
-                                href="/doctor/schedule"
-                                className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors border-l border-slate-100 dark:border-slate-800 pl-4"
-                              >
-                                {locale === "ar" ? "عرض التفاصيل" : "View Details"}
-                                <ChevronRight className="h-4 w-4" />
-                              </Link>
-                            </div>
+                            
+                            {!isPast && (
+                              <div className="flex items-center gap-4">
+                                <button
+                                  type="button"
+                                  onClick={() => handleChatWithPatient(p.id)}
+                                  disabled={isChatLoading === p.id}
+                                  className={cn(
+                                    "hidden sm:inline-flex items-center gap-1.5 text-[12px] font-bold transition-colors",
+                                    isChatLoading === p.id ? "text-slate-400" : "text-blue-600 hover:text-blue-700"
+                                  )}
+                                >
+                                  <MessageSquare className="h-4 w-4" />
+                                  {locale === "ar" ? "دردشة" : "Chat"}
+                                </button>
+                                <Link
+                                  href="/doctor/schedule"
+                                  className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors sm:border-l sm:border-slate-100 sm:dark:border-slate-800 sm:pl-4"
+                                >
+                                  {locale === "ar" ? "عرض التفاصيل" : "View Details"}
+                                  <ChevronRight className="h-4 w-4" />
+                                </Link>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -483,11 +543,17 @@ export default function DoctorDashboard() {
                               {item.patientName}
                             </h4>
                             <p className="mt-0.5 text-[12px] font-medium text-slate-400 dark:text-slate-500">
-                              {`${Math.max(24, 30 + i * 8)} years`}
+                              {(() => {
+                                const age = calculateAge(item.patientDateOfBirth);
+                                if (age !== null) {
+                                  return locale === "ar" ? `${age} عاماً` : `${age} years`;
+                                }
+                                return locale === "ar" ? "العمر غير متاح" : "Age N/A";
+                              })()}
                             </p>
                           </div>
                           <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                            {locale === "ar" ? "الوصول" : "Checked in"}: {`09:${(45 + i * 10).toString().padStart(2, "0")}`}
+                            {locale === "ar" ? "الوصول" : "Checked in"}: {item.time}
                           </span>
                         </div>
 
@@ -600,8 +666,18 @@ export default function DoctorDashboard() {
                                 </span>
                               )}
                             </div>
-    
+
                             <div className="mt-5 grid grid-cols-3 gap-4">
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Age & Gender</p>
+                                <p className="mt-1 text-[13px] font-bold text-slate-700 dark:text-slate-200">
+                                  {(() => {
+                                    const age = calculateAge(p.patientDateOfBirth);
+                                    const gender = p.patientGender || "N/A";
+                                    return age !== null ? `${age}y • ${gender}` : gender;
+                                  })()}
+                                </p>
+                              </div>
                               <div>
                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Reason</p>
                                 <p className="mt-1 text-[13px] font-bold text-slate-700 dark:text-slate-200">{p.type.replace("_", " ")}</p>
@@ -678,24 +754,51 @@ export default function DoctorDashboard() {
                 {notificationItems.map((item) => (
                   <div
                     key={item.key}
-                    className="group relative flex items-start gap-4 p-5 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                    onClick={() => {
+                      if (item.unread && !item.isFallback) {
+                        notificationsService.markInAppRead(item.key).then(() => refreshDashboard());
+                      }
+                    }}
+                    className={cn(
+                      "group relative flex items-start gap-4 p-5 transition-colors cursor-pointer border-l-4",
+                      item.unread 
+                        ? "bg-blue-50/20 dark:bg-blue-900/10 border-l-blue-600" 
+                        : "bg-transparent border-l-transparent hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                    )}
                   >
                     <div className={cn(
-                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110",
+                      item.role === "ADMIN" ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600" :
+                      item.role === "DOCTOR" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600" :
+                      item.role === "PATIENT" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
                       item.tone === "critical" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
-                        item.tone === "success" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500" :
-                          "bg-blue-50 dark:bg-blue-900/20 text-blue-500"
+                      "bg-slate-100 dark:bg-slate-800 text-slate-500"
                     )}>
-                      {item.tone === "critical" ? <AlertCircle className="h-5 w-5" /> :
-                        item.tone === "success" ? <CheckCircle2 className="h-5 w-5" /> :
-                          <Bell className="h-5 w-5" />}
+                      {item.role === "ADMIN" ? <ShieldCheck className="h-4 w-4" /> :
+                        item.role === "DOCTOR" ? <Stethoscope className="h-4 w-4" /> :
+                          item.role === "PATIENT" ? <User className="h-4 w-4" /> :
+                            <Bell className="h-4 w-4" />}
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 leading-tight truncate">
-                          {item.title}
-                        </p>
-                        {item.unread && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0" />}
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className={cn(
+                            "text-[9px] font-black uppercase tracking-[0.1em] mb-1 px-1.5 py-0.5 rounded-md w-fit",
+                            item.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
+                            item.role === "DOCTOR" ? "bg-blue-100 text-blue-700" :
+                            item.role === "PATIENT" ? "bg-emerald-100 text-emerald-700" :
+                            "bg-slate-100 text-slate-500"
+                          )}>
+                            {item.role || item.type || "System"}
+                          </span>
+                          <p className={cn(
+                            "text-[13px] text-slate-800 dark:text-slate-100 leading-tight truncate",
+                            item.unread ? "font-bold" : "font-medium"
+                          )}>
+                            {item.title}
+                          </p>
+                        </div>
+                        {item.unread && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
                       </div>
                       <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-normal line-clamp-2">
                         {item.body}

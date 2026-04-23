@@ -132,9 +132,9 @@ const getAge = (dateOfBirth?: string) => {
 
 const extractAllConditions = (patient: ApiPatient) => {
   const source = patient.medicalHistory as Record<string, unknown> | undefined;
-  
+
   const fromStructured: string[] = [];
-  
+
   // Directly pull structured data (populated by backend from onboarding)
   if (Array.isArray(source?.chronicDiseases)) {
     (source.chronicDiseases as unknown[]).forEach(item => {
@@ -165,13 +165,7 @@ const extractAllConditions = (patient: ApiPatient) => {
   return Array.from(new Set(normalized));
 };
 
-const deriveConditionsForCard = (patient: ApiPatient) => {
-  const conditions = extractAllConditions(patient);
-  if (conditions.length === 0) {
-    return ["General Checkup"];
-  }
-  return conditions.slice(0, 2);
-};
+
 
 const hasPendingResults = (patient: ApiPatient) => {
   const history = patient.medicalHistory as Record<string, unknown> | undefined;
@@ -216,6 +210,125 @@ const inAgeBucket = (age: number | null, bucket: string) => {
   if (bucket === "36-50") return age >= 36 && age <= 50;
   if (bucket === "51-65") return age >= 51 && age <= 65;
   return age >= 66;
+};
+
+const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string }) => {
+  const age = getAge(patient.dateOfBirth);
+  const allConditions = extractAllConditions(patient);
+  
+  // Separate conditions into Chronic and Others
+  const chronicConditions = allConditions.filter(c => chronicFilters.includes(c));
+  const otherConditions = allConditions.filter(c => !chronicFilters.includes(c));
+  
+  const lastVisitDate = useMemo(() => {
+    const dateStr = patient.updatedAt || patient.createdAt;
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString(
+      locale === "ar" ? "ar-EG" : "en-US",
+      { month: "short", day: "numeric", year: "numeric" },
+    );
+  }, [patient.updatedAt, patient.createdAt, locale]);
+
+  return (
+    <Link href={`/doctor/patients/${patient.id}`}>
+      <article className="group relative flex flex-col rounded-[28px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-7 transition-all duration-300 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-2xl hover:shadow-blue-500/10 cursor-pointer h-[420px] overflow-hidden">
+        {/* Header section */}
+        <div className="flex items-start gap-5 mb-6">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+            <UserRound className="h-8 w-8" />
+          </div>
+          <div className="min-w-0 pt-1">
+            <h4 className="text-[18px] font-black text-slate-900 dark:text-slate-100 leading-tight mb-1 truncate">
+              {patient.fullName}
+            </h4>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[14px] font-bold text-slate-500 dark:text-slate-400">
+                {age !== null ? `${age} ${locale === "ar" ? "سنة" : "years"}` : locale === "ar" ? "العمر غير متاح" : "AGE N/A"}
+              </span>
+              <span className="text-[12px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
+                ID: PAT-{patient.id.slice(-4).toUpperCase()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Health Status Section - The Core Change */}
+        <div className="flex-grow flex flex-col gap-4 overflow-hidden">
+          <div>
+            <p className="text-[12px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+              {locale === "ar" ? "الحالة الصحية" : "Health Status"}
+            </p>
+            
+            {/* Chronic Conditions (Scroll X) */}
+            <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar -mx-1 px-1">
+              {chronicConditions.length > 0 ? (
+                chronicConditions.map((condition) => (
+                  <span 
+                    key={`${patient.id}-${condition}`} 
+                    className="whitespace-nowrap rounded-xl bg-rose-50 dark:bg-rose-950/30 px-3.5 py-2 text-[12px] font-black text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50"
+                  >
+                    {condition}
+                  </span>
+                ))
+              ) : (
+                <span className="whitespace-nowrap rounded-xl bg-blue-50 dark:bg-blue-950/30 px-3.5 py-2 text-[12px] font-black text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50">
+                  {locale === "ar" ? "فحص عام" : "General Checkup"}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Well Controlled Section (Next Line) */}
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-2 text-[12px] font-black text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 flex items-center gap-1.5 shadow-sm shadow-emerald-500/5">
+              <Check className="h-3.5 w-3.5 stroke-[3]" />
+              {locale === "ar" ? "متحكم به جيداً" : "Well Controlled"}
+            </span>
+            {otherConditions.map((condition) => (
+              <span 
+                key={`${patient.id}-other-${condition}`}
+                className="rounded-xl bg-slate-50 dark:bg-slate-900/50 px-3.5 py-2 text-[12px] font-black text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800"
+              >
+                {condition}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer info */}
+        <div className="space-y-5 pt-6 border-t border-slate-100 dark:border-slate-800/60 mt-auto">
+          <div className="flex items-center gap-2.5 text-slate-500 dark:text-slate-400">
+            <Calendar className="h-4.5 w-4.5 text-slate-400" />
+            <span className="text-[13px] font-bold">
+              {locale === "ar" ? "آخر زيارة:" : "Last visit:"} {lastVisitDate}
+            </span>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">
+                {locale === "ar" ? "اتجاه العلامات الحيوية" : "Vitals Trend"}
+              </p>
+              <Activity className="h-3.5 w-3.5 text-blue-500 opacity-50" />
+            </div>
+            <div className="relative h-6 w-full opacity-90">
+              <svg className="h-full w-full overflow-visible" preserveAspectRatio="none">
+                <path
+                  d="M0,12 C20,10 40,14 60,12 C80,10 100,14 120,12 C140,10 160,14 180,12 C200,10 220,14 240,12"
+                  fill="none"
+                  stroke="#2563EB"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  className="transition-all duration-500 group-hover:stroke-blue-700"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
 };
 
 export default function DoctorPatientsPage() {
@@ -470,8 +583,8 @@ export default function DoctorPatientsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={exportPatients}
                 className="h-11 px-5 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-bold text-[13px] border border-blue-100/50 dark:border-blue-800/50 hover:bg-blue-100 transition-all flex items-center gap-2"
               >
@@ -688,92 +801,9 @@ export default function DoctorPatientsPage() {
 
           {!isLoading &&
             !hasNoPatients &&
-            filteredPatients.map((patient) => {
-              const age = getAge(patient.dateOfBirth);
-              const conditions = deriveConditionsForCard(patient);
-              const lastVisitDate = new Date(patient.updatedAt || patient.createdAt || Date.now()).toLocaleDateString(
-                locale === "ar" ? "ar-EG" : "en-US",
-                { month: "short", day: "numeric", year: "numeric" },
-              );
-
-              return (
-                <Link key={patient.id} href={`/doctor/patients/${patient.id}`}>
-                  <article className="group relative rounded-[24px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-7 transition-all duration-300 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-2xl hover:shadow-blue-500/10 cursor-pointer h-full">
-                    <div className="flex items-start gap-5 mb-7">
-                      <div className="flex h-18 w-18 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                        <UserRound className="h-9 w-9" />
-                      </div>
-                      <div className="min-w-0 pt-1">
-                        <h4 className="text-[20px] font-bold text-[#1E293B] dark:text-slate-100 leading-tight mb-1">
-                          {patient.fullName}
-                        </h4>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[15px] font-medium text-[#64748B] dark:text-slate-400">
-                            {age !== null ? `${age} ${locale === "ar" ? "سنة" : "years"}` : locale === "ar" ? "العمر غير متاح" : "AGE N/A"}
-                          </span>
-                          <span className="text-[13px] font-medium text-[#94A3B8] dark:text-slate-500 uppercase tracking-wide">
-                            ID: PAT-2024-{patient.id.slice(-3).toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mb-7">
-                      <p className="text-[14px] font-bold text-[#64748B] dark:text-slate-400 mb-3.5">
-                        {locale === "ar" ? "الحالة الصحية" : "Health Status"}
-                      </p>
-                      <div className="flex flex-wrap gap-2.5">
-                        {conditions.length > 0 ? (
-                          conditions.map((condition) => (
-                            <span 
-                              key={`${patient.id}-${condition}`} 
-                              className="rounded-[10px] bg-[#FFF1F2] dark:bg-rose-950/30 px-3.5 py-1.5 text-[13px] font-bold text-[#F43F5E] border border-[#FFE4E6] dark:border-rose-900/50"
-                            >
-                              {condition}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="rounded-[10px] bg-[#EFF6FF] dark:bg-blue-950/30 px-3.5 py-1.5 text-[13px] font-bold text-[#3B82F6] border border-[#DBEAFE] dark:border-blue-900/50">
-                            {locale === "ar" ? "فحص عام" : "General Checkup"}
-                          </span>
-                        )}
-                        <span className="rounded-[10px] bg-[#F0FDF4] dark:bg-emerald-950/30 px-3.5 py-1.5 text-[13px] font-bold text-[#22C55E] border border-[#DCFCE7] dark:border-emerald-900/50">
-                          {locale === "ar" ? "متحكم به جيداً" : "Well Controlled"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-5 pt-7 border-t border-[#F1F5F9] dark:border-slate-800/60">
-                      <div className="flex items-center gap-2.5 text-[#64748B] dark:text-slate-400">
-                        <Calendar className="h-5 w-5 text-[#94A3B8]" />
-                        <span className="text-[14px] font-bold">
-                          {locale === "ar" ? "آخر زيارة:" : "Last visit:"} {lastVisitDate}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-3.5">
-                        <p className="text-[13px] font-bold text-[#64748B] dark:text-slate-400">
-                          {locale === "ar" ? "اتجاه العلامات الحيوية الحديثة" : "Recent Vitals Trend"}
-                        </p>
-                        <div className="relative h-8 w-full opacity-90">
-                          <svg className="h-full w-full overflow-visible" preserveAspectRatio="none">
-                            <path
-                              d="M0,15 C20,13 40,17 60,15 C80,13 100,17 120,15 C140,13 160,17 180,15 C200,13 220,17 240,15"
-                              fill="none"
-                              stroke="#2563EB"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              className="transition-all duration-500 group-hover:stroke-blue-700"
-                              vectorEffect="non-scaling-stroke"
-                            />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                </Link>
-              );
-            })}
+            filteredPatients.map((patient) => (
+              <PatientCard key={patient.id} patient={patient} locale={locale} />
+            ))}
 
           {hasNoMatches && (
             <div className="rounded-2xl border bg-background sm:col-span-2 xl:col-span-3">
@@ -837,8 +867,8 @@ export default function DoctorPatientsPage() {
                         </span>
                         <div className={cn(
                           "h-4.5 w-4.5 rounded-md border-2 transition-all flex items-center justify-center",
-                          isSelected 
-                            ? "bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500" 
+                          isSelected
+                            ? "bg-blue-600 border-blue-600 dark:bg-blue-500 dark:border-blue-500"
                             : "border-slate-200 dark:border-slate-700"
                         )}>
                           {isSelected && <Check className="h-3 w-3 text-white stroke-[3]" />}
@@ -908,8 +938,8 @@ export default function DoctorPatientsPage() {
                   </div>
                   <div className={cn(
                     "h-5 w-5 rounded-lg border-2 transition-all flex items-center justify-center",
-                    showRecentActivity 
-                      ? "bg-blue-600 border-blue-600" 
+                    showRecentActivity
+                      ? "bg-blue-600 border-blue-600"
                       : "border-slate-200 dark:border-slate-700"
                   )}>
                     {showRecentActivity && <Check className="h-3.5 w-3.5 text-white stroke-[3]" />}
@@ -941,8 +971,8 @@ export default function DoctorPatientsPage() {
                   </div>
                   <div className={cn(
                     "h-5 w-5 rounded-lg border-2 transition-all flex items-center justify-center",
-                    showPendingResults 
-                      ? "bg-blue-600 border-blue-600" 
+                    showPendingResults
+                      ? "bg-blue-600 border-blue-600"
                       : "border-slate-200 dark:border-slate-700"
                   )}>
                     {showPendingResults && <Check className="h-3.5 w-3.5 text-white stroke-[3]" />}
@@ -970,7 +1000,7 @@ export default function DoctorPatientsPage() {
                 {locale === "ar" ? "إحصائيات الدليل" : "Directory Statistics"}
               </h3>
             </div>
-            
+
             <div className="p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">

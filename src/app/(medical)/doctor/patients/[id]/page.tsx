@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Check,
   Save,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,7 @@ import { bookingService } from "@/services/bookingService";
 import { labResultService } from "@/services/labResultService";
 import { prescriptionService } from "@/services/prescriptionService";
 import { investigationService } from "@/services/investigationService";
+import { inventoryService } from "@/services/inventoryService";
 import { patientDocumentService } from "@/services/patientDocumentService";
 import { patientReportService } from "@/services/patientReportService";
 import { whatsAppService } from "@/services/whatsAppService";
@@ -38,6 +40,7 @@ import { useToastStore } from "@/stores/useToastStore";
 import type {
   ApiAppointment,
   ApiInvestigation,
+  ApiInventoryItem,
   ApiLabResult,
   ApiPatient,
   ApiPatientDocument,
@@ -146,6 +149,23 @@ export default function DoctorPatientDetailsPage() {
   const [lastPrescriptionId, setLastPrescriptionId] = useState<string | null>(null);
 
   const [favoriteMedications, setFavoriteMedications] = useState<PrescriptionMedicationItem[]>([]);
+  const [activeMedicationSearchIndex, setActiveMedicationSearchIndex] = useState<number | null>(null);
+  const [medicationSearchQuery, setMedicationSearchQuery] = useState("");
+  const [inventoryMedications, setInventoryMedications] = useState<ApiInventoryItem[]>([]);
+  const [isSearchingMedications, setIsSearchingMedications] = useState(false);
+
+  const addMedication = (med: PrescriptionMedicationItem) => {
+    const emptyRowIndex = medications.findIndex((m) => !m.name && !m.dosage);
+    if (emptyRowIndex !== -1) {
+      const next = [...medications];
+      next[emptyRowIndex] = { ...med };
+      setMedications(next);
+    } else {
+      setMedications([...medications, { ...med }]);
+    }
+    setMedicationSearchQuery("");
+    setActiveMedicationSearchIndex(null);
+  };
 
   const previewDocument = async (document: ApiPatientDocument) => {
     if (!patientId) {
@@ -168,6 +188,36 @@ export default function DoctorPatientDetailsPage() {
       toastError(message);
     }
   };
+
+  useEffect(() => {
+    if (!medicationSearchQuery || medicationSearchQuery.length < 2) {
+      setInventoryMedications([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingMedications(true);
+      try {
+        const results = await inventoryService.getAll({
+          search: medicationSearchQuery,
+          category: "PHARMACEUTICAL",
+        });
+        setInventoryMedications(results);
+      } catch (error) {
+        // Silently handle forbidden errors as inventory might be restricted to admins
+        if (error && typeof error === "object" && "status" in error && error.status === 403) {
+          console.warn("Inventory search restricted for current user role");
+          setInventoryMedications([]);
+        } else {
+          console.error("Failed to search inventory", error);
+        }
+      } finally {
+        setIsSearchingMedications(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [medicationSearchQuery]);
 
   useEffect(() => {
     if (!patientId) {
@@ -966,18 +1016,106 @@ export default function DoctorPatientDetailsPage() {
                 </div>
               </div>
 
+              {/* Integrated Search */}
+              <div className="relative group w-full max-w-xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <Input
+                  placeholder={locale === "ar" ? "ابحث عن دواء بالاسم أو المادة الفعالة..." : "Search medications by name or active ingredient..."}
+                  value={medicationSearchQuery}
+                  onChange={(e) => setMedicationSearchQuery(e.target.value)}
+                  onFocus={() => setActiveMedicationSearchIndex(-1)}
+                  onBlur={() => {
+                    // Small delay to allow clicking on results
+                    setTimeout(() => setActiveMedicationSearchIndex(null), 200);
+                  }}
+                  className="h-10 w-full rounded-sm border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-12 text-[13px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all group-hover:bg-white dark:group-hover:bg-slate-900 shadow-none"
+                />
+                {isSearchingMedications && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                  </div>
+                )}
+
+                {activeMedicationSearchIndex === -1 && medicationSearchQuery.length > 0 && (
+                  <div className="absolute top-full mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-[100] animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
+                    <div className="max-h-[350px] overflow-auto py-2">
+                      {/* Favorites Section */}
+                      <div className="px-2 pb-2">
+                        <div className="px-3 py-1.5 flex items-center gap-2">
+                          <HeartPulse className="h-3 w-3 text-rose-500" />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                            {locale === "ar" ? "الأدوية المفضلة" : "Favorite Medications"}
+                          </span>
+                        </div>
+                        {favoriteMedications
+                          .filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase()))
+                          .map((fav, i) => (
+                            <button
+                              key={`fav-${i}`}
+                              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-all group/item"
+                              onClick={() => addMedication({ ...fav })}
+                            >
+                              <div className="h-8 w-8 rounded-lg bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover/item:scale-110 transition-transform">
+                                <HeartPulse className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{fav.name}</div>
+                                <div className="text-[11px] text-slate-400 font-medium">{fav.dosage} • {fav.frequency}</div>
+                              </div>
+                              <Plus className="h-4 w-4 text-slate-300 group-hover/item:text-blue-500 transition-colors" />
+                            </button>
+                          ))}
+                      </div>
+
+                      {/* Inventory Section */}
+                      <div className="px-2 pt-2 border-t border-slate-100 dark:border-slate-800/50">
+                        <div className="px-3 py-1.5 flex items-center gap-2">
+                          <Save className="h-3 w-3 text-blue-500" />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                            {locale === "ar" ? "مخزون العيادة" : "Clinic Inventory"}
+                          </span>
+                        </div>
+                        {inventoryMedications.map((item, i) => (
+                          <button
+                            key={`inv-${i}`}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 text-left transition-all group/item"
+                            onClick={() => addMedication({ name: item.name, dosage: "", frequency: "", duration: "" })}
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover/item:scale-110 transition-transform">
+                              <Save className="h-4 w-4" />
+                            </div>
+                            <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{item.name}</span>
+                            <Plus className="h-4 w-4 text-slate-300 group-hover/item:text-blue-500 transition-colors ml-auto" />
+                          </button>
+                        ))}
+                      </div>
+
+                      {favoriteMedications.filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase())).length === 0 &&
+                        inventoryMedications.length === 0 && (
+                          <div className="px-4 py-8 text-center">
+                            <Search className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+                            <p className="text-[12px] font-medium text-slate-400">
+                              {locale === "ar" ? "لا توجد نتائج" : "No results found"}
+                            </p>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Favorites Quick Access */}
               {favoriteMedications.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                    {locale === "ar" ? "المفضلة" : "Favorite Meds"}
+                    {locale === "ar" ? "وصول سريع للمفضلة" : "Quick Favorites Access"}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {favoriteMedications.map((fav, idx) => (
+                    {favoriteMedications.slice(0, 5).map((fav, idx) => (
                       <button
                         key={idx}
-                        onClick={() => setMedications([...medications, { ...fav }])}
-                        className="px-3 py-1.5 rounded-full bg-blue-50/50 border border-blue-100/50 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition-all"
+                        onClick={() => addMedication(fav)}
+                        className="px-3 py-1.5 rounded-full bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition-all"
                       >
                         + {fav.name}
                       </button>
@@ -991,16 +1129,73 @@ export default function DoctorPatientDetailsPage() {
                   {medications.map((med, index) => (
                     <div key={index} className="flex items-center gap-3 p-3 rounded-2xl bg-[#F0F7FF] border border-blue-50 group">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">
-                        <Input
-                          placeholder={locale === "ar" ? "الدواء" : "Medicine"}
-                          value={med.name}
-                          onChange={(e) => {
-                            const next = [...medications];
-                            next[index].name = e.target.value;
-                            setMedications(next);
-                          }}
-                          className="h-9 bg-white border-slate-100 text-[13px] font-bold rounded-lg shadow-sm"
-                        />
+                        <div className="relative">
+                          <Input
+                            placeholder={locale === "ar" ? "الدواء" : "Medicine"}
+                            value={med.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const next = [...medications];
+                              next[index].name = val;
+                              setMedications(next);
+                              setMedicationSearchQuery(val);
+                              setActiveMedicationSearchIndex(index);
+                            }}
+                            onFocus={() => {
+                              setActiveMedicationSearchIndex(index);
+                              setMedicationSearchQuery(med.name);
+                            }}
+                            onBlur={() => {
+                              // Small delay to allow clicking on results
+                              setTimeout(() => setActiveMedicationSearchIndex(null), 200);
+                            }}
+                            className="h-9 bg-white border-slate-100 text-[13px] font-bold rounded-lg shadow-sm"
+                          />
+                          {activeMedicationSearchIndex === index && medicationSearchQuery.length > 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-[240px] overflow-auto py-2 animate-in fade-in zoom-in duration-200">
+                              {/* Favorites in autocomplete */}
+                              {favoriteMedications.filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase())).map((fav, i) => (
+                                <button
+                                  key={`fav-row-${i}`}
+                                  type="button"
+                                  className="w-full text-left px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center gap-2"
+                                  onClick={() => {
+                                    const next = [...medications];
+                                    next[index] = { ...fav };
+                                    setMedications(next);
+                                    setActiveMedicationSearchIndex(null);
+                                  }}
+                                >
+                                  <HeartPulse className="h-3 w-3 text-rose-400" />
+                                  {fav.name}
+                                </button>
+                              ))}
+                              {/* Inventory in autocomplete */}
+                              {inventoryMedications.map((item, i) => (
+                                <button
+                                  key={`inv-row-${i}`}
+                                  type="button"
+                                  className="w-full text-left px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center gap-2"
+                                  onClick={() => {
+                                    const next = [...medications];
+                                    next[index].name = item.name;
+                                    setMedications(next);
+                                    setActiveMedicationSearchIndex(null);
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3 text-blue-400" />
+                                  {item.name}
+                                </button>
+                              ))}
+                              {favoriteMedications.filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase())).length === 0 &&
+                                inventoryMedications.length === 0 && (
+                                  <div className="px-4 py-3 text-[12px] font-medium text-slate-400 italic">
+                                    {locale === "ar" ? "لا توجد نتائج" : "No results found"}
+                                  </div>
+                                )}
+                            </div>
+                          )}
+                        </div>
                         <Input
                           placeholder={locale === "ar" ? "الجرعة" : "Dosage"}
                           value={med.dosage}
@@ -1068,8 +1263,8 @@ export default function DoctorPatientDetailsPage() {
                         key={test}
                         onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
                         className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${selectedInvestigations[test]
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
+                          ? "bg-blue-50 border-blue-200"
+                          : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
                           }`}
                       >
                         <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
@@ -1093,8 +1288,8 @@ export default function DoctorPatientDetailsPage() {
                         key={test}
                         onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
                         className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${selectedInvestigations[test]
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
+                          ? "bg-blue-50 border-blue-200"
+                          : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
                           }`}
                       >
                         <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"

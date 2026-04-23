@@ -666,6 +666,8 @@ export interface DashboardDoctorScheduleItem {
   patientPhone: string;
   id: string;
   patientName: string;
+  patientGender?: string;
+  patientDateOfBirth?: string;
   type: string;
   time: string;
   status: DashboardAppointmentStatus;

@@ -62,7 +62,7 @@ export default function ReceptionHandoffsPage() {
       await bookingService.markReceptionHandoffReviewed(handoffId);
       toastSuccess(locale === "ar" ? "تم تحديد المهمة كمكتملة" : "Task marked as reviewed");
       fetchHandoffs();
-    } catch (_) {
+    } catch {
       toastError(locale === "ar" ? "فشل تحديث الحالة" : "Failed to update status");
     }
   };
