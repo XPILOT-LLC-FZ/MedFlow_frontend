@@ -35,7 +35,7 @@ export default function DoctorProfileSettingsPage() {
   const [credentials, setCredentials] = useState<ApiDoctorCredential[]>([]);
   const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
   const [uploadingCredentialType, setUploadingCredentialType] = useState<
-    "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION" | null
+    "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION" | "PERSONAL_SIGNATURE" | null
   >(null);
   const [previewingCredentialId, setPreviewingCredentialId] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<{
@@ -47,6 +47,7 @@ export default function DoctorProfileSettingsPage() {
 
   const ministryFileInputRef = useRef<HTMLInputElement>(null);
   const qualificationFileInputRef = useRef<HTMLInputElement>(null);
+  const signatureFileInputRef = useRef<HTMLInputElement>(null);
 
   const MAX_CREDENTIAL_SIZE = 10 * 1024 * 1024;
   const ALLOWED_CREDENTIAL_TYPES = [
@@ -111,11 +112,11 @@ export default function DoctorProfileSettingsPage() {
     );
   }, [
     doctorRecord?.fullName, 
-    doctorRecord?.phone, 
-    doctorRecord?.ministryOfHealthId, 
-    doctorRecord?.specialization,
     doctorRecord?.experienceStartDate,
     doctorRecord?.qualification,
+    doctorRecord?.phone,
+    doctorRecord?.ministryOfHealthId,
+    doctorRecord?.specialization,
     user?.name
   ]);
 
@@ -214,7 +215,7 @@ export default function DoctorProfileSettingsPage() {
 
   const uploadCredentialFiles = async (
     files: FileList,
-    credentialType: "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION",
+    credentialType: "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION" | "PERSONAL_SIGNATURE",
   ) => {
     if (!doctorRecord?.id) {
       error(locale === "ar" ? "تعذر العثور على ملف الطبيب" : "Doctor profile not found");
@@ -301,6 +302,9 @@ export default function DoctorProfileSettingsPage() {
       }
       if (qualificationFileInputRef.current) {
         qualificationFileInputRef.current.value = "";
+      }
+      if (signatureFileInputRef.current) {
+        signatureFileInputRef.current.value = "";
       }
     }
   };
@@ -562,20 +566,21 @@ export default function DoctorProfileSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Credential Files */}
       <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 overflow-hidden transition-colors duration-200">
         <CardHeader className="pb-4 border-b border-slate-50 dark:border-slate-800/50">
           <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
-            {locale === "ar" ? "ملفات الاعتماد" : "Credential Files"}
+            {locale === "ar" ? "ملفات الاعتماد والتوقيع" : "Credential Files & Signature"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {locale === "ar"
               ? "يراجع المشرف الملفات قبل ظهورها للمرضى أو العرض العام."
-              : "Admins review and verify files before they become visible to patients or public visitors."}
+              : "Admins review and verify files before they become visible to patients or used in reports."}
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-lg border border-slate-200/70 dark:border-slate-800 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
@@ -654,6 +659,45 @@ export default function DoctorProfileSettingsPage() {
                     : "Upload Qualifications"}
               </Button>
             </div>
+
+            <div className="rounded-lg border border-slate-200/70 dark:border-slate-800 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {locale === "ar" ? "التوقيع الشخصي" : "Personal Signature"}
+                </span>
+                <Badge variant="outline">
+                  {credentials.filter((item) => item.credentialType === "PERSONAL_SIGNATURE").length}/1
+                </Badge>
+              </div>
+              <input
+                ref={signatureFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(event) => {
+                  if (event.target.files && event.target.files.length > 0) {
+                    void uploadCredentialFiles(event.target.files, "PERSONAL_SIGNATURE");
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full"
+                disabled={uploadingCredentialType !== null}
+                onClick={() => signatureFileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {uploadingCredentialType === "PERSONAL_SIGNATURE"
+                  ? locale === "ar"
+                    ? "جارٍ الرفع..."
+                    : "Uploading..."
+                  : locale === "ar"
+                    ? "رفع أو استبدال"
+                    : "Upload or Replace"}
+              </Button>
+            </div>
           </div>
 
           {isLoadingCredentials ? (
@@ -691,6 +735,10 @@ export default function DoctorProfileSettingsPage() {
                           ? locale === "ar"
                             ? "ترخيص وزارة الصحة"
                             : "Ministry of Health ID"
+                          : item.credentialType === "PERSONAL_SIGNATURE"
+                          ? locale === "ar"
+                            ? "التوقيع الشخصي"
+                            : "Personal Signature"
                           : locale === "ar"
                             ? "شهادة تأهيل"
                             : "Qualification"}

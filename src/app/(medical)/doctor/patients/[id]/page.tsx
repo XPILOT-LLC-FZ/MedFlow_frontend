@@ -978,68 +978,57 @@ export default function DoctorPatientDetailsPage() {
             </div>
 
             {/* 2. Prescription */}
-            <div className="rounded-[24px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 shadow-sm space-y-6">
+            <div className="rounded-[24px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-8 shadow-sm space-y-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <LinkIcon className="h-4 w-4 text-blue-600" />
-                  <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
+                    <LinkIcon className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-[18px] font-black text-slate-900 dark:text-slate-100">
                     {locale === "ar" ? "الوصفة الطبية" : "Prescription"}
                   </h3>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 px-3 text-blue-600 font-bold hover:bg-blue-50 text-[12px] rounded-xl"
-                    onClick={() => setMedications([...medications, { name: "", dosage: "", frequency: "", duration: "" }])}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    {locale === "ar" ? "إضافة دواء" : "Add Medication"}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-9 px-4 bg-blue-50 text-blue-600 hover:bg-blue-100 border-none rounded-xl text-[12px] font-bold transition-all gap-2"
-                    onClick={() => {
-                      if (lastPrescriptionId) {
-                        const latest = prescriptions[0];
-                        if (latest && Array.isArray(latest.medications)) {
-                          setMedications(latest.medications);
-                          toastSuccess(locale === "ar" ? "تم تكرار الوصفة السابقة" : "Last prescription repeated");
-                        }
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="h-10 px-5 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-100 dark:border-slate-800 rounded-xl text-[13px] font-bold transition-all gap-2"
+                  onClick={() => {
+                    if (lastPrescriptionId) {
+                      const latest = prescriptions[0];
+                      if (latest && Array.isArray(latest.medications)) {
+                        setMedications(latest.medications);
+                        toastSuccess(locale === "ar" ? "تم تكرار الوصفة السابقة" : "Last prescription repeated");
                       }
-                    }}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    {locale === "ar" ? "تكرار آخر وصفة" : "Repeat Last"}
-                  </Button>
-                </div>
+                    }
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {locale === "ar" ? "تكرار آخر وصفة" : "Repeat Last Prescription"}
+                </Button>
               </div>
 
-              {/* Integrated Search */}
-              <div className="relative group w-full max-w-xl">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+              {/* Full Width Search */}
+              <div className="relative group w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <Input
-                  placeholder={locale === "ar" ? "ابحث عن دواء بالاسم أو المادة الفعالة..." : "Search medications by name or active ingredient..."}
+                  placeholder={locale === "ar" ? "ابحث وأضف الأدوية..." : "Search and add medications..."}
                   value={medicationSearchQuery}
                   onChange={(e) => setMedicationSearchQuery(e.target.value)}
                   onFocus={() => setActiveMedicationSearchIndex(-1)}
                   onBlur={() => {
-                    // Small delay to allow clicking on results
                     setTimeout(() => setActiveMedicationSearchIndex(null), 200);
                   }}
-                  className="h-10 w-full rounded-sm border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-12 text-[13px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all group-hover:bg-white dark:group-hover:bg-slate-900 shadow-none"
+                  className="h-13 w-full rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-12 text-[14px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white dark:focus:bg-slate-950 transition-all shadow-none"
                 />
                 {isSearchingMedications && (
                   <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                    <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
                   </div>
                 )}
 
                 {activeMedicationSearchIndex === -1 && medicationSearchQuery.length > 0 && (
                   <div className="absolute top-full mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-[100] animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
                     <div className="max-h-[350px] overflow-auto py-2">
-                      {/* Favorites Section */}
                       <div className="px-2 pb-2">
                         <div className="px-3 py-1.5 flex items-center gap-2">
                           <HeartPulse className="h-3 w-3 text-rose-500" />
@@ -1067,7 +1056,6 @@ export default function DoctorPatientDetailsPage() {
                           ))}
                       </div>
 
-                      {/* Inventory Section */}
                       <div className="px-2 pt-2 border-t border-slate-100 dark:border-slate-800/50">
                         <div className="px-3 py-1.5 flex items-center gap-2">
                           <Save className="h-3 w-3 text-blue-500" />
@@ -1089,152 +1077,34 @@ export default function DoctorPatientDetailsPage() {
                           </button>
                         ))}
                       </div>
-
-                      {favoriteMedications.filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase())).length === 0 &&
-                        inventoryMedications.length === 0 && (
-                          <div className="px-4 py-8 text-center">
-                            <Search className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-                            <p className="text-[12px] font-medium text-slate-400">
-                              {locale === "ar" ? "لا توجد نتائج" : "No results found"}
-                            </p>
-                          </div>
-                        )}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Favorites Quick Access */}
-              {favoriteMedications.length > 0 && (
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
-                    {locale === "ar" ? "وصول سريع للمفضلة" : "Quick Favorites Access"}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {favoriteMedications.slice(0, 5).map((fav, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => addMedication(fav)}
-                        className="px-3 py-1.5 rounded-full bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/30 text-[11px] font-bold text-blue-600 hover:bg-blue-100 transition-all"
-                      >
-                        + {fav.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-4">
+                <p className="text-[13px] font-bold text-slate-400 px-1">
+                  {locale === "ar" ? "الأدوية الموصوفة:" : "Prescribed Medications:"}
+                </p>
                 <div className="space-y-3">
                   {medications.map((med, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 rounded-2xl bg-[#F0F7FF] border border-blue-50 group">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 flex-1">
-                        <div className="relative">
-                          <Input
-                            placeholder={locale === "ar" ? "الدواء" : "Medicine"}
-                            value={med.name}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const next = [...medications];
-                              next[index].name = val;
-                              setMedications(next);
-                              setMedicationSearchQuery(val);
-                              setActiveMedicationSearchIndex(index);
-                            }}
-                            onFocus={() => {
-                              setActiveMedicationSearchIndex(index);
-                              setMedicationSearchQuery(med.name);
-                            }}
-                            onBlur={() => {
-                              // Small delay to allow clicking on results
-                              setTimeout(() => setActiveMedicationSearchIndex(null), 200);
-                            }}
-                            className="h-9 bg-white border-slate-100 text-[13px] font-bold rounded-lg shadow-sm"
-                          />
-                          {activeMedicationSearchIndex === index && medicationSearchQuery.length > 0 && (
-                            <div className="absolute z-20 w-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-[240px] overflow-auto py-2 animate-in fade-in zoom-in duration-200">
-                              {/* Favorites in autocomplete */}
-                              {favoriteMedications.filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase())).map((fav, i) => (
-                                <button
-                                  key={`fav-row-${i}`}
-                                  type="button"
-                                  className="w-full text-left px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center gap-2"
-                                  onClick={() => {
-                                    const next = [...medications];
-                                    next[index] = { ...fav };
-                                    setMedications(next);
-                                    setActiveMedicationSearchIndex(null);
-                                  }}
-                                >
-                                  <HeartPulse className="h-3 w-3 text-rose-400" />
-                                  {fav.name}
-                                </button>
-                              ))}
-                              {/* Inventory in autocomplete */}
-                              {inventoryMedications.map((item, i) => (
-                                <button
-                                  key={`inv-row-${i}`}
-                                  type="button"
-                                  className="w-full text-left px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 transition-all flex items-center gap-2"
-                                  onClick={() => {
-                                    const next = [...medications];
-                                    next[index].name = item.name;
-                                    setMedications(next);
-                                    setActiveMedicationSearchIndex(null);
-                                  }}
-                                >
-                                  <Plus className="h-3 w-3 text-blue-400" />
-                                  {item.name}
-                                </button>
-                              ))}
-                              {favoriteMedications.filter(m => m.name.toLowerCase().includes(medicationSearchQuery.toLowerCase())).length === 0 &&
-                                inventoryMedications.length === 0 && (
-                                  <div className="px-4 py-3 text-[12px] font-medium text-slate-400 italic">
-                                    {locale === "ar" ? "لا توجد نتائج" : "No results found"}
-                                  </div>
-                                )}
-                            </div>
-                          )}
+                    <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-[#F0F7FF] dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 group transition-all hover:border-blue-200">
+                      <div className="flex flex-col gap-1">
+                        <div className="text-[15px] font-bold text-slate-700 dark:text-slate-200">
+                          {med.name || (locale === "ar" ? "اسم الدواء" : "Medication Name")}
                         </div>
-                        <Input
-                          placeholder={locale === "ar" ? "الجرعة" : "Dosage"}
-                          value={med.dosage}
-                          onChange={(e) => {
-                            const next = [...medications];
-                            next[index].dosage = e.target.value;
-                            setMedications(next);
-                          }}
-                          className="h-9 bg-white border-slate-100 text-[13px] font-medium rounded-lg shadow-sm"
-                        />
-                        <Input
-                          placeholder={locale === "ar" ? "التكرار" : "Frequency"}
-                          value={med.frequency}
-                          onChange={(e) => {
-                            const next = [...medications];
-                            next[index].frequency = e.target.value;
-                            setMedications(next);
-                          }}
-                          className="h-9 bg-white border-slate-100 text-[13px] font-medium rounded-lg shadow-sm"
-                        />
-                        <Input
-                          placeholder={locale === "ar" ? "المدة" : "Duration"}
-                          value={med.duration}
-                          onChange={(e) => {
-                            const next = [...medications];
-                            next[index].duration = e.target.value;
-                            setMedications(next);
-                          }}
-                          className="h-9 bg-white border-slate-100 text-[13px] font-medium rounded-lg shadow-sm"
-                        />
+                        <div className="text-[13px] font-medium text-slate-400 dark:text-slate-500">
+                          {med.dosage} {med.dosage && (med.frequency || med.duration) ? " - " : ""} {med.frequency} {med.frequency && med.duration ? " - " : ""} {med.duration}
+                        </div>
                       </div>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-9 w-9 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        className="h-8 w-8 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-all"
                         onClick={() => setMedications(medications.filter((_, i) => i !== index))}
-                        disabled={medications.length === 1}
+                        disabled={medications.length === 1 && !med.name}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-5 w-5" />
                       </Button>
                     </div>
                   ))}

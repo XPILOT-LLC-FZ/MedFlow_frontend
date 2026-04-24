@@ -391,7 +391,13 @@ export default function DoctorPatientsPage() {
       const age = getAge(patient.dateOfBirth);
       const allConditions = extractAllConditions(patient);
 
-      const haystack = [patient.fullName, patient.email, patient.phone]
+      const haystack = [
+        patient.fullName,
+        patient.email,
+        patient.phone,
+        patient.id,
+        `PAT-${patient.id.slice(-4).toUpperCase()}`,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -601,8 +607,8 @@ export default function DoctorPatientsPage() {
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={
                 locale === "ar"
-                  ? "ابحث عن المرضى بالاسم أو الهاتف أو السجل الطبي..."
-                  : "Search patients by name, phone, or medical history..."
+                  ? "ابحث عن المرضى بالاسم، الهاتف، المعرف (ID) أو السجل..."
+                  : "Search patients by name, phone, ID or medical history..."
               }
               className="h-13 w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-12 text-[14px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white dark:focus:bg-slate-950 transition-all"
             />

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Bell, Filter, CheckCircle2, Trash2, ShieldCheck, Stethoscope, User } from "lucide-react";
+import { Bell, Filter, CheckCircle2, Trash2, ShieldCheck, Stethoscope, User, ConciergeBell, AlertTriangle, Activity, ClipboardCheck, MessageSquare, Calendar, Forward, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,28 +30,36 @@ export function NotificationsDialog({
   onRefresh,
   locale
 }: NotificationsDialogProps) {
-  const [filter, setFilter] = React.useState<"all" | "unread" | "alerts" | "info">("all");
+  const [filter, setFilter] = React.useState<"all" | "unread" | "doctor" | "patients" | "reception">("all");
   const unreadCount = notifications.filter(n => !n.readAt).length;
 
   const filteredNotifications = React.useMemo(() => {
     switch (filter) {
       case "unread":
         return notifications.filter(n => !n.readAt);
-      case "alerts":
-        // Group critical types as alerts
+      case "doctor":
+        // Focus on "what is wrong" - Alerts, Critical issues, Lab results, and Tasks
         return notifications.filter(n => 
           n.type === "CRITICAL" || 
           n.type === "ALERT" || 
           n.type === "LAB_RESULT" || 
-          n.type === "TASK_EVENT"
+          n.type === "TASK_EVENT" ||
+          n.type === "RECEPTION_INBOX_ASSIGNED"
         );
-      case "info":
-        // Status updates and general info
+      case "patients":
         return notifications.filter(n => 
-          n.type !== "CRITICAL" && 
-          n.type !== "ALERT" && 
-          n.type !== "LAB_RESULT" && 
-          n.type !== "TASK_EVENT"
+          n.audience === "PATIENT" || 
+          n.payload?.action === "created" || 
+          n.type === "SURVEY_FEEDBACK" ||
+          n.title?.toLowerCase().includes("booked")
+        );
+      case "reception":
+        return notifications.filter(n => 
+          n.audience === "RECEPTION" || 
+          n.payload?.action === "status-changed" ||
+          n.type === "RECEPTION_HANDOFF" ||
+          n.type === "WHATSAPP_INBOUND" ||
+          n.title?.toLowerCase().includes("status updated")
         );
       default:
         return notifications;
@@ -86,8 +94,9 @@ export function NotificationsDialog({
             {[
               { id: "all", label: locale === "ar" ? "الكل" : "All" },
               { id: "unread", label: locale === "ar" ? `غير مقروء (${unreadCount})` : `Unread (${unreadCount})` },
-              { id: "alerts", label: locale === "ar" ? "تنبيهات" : "Alerts" },
-              { id: "info", label: locale === "ar" ? "معلومات" : "Info" }
+              { id: "doctor", label: locale === "ar" ? "الطبيب" : "Doctor" },
+              { id: "patients", label: locale === "ar" ? "المرضى" : "Patients" },
+              { id: "reception", label: locale === "ar" ? "الاستقبال" : "Reception" }
             ].map((f) => (
               <button
                 key={f.id}
@@ -111,7 +120,7 @@ export function NotificationsDialog({
               }}
               className="text-[11px] font-bold text-blue-600 hover:text-blue-700"
             >
-              {locale === "ar" ? "تحديد الكل كمقروء" : "Mark All Read"}
+              {locale === "ar" ? "تحديد الكل" : "Mark All"}
             </button>
           </div>
         </div>
@@ -128,10 +137,10 @@ export function NotificationsDialog({
             </div>
           ) : (
             filteredNotifications.map((n) => {
-              const role = n.payload?.role as string | undefined;
-              const isAdmin = role === "ADMIN";
-              const isDoctor = role === "DOCTOR";
-              const isPatient = role === "PATIENT";
+              const isAdmin = n.audience === "ADMIN";
+              const isDoctor = n.audience === "DOCTOR";
+              const isPatient = n.audience === "PATIENT";
+              const isReception = n.audience === "RECEPTION";
 
               return (
                 <div 
@@ -141,11 +150,13 @@ export function NotificationsDialog({
                     isAdmin ? "border-purple-100 dark:border-purple-900/30" :
                     isDoctor ? "border-blue-100 dark:border-blue-900/30" :
                     isPatient ? "border-emerald-100 dark:border-emerald-900/30" :
+                    isReception ? "border-amber-100 dark:border-amber-900/30" :
                     "border-slate-100 dark:border-slate-800/50",
                     !n.readAt && (
                       isAdmin ? "ring-2 ring-purple-200/50" :
                       isDoctor ? "ring-2 ring-blue-200/50" :
                       isPatient ? "ring-2 ring-emerald-200/50" :
+                      isReception ? "ring-2 ring-amber-200/50" :
                       "ring-2 ring-slate-100/50"
                     )
                   )}
@@ -153,29 +164,30 @@ export function NotificationsDialog({
                   <div className="flex gap-3.5">
                     <div className={cn(
                       "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform",
-                      isAdmin ? "bg-purple-100 text-purple-600" :
-                      isDoctor ? "bg-blue-100 text-blue-600" :
-                      isPatient ? "bg-emerald-100 text-emerald-600" :
-                      n.type === "CRITICAL" ? "bg-rose-100 text-rose-500" :
-                      "bg-slate-100 text-slate-500"
+                       isAdmin ? "bg-purple-100 text-purple-600" :
+                       isDoctor ? "bg-blue-100 text-blue-600" :
+                       isPatient ? "bg-emerald-100 text-emerald-600" :
+                       n.type === "CRITICAL" ? "bg-rose-100 text-rose-500" :
+                       n.type === "ALERT" ? "bg-amber-100 text-amber-500" :
+                       n.type === "LAB_RESULT" ? "bg-indigo-100 text-indigo-500" :
+                       "bg-slate-100 text-slate-500"
                     )}>
-                      {isAdmin ? <ShieldCheck className="h-5 w-5" /> : 
+                      {n.type === "CRITICAL" ? <AlertTriangle className="h-5 w-5" /> : 
+                       n.type === "ALERT" ? <AlertCircle className="h-5 w-5" /> : 
+                       n.type === "LAB_RESULT" ? <Activity className="h-5 w-5" /> : 
+                       n.type === "TASK_EVENT" ? <ClipboardCheck className="h-5 w-5" /> : 
+                       n.type === "CHAT_MESSAGE" || n.type === "WHATSAPP_INBOUND" ? <MessageSquare className="h-5 w-5" /> : 
+                       n.type === "APPOINTMENT_EVENT" ? <Calendar className="h-5 w-5" /> : 
+                       n.type === "RECEPTION_HANDOFF" ? <Forward className="h-5 w-5" /> : 
+                       isAdmin ? <ShieldCheck className="h-5 w-5" /> : 
                        isDoctor ? <Stethoscope className="h-5 w-5" /> : 
                        isPatient ? <User className="h-5 w-5" /> : 
+                       isReception ? <ConciergeBell className="h-5 w-5" /> : 
                        <Bell className="h-5 w-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex flex-col gap-0.5">
-                          <span className={cn(
-                            "text-[9px] font-black uppercase tracking-widest mb-1 px-1.5 py-0.5 rounded-md w-fit",
-                            isAdmin ? "bg-purple-100 text-purple-700" :
-                            isDoctor ? "bg-blue-100 text-blue-700" :
-                            isPatient ? "bg-emerald-100 text-emerald-700" :
-                            "bg-slate-100 text-slate-500"
-                          )}>
-                            {role || n.type || "System"}
-                          </span>
                           <h4 className={cn(
                             "flex items-center gap-2 text-[14px] text-slate-800 dark:text-slate-100",
                             !n.readAt ? "font-bold" : "font-medium"

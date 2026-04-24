@@ -14,6 +14,7 @@ export type InAppNotification = {
   isRead: boolean;
   id: string;
   type: string;
+  audience: "PATIENT" | "DOCTOR" | "RECEPTION" | "ADMIN";
   title: string;
   body: string;
   payload: Record<string, unknown> | null;
@@ -80,7 +81,7 @@ export interface ApiDoctor {
   } | null;
 }
 
-export type DoctorCredentialType = "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION";
+export type DoctorCredentialType = "MINISTRY_OF_HEALTH_ID" | "QUALIFICATION" | "PERSONAL_SIGNATURE";
 
 export interface ApiDoctorCredential {
   id: string;
@@ -426,6 +427,8 @@ export interface TreatmentPlanListFilters {
   patientId?: string;
   doctorId?: string;
   status?: TreatmentPlanStatus;
+  startDate?: string;
+  endDate?: string;
 }
 
 export type SurveyStatus = "PENDING" | "COMPLETED";

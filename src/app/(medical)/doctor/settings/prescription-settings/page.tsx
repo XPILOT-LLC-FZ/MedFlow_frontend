@@ -14,6 +14,7 @@ interface FavoriteMedication {
   name: string;
   dosage: string;
   frequency: string;
+  duration?: string;
 }
 
 const FREQUENCY_OPTIONS_EN = ["Once daily", "Twice daily", "Three times daily", "As needed", "With meals"];
@@ -38,6 +39,7 @@ export default function PrescriptionSettingsPage() {
   const [newName, setNewName] = useState("");
   const [newDosage, setNewDosage] = useState("");
   const [newFrequency, setNewFrequency] = useState(FREQUENCY_OPTIONS_EN[0]);
+  const [newDuration, setNewDuration] = useState("");
 
   const initialize = useCallback(async () => {
     setIsLoading(true);
@@ -102,6 +104,7 @@ export default function PrescriptionSettingsPage() {
       name: newName.trim(),
       dosage: newDosage.trim(),
       frequency: newFrequency,
+      duration: newDuration.trim() || undefined,
     };
     
     const updated = [...medications, med];
@@ -110,6 +113,7 @@ export default function PrescriptionSettingsPage() {
     setNewName("");
     setNewDosage("");
     setNewFrequency(locale === "ar" ? FREQUENCY_OPTIONS_AR[0] : FREQUENCY_OPTIONS_EN[0]);
+    setNewDuration("");
     setShowModal(false);
     
     // Auto-save instantly
@@ -176,7 +180,7 @@ export default function PrescriptionSettingsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{med.name}</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{med.dosage}</p>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{med.frequency}</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{med.frequency}{med.duration ? ` • ${med.duration}` : ""}</p>
                   </div>
                   <button
                     onClick={() => handleDeleteMedication(med.id)}
@@ -309,6 +313,18 @@ export default function PrescriptionSettingsPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  {locale === "ar" ? "المدة" : "Duration"}
+                </label>
+                <Input
+                  placeholder={locale === "ar" ? "مثال: 7 أيام" : "e.g. 7 days"}
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(e.target.value)}
+                  className="h-10 bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800"
+                />
               </div>
 
               <div className="flex gap-3 pt-2">

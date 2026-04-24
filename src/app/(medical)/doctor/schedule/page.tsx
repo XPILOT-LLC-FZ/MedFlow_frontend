@@ -53,6 +53,9 @@ export default function SchedulePage() {
     reason: "",
   });
 
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const [viewDate, setViewDate] = useState(() => new Date());
+
   // Ported Actions State
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
   const [actionsDropdownId, setActionsDropdownId] = useState<string | null>(null);
@@ -263,6 +266,56 @@ export default function SchedulePage() {
   };
 
 
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }).map((_, i) => {
+      const date = new Date(2024, 0, 7 + i); // 2024-01-07 is a Sunday
+      return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" });
+    });
+  }, [locale]);
+
+  const monthDays = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const days = [];
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      days.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push(new Date(year, month, d));
+    }
+    return days;
+  }, [viewDate]);
+
+  const handlePrevMonth = () => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(viewDate.getMonth() - 1);
+    setViewDate(newDate);
+  };
+
+  const handleNextMonth = () => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(viewDate.getMonth() + 1);
+    setViewDate(newDate);
+  };
+
+  const relativeLabel = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((selected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return locale === "ar" ? "اليوم" : "Today";
+    if (diffDays === 1) return locale === "ar" ? "غداً" : "Tomorrow";
+    if (diffDays === -1) return locale === "ar" ? "أمس" : "Yesterday";
+    
+    if (diffDays > 0) return locale === "ar" ? `بعد ${diffDays} يوم` : `In ${diffDays} days`;
+    return locale === "ar" ? `منذ ${Math.abs(diffDays)} يوم` : `${Math.abs(diffDays)} days ago`;
+  }, [selectedDate, locale]);
+
   const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
   const timelineDates = useMemo(() => {
     return Array.from({ length: 13 }).map((_, index) => {
@@ -355,63 +408,208 @@ export default function SchedulePage() {
         
         {/* Horizontal Date Picker - Full Width */}
         <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-5 shadow-none mb-6">
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={handlePrevDay}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
-            >
-              <ChevronLeft className="h-4.5 w-4.5" />
-            </button>
-            
-            <div className="flex-1 flex items-center justify-between gap-1">
-              {timelineDates.map((slot) => {
-                const isActive = slot.toISOString().slice(0, 10) === dateKey;
-                const dStr = slot.toISOString().slice(0, 10);
-                const dayAppts = appointments.filter(a => a.date.slice(0, 10) === dStr);
-                
-                let dotColor = "transparent";
-                if (dayAppts.length > 0) {
-                  const hasConfirmed = dayAppts.some(a => a.status === "confirmed" || a.status === "completed");
-                  dotColor = hasConfirmed ? "bg-emerald-500" : "bg-orange-500";
-                }
-
-                return (
-                  <button
-                    key={slot.toISOString()}
-                    type="button"
-                    onClick={() => setSelectedDate(slot)}
-                    className={cn(
-                      "flex flex-col items-center justify-center rounded-2xl py-3 px-1 transition-all duration-300 relative min-w-[64px]",
-                      isActive 
-                        ? "bg-blue-600 text-white shadow-xl shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
-                        : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400 dark:text-slate-500"
-                    )}
-                  >
-                    <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1.5", isActive ? "text-blue-100" : "text-slate-400")}>
-                      {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" })}
-                    </p>
-                    <p className="text-[20px] font-black leading-none mb-1.5">
-                      {slot.getDate()}
-                    </p>
-                    <p className={cn("text-[10px] font-bold uppercase", isActive ? "text-blue-100" : "text-slate-400")}>
-                      {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short" })}
-                    </p>
-                    <div className={cn(
-                      "mt-2 h-1.5 w-1.5 rounded-full transition-all",
-                      isActive ? "bg-white" : dotColor
-                    )} />
-                  </button>
-                );
-              })}
+          <div className="flex items-center justify-between mb-5 px-1">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (!isCalendarExpanded) setViewDate(selectedDate);
+                  setIsCalendarExpanded(!isCalendarExpanded);
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 transition-all group"
+              >
+                <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
+                  {viewDate.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "long", year: "numeric" })}
+                </h3>
+                <ChevronDown className={cn("h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-transform duration-300", isCalendarExpanded && "rotate-180")} />
+              </button>
             </div>
-
-            <button 
-              onClick={handleNextDay}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
-            >
-              <ChevronRight className="h-4.5 w-4.5" />
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {isCalendarExpanded && (
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 rounded-lg p-1">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handlePrevMonth(); }}
+                    className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleNextMonth(); }}
+                    className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  setSelectedDate(now);
+                  setViewDate(now);
+                }}
+                className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors whitespace-nowrap"
+              >
+                {relativeLabel}
+              </button>
+            </div>
           </div>
+
+          {isCalendarExpanded ? (
+            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+              {/* Quick Jumps */}
+              <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 no-scrollbar">
+                {[
+                  { label: locale === "ar" ? "أمس" : "Yesterday", offset: -1 },
+                  { label: locale === "ar" ? "غداً" : "Tomorrow", offset: 1 },
+                  { label: locale === "ar" ? "بعد 7 أيام" : "+7 Days", offset: 7 },
+                  { label: locale === "ar" ? "بعد شهر" : "+1 Month", offset: 30 },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + item.offset);
+                      setSelectedDate(d);
+                      setViewDate(d);
+                    }}
+                    className="whitespace-nowrap px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[12px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-all"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+                
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-xl px-3 py-2 border border-slate-100 dark:border-slate-800 ml-auto group focus-within:border-blue-200 dark:focus-within:border-blue-800 transition-all">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter group-focus-within:text-blue-500">
+                    {locale === "ar" ? "اقفز أيام:" : "Jump Days:"}
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="±"
+                    className="w-10 bg-transparent border-none text-[12px] font-black text-blue-600 focus:outline-none p-0 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-slate-300"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseInt((e.target as HTMLInputElement).value);
+                        if (!isNaN(val)) {
+                          const d = new Date();
+                          d.setDate(d.getDate() + val);
+                          setSelectedDate(d);
+                          setViewDate(d);
+                          (e.target as HTMLInputElement).value = '';
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 mb-2">
+                {weekDays.map(day => (
+                  <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {monthDays.map((date, i) => {
+                  const isSelected = date && date.toDateString() === selectedDate.toDateString();
+                  const isToday = date && date.toDateString() === new Date().toDateString();
+                  
+                  const dStr = date ? date.toISOString().slice(0, 10) : "";
+                  const dayAppts = appointments.filter(a => a.date.slice(0, 10) === dStr);
+                  
+                  let dotColor = "transparent";
+                  if (dayAppts.length > 0) {
+                    const hasConfirmed = dayAppts.some(a => a.status === "confirmed" || a.status === "completed");
+                    dotColor = hasConfirmed ? "bg-emerald-500" : "bg-orange-500";
+                  }
+
+                  return (
+                    <button
+                      key={i}
+                      disabled={!date}
+                      onClick={() => date && setSelectedDate(date)}
+                      className={cn(
+                        "h-11 rounded-xl flex flex-col items-center justify-center transition-all relative",
+                        !date && "opacity-0 pointer-events-none",
+                        isSelected
+                          ? "bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none scale-105 z-10"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400"
+                      )}
+                    >
+                      <span className="text-[14px] font-bold">{date?.getDate()}</span>
+                      {date && dotColor !== "transparent" && (
+                        <div className={cn(
+                          "absolute bottom-1.5 h-1 w-1 rounded-full transition-all",
+                          isSelected ? "bg-white" : dotColor
+                        )} />
+                      )}
+                      {isToday && !isSelected && dotColor === "transparent" && (
+                        <div className="absolute bottom-1.5 h-1 w-1 rounded-full bg-blue-600" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <button 
+                onClick={handlePrevDay}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+              >
+                <ChevronLeft className="h-4.5 w-4.5" />
+              </button>
+              
+              <div className="flex-1 flex items-center justify-between gap-1">
+                {timelineDates.map((slot) => {
+                  const isActive = slot.toISOString().slice(0, 10) === dateKey;
+                  const dStr = slot.toISOString().slice(0, 10);
+                  const dayAppts = appointments.filter(a => a.date.slice(0, 10) === dStr);
+                  
+                  let dotColor = "transparent";
+                  if (dayAppts.length > 0) {
+                    const hasConfirmed = dayAppts.some(a => a.status === "confirmed" || a.status === "completed");
+                    dotColor = hasConfirmed ? "bg-emerald-500" : "bg-orange-500";
+                  }
+
+                  return (
+                    <button
+                      key={slot.toISOString()}
+                      type="button"
+                      onClick={() => setSelectedDate(slot)}
+                      className={cn(
+                        "flex flex-col items-center justify-center rounded-2xl py-3 px-1 transition-all duration-300 relative min-w-[64px]",
+                        isActive 
+                          ? "bg-blue-600 text-white shadow-xl shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
+                          : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400 dark:text-slate-500"
+                      )}
+                    >
+                      <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1.5", isActive ? "text-blue-100" : "text-slate-400")}>
+                        {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" })}
+                      </p>
+                      <p className="text-[20px] font-black leading-none mb-1.5">
+                        {slot.getDate()}
+                      </p>
+                      <p className={cn("text-[10px] font-bold uppercase", isActive ? "text-blue-100" : "text-slate-400")}>
+                        {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short" })}
+                      </p>
+                      <div className={cn(
+                        "mt-2 h-1.5 w-1.5 rounded-full transition-all",
+                        isActive ? "bg-white" : dotColor
+                      )} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={handleNextDay}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+              >
+                <ChevronRight className="h-4.5 w-4.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -660,7 +858,11 @@ export default function SchedulePage() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
               
               <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 mb-6 relative z-10">
-                {locale === "ar" ? "ملخص اليوم" : "Today's Summary"}
+                {selectedDate.toDateString() === new Date().toDateString()
+                  ? (locale === "ar" ? "ملخص اليوم" : "Today's Summary")
+                  : (locale === "ar"
+                    ? `ملخص يوم ${selectedDate.toLocaleDateString("ar-EG", { day: "numeric", month: "long" })}`
+                    : `Summary for ${selectedDate.toLocaleDateString("en-US", { day: "numeric", month: "long" })}`)}
               </h3>
               
               <div className="space-y-4 relative z-10">

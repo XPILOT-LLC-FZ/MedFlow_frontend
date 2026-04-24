@@ -46,6 +46,8 @@ interface DoctorChatMainProps {
   onArchive?: () => void;
   onMute?: () => void;
   onDelete?: () => void;
+  onToggleContactInfo?: () => void;
+  isContactInfoOpen?: boolean;
 }
 
 export function DoctorChatMain({
@@ -59,6 +61,8 @@ export function DoctorChatMain({
   onArchive,
   onMute,
   onDelete,
+  onToggleContactInfo,
+  isContactInfoOpen,
 }: DoctorChatMainProps) {
   const { t, locale } = useTranslation();
 
@@ -118,7 +122,15 @@ export function DoctorChatMain({
           <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
                <Phone size={18} />
           </button>
-          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
+          <button 
+            onClick={onToggleContactInfo}
+            className={cn(
+              "h-10 w-10 flex items-center justify-center rounded-xl border transition-all",
+              isContactInfoOpen 
+                ? "bg-blue-50 border-blue-100 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400" 
+                : "border-slate-100 text-slate-500 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+            )}
+          >
                <Info size={18} />
           </button>
           <DropdownMenu>

@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -94,7 +95,7 @@ export default function DoctorDashboard() {
       setDashboardData(summary);
       setRealNotifications(notifications);
       setTasks(allTasks);
-      
+
       // Map Activity
       setRealActivity(recentAppts.map(a => ({
         key: a.id,
@@ -158,11 +159,25 @@ export default function DoctorDashboard() {
     return age;
   };
 
-  const firstAvailableScheduledIndex = visibleAppointments.findIndex(p => 
-    p.status === "SCHEDULED" && !isTimeExpired(p.time)
-  );
-
   const todayAppointments = schedule?.today ?? [];
+  const inProgressAppt = todayAppointments.find(p => p.status === "IN_PROGRESS");
+  const inProgressIndex = inProgressAppt ? todayAppointments.findIndex(a => a.id === inProgressAppt.id) : -1;
+
+  const nextAppt = todayAppointments.find((p, index) => {
+    // If someone is inside, next must be after them in the schedule
+    if (inProgressIndex !== -1) {
+      if (index <= inProgressIndex) return false;
+      // When someone is inside, the very next upcoming patient is "NEXT" 
+      // even if the doctor is running late (don't check isTimeExpired)
+      return p.status === "CONFIRMED" || p.status === "SCHEDULED";
+    }
+    
+    // Otherwise, find the first upcoming patient that isn't significantly in the past
+    return (p.status === "CONFIRMED" || p.status === "SCHEDULED") && !isTimeExpired(p.time);
+  });
+
+  const lastDoneAppt = todayAppointments.filter(p => p.status === "COMPLETED").pop() || null;
+
   const waitingCount = todayAppointments.filter((item) => item.status === "SCHEDULED" || item.status === "IN_PROGRESS").length;
   const completedCount = todayAppointments.filter((item) => item.status === "COMPLETED" || item.status === "CONFIRMED").length;
   const urgentCount = todayAppointments.filter((item) => /urgent|emergency/i.test(item.type)).length;
@@ -176,16 +191,16 @@ export default function DoctorDashboard() {
 
   const notificationItems = realNotifications.length > 0
     ? realNotifications.map(n => ({
-        key: n.id,
-        tone: n.type === "CRITICAL" ? "critical" : n.type === "SUCCESS" ? "success" : "info",
-        type: n.type,
-        title: n.title,
-        body: n.body,
-        time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }),
-        unread: !n.readAt,
-        role: n.payload?.role as string | undefined,
-        isFallback: false
-      }))
+      key: n.id,
+      tone: n.type === "CRITICAL" ? "critical" : n.type === "SUCCESS" ? "success" : "info",
+      type: n.type,
+      title: n.title,
+      body: n.body,
+      time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }),
+      unread: !n.readAt,
+      role: n.payload?.role as string | undefined,
+      isFallback: false
+    }))
     : [
       {
         key: "welcome",
@@ -350,11 +365,44 @@ export default function DoctorDashboard() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/20 text-violet-600">
                   <Calendar className="h-5 w-5" />
                 </div>
-                <div className="flex flex-col">
-                  <CardTitle className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
-                    {t("todaySchedule")}
-                  </CardTitle>
-                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="px-3 py-1 bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 border-none font-bold text-[13px] rounded-lg">
+                      {t("todaySchedule")}
+                    </Badge>
+                    <div className="flex items-center gap-1.5 ml-1">
+                      {inProgressAppt && (
+                        <button
+                          onClick={() => handleChatWithPatient(inProgressAppt.id)}
+                          className="transition-transform hover:scale-105 active:scale-95"
+                        >
+                          <Badge variant="info" className="cursor-pointer bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight flex items-center gap-1">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            </span>
+                            {locale === "ar" ? "الآن: " : "Inside: "}{inProgressAppt.patientName}
+                          </Badge>
+                        </button>
+                      )}
+                      {nextAppt && (
+                        <Link href="/doctor/schedule" className="transition-transform hover:scale-105 active:scale-95">
+                          <Badge variant="warning" className="cursor-pointer bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight">
+                            {locale === "ar" ? "التالي: " : "Next: "}{nextAppt.patientName}
+                          </Badge>
+                        </Link>
+                      )}
+                      {lastDoneAppt && (
+                        <Link href="/doctor/schedule" className="transition-transform hover:scale-105 active:scale-95">
+                          <Badge variant="success" className="cursor-pointer bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight">
+                            {locale === "ar" ? "تم: " : "Done: "}{lastDoneAppt.patientName}
+                          </Badge>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-1">
+                    <CalendarDays className="h-3 w-3" />
                     {locale === "ar"
                       ? `${currentDate} • ${summaryCards?.todayAppointments ?? 0} مواعيد`
                       : `${currentDate} • ${summaryCards?.todayAppointments ?? 0} appointments`}
@@ -378,11 +426,13 @@ export default function DoctorDashboard() {
                   </p>
                 </div>
               ) : (
-                visibleAppointments.map((p, i) => {
-                  const expired = p.status === "SCHEDULED" && isTimeExpired(p.time);
-                  const isPast = ["COMPLETED", "CANCELLED", "RESCHEDULED"].includes(p.status) || expired;
+                visibleAppointments.map((p) => {
                   const isNow = p.status === "IN_PROGRESS";
-                  const isNext = p.status === "SCHEDULED" && i === firstAvailableScheduledIndex;
+                  const isNext = p.id === nextAppt?.id;
+                  const isDone = p.status === "COMPLETED";
+                  // A patient is only "expired" if they aren't the current or next one
+                  const expired = p.status === "SCHEDULED" && isTimeExpired(p.time) && !isNext;
+                  const isPast = ["COMPLETED", "CANCELLED", "RESCHEDULED"].includes(p.status) || expired;
                   const isNormal = !isPast && !isNow && !isNext;
 
                   return (
@@ -390,25 +440,45 @@ export default function DoctorDashboard() {
                       key={p.id}
                       className={cn(
                         "group relative rounded-2xl border transition-all duration-300",
-                        isPast && "border-slate-100 bg-slate-50/20 dark:border-slate-800/50 dark:bg-slate-900/10 opacity-60 grayscale",
+                        isPast && !isDone && "border-slate-100 bg-slate-50/20 dark:border-slate-800/50 dark:bg-slate-900/10 opacity-60 grayscale",
+                        isDone && "border-emerald-100 bg-emerald-50/10 dark:border-emerald-900/20 dark:bg-emerald-900/5",
                         isNow && "border-blue-500 bg-white dark:bg-slate-900 shadow-[0_8px_30px_rgb(59,130,246,0.12)] ring-1 ring-blue-500/20",
-                        isNext && "border-blue-200 bg-blue-50/50 dark:border-blue-900/30 dark:bg-blue-900/10",
+                        isNext && "border-amber-200 bg-amber-50/30 dark:border-amber-900/30 dark:bg-amber-900/10",
                         isNormal && "border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900 hover:shadow-md"
                       )}
                     >
                       <div className="flex items-start gap-4 p-4 sm:p-5">
                         {/* Time Column */}
                         <div className="flex flex-col items-center justify-center pt-1 w-20 shrink-0">
-                          <Clock3 className={cn("h-4 w-4 mb-1.5", isNow ? "text-blue-600" : "text-slate-400")} />
+                          <Clock3 className={cn(
+                            "h-4 w-4 mb-1.5",
+                            isNow ? "text-blue-600" :
+                              isNext ? "text-amber-500" :
+                                isDone ? "text-emerald-500" :
+                                  "text-slate-400"
+                          )} />
                           <span className={cn(
                             "text-[13px] font-bold tracking-tight",
-                            isNow ? "text-blue-600" : "text-slate-500 dark:text-slate-400"
+                            isNow ? "text-blue-600" :
+                              isNext ? "text-amber-600" :
+                                isDone ? "text-emerald-600" :
+                                  "text-slate-500 dark:text-slate-400"
                           )}>
                             {p.time}
                           </span>
                           {isNow && (
                             <span className="mt-2 rounded-full bg-blue-600 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-blue-200">
                               {locale === "ar" ? "الآن" : "NOW"}
+                            </span>
+                          )}
+                          {isNext && (
+                            <span className="mt-2 rounded-full bg-amber-500 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-amber-200">
+                              {locale === "ar" ? "التالي" : "NEXT"}
+                            </span>
+                          )}
+                          {isDone && (
+                            <span className="mt-2 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-emerald-200">
+                              {locale === "ar" ? "تم" : "DONE"}
                             </span>
                           )}
                         </div>
@@ -424,12 +494,12 @@ export default function DoctorDashboard() {
                                 {(() => {
                                   const age = calculateAge(p.patientDateOfBirth);
                                   const gender = p.patientGender || (locale === "ar" ? "غير محدد" : "N/A");
-                                  const translatedGender = locale === "ar" 
+                                  const translatedGender = locale === "ar"
                                     ? (gender === "MALE" || gender === "Male" ? "ذكر" : gender === "FEMALE" || gender === "Female" ? "أنثى" : gender)
                                     : gender;
-                                  
+
                                   if (age !== null) {
-                                    return locale === "ar" 
+                                    return locale === "ar"
                                       ? `${age} عاماً • ${translatedGender}`
                                       : `${age} years • ${translatedGender}`;
                                   }
@@ -468,7 +538,7 @@ export default function DoctorDashboard() {
                               <span className="text-slate-500 dark:text-slate-400 font-bold mr-1">Reason:</span>
                               {p.notes || p.type || (locale === "ar" ? "فحص دوري" : "Routine Checkup")}
                             </p>
-                            
+
                             {!isPast && (
                               <div className="flex items-center gap-4">
                                 <button
@@ -571,7 +641,7 @@ export default function DoctorDashboard() {
                                 : locale === "ar" ? "فحص دوري" : "Annual Physical"}
                             </p>
                           </div>
-                          
+
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               type="button"
@@ -579,8 +649,8 @@ export default function DoctorDashboard() {
                               disabled={isChatLoading === item.id}
                               className={cn(
                                 "flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-bold transition-all",
-                                isChatLoading === item.id 
-                                  ? "bg-slate-100 text-slate-400" 
+                                isChatLoading === item.id
+                                  ? "bg-slate-100 text-slate-400"
                                   : "text-blue-600 hover:bg-blue-100 dark:text-blue-400"
                               )}
                             >
@@ -602,7 +672,7 @@ export default function DoctorDashboard() {
                 })}
               </div>
               <div className="p-4 border-t border-slate-50 dark:border-slate-800/50 text-center">
-                <button 
+                <button
                   onClick={() => setIsQueueOpen(true)}
                   className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
                 >
@@ -630,7 +700,7 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
               </DialogHeader>
-              
+
               <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4 bg-slate-50/30 dark:bg-slate-950/20">
                 {todayAppointments.length === 0 ? (
                   <div className="py-12 text-center text-slate-400">
@@ -640,12 +710,12 @@ export default function DoctorDashboard() {
                   todayAppointments.map((p, i) => {
                     const isUrgent = /urgent|emergency/i.test(p.type);
                     return (
-                      <div 
+                      <div
                         key={p.id}
                         className={cn(
                           "rounded-2xl border p-5 transition-all",
-                          isUrgent 
-                            ? "border-rose-100 bg-rose-50/40 dark:border-rose-900/20 dark:bg-rose-900/10" 
+                          isUrgent
+                            ? "border-rose-100 bg-rose-50/40 dark:border-rose-900/20 dark:bg-rose-900/10"
                             : "border-slate-100 bg-white dark:border-slate-800/50 dark:bg-slate-900 shadow-sm"
                         )}
                       >
@@ -694,8 +764,8 @@ export default function DoctorDashboard() {
                                 <p className="mt-1 text-[13px] font-bold text-blue-600 uppercase">{p.status}</p>
                               </div>
                             </div>
-    
-                            <button 
+
+                            <button
                               onClick={() => handleChatWithPatient(p.id)}
                               className="mt-6 w-full flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 text-[13px] font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
                             >
@@ -723,7 +793,7 @@ export default function DoctorDashboard() {
             </DialogContent>
           </Dialog>
 
-          <NotificationsDialog 
+          <NotificationsDialog
             isOpen={isNotificationsOpen}
             onOpenChange={setIsNotificationsOpen}
             notifications={realNotifications}
@@ -761,18 +831,18 @@ export default function DoctorDashboard() {
                     }}
                     className={cn(
                       "group relative flex items-start gap-4 p-5 transition-colors cursor-pointer border-l-4",
-                      item.unread 
-                        ? "bg-blue-50/20 dark:bg-blue-900/10 border-l-blue-600" 
+                      item.unread
+                        ? "bg-blue-50/20 dark:bg-blue-900/10 border-l-blue-600"
                         : "bg-transparent border-l-transparent hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
                     )}
                   >
                     <div className={cn(
                       "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110",
                       item.role === "ADMIN" ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600" :
-                      item.role === "DOCTOR" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600" :
-                      item.role === "PATIENT" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
-                      item.tone === "critical" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
-                      "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                        item.role === "DOCTOR" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600" :
+                          item.role === "PATIENT" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
+                            item.tone === "critical" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
+                              "bg-slate-100 dark:bg-slate-800 text-slate-500"
                     )}>
                       {item.role === "ADMIN" ? <ShieldCheck className="h-4 w-4" /> :
                         item.role === "DOCTOR" ? <Stethoscope className="h-4 w-4" /> :
@@ -785,9 +855,9 @@ export default function DoctorDashboard() {
                           <span className={cn(
                             "text-[9px] font-black uppercase tracking-[0.1em] mb-1 px-1.5 py-0.5 rounded-md w-fit",
                             item.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
-                            item.role === "DOCTOR" ? "bg-blue-100 text-blue-700" :
-                            item.role === "PATIENT" ? "bg-emerald-100 text-emerald-700" :
-                            "bg-slate-100 text-slate-500"
+                              item.role === "DOCTOR" ? "bg-blue-100 text-blue-700" :
+                                item.role === "PATIENT" ? "bg-emerald-100 text-emerald-700" :
+                                  "bg-slate-100 text-slate-500"
                           )}>
                             {item.role || item.type || "System"}
                           </span>
@@ -805,7 +875,7 @@ export default function DoctorDashboard() {
                       </p>
                       <div className="mt-2 flex items-center justify-between">
                         {item.time && (
-                          <p 
+                          <p
                             title={!item.isFallback ? new Date(realNotifications.find(n => n.id === item.key)?.createdAt || "").toLocaleString() : ""}
                             className="text-[10px] font-bold text-slate-400 uppercase tracking-tight"
                           >
@@ -815,7 +885,7 @@ export default function DoctorDashboard() {
                         {!item.isFallback && (
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             {item.unread && (
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   notificationsService.markInAppRead(item.key).then(() => refreshDashboard());
@@ -825,7 +895,7 @@ export default function DoctorDashboard() {
                                 {locale === "ar" ? "مقروء" : "Read"}
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 notificationsService.deleteInAppNotification(item.key).then(() => refreshDashboard());
@@ -867,9 +937,9 @@ export default function DoctorDashboard() {
                   </p>
                 </div>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setIsCreateTaskOpen(true)}
                 className="h-8 w-8 p-0 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600"
               >
@@ -878,47 +948,47 @@ export default function DoctorDashboard() {
             </CardHeader>
             <CardContent className="space-y-3 p-5">
               {pendingTasks.map((task) => {
-                  const TaskIcon = task.priority === "URGENT" ? AlertCircle : ClipboardCheck;
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={() => toggleTask(task)}
-                      className={cn(
-                        "group cursor-pointer rounded-xl border p-3.5 transition-all shadow-none",
-                        task.priority === "URGENT"
-                          ? "border-rose-100 bg-rose-50/40 dark:border-rose-900/30 dark:bg-rose-900/10"
-                          : "border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 h-5 w-5 shrink-0 rounded border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 group-hover:border-blue-500 transition-colors" />
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-2">
-                            <TaskIcon className={cn(
-                              "h-4 w-4 shrink-0",
-                              task.priority === "URGENT" ? "text-rose-500" : "text-slate-400"
-                            )} />
-                            <p className="text-[12px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
-                              {task.title}
-                            </p>
-                          </div>
-                          <p className="mt-1.5 ml-6 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
-                            {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+                const TaskIcon = task.priority === "URGENT" ? AlertCircle : ClipboardCheck;
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => toggleTask(task)}
+                    className={cn(
+                      "group cursor-pointer rounded-xl border p-3.5 transition-all shadow-none",
+                      task.priority === "URGENT"
+                        ? "border-rose-100 bg-rose-50/40 dark:border-rose-900/30 dark:bg-rose-900/10"
+                        : "border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 h-5 w-5 shrink-0 rounded border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 group-hover:border-blue-500 transition-colors" />
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2">
+                          <TaskIcon className={cn(
+                            "h-4 w-4 shrink-0",
+                            task.priority === "URGENT" ? "text-rose-500" : "text-slate-400"
+                          )} />
+                          <p className="text-[12px] font-bold text-slate-700 dark:text-slate-200 leading-snug">
+                            {task.title}
                           </p>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDeleteTask(task.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-300 hover:text-rose-500 transition-all ml-auto"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <p className="mt-1.5 ml-6 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
+                          {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+                        </p>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteTask(task.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-300 hover:text-rose-500 transition-all ml-auto"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
 
               {completedTasks.length > 0 && (
                 <div className="pt-2">
@@ -973,7 +1043,7 @@ export default function DoctorDashboard() {
               {recentActivity.map((activity) => {
                 const ActivityIcon = activity.type?.includes("LAB") ? FlaskConical :
                   activity.type?.includes("PRESCRIPTION") ? FileText :
-                  CheckCircle2;
+                    CheckCircle2;
                 return (
                   <div key={activity.key} className="group flex items-start gap-4 p-3.5 rounded-xl border border-slate-50 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/30 transition-all hover:bg-slate-50 dark:hover:bg-slate-900/50 shadow-none">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-500">
@@ -1040,14 +1110,14 @@ export default function DoctorDashboard() {
           <CardContent className="px-4 pb-4 pt-0">
             <div className="rounded-2xl border border-slate-100 dark:border-slate-800/60 p-4 space-y-4">
               <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="to : @" 
+                <input
+                  type="text"
+                  placeholder="to : @"
                   className="w-full rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2 text-[13px] font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
                 />
               </div>
               <div className="relative">
-                <textarea 
+                <textarea
                   placeholder={locale === "ar" ? "أدخل إشعاراتك هنا..." : "Enter your notifications..."}
                   className="min-h-[140px] w-full resize-none rounded-xl border-none bg-transparent px-0 py-0 text-[13px] font-medium placeholder:text-slate-400 focus:outline-none"
                 />

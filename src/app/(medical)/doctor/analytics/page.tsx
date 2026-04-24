@@ -44,7 +44,26 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiTreatmentPlan, DashboardDoctorSummaryData, ApiPrescription, ApiPatient, DoctorSurveyStats } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, exportToCsv, formatDate, formatTime } from "@/lib/utils";
+
+const getDateRange = (range: string) => {
+  const now = new Date();
+  const endDate = now.toISOString().split('T')[0];
+  const start = new Date();
+  
+  switch(range) {
+    case 'day': start.setDate(now.getDate()); break;
+    case 'week': start.setDate(now.getDate() - 7); break;
+    case 'month': start.setMonth(now.getMonth() - 1); break;
+    case 'year': start.setFullYear(now.getFullYear() - 1); break;
+    case 'all': default: return { startDate: undefined, endDate: undefined };
+  }
+  
+  return { 
+    startDate: start.toISOString().split('T')[0], 
+    endDate 
+  };
+};
 
 const isWithinRange = (dateStr: string | Date | null | undefined, range: string) => {
   if (!dateStr) return false;
@@ -63,15 +82,6 @@ const isWithinRange = (dateStr: string | Date | null | undefined, range: string)
     case 'all': default: return true;
   }
 };
-
-
-const mockCaseTypes = [
-  { name: 'Hypertension', value: 285, color: '#EF4444' },
-  { name: 'Diabetes', value: 245, color: '#F59E0B' },
-  { name: 'Respiratory', value: 178, color: '#3B82F6' },
-  { name: 'Cardiovascular', value: 156, color: '#8B5CF6' },
-  { name: 'Other', value: 383, color: '#10B981' },
-];
 
 const mockMedications = [
   { name: 'Lisinopril', count: 145, max: 145 },
@@ -253,18 +263,23 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                   </div>
                   <h4 className="text-[14px] font-black text-slate-900 dark:text-white uppercase tracking-wider">Clinical Notes</h4>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div>
-                    <span className="text-[12px] font-black text-slate-900 dark:text-white">Symptoms: </span>
-                    <span className="text-[13px] font-bold text-slate-500">{plan.description || "Patient reported mild discomfort."}</span>
+                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Symptoms & Context</div>
+                    <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {plan.patientName} is scheduled for {plan.totalSessions} {plan.serviceName || 'medical'} sessions to address {plan.title.toLowerCase()} 
+                      {plan.doctorName ? ` with Dr. ${plan.doctorName}` : ''}. {plan.description}
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-[12px] font-black text-slate-900 dark:text-white">Examination: </span>
-                    <span className="text-[13px] font-bold text-slate-500">Physical examination conducted, vitals recorded within normal range.</span>
-                  </div>
-                  <div>
-                    <span className="text-[12px] font-black text-slate-900 dark:text-white">Tests Ordered: </span>
-                    <span className="text-[13px] font-bold text-slate-500">Standard protocol checks applied.</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Examination</div>
+                      <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">Physical examination conducted, vitals recorded within normal range.</p>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Tests Ordered</div>
+                      <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">Standard protocol checks and baseline investigations applied.</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -274,10 +289,23 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
 
             {/* Footer */}
             <div className="p-6 flex gap-4 bg-slate-50/50 dark:bg-slate-800/20 border-t border-slate-50 dark:border-slate-800">
-              <Button className="flex-1 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[14px] shadow-lg shadow-blue-500/25 transition-all">
+              <Button 
+                onClick={() => {
+                  window.print();
+                }}
+                className="flex-1 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[14px] shadow-lg shadow-blue-500/25 transition-all"
+              >
                 Download Report
               </Button>
-              <Button variant="outline" className="flex-1 h-12 rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-black text-[14px] transition-all">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const text = `Visit Details for ${plan.patientName}\nDate: ${formatDate(plan.updatedAt)}\nDiagnosis: ${plan.title}\nNotes: ${plan.description || 'N/A'}`;
+                  const whatsappUrl = `https://wa.me/${patient?.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+                  window.open(whatsappUrl, '_blank');
+                }}
+                className="flex-1 h-12 rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-black text-[14px] transition-all"
+              >
                 Share via WhatsApp
               </Button>
             </div>
@@ -285,6 +313,77 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
         </div>
       )}
     </AnimatePresence>
+  );
+}
+
+/* --- TIME RANGE SELECT --- */
+
+interface TimeRangeSelectProps {
+  value: string;
+  onChange: (val: string) => void;
+  locale: string;
+}
+
+function TimeRangeSelect({ value, onChange, locale }: TimeRangeSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const options = [
+    { value: "day", label: locale === "ar" ? "يوم" : "Day" },
+    { value: "week", label: locale === "ar" ? "أسبوع" : "Week" },
+    { value: "month", label: locale === "ar" ? "شهر" : "Month" },
+    { value: "year", label: locale === "ar" ? "سنة" : "Year" },
+  ];
+
+  const selectedLabel = options.find(opt => opt.value === value)?.label || value;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="h-12 px-5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center gap-4 hover:border-blue-200 dark:hover:border-blue-900/50 transition-all group"
+      >
+        <CalendarDays size={18} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
+        <span className="text-[14px] font-black text-slate-800 dark:text-slate-100 min-w-[50px] text-left">{selectedLabel}</span>
+        <Eye size={14} strokeWidth={2.5} className="text-slate-400" />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div 
+              className="fixed inset-0 z-[40]" 
+              onClick={() => setIsOpen(false)} 
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute top-[calc(100%+10px)] left-0 min-w-[140px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-none py-2 z-[50] overflow-hidden"
+            >
+              {options.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={cn(
+                      "w-full px-5 py-2.5 text-left text-[14px] font-bold transition-all",
+                      isSelected 
+                        ? "bg-blue-600 text-white" 
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -317,14 +416,32 @@ export default function DoctorAnalyticsPage() {
     setIsModalOpen(true);
   };
 
+  const handleExportData = () => {
+    const exportData = filteredTablePlans.map(plan => ({
+      Patient: plan.patientName,
+      Date: formatDate(plan.updatedAt),
+      Time: formatTime(plan.updatedAt),
+      Diagnosis: plan.title,
+      Description: plan.description || "",
+      Status: plan.status
+    }));
+    exportToCsv(exportData, `MedFlow_Analytics_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success(locale === "ar" ? "تم تصدير البيانات بنجاح" : "Data exported successfully");
+  };
+
   const loadAnalytics = useCallback(
     async (targetDoctorId: string, refresh = false) => {
       if (!refresh) setIsLoading(true);
 
       try {
+        const { startDate, endDate } = getDateRange(timeRange);
         const [doctorSummary, doctorPlans, doctorPrescriptions, allPatients, stats] = await Promise.all([
           dashboardService.getDoctorSummary({ period: timeRange as "day" | "week" | "month" | "year" }),
-          treatmentPlanService.getAll({ doctorId: targetDoctorId }),
+          treatmentPlanService.getAll({ 
+            doctorId: targetDoctorId,
+            startDate,
+            endDate
+          }),
           prescriptionService.getAll(),
           patientService.getAll(),
           surveyService.getDoctorStats(),
@@ -388,7 +505,7 @@ export default function DoctorAnalyticsPage() {
 
   const computedCaseTypes = useMemo(() => {
     const filteredPlans = plans.filter(p => isWithinRange(p.createdAt || p.updatedAt, timeRange));
-    if (filteredPlans.length === 0) return mockCaseTypes; // Fallback if no real data
+    if (filteredPlans.length === 0) return []; // No fallback to mock data
 
     const currentMap = new Map<string, number>();
     filteredPlans.forEach(p => {
@@ -421,7 +538,7 @@ export default function DoctorAnalyticsPage() {
 
   const computedTopMedications = useMemo(() => {
     const filteredPrescriptions = prescriptions.filter(p => isWithinRange(p.createdAt || p.issuedAt || p.updatedAt, timeRange));
-    if (filteredPrescriptions.length === 0) return mockMedications;
+    if (filteredPrescriptions.length === 0) return [];
 
     const map = new Map<string, number>();
 
@@ -463,7 +580,11 @@ export default function DoctorAnalyticsPage() {
 
   const computedDemographics = useMemo(() => {
     const filteredPatients = timeRange === "all" ? patients : patients.filter(p => isWithinRange(p.createdAt, timeRange));
-    if (filteredPatients.length === 0) return mockDemographics;
+    if (filteredPatients.length === 0) return [
+      { name: "Pediatric (0-17)", value: 0, color: "#3B82F6" },
+      { name: "Adult (18-64)", value: 0, color: "#10B981" },
+      { name: "Senior (65+)", value: 0, color: "#F59E0B" },
+    ];
 
     let pediatrics = 0;
     let adults = 0;
@@ -548,25 +669,17 @@ export default function DoctorAnalyticsPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="relative group">
-            <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-colors pointer-events-none" />
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className="appearance-none w-[140px] pl-11 pr-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 h-11 text-[13px] font-black text-slate-700 dark:text-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500/20 outline-none transition-all cursor-pointer"
-            >
-              <option value="day">Day</option>
-              <option value="week">Week</option>
-              <option value="month">Month</option>
-              <option value="year">Year</option>
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <Eye size={12} />
-            </div>
-          </div>
+          <TimeRangeSelect 
+            value={timeRange} 
+            onChange={setTimeRange} 
+            locale={locale} 
+          />
 
-          <Button className="h-11 px-6 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-100 dark:border-slate-700 font-black text-[13px] transition-all flex items-center gap-2">
-            <Download size={16} />
+          <Button 
+            onClick={handleExportData}
+            className="h-12 px-6 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 font-black text-[14px] shadow-sm transition-all flex items-center gap-3"
+          >
+            <Download size={18} className="text-blue-600" />
             {locale === "ar" ? "تصدير البيانات" : "Export Data"}
           </Button>
         </div>
@@ -736,15 +849,21 @@ export default function DoctorAnalyticsPage() {
               </div>
 
               <div className="mt-auto pt-6 space-y-3">
-                {computedCaseTypes.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-[13px] font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className="h-[9px] w-[9px] rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-500 dark:text-slate-400">{item.name}</span>
-                    </div>
-                    <span className="text-slate-900 dark:text-slate-100 font-bold">{item.value}</span>
+                {computedCaseTypes.length === 0 ? (
+                  <div className="text-center py-4 text-slate-400 text-[13px] font-medium">
+                    No cases recorded for this period
                   </div>
-                ))}
+                ) : (
+                  computedCaseTypes.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between text-[13px] font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="h-[9px] w-[9px] rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-slate-500 dark:text-slate-400">{item.name}</span>
+                      </div>
+                      <span className="text-slate-900 dark:text-slate-100 font-bold">{item.value}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -768,27 +887,33 @@ export default function DoctorAnalyticsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-7 pb-8 space-y-6">
-                {computedTopMedications.map((med, idx) => (
-                  <div key={med.name} className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-[13px] font-black">
-                          {idx + 1}
-                        </div>
-                        <span className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{med.name}</span>
-                      </div>
-                      <span className="text-[13px] font-black text-slate-900 dark:text-white">
-                        {med.count} <span className="text-slate-400 dark:text-slate-500 font-bold ml-1">prescriptions</span>
-                      </span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#10B981] transition-all duration-1000" 
-                        style={{ width: `${(med.count / med.max) * 100}%` }}
-                      />
-                    </div>
+                {computedTopMedications.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-[14px] font-medium">
+                    No medication data for this period
                   </div>
-                ))}
+                ) : (
+                  computedTopMedications.map((med, idx) => (
+                    <div key={med.name} className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 text-[13px] font-black">
+                            {idx + 1}
+                          </div>
+                          <span className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{med.name}</span>
+                        </div>
+                        <span className="text-[13px] font-black text-slate-900 dark:text-white">
+                          {med.count} <span className="text-slate-400 dark:text-slate-500 font-bold ml-1">prescriptions</span>
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-[#10B981] transition-all duration-1000" 
+                          style={{ width: `${(med.count / med.max) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
         </motion.div>

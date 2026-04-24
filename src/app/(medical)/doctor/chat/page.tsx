@@ -636,6 +636,8 @@ export default function DoctorChatPage() {
         onArchive={() => handleArchive(selectedConversationId)}
         onMute={() => handleMute(selectedConversationId)}
         onDelete={() => handleDelete(selectedConversationId)}
+        onToggleContactInfo={() => setShowContactInfo(!showContactInfo)}
+        isContactInfoOpen={showContactInfo}
       />
 
       {showContactInfo && (
