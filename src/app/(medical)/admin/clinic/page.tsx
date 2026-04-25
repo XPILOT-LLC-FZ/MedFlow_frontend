@@ -40,6 +40,8 @@ export default function ClinicManagementPage() {
   const [branchForm, setBranchForm] = useState(emptyBranchForm);
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [isBranchSaving, setIsBranchSaving] = useState(false);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   
   const [commTemplates, setCommTemplates] = useState<ApiNotificationTemplate[]>([]);
   const [commSettings, setCommSettings] = useState<ClinicSettings>({
@@ -154,6 +156,44 @@ export default function ClinicManagementPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      error("Logo file size should be less than 2MB");
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith("image/")) {
+      error("Please upload an image file");
+      return;
+    }
+
+    setIsLogoUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const dataUrl = reader.result as string;
+        try {
+          const updatedClinic = await clinicService.uploadLogo(dataUrl);
+          setClinic(updatedClinic);
+          success("Clinic logo updated successfully");
+        } catch {
+          error("Failed to upload logo");
+        } finally {
+          setIsLogoUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      error("Failed to process image");
+      setIsLogoUploading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-7xl animate-pulse">
@@ -265,7 +305,17 @@ export default function ClinicManagementPage() {
                    </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-0">
-                   <div className="rounded-3xl bg-white/20 p-8 flex flex-col items-center justify-center border-2 border-dashed border-white/40 group cursor-pointer hover:bg-white/30 transition-all">
+                   <div 
+                      className={`rounded-3xl bg-white/20 p-8 flex flex-col items-center justify-center border-2 border-dashed border-white/40 group cursor-pointer hover:bg-white/30 transition-all ${isLogoUploading ? "opacity-50 cursor-wait" : ""}`}
+                      onClick={() => !isLogoUploading && fileInputRef.current?.click()}
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload}
+                      />
                       <div className="h-20 w-20 rounded-2xl bg-white flex items-center justify-center p-3 mb-4 shadow-xl">
                         {clinic?.logoUrl ? (
                             <div className="relative h-20 w-20">
@@ -275,7 +325,9 @@ export default function ClinicManagementPage() {
                           <Building2 className="h-10 w-10 text-primary" />
                         )}
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-widest opacity-80">Change Logo</span>
+                      <span className="text-xs font-bold uppercase tracking-widest opacity-80">
+                        {isLogoUploading ? "Uploading..." : "Change Logo"}
+                      </span>
                    </div>
                    <p className="text-xs opacity-70 italic text-center leading-relaxed">
                      Your logo appears in emails, prescriptions, and on the client-facing booking interface.

@@ -719,9 +719,13 @@ export default function DoctorsPage() {
                     </div>
 
                     <p className="text-xs text-muted-foreground">
-                      {locale === "ar"
-                        ? "تحقق من الملفات ثم فعّل الظهور للمرضى أو للعرض العام."
-                        : "Verify files, then enable visibility for patients or public profiles."}
+                      {isSuperAdmin
+                        ? locale === "ar"
+                          ? "تحقق من الملفات ثم فعّل الظهور للمرضى أو للعرض العام."
+                          : "Verify files, then enable visibility for patients or public profiles."
+                        : locale === "ar"
+                          ? "ارفع ملفات الاعتماد الخاصة بالطبيب ليتم توثيقها من قبل المسؤول العام."
+                          : "Upload doctor credentials to be verified by the system administrator."}
                     </p>
 
                     <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -847,63 +851,67 @@ export default function DoctorsPage() {
                                 )}
                                 {locale === "ar" ? "معاينة" : "Preview"}
                               </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={credential.isVerified ? "secondary" : "default"}
-                                disabled={processingCredentialId === credential.id}
-                                onClick={() =>
-                                  void updateCredentialModeration(credential.id, {
-                                    isVerified: !credential.isVerified,
-                                  })
-                                }
-                              >
-                                {credential.isVerified
-                                  ? locale === "ar"
-                                    ? "إلغاء التوثيق"
-                                    : "Unverify"
-                                  : locale === "ar"
-                                    ? "توثيق"
-                                    : "Verify"}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={credential.isVisibleToPatients ? "default" : "outline"}
-                                disabled={processingCredentialId === credential.id}
-                                onClick={() =>
-                                  void updateCredentialModeration(credential.id, {
-                                    isVisibleToPatients: !credential.isVisibleToPatients,
-                                  })
-                                }
-                              >
-                                {locale === "ar"
-                                  ? credential.isVisibleToPatients
-                                    ? "إخفاء عن المرضى"
-                                    : "إظهار للمرضى"
-                                  : credential.isVisibleToPatients
-                                    ? "Hide from Patients"
-                                    : "Show to Patients"}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={credential.isVisibleToPublic ? "default" : "outline"}
-                                disabled={processingCredentialId === credential.id}
-                                onClick={() =>
-                                  void updateCredentialModeration(credential.id, {
-                                    isVisibleToPublic: !credential.isVisibleToPublic,
-                                  })
-                                }
-                              >
-                                {locale === "ar"
-                                  ? credential.isVisibleToPublic
-                                    ? "إخفاء من العامة"
-                                    : "إظهار للعامة"
-                                  : credential.isVisibleToPublic
-                                    ? "Hide from Public"
-                                    : "Show Publicly"}
-                              </Button>
+                              {isSuperAdmin && (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={credential.isVerified ? "secondary" : "default"}
+                                    disabled={processingCredentialId === credential.id}
+                                    onClick={() =>
+                                      void updateCredentialModeration(credential.id, {
+                                        isVerified: !credential.isVerified,
+                                      })
+                                    }
+                                  >
+                                    {credential.isVerified
+                                      ? locale === "ar"
+                                        ? "إلغاء التوثيق"
+                                        : "Unverify"
+                                      : locale === "ar"
+                                        ? "توثيق"
+                                        : "Verify"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={credential.isVisibleToPatients ? "default" : "outline"}
+                                    disabled={processingCredentialId === credential.id}
+                                    onClick={() =>
+                                      void updateCredentialModeration(credential.id, {
+                                        isVisibleToPatients: !credential.isVisibleToPatients,
+                                      })
+                                    }
+                                  >
+                                    {locale === "ar"
+                                      ? credential.isVisibleToPatients
+                                        ? "إخفاء عن المرضى"
+                                        : "إظهار للمرضى"
+                                      : credential.isVisibleToPatients
+                                        ? "Hide from Patients"
+                                        : "Show to Patients"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={credential.isVisibleToPublic ? "default" : "outline"}
+                                    disabled={processingCredentialId === credential.id}
+                                    onClick={() =>
+                                      void updateCredentialModeration(credential.id, {
+                                        isVisibleToPublic: !credential.isVisibleToPublic,
+                                      })
+                                    }
+                                  >
+                                    {locale === "ar"
+                                      ? credential.isVisibleToPublic
+                                        ? "إخفاء من العامة"
+                                        : "إظهار للعامة"
+                                      : credential.isVisibleToPublic
+                                        ? "Hide from Public"
+                                        : "Show Publicly"}
+                                  </Button>
+                                </>
+                              )}
                               <Button
                                 type="button"
                                 size="sm"

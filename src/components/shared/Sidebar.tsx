@@ -134,8 +134,8 @@ export function Sidebar() {
           sidebarOpen
             ? "translate-x-0"
             : isRTL
-            ? "translate-x-full lg:translate-x-0"
-            : "-translate-x-full lg:translate-x-0"
+              ? "translate-x-full lg:translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
         )}
       >
         {/* Logo */}
@@ -164,8 +164,8 @@ export function Sidebar() {
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   isDoctorSidebar && (
-                    isActive 
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-200/50 dark:shadow-none" 
+                    isActive
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-200/50 dark:shadow-none"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100"
                   )
                 )}

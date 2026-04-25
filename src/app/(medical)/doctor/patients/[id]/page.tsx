@@ -387,6 +387,14 @@ export default function DoctorPatientDetailsPage() {
 
     setIsSavingPrescription(true);
     try {
+      if (latestAppointmentId) {
+        await bookingService.saveManualSummary(latestAppointmentId, {
+          content: notesDraft.trim(),
+          mode: "NORMAL",
+          sendToPatient: true,
+        });
+      }
+
       if (lastPrescriptionId) {
         await prescriptionService.update(lastPrescriptionId, {
           appointmentId: latestAppointmentId,
@@ -548,8 +556,10 @@ export default function DoctorPatientDetailsPage() {
         studyReason,
         findings,
         impression,
+        medications: medications.filter((m) => m.name && m.dosage),
         advisedClinicalCorrelation: true,
         patientNumber: `PAT-${patient.id.slice(0, 8).toUpperCase()}`,
+        sendWhatsApp: false,
         whatsappCaption:
           locale === "ar"
             ? `مرحباً ${patient.fullName}، التقرير التشخيصي جاهز وتمت مشاركته بصيغة PDF.`
@@ -574,6 +584,12 @@ export default function DoctorPatientDetailsPage() {
               : "Report generated and a download link was sent via WhatsApp"),
           );
         }
+      } else if (result.whatsapp.provider === 'skipped') {
+        toastSuccess(
+          locale === "ar"
+            ? "تم إنشاء التقرير بنجاح وهو متاح الآن في سجلات المريض"
+            : "Diagnostic report generated successfully and is now available in patient records",
+        );
       } else {
         toastInfo(
           result.whatsapp.reason ||
@@ -820,26 +836,6 @@ export default function DoctorPatientDetailsPage() {
                             Dr. {visit.doctorName || "Mitchell"}
                           </span>
                         </div>
-
-                        <div className="space-y-2">
-                          <h5 className="text-[14px] font-black text-slate-800 dark:text-slate-200">
-                            {locale === "ar" ? "الوصفات" : "Prescriptions"}
-                          </h5>
-                          <ul className="space-y-1.5">
-                            {visit.consultationSession?.medications && Array.isArray(visit.consultationSession?.medications) && visit.consultationSession.medications.length > 0 ? (
-                              visit.consultationSession.medications.map((med: PrescriptionMedicationItem, idx: number) => (
-                                <li key={idx} className="flex items-center gap-2 text-[13px] font-medium text-slate-600 dark:text-slate-400">
-                                  <span className="text-slate-900 dark:text-slate-100">•</span>
-                                  {med.name} {med.dosage}
-                                </li>
-                              ))
-                            ) : (
-                              <li className="text-[12px] font-medium text-slate-400 italic">
-                                {locale === "ar" ? "لا توجد أدوية مسجلة" : "No prescriptions recorded"}
-                              </li>
-                            )}
-                          </ul>
-                        </div>
                       </div>
                     </div>
                   </article>
@@ -961,13 +957,37 @@ export default function DoctorPatientDetailsPage() {
                     {locale === "ar" ? "الملاحظات السريرية والتشخيص" : "Clinical Notes & Diagnosis"}
                   </h3>
                 </div>
-                <Button
-                  size="sm"
-                  className="h-9 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-[12px] font-bold shadow-md shadow-blue-600/10 transition-all gap-2"
-                >
-                  <Mic className="h-4 w-4" />
-                  {locale === "ar" ? "الإدخال الصوتي" : "Voice Input"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 px-4 border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl text-[12px] font-bold transition-all gap-2"
+                    onClick={async () => {
+                      const latestAppointmentId = appointments[0]?.id;
+                      if (!latestAppointmentId) return;
+                      try {
+                        await bookingService.saveManualSummary(latestAppointmentId, {
+                          content: notesDraft.trim(),
+                          mode: "NORMAL",
+                          sendToPatient: true,
+                        });
+                        toastSuccess(locale === "ar" ? "تم حفظ الملاحظات" : "Notes saved successfully");
+                      } catch {
+                        toastError(locale === "ar" ? "فشل حفظ الملاحظات" : "Failed to save notes");
+                      }
+                    }}
+                  >
+                    <Save className="h-4 w-4" />
+                    {locale === "ar" ? "حفظ" : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-[12px] font-bold shadow-md shadow-blue-600/10 transition-all gap-2"
+                  >
+                    <Mic className="h-4 w-4" />
+                    {locale === "ar" ? "الإدخال الصوتي" : "Voice Input"}
+                  </Button>
+                </div>
               </div>
               <textarea
                 value={notesDraft}

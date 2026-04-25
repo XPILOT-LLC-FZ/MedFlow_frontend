@@ -19,6 +19,9 @@ export function PrescriptionDocument({
 }: PrescriptionDocumentProps) {
   const { locale } = useTranslation();
   const isRtl = locale === "ar";
+  
+  const displayClinicName = clinicName || prescription.patient?.clinic?.name || (isRtl ? "مركز MedFlow الطبي" : "MedFlow Medical Center");
+  const displayLogoUrl = prescription.patient?.clinic?.logoUrl;
 
   return (
     <div className={`bg-white text-slate-900 p-8 sm:p-12 shadow-2xl rounded-sm border-t-[12px] border-primary min-h-[700px] flex flex-col font-serif ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
@@ -26,14 +29,14 @@ export function PrescriptionDocument({
       <div className="flex justify-between items-start border-b-2 border-slate-100 pb-6 mb-8">
         <div>
           <div className="mb-2 scale-75 origin-left">
-            <BrandLogo />
+            <BrandLogo logoUrl={displayLogoUrl} />
           </div>
           <p className="text-[10px] text-slate-500 uppercase tracking-widest font-sans">
             {isRtl ? "وصفة طبية معتمدة" : "Official Medical Prescription"}
           </p>
         </div>
         <div className={`${isRtl ? "text-left" : "text-right"} font-sans`}>
-          <h2 className="text-lg font-bold text-primary">{clinicName || (isRtl ? "مركز MedFlow الطبي" : "MedFlow Medical Center")}</h2>
+          <h2 className="text-lg font-bold text-primary">{displayClinicName}</h2>
           <p className="text-xs text-slate-500 opacity-70">{isRtl ? "سجل صحي رسمي" : "Official Health Record"}</p>
           <p className="text-[9px] text-slate-400 mt-1 font-mono uppercase">REF: {prescription.id.slice(0, 8)}</p>
         </div>

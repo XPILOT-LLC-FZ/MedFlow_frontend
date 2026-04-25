@@ -191,12 +191,17 @@ export default function DoctorProfileSettingsPage() {
     }
   };
 
-  const validateCredentialFile = (file: File): boolean => {
-    if (!ALLOWED_CREDENTIAL_TYPES.includes(file.type)) {
+  const validateCredentialFile = (file: File, type: string): boolean => {
+    const isSignature = type === "PERSONAL_SIGNATURE";
+    const allowedTypes = isSignature 
+      ? ["image/jpeg", "image/png", "image/webp"] 
+      : ALLOWED_CREDENTIAL_TYPES;
+
+    if (!allowedTypes.includes(file.type)) {
       error(
         locale === "ar"
-          ? "نوع الملف غير مدعوم. استخدم PDF أو صورة."
-          : "Unsupported file type. Use PDF or image files.",
+          ? (isSignature ? "توقيع الطبيب يجب أن يكون بصيغة JPEG أو PNG أو WebP فقط." : "نوع الملف غير مدعوم. استخدم PDF أو صورة.")
+          : (isSignature ? "Doctor signature must be in JPEG, PNG or WebP format." : "Unsupported file type. Use PDF or image files."),
       );
       return false;
     }
@@ -222,7 +227,7 @@ export default function DoctorProfileSettingsPage() {
       return;
     }
 
-    const validFiles = Array.from(files).filter(validateCredentialFile);
+    const validFiles = Array.from(files).filter(f => validateCredentialFile(f, credentialType));
     if (validFiles.length === 0) {
       return;
     }
@@ -697,6 +702,11 @@ export default function DoctorProfileSettingsPage() {
                     ? "رفع أو استبدال"
                     : "Upload or Replace"}
               </Button>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+                {locale === "ar" 
+                  ? "* سيتم إزالة خلفية التوقيع تلقائياً للحصول على مظهر احترافي" 
+                  : "* Signature background will be automatically removed for a professional look"}
+              </p>
             </div>
           </div>
 
@@ -717,6 +727,10 @@ export default function DoctorProfileSettingsPage() {
                   ? locale === "ar"
                     ? "موثق"
                     : "Verified"
+                  : item.isRejected
+                  ? locale === "ar"
+                    ? "مرفوض"
+                    : "Rejected"
                   : locale === "ar"
                     ? "قيد المراجعة"
                     : "Pending";
@@ -746,7 +760,7 @@ export default function DoctorProfileSettingsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Badge variant={item.isVerified ? "success" : "outline"}>
+                      <Badge variant={item.isVerified ? "success" : item.isRejected ? "destructive" : "outline"}>
                         {statusLabel}
                       </Badge>
                       <Button

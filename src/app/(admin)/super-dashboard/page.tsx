@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
+import { PendingCredentialsWidget } from "@/components/doctor/PendingCredentialsWidget";
 import type { DashboardSuperAdminSummaryData } from "@/types";
 
 export default function SuperAdminDashboard() {
@@ -62,6 +63,8 @@ export default function SuperAdminDashboard() {
         <ChartCard title={locale === "ar" ? "نمو المستخدمين" : "User Growth"} type="area" data={userGrowth} dataKey="users" delay={0.2} />
         <ChartCard title={locale === "ar" ? "توزيع الأدوار" : "Role Distribution"} type="pie" data={roleDistribution} dataKey="value" delay={0.3} />
       </div>
+
+      <PendingCredentialsWidget />
 
       <Card>
         <CardHeader><CardTitle className="text-base">{locale === "ar" ? "حالة النظام" : "System Status"}</CardTitle></CardHeader>

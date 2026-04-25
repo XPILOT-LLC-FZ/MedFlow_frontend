@@ -169,4 +169,8 @@ export const staffService = {
       onLeave: doctors.filter((d) => d.status === "ON_LEAVE").length,
     };
   },
+  
+  async getPendingCredentials(): Promise<(ApiDoctorCredential & { doctor: { id: string; fullName: string; user: { clinic: { name: string } } } })[]> {
+    return apiClient.get("/super-admin/credentials/pending");
+  },
 };

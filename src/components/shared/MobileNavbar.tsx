@@ -83,29 +83,27 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
 
         {/* Staff Availability Icon (For Medical/Admin Roles) */}
         {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={(e) => {
               e.preventDefault();
               const { toggleAvailability } = useAuthStore.getState();
               toggleAvailability();
             }}
-            className={`relative transition-all duration-300 ${
-              user.isAvailable 
-                ? "text-primary bg-primary/5 ring-1 ring-primary/20" 
+            className={`relative transition-all duration-300 ${user.isAvailable
+                ? "text-primary bg-primary/5 ring-1 ring-primary/20"
                 : "text-muted-foreground opacity-70"
-            }`}
+              }`}
             title={
-              locale === "ar" 
+              locale === "ar"
                 ? (user.isAvailable ? "متاح" : "غير متاح")
                 : (user.isAvailable ? "Available" : "Unavailable")
             }
           >
             <UsersRound className={`h-4 w-4 ${user.isAvailable ? "animate-pulse" : ""}`} />
-            <span className={`absolute top-1 right-1 h-2 w-2 rounded-full border-2 border-background ${
-              user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-400"
-            }`} />
+            <span className={`absolute top-1 right-1 h-2 w-2 rounded-full border-2 border-background ${user.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-slate-400"
+              }`} />
           </Button>
         )}
 
@@ -120,7 +118,7 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
             {notifOpen && (
               <>
                 {/* Backdrop */}
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -129,7 +127,7 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
                 />
 
                 {/* Drawer */}
-                <motion.div 
+                <motion.div
                   initial={{ y: "100%" }}
                   animate={{ y: 508 }}
                   exit={{ y: "100%" }}
@@ -143,16 +141,16 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
 
                   <div className="px-6 pb-4 flex items-center justify-between border-b border-slate-50 dark:border-slate-900/50">
                     <div className="flex flex-col">
-                       <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
-                         {locale === "ar" ? "الإشعارات" : "Notifications"}
-                       </h2>
-                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                         {appointments.filter(a => a.status === "scheduled" || a.status === "in-progress").length} {locale === "ar" ? "تنبيهات نشطة" : "active alerts"}
-                       </p>
+                      <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                        {locale === "ar" ? "الإشعارات" : "Notifications"}
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {appointments.filter(a => a.status === "scheduled" || a.status === "in-progress").length} {locale === "ar" ? "تنبيهات نشطة" : "active alerts"}
+                      </p>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setNotifOpen(false)}
                       className="rounded-full bg-slate-50 dark:bg-slate-900"
                     >
@@ -166,8 +164,8 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
                         .filter(a => a.status === "scheduled" || a.status === "in-progress")
                         .slice(0, 5)
                         .map((a, idx) => (
-                          <div 
-                            key={idx} 
+                          <div
+                            key={idx}
                             onClick={() => {
                               setNotifOpen(false);
                               window.location.href = `/doctor/notifications`; // or redirect to specific id
@@ -175,20 +173,20 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
                             className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-transparent active:scale-[0.98] active:bg-slate-100 transition-all duration-200"
                           >
                             <div className={`mt-0.5 h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${a.status === "in-progress" ? "bg-rose-100 dark:bg-rose-900/20 text-rose-600" : "bg-blue-100 dark:bg-blue-900/20 text-blue-600"}`}>
-                               <Bell className="h-5 w-5" />
+                              <Bell className="h-5 w-5" />
                             </div>
                             <div className="flex-1 min-w-0">
-                               <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">
-                                 {locale === "ar" ? `موعد مجدول: ${a.patientName}` : `Scheduled: ${a.patientName}`}
-                               </p>
-                               <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{a.time}</span>
-                                  <span className="text-slate-300">•</span>
-                                  <span className="text-[11px] font-medium text-blue-600 dark:text-blue-500">{a.patientName}</span>
-                               </div>
+                              <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">
+                                {locale === "ar" ? `موعد مجدول: ${a.patientName}` : `Scheduled: ${a.patientName}`}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{a.time}</span>
+                                <span className="text-slate-300">•</span>
+                                <span className="text-[11px] font-medium text-blue-600 dark:text-blue-500">{a.patientName}</span>
+                              </div>
                             </div>
                           </div>
-                      ))
+                        ))
                     ) : (
                       <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
                         <div className="h-16 w-16 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-slate-400">
@@ -200,7 +198,7 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
                   </div>
 
                   <div className="p-6 border-t border-slate-50 dark:border-slate-900/50">
-                    <Button 
+                    <Button
                       className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
                       onClick={() => {
                         setNotifOpen(false);

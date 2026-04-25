@@ -95,6 +95,7 @@ export interface ApiDoctorCredential {
   isVerified?: boolean;
   isVisibleToPatients?: boolean;
   isVisibleToPublic?: boolean;
+  isRejected?: boolean;
   previewUrl?: string;
   createdAt: string;
   updatedAt?: string;
@@ -146,6 +147,7 @@ export interface UpdateDoctorCredentialPayload {
   isVerified?: boolean;
   isVisibleToPatients?: boolean;
   isVisibleToPublic?: boolean;
+  isRejected?: boolean;
 }
 
 export interface DoctorListFilters {
@@ -958,6 +960,15 @@ export interface ApiPrescription {
     id: string;
     fullName: string;
   } | null;
+  patient?: {
+    id: string;
+    fullName: string;
+    clinicId?: string | null;
+    clinic?: {
+      name: string;
+      logoUrl: string | null;
+    } | null;
+  } | null;
 }
 
 export interface CreatePrescriptionPayload {
@@ -1065,6 +1076,8 @@ export interface CreateDiagnosticReportPayload {
   patientNumber?: string;
   referringDoctor?: string;
   whatsappCaption?: string;
+  sendWhatsApp?: boolean;
+  medications?: PrescriptionMedicationItem[];
 }
 
 export interface SendDiagnosticReportResponse {

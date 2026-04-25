@@ -18,6 +18,10 @@ export const clinicService = {
     return apiClient.patch("/clinic", data);
   },
 
+  async uploadLogo(logoDataUrl: string): Promise<ApiClinic> {
+    return apiClient.post("/clinic/logo", { logo: logoDataUrl });
+  },
+
   // Branch Management
   async getBranches(): Promise<ApiBranch[]> {
     return apiClient.get("/clinic/branches");
