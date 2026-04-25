@@ -807,9 +807,9 @@ export default function DoctorPatientDetailsPage() {
         <TabsContent value="history" className="mt-0">
           <div className="space-y-4">
             {appointments.length === 0 ? (
-              <Card className="border-dashed border-slate-200 bg-slate-50/50 rounded-2xl">
+              <Card className="border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 rounded-2xl">
                 <CardContent className="py-10 text-center">
-                  <p className="text-slate-500 text-[13px] font-medium">
+                  <p className="text-slate-500 dark:text-slate-400 text-[13px] font-medium">
                     {locale === "ar" ? "لا توجد زيارات" : "No recorded visits"}
                   </p>
                 </CardContent>
@@ -817,7 +817,7 @@ export default function DoctorPatientDetailsPage() {
             ) : (
               <div className="space-y-4">
                 {appointments.map((visit) => (
-                  <article key={visit.id} className="relative rounded-[20px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-100 group">
+                  <article key={visit.id} className="relative rounded-[20px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-100 dark:hover:border-blue-900/50 group">
                     <div className="flex items-start gap-4">
                       {/* Status Indicator */}
                       <div className="h-3 w-3 rounded-full bg-[#1D61F2] shrink-0 mt-1.5 shadow-sm shadow-blue-500/20" />
@@ -828,7 +828,7 @@ export default function DoctorPatientDetailsPage() {
                             <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-100">
                               {visit.serviceName || (locale === "ar" ? "متابعة" : "General Check-up")}
                             </h4>
-                            <p className="text-[12px] font-bold text-slate-400">
+                            <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500">
                               {formatDate(visit.date, locale)}
                             </p>
                           </div>
@@ -848,9 +848,9 @@ export default function DoctorPatientDetailsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               {labResults.length === 0 && patientUploadedDocuments.length === 0 ? (
-                <Card className="border-dashed border-slate-200 bg-slate-50/50 rounded-[24px]">
+                <Card className="border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 rounded-[24px]">
                   <CardContent className="py-12 text-center">
-                    <p className="text-slate-500 text-[14px] font-medium">
+                    <p className="text-slate-500 dark:text-slate-400 text-[14px] font-medium">
                       {locale === "ar" ? "لا توجد نتائج أو ملفات" : "No lab results or uploaded files"}
                     </p>
                   </CardContent>
@@ -873,8 +873,8 @@ export default function DoctorPatientDetailsPage() {
                       : "bg-[#FFF9F2] border-[#FCECD8] dark:bg-orange-950/10 dark:border-orange-900/20";
 
                     const badgeStyles = isNormal
-                      ? "bg-[#D1FADF] text-[#027A48]"
-                      : "bg-[#FEE4E2] text-[#B42318]";
+                      ? "bg-[#D1FADF] text-[#027A48] dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : "bg-[#FEE4E2] text-[#B42318] dark:bg-rose-900/30 dark:text-rose-400";
 
                     return (
                       <article key={result.id} className={`relative rounded-[16px] border p-5 transition-all hover:shadow-sm ${cardStyles}`}>
@@ -915,7 +915,7 @@ export default function DoctorPatientDetailsPage() {
 
                   {/* Patient Uploaded Documents (Styled as Results) */}
                   {patientUploadedDocuments.map((document) => (
-                    <article key={document.id} className="relative rounded-[18px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 transition-all hover:border-blue-200">
+                    <article key={document.id} className="relative rounded-[18px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 transition-all hover:border-blue-200 dark:hover:border-blue-900/50">
                       <div className="flex justify-between items-start mb-4">
                         <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{document.name}</h4>
                         <span className="text-[11px] font-bold text-slate-400">
@@ -932,7 +932,7 @@ export default function DoctorPatientDetailsPage() {
                         </div>
 
                         <Button
-                          className="h-10 px-6 rounded-2xl bg-slate-800 text-white hover:bg-slate-900 font-bold text-[13px] transition-all"
+                          className="h-10 px-6 rounded-2xl bg-slate-800 text-white hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold text-[13px] transition-all"
                           onClick={() => void previewDocument(document)}
                         >
                           {locale === "ar" ? "عرض الملف" : "view file"}
@@ -961,7 +961,7 @@ export default function DoctorPatientDetailsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-9 px-4 border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl text-[12px] font-bold transition-all gap-2"
+                    className="h-9 px-4 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-xl text-[12px] font-bold transition-all gap-2"
                     onClick={async () => {
                       const latestAppointmentId = appointments[0]?.id;
                       if (!latestAppointmentId) return;
@@ -993,7 +993,7 @@ export default function DoctorPatientDetailsPage() {
                 value={notesDraft}
                 onChange={(e) => setNotesDraft(e.target.value)}
                 placeholder={locale === "ar" ? "أدخل الأعراض والنتائج والتشخيص..." : "Enter patient symptoms, examination findings, and diagnosis..."}
-                className="w-full min-h-[120px] rounded-xl bg-white border border-slate-100 p-4 text-[14px] font-medium focus:ring-2 focus:ring-blue-600/5 transition-all resize-none"
+                className="w-full min-h-[120px] rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 text-[14px] font-medium text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-600/5 transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
 
@@ -1153,15 +1153,15 @@ export default function DoctorPatientDetailsPage() {
                         key={test}
                         onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
                         className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${selectedInvestigations[test]
-                          ? "bg-blue-50 border-blue-200"
-                          : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
+                          ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800"
+                          : "bg-[#F8FAFC] border-transparent dark:bg-slate-900/50 hover:border-slate-200 dark:hover:border-slate-700"
                           }`}
                       >
-                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
+                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200 dark:bg-slate-950 dark:border-slate-800"
                           }`}>
                           {selectedInvestigations[test] && <Check className="h-3 w-3 text-white" />}
                         </div>
-                        <span className="text-[12px] font-bold text-slate-700">{test}</span>
+                        <span className="text-[12px] font-bold text-slate-700 dark:text-slate-300">{test}</span>
                       </button>
                     ))}
                   </div>
@@ -1178,15 +1178,15 @@ export default function DoctorPatientDetailsPage() {
                         key={test}
                         onClick={() => setSelectedInvestigations(prev => ({ ...prev, [test]: !prev[test] }))}
                         className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${selectedInvestigations[test]
-                          ? "bg-blue-50 border-blue-200"
-                          : "bg-[#F8FAFC] border-transparent hover:border-slate-200"
+                          ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800"
+                          : "bg-[#F8FAFC] border-transparent dark:bg-slate-900/50 hover:border-slate-200 dark:hover:border-slate-700"
                           }`}
                       >
-                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200"
+                        <div className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 ${selectedInvestigations[test] ? "bg-blue-600 border-blue-600" : "bg-white border-slate-200 dark:bg-slate-950 dark:border-slate-800"
                           }`}>
                           {selectedInvestigations[test] && <Check className="h-3 w-3 text-white" />}
                         </div>
-                        <span className="text-[12px] font-bold text-slate-700">{test}</span>
+                        <span className="text-[12px] font-bold text-slate-700 dark:text-slate-300">{test}</span>
                       </button>
                     ))}
                   </div>
@@ -1199,7 +1199,7 @@ export default function DoctorPatientDetailsPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-14 border-blue-100 text-blue-700 hover:bg-blue-50 rounded-2xl text-[14px] font-black gap-3"
+                className="h-14 border-blue-100 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-2xl text-[14px] font-black gap-3"
                 onClick={() => void sendDiagnosticReportToPatient()}
                 disabled={isSendingDiagnosticReport}
               >

@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -68,7 +67,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
   }
 
   return (
-    <div className="flex h-full min-w-[280px] w-[280px] flex-col overflow-hidden border-s border-slate-100 bg-white transition-all duration-500 dark:border-slate-800 dark:bg-slate-950">
+    <div className="flex h-full min-w-[280px] w-[280px] flex-col overflow-hidden border-s border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950">
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6 pb-2 shrink-0">
         <h3 className="text-[18px] font-black text-slate-900 dark:text-white">
@@ -79,7 +78,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto thin-scrollbar">
         <div className="flex flex-col items-center px-6 pb-6">
         <div className="mb-4 h-24 w-24 overflow-hidden rounded-full bg-slate-100 ring-4 ring-slate-50 shadow-sm dark:bg-slate-800 dark:ring-slate-900">
           {user.avatar ? (
@@ -132,12 +131,9 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
         </div>
       </div>
         <div className="px-6 py-2">
-        <AnimatePresence mode="wait">
-          <motion.div
+
+          <div
             key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
             {activeTab === "Details" && (
@@ -252,8 +248,8 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                 )}
               </div>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
+
       </div>
 
       <Dialog open={!!viewingFile} onOpenChange={(open) => !open && setViewingFile(null)}>

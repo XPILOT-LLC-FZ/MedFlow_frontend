@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Phone, Video, Info, MoreHorizontal, Paperclip, Mic, Send, Check, CheckCheck } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import Image from "next/image";
@@ -80,7 +79,7 @@ export function DoctorChatMain({
   }
 
   return (
-    <div className="flex h-full flex-1 flex-col overflow-hidden bg-white dark:bg-slate-950 transition-all duration-500">
+    <div className="flex h-full flex-1 flex-col overflow-hidden bg-white dark:bg-slate-950">
       {/* Chat Header */}
       <header className="flex h-[80px] flex-shrink-0 items-center justify-between border-b border-slate-100 bg-white px-6 dark:border-slate-800 dark:bg-slate-950 shadow-sm z-10">
         <div className="flex items-center gap-4">
@@ -179,16 +178,14 @@ export function DoctorChatMain({
       </header>
 
       {/* Messages Area */}
-      <div className="flex-1 space-y-6 overflow-y-auto bg-[#F8FAFC] p-6 no-scrollbar dark:bg-slate-950/50 transition-all duration-500">
+      <div className="flex-1 space-y-6 overflow-y-auto bg-[#F8FAFC] p-6 thin-scrollbar dark:bg-slate-950/50">
         {messages.map((msg) => {
           return (
             <div key={msg.id} className={cn(
               "flex flex-col",
               msg.isMine ? "items-end" : "items-start"
             )}>
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+              <div
                 className={cn(
                   "max-w-[75%] rounded-[20px] px-5 py-3 text-[14px] font-medium leading-relaxed shadow-sm",
                   msg.isMine 
@@ -197,7 +194,7 @@ export function DoctorChatMain({
                 )}
               >
                 <p>{msg.text}</p>
-              </motion.div>
+              </div>
               <div className="flex items-center gap-2 mt-1.5 px-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{msg.time}</span>
                 {msg.isMine && (
@@ -214,12 +211,9 @@ export function DoctorChatMain({
           );
         })}
 
-        <AnimatePresence>
+
           {isTyping && (
-            <motion.div
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
+            <div
               className="flex items-center gap-3 self-start"
             >
               <div className="flex gap-1 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -227,19 +221,19 @@ export function DoctorChatMain({
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
                 <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" />
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+
       </div>
 
       {/* Message Input Footer */}
       <div className="flex-shrink-0 border-t border-slate-100 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-center gap-3">
-          <button className="h-11 w-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all dark:bg-slate-900 dark:text-slate-500">
+          <button className="h-11 w-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all dark:bg-slate-900 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-400">
             <Paperclip size={20} />
           </button>
 
-          <div className="relative flex flex-1 items-center bg-[#F1F5F9]/60 rounded-xl px-4 dark:bg-slate-900/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+          <div className="relative flex flex-1 items-center bg-[#F1F5F9]/60 rounded-xl px-4 dark:bg-slate-900/50 focus-within:bg-[#F1F5F9] dark:focus-within:bg-slate-900 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
             <textarea
               rows={1}
               placeholder={locale === "ar" ? "اكتب رسالة..." : "Type a message..."}
@@ -256,7 +250,7 @@ export function DoctorChatMain({
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="h-11 w-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all dark:bg-slate-900 dark:text-slate-500">
+            <button className="h-11 w-11 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all dark:bg-slate-900 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-400">
               <Mic size={20} />
             </button>
             <button 

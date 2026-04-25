@@ -76,7 +76,7 @@ export function DoctorChatSidebar({
   });
 
   return (
-    <div className="flex h-full min-w-[280px] w-[280px] flex-col border-e border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950 transition-all duration-500">
+    <div className="flex h-full min-w-[280px] w-[280px] flex-col border-e border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-950">
       <div className="p-5 space-y-5">
         <h1 className="text-[24px] font-black text-[#2563EB] tracking-tight">
           {locale === "ar" ? "الرسائل" : "Messages"}
@@ -87,13 +87,13 @@ export function DoctorChatSidebar({
           <input
             type="text"
             placeholder={locale === "ar" ? "بحث..." : "Search..."}
-            className="w-full h-10 bg-[#F1F5F9]/60 border-none rounded-full pl-11 pr-4 text-[13px] font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:bg-[#F1F5F9] transition-all"
+            className="w-full h-10 bg-[#F1F5F9]/60 dark:bg-slate-900/50 border-none rounded-full pl-11 pr-4 text-[13px] font-medium text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 focus:bg-[#F1F5F9] dark:focus:bg-slate-900 transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar">
           {filters.map((filter) => (
             <button
               key={filter}
@@ -102,7 +102,7 @@ export function DoctorChatSidebar({
                 onFilterChange(filter);
               }}
               className={cn(
-                "h-8 px-4 rounded-xl text-[12px] font-bold transition-all shrink-0",
+                "h-8 px-4 my-2 rounded-xl text-[12px] font-bold transition-all shrink-0",
                 activeFilter === filter
                   ? "bg-[#2563EB] text-white shadow-lg shadow-blue-600/20"
                   : "bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-900/50"
@@ -117,7 +117,7 @@ export function DoctorChatSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-0 pb-6 no-scrollbar divide-y divide-slate-50 dark:divide-slate-900/50">
+      <div className="flex-1 overflow-y-auto px-0 pb-6 thin-scrollbar divide-y divide-slate-50 dark:divide-slate-900/50">
         {filteredConversations.map((conv) => (
           <div
             key={conv.id}

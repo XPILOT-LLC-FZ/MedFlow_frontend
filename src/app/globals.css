@@ -112,6 +112,7 @@
   border-color: hsl(var(--border));
 }
 
+
 /* Smooth theme transition */
 body,
 .bg-card,
@@ -139,18 +140,32 @@ html {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 1px;
+  height: 3px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.2);
+  background: hsl(var(--muted-foreground) / 0.25);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.4);
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Scrollbar Utilities */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 2px;
+  height: 4px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Card hover enhancement */

@@ -5,6 +5,7 @@ import { CalendarDays, Search, Funnel, Plus, Clock3, Phone, MoreVertical, X, Che
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -20,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Appointment } from "@/types";
+import type { Appointment, DoctorShift } from "@/types";
 import { cn } from "@/lib/utils";
 
 export default function SchedulePage() {
@@ -53,8 +54,45 @@ export default function SchedulePage() {
     reason: "",
   });
 
-  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => new Date());
+  const [doctorShifts, setDoctorShifts] = useState<DoctorShift[]>([]);
+  const [consultationDuration, setConsultationDuration] = useState(30);
+
+  const months = useMemo(() => [
+    { value: "0", label: locale === "ar" ? "يناير" : "January" },
+    { value: "1", label: locale === "ar" ? "فبراير" : "February" },
+    { value: "2", label: locale === "ar" ? "مارس" : "March" },
+    { value: "3", label: locale === "ar" ? "أبريل" : "April" },
+    { value: "4", label: locale === "ar" ? "مايو" : "May" },
+    { value: "5", label: locale === "ar" ? "يونيو" : "June" },
+    { value: "6", label: locale === "ar" ? "يوليو" : "July" },
+    { value: "7", label: locale === "ar" ? "أغسطس" : "August" },
+    { value: "8", label: locale === "ar" ? "سبتمبر" : "September" },
+    { value: "9", label: locale === "ar" ? "أكتوبر" : "October" },
+    { value: "10", label: locale === "ar" ? "نوفمبر" : "November" },
+    { value: "11", label: locale === "ar" ? "ديسمبر" : "December" },
+  ], [locale]);
+
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 21 }, (_, i) => {
+      const year = currentYear - 10 + i;
+      return { value: year.toString(), label: year.toString() };
+    });
+  }, []);
+
+  const handleMonthChange = (month: string) => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(parseInt(month));
+    setViewDate(newDate);
+  };
+
+  const handleYearChange = (year: string) => {
+    const newDate = new Date(viewDate);
+    newDate.setFullYear(parseInt(year));
+    setViewDate(newDate);
+  };
 
   // Ported Actions State
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
@@ -100,11 +138,116 @@ export default function SchedulePage() {
       setDoctorId(doctor.id);
       setDoctorName(doctor.fullName ?? user?.name ?? null);
 
-      await staffService.getDoctorShifts(doctor.id);
+      const fetchedShifts = await staffService.getDoctorShifts(doctor.id);
+      setDoctorShifts(fetchedShifts);
+
+      const myProfile = await staffService.getMyDoctorProfile();
+      if (myProfile.preferences && typeof myProfile.preferences === "object") {
+        const prefs = myProfile.preferences as Record<string, unknown>;
+        if (typeof prefs.consultationDuration === "number") {
+          setConsultationDuration(prefs.consultationDuration);
+        }
+      }
     } catch {
       error(locale === "ar" ? "فشل تحميل الجدول" : "Failed to load schedule");
     }
   }, [error, fetchAppointments, fetchDoctors, locale, user?.email, user?.id, user?.name]);
+
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }).map((_, i) => {
+      const date = new Date(2024, 0, 7 + i); // 2024-01-07 is a Sunday
+      return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" });
+    });
+  }, [locale]);
+
+  const monthDays = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const days = [];
+    for (let i = 0; i < firstDayOfMonth; i++) {
+      days.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push(new Date(year, month, d));
+    }
+    return days;
+  }, [viewDate]);
+
+  const relativeLabel = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((selected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return locale === "ar" ? "اليوم" : "Today";
+    if (diffDays === 1) return locale === "ar" ? "غداً" : "Tomorrow";
+    if (diffDays === -1) return locale === "ar" ? "أمس" : "Yesterday";
+    
+    if (diffDays > 0) return locale === "ar" ? `بعد ${diffDays} يوم` : `In ${diffDays} days`;
+    return locale === "ar" ? `منذ ${Math.abs(diffDays)} يوم` : `${Math.abs(diffDays)} days ago`;
+  }, [selectedDate, locale]);
+
+  const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
+  
+  const timelineDates = useMemo(() => {
+    return Array.from({ length: 13 }).map((_, index) => {
+      const date = new Date(selectedDate);
+      date.setDate(selectedDate.getDate() - 6 + index);
+      return date;
+    });
+  }, [selectedDate]);
+
+  const doctorAppointments = useMemo(() => {
+    const aliases = new Set(
+      [doctorName, user?.name].filter((value): value is string => Boolean(value))
+    );
+    return appointments.filter((appointment) => {
+      return appointment.doctorId === doctorId || aliases.has(appointment.doctorName);
+    });
+  }, [appointments, doctorId, doctorName, user?.name]);
+
+  const getDayCapacity = useCallback((date: Date) => {
+    const dayOfWeek = date.getDay(); // 0 is Sunday
+    const shift = doctorShifts.find(s => s.dayOfWeek === dayOfWeek && s.isAvailable);
+    if (!shift) return 0;
+    
+    const toMinutes = (time: string) => {
+      if (!time) return 0;
+      const [h, m] = time.split(":").map(Number);
+      return h * 60 + m;
+    };
+    
+    const totalMinutes = toMinutes(shift.shiftEnd) - toMinutes(shift.shiftStart);
+    let lunchMinutes = 0;
+    if (shift.lunchStart && shift.lunchEnd) {
+      lunchMinutes = toMinutes(shift.lunchEnd) - toMinutes(shift.lunchStart);
+    }
+    
+    const availableMinutes = Math.max(0, totalMinutes - lunchMinutes);
+    const slotDuration = consultationDuration || 30;
+    return Math.floor(availableMinutes / slotDuration);
+  }, [doctorShifts, consultationDuration]);
+
+  const getDayDotColor = useCallback((date: Date) => {
+    const dStr = date.toISOString().slice(0, 10);
+    const dayAppts = doctorAppointments.filter(a => a.date.slice(0, 10) === dStr);
+    const capacity = getDayCapacity(date);
+    
+    if (capacity === 0) return "transparent";
+    
+    if (dayAppts.length >= capacity && capacity > 0) {
+      return "bg-rose-500"; // Red for full
+    }
+    
+    // Optional: Only show dot if there are appointments or if it's a working day
+    // The user said: "green color must be availability day but not all apportments full"
+    // I'll show green for any working day that is not full.
+    return "bg-emerald-500";
+  }, [doctorAppointments, getDayCapacity]);
 
   useEffect(() => {
     void initialize();
@@ -265,66 +408,6 @@ export default function SchedulePage() {
     }
   };
 
-
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }).map((_, i) => {
-      const date = new Date(2024, 0, 7 + i); // 2024-01-07 is a Sunday
-      return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" });
-    });
-  }, [locale]);
-
-  const monthDays = useMemo(() => {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    const days = [];
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push(null);
-    }
-    for (let d = 1; d <= daysInMonth; d++) {
-      days.push(new Date(year, month, d));
-    }
-    return days;
-  }, [viewDate]);
-
-  const handlePrevMonth = () => {
-    const newDate = new Date(viewDate);
-    newDate.setMonth(viewDate.getMonth() - 1);
-    setViewDate(newDate);
-  };
-
-  const handleNextMonth = () => {
-    const newDate = new Date(viewDate);
-    newDate.setMonth(viewDate.getMonth() + 1);
-    setViewDate(newDate);
-  };
-
-  const relativeLabel = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const selected = new Date(selectedDate);
-    selected.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((selected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return locale === "ar" ? "اليوم" : "Today";
-    if (diffDays === 1) return locale === "ar" ? "غداً" : "Tomorrow";
-    if (diffDays === -1) return locale === "ar" ? "أمس" : "Yesterday";
-    
-    if (diffDays > 0) return locale === "ar" ? `بعد ${diffDays} يوم` : `In ${diffDays} days`;
-    return locale === "ar" ? `منذ ${Math.abs(diffDays)} يوم` : `${Math.abs(diffDays)} days ago`;
-  }, [selectedDate, locale]);
-
-  const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
-  const timelineDates = useMemo(() => {
-    return Array.from({ length: 13 }).map((_, index) => {
-      const date = new Date(selectedDate);
-      date.setDate(selectedDate.getDate() - 6 + index);
-      return date;
-    });
-  }, [selectedDate]);
-
   const handlePrevDay = () => {
     const newDate = new Date(selectedDate);
     newDate.setDate(selectedDate.getDate() - 1);
@@ -336,15 +419,6 @@ export default function SchedulePage() {
     newDate.setDate(selectedDate.getDate() + 1);
     setSelectedDate(newDate);
   };
-
-  const doctorAppointments = useMemo(() => {
-    const aliases = new Set(
-      [doctorName, user?.name].filter((value): value is string => Boolean(value))
-    );
-    return appointments.filter((appointment) => {
-      return appointment.doctorId === doctorId || aliases.has(appointment.doctorName);
-    });
-  }, [appointments, doctorId, doctorName, user?.name]);
 
   const dayAppointments = useMemo(() => {
     const query = scheduleSearch.trim().toLowerCase();
@@ -412,35 +486,19 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
-                  if (!isCalendarExpanded) setViewDate(selectedDate);
-                  setIsCalendarExpanded(!isCalendarExpanded);
+                  setViewDate(selectedDate);
+                  setIsDatePickerOpen(true);
                 }}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 border border-transparent hover:border-slate-100 dark:hover:border-slate-800 transition-all group"
               >
                 <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">
-                  {viewDate.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "long", year: "numeric" })}
+                  {selectedDate.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "long", year: "numeric" })}
                 </h3>
-                <ChevronDown className={cn("h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-transform duration-300", isCalendarExpanded && "rotate-180")} />
+                <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
               </button>
             </div>
             
             <div className="flex items-center gap-3">
-              {isCalendarExpanded && (
-                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 rounded-lg p-1">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handlePrevMonth(); }}
-                    className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleNextMonth(); }}
-                    className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-md transition-colors"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
               <button
                 onClick={() => {
                   const now = new Date();
@@ -454,162 +512,58 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          {isCalendarExpanded ? (
-            <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-              {/* Quick Jumps */}
-              <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 no-scrollbar">
-                {[
-                  { label: locale === "ar" ? "أمس" : "Yesterday", offset: -1 },
-                  { label: locale === "ar" ? "غداً" : "Tomorrow", offset: 1 },
-                  { label: locale === "ar" ? "بعد 7 أيام" : "+7 Days", offset: 7 },
-                  { label: locale === "ar" ? "بعد شهر" : "+1 Month", offset: 30 },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + item.offset);
-                      setSelectedDate(d);
-                      setViewDate(d);
-                    }}
-                    className="whitespace-nowrap px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-[12px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-all"
-                  >
-                    {item.label}
-                  </button>
-                ))}
+          <div className="flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <button 
+              onClick={handlePrevDay}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+            >
+              <ChevronLeft className="h-4.5 w-4.5" />
+            </button>
+            
+            <div className="flex-1 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
+              {timelineDates.map((slot) => {
+                const isActive = slot.toISOString().slice(0, 10) === dateKey;
                 
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-xl px-3 py-2 border border-slate-100 dark:border-slate-800 ml-auto group focus-within:border-blue-200 dark:focus-within:border-blue-800 transition-all">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter group-focus-within:text-blue-500">
-                    {locale === "ar" ? "اقفز أيام:" : "Jump Days:"}
-                  </span>
-                  <input
-                    type="number"
-                    placeholder="±"
-                    className="w-10 bg-transparent border-none text-[12px] font-black text-blue-600 focus:outline-none p-0 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-slate-300"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const val = parseInt((e.target as HTMLInputElement).value);
-                        if (!isNaN(val)) {
-                          const d = new Date();
-                          d.setDate(d.getDate() + val);
-                          setSelectedDate(d);
-                          setViewDate(d);
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }
-                    }}
-                  />
-                </div>
-              </div>
+                const dotColor = getDayDotColor(slot);
+                const isDayOff = getDayCapacity(slot) === 0;
 
-              <div className="grid grid-cols-7 mb-2">
-                {weekDays.map(day => (
-                  <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase">
-                    {day}
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {monthDays.map((date, i) => {
-                  const isSelected = date && date.toDateString() === selectedDate.toDateString();
-                  const isToday = date && date.toDateString() === new Date().toDateString();
-                  
-                  const dStr = date ? date.toISOString().slice(0, 10) : "";
-                  const dayAppts = appointments.filter(a => a.date.slice(0, 10) === dStr);
-                  
-                  let dotColor = "transparent";
-                  if (dayAppts.length > 0) {
-                    const hasConfirmed = dayAppts.some(a => a.status === "confirmed" || a.status === "completed");
-                    dotColor = hasConfirmed ? "bg-emerald-500" : "bg-orange-500";
-                  }
-
-                  return (
-                    <button
-                      key={i}
-                      disabled={!date}
-                      onClick={() => date && setSelectedDate(date)}
-                      className={cn(
-                        "h-11 rounded-xl flex flex-col items-center justify-center transition-all relative",
-                        !date && "opacity-0 pointer-events-none",
-                        isSelected
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none scale-105 z-10"
-                          : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400"
-                      )}
-                    >
-                      <span className="text-[14px] font-bold">{date?.getDate()}</span>
-                      {date && dotColor !== "transparent" && (
-                        <div className={cn(
-                          "absolute bottom-1.5 h-1 w-1 rounded-full transition-all",
-                          isSelected ? "bg-white" : dotColor
-                        )} />
-                      )}
-                      {isToday && !isSelected && dotColor === "transparent" && (
-                        <div className="absolute bottom-1.5 h-1 w-1 rounded-full bg-blue-600" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                return (
+                  <button
+                    key={slot.toISOString()}
+                    type="button"
+                    onClick={() => setSelectedDate(slot)}
+                    className={cn(
+                      "flex flex-col items-center justify-center rounded-2xl py-3 px-1 transition-all duration-300 relative min-w-[64px]",
+                      isActive 
+                        ? "bg-blue-600 text-white shadow-xl shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
+                        : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400 dark:text-slate-500"
+                    )}
+                  >
+                    <p className={cn("text-[11px] uppercase tracking-wider mb-1.5", isActive ? "text-blue-100 font-bold" : (isDayOff ? "text-slate-400/60 font-medium" : "text-slate-400 font-bold"))}>
+                      {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" })}
+                    </p>
+                    <p className={cn("text-[20px] leading-none mb-1.5", isActive ? "font-black" : (isDayOff ? "font-normal" : "font-bold"))}>
+                      {slot.getDate()}
+                    </p>
+                    <p className={cn("text-[10px] uppercase", isActive ? "text-blue-100 font-bold" : (isDayOff ? "text-slate-400/60 font-medium" : "text-slate-400 font-bold"))}>
+                      {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short" })}
+                    </p>
+                    <div className={cn(
+                      "mt-2 h-1.5 w-1.5 rounded-full transition-all",
+                      isActive ? "bg-white" : dotColor
+                    )} />
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <div className="flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <button 
-                onClick={handlePrevDay}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
-              >
-                <ChevronLeft className="h-4.5 w-4.5" />
-              </button>
-              
-              <div className="flex-1 flex items-center justify-between gap-1">
-                {timelineDates.map((slot) => {
-                  const isActive = slot.toISOString().slice(0, 10) === dateKey;
-                  const dStr = slot.toISOString().slice(0, 10);
-                  const dayAppts = appointments.filter(a => a.date.slice(0, 10) === dStr);
-                  
-                  let dotColor = "transparent";
-                  if (dayAppts.length > 0) {
-                    const hasConfirmed = dayAppts.some(a => a.status === "confirmed" || a.status === "completed");
-                    dotColor = hasConfirmed ? "bg-emerald-500" : "bg-orange-500";
-                  }
 
-                  return (
-                    <button
-                      key={slot.toISOString()}
-                      type="button"
-                      onClick={() => setSelectedDate(slot)}
-                      className={cn(
-                        "flex flex-col items-center justify-center rounded-2xl py-3 px-1 transition-all duration-300 relative min-w-[64px]",
-                        isActive 
-                          ? "bg-blue-600 text-white shadow-xl shadow-blue-200/50 dark:shadow-none scale-105 z-10" 
-                          : "hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-400 dark:text-slate-500"
-                      )}
-                    >
-                      <p className={cn("text-[11px] font-bold uppercase tracking-wider mb-1.5", isActive ? "text-blue-100" : "text-slate-400")}>
-                        {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { weekday: "short" })}
-                      </p>
-                      <p className="text-[20px] font-black leading-none mb-1.5">
-                        {slot.getDate()}
-                      </p>
-                      <p className={cn("text-[10px] font-bold uppercase", isActive ? "text-blue-100" : "text-slate-400")}>
-                        {slot.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short" })}
-                      </p>
-                      <div className={cn(
-                        "mt-2 h-1.5 w-1.5 rounded-full transition-all",
-                        isActive ? "bg-white" : dotColor
-                      )} />
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button 
-                onClick={handleNextDay}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
-              >
-                <ChevronRight className="h-4.5 w-4.5" />
-              </button>
-            </div>
-          )}
+            <button 
+              onClick={handleNextDay}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+            >
+              <ChevronRight className="h-4.5 w-4.5" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -1257,6 +1211,117 @@ export default function SchedulePage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Date Picker Dialog */}
+      <Dialog open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+        <DialogContent className="max-w-md rounded-3xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-sm overflow-hidden">
+          <DialogHeader className="mb-6">
+            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none">
+                <CalendarDays className="h-5 w-5" />
+              </div>
+              {locale === "ar" ? "اختر التاريخ" : "Select Date"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="flex gap-3">
+              <div className="flex-1 space-y-1.5">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">{locale === "ar" ? "الشهر" : "Month"}</label>
+                <Select 
+                  options={months}
+                  value={viewDate.getMonth().toString()}
+                  onChange={(e) => handleMonthChange(e.target.value)}
+                  className="h-12 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 font-bold"
+                />
+              </div>
+              <div className="w-32 space-y-1.5">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">{locale === "ar" ? "السنة" : "Year"}</label>
+                <Select 
+                  options={years}
+                  value={viewDate.getFullYear().toString()}
+                  onChange={(e) => handleYearChange(e.target.value)}
+                  className="h-12 border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 font-bold text-center"
+                />
+              </div>
+            </div>
+
+            <div className="p-2 rounded-2xl border border-slate-50 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10">
+              <div className="grid grid-cols-7 mb-3">
+                {weekDays.map(day => (
+                  <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                    {day}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {monthDays.map((date, i) => {
+                  const isSelected = date && date.toDateString() === selectedDate.toDateString();
+                  const isToday = date && date.toDateString() === new Date().toDateString();
+                  const isDayOff = date && getDayCapacity(date) === 0;
+                  
+                  return (
+                    <button
+                      key={i}
+                      disabled={!date}
+                      onClick={() => {
+                        if (date) {
+                          setSelectedDate(date);
+                          setIsDatePickerOpen(false);
+                        }
+                      }}
+                      className={cn(
+                        "h-11 rounded-xl flex flex-col items-center justify-center transition-all relative group/day",
+                        !date && "opacity-0 pointer-events-none",
+                        isSelected
+                          ? "bg-blue-600 text-white shadow-xl shadow-blue-200 dark:shadow-none scale-110 z-10"
+                          : "hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-none"
+                      )}
+                    >
+                      <span className={cn(
+                        "text-[14px]", 
+                        isSelected ? "text-white font-bold" : (isDayOff ? "text-slate-400/50 font-normal" : "font-bold text-slate-700 dark:text-slate-300 group-hover/day:text-blue-600")
+                      )}>
+                        {date?.getDate()}
+                      </span>
+                      {isToday && !isSelected && (
+                        <div className="absolute bottom-1.5 h-1 w-1 rounded-full bg-blue-600" />
+                      )}
+                      {date && !isSelected && (
+                        <div className={cn(
+                          "absolute bottom-1 h-1 w-1 rounded-full transition-all",
+                          getDayDotColor(date)
+                        )} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+               <Button 
+                variant="ghost" 
+                className="flex-1 h-12 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => {
+                  const now = new Date();
+                  setSelectedDate(now);
+                  setViewDate(now);
+                  setIsDatePickerOpen(false);
+                }}
+              >
+                {locale === "ar" ? "اليوم" : "Today"}
+              </Button>
+              <Button 
+                className="flex-[2] h-12 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold hover:opacity-90 transition-opacity"
+                onClick={() => setIsDatePickerOpen(false)}
+              >
+                {locale === "ar" ? "إغلاق" : "Close"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
