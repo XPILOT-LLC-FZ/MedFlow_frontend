@@ -42,16 +42,17 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
 import { notificationsService } from "@/services/notificationsService";
 import { bookingService } from "@/services/bookingService";
-import type { DashboardDoctorSummaryData, InAppNotification } from "@/types";
+import type { ApiQuickTask, DashboardDoctorSummaryData, InAppNotification, TaskPriority, TaskStatus } from "@/types";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
 import { tasksService } from "@/services/tasksService";
-import { ApiQuickTask, TaskStatus, TaskPriority } from "@/types";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ar } from "date-fns/locale";
+import { TranslationKey } from "@/lib/i18n";
 
 interface DashboardActivity {
   key: string;
@@ -82,6 +83,30 @@ export default function DoctorDashboard() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("NORMAL");
 
+  const normalizeKey = (key: string) =>
+    key.toLowerCase().replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+
+  const translateNotificationTitle = (title: string) => {
+    if (title === "Appointment status updated") return t("appointmentStatusUpdated");
+    return title;
+  };
+
+  const translateNotificationBody = (body: string) => {
+    const match = body.match(/Patient (.*) moved from (.*) to (.*)/);
+    if (match) {
+      const [, name, oldStatus, newStatus] = match;
+      const cleanOld = oldStatus.replace(/\.$/, "").trim();
+      const cleanNew = newStatus.replace(/\.$/, "").trim();
+      const translatedOld = t(normalizeKey(cleanOld) as TranslationKey) || cleanOld;
+      const translatedNew = t(normalizeKey(cleanNew) as TranslationKey) || cleanNew;
+      return t("patientMoved")
+        .replace("{name}", name)
+        .replace("{old}", translatedOld)
+        .replace("{new}", translatedNew);
+    }
+    return body;
+  };
+
   const refreshDashboard = React.useCallback(async () => {
     try {
       setError(null);
@@ -96,11 +121,10 @@ export default function DoctorDashboard() {
       setRealNotifications(notifications);
       setTasks(allTasks);
 
-      // Map Activity
       setRealActivity(recentAppts.map(a => ({
         key: a.id,
-        title: locale === "ar" ? `اكتمل: ${a.type}` : `Completed ${a.type.replace("_", " ")}`,
-        subtitle: `${a.patientName} - ${formatDistanceToNow(new Date(a.createdAt), { addSuffix: true })}`,
+        title: locale === "ar" ? `${t("completed")}: ${t(normalizeKey(a.type) as TranslationKey) || a.type.replace("_", " ")}` : `Completed ${a.type.replace("_", " ")}`,
+        subtitle: `${a.patientName} - ${formatDistanceToNow(new Date(a.createdAt), { addSuffix: true, locale: locale === "ar" ? ar : undefined })}`,
         type: a.type
       })));
 
@@ -113,7 +137,7 @@ export default function DoctorDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, [locale]);
+  }, [locale, t]);
 
   useEffect(() => {
     void refreshDashboard();
@@ -171,7 +195,7 @@ export default function DoctorDashboard() {
       // even if the doctor is running late (don't check isTimeExpired)
       return p.status === "CONFIRMED" || p.status === "SCHEDULED";
     }
-    
+
     // Otherwise, find the first upcoming patient that isn't significantly in the past
     return (p.status === "CONFIRMED" || p.status === "SCHEDULED") && !isTimeExpired(p.time);
   });
@@ -194,9 +218,9 @@ export default function DoctorDashboard() {
       key: n.id,
       tone: n.type === "CRITICAL" ? "critical" : n.type === "SUCCESS" ? "success" : "info",
       type: n.type,
-      title: n.title,
-      body: n.body,
-      time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }),
+      title: translateNotificationTitle(n.title),
+      body: translateNotificationBody(n.body),
+      time: formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: locale === "ar" ? ar : undefined }),
       unread: !n.readAt,
       role: n.payload?.role as string | undefined,
       isFallback: false
@@ -295,7 +319,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex flex-col">
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "إجمالي المرضى اليوم" : "Total Patients Today"}
+                {t("totalPatientsToday")}
               </p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1">
                 {isLoading ? "..." : (summaryCards?.totalPatients ?? 0)}
@@ -312,7 +336,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex flex-col">
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "قيد الانتظار حاليًا" : "Currently Waiting"}
+                {t("currentlyWaiting")}
               </p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1">
                 {isLoading ? "..." : waitingCount}
@@ -329,7 +353,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex flex-col">
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "مكتمل" : "Completed"}
+                {t("completed")}
               </p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1">
                 {isLoading ? "..." : completedCount}
@@ -346,7 +370,7 @@ export default function DoctorDashboard() {
             </div>
             <div className="flex flex-col">
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "الحالات العاجلة" : "Urgent Cases"}
+                {t("urgentCases")}
               </p>
               <p className="text-2xl font-bold text-slate-900 dark:text-slate-50 mt-1">
                 {isLoading ? "..." : urgentCount}
@@ -381,21 +405,21 @@ export default function DoctorDashboard() {
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                             </span>
-                            {locale === "ar" ? "الآن: " : "Inside: "}{inProgressAppt.patientName}
+                            {t("inside")}: {locale === "ar" && inProgressAppt.patientNameAr ? inProgressAppt.patientNameAr : inProgressAppt.patientName}
                           </Badge>
                         </button>
                       )}
                       {nextAppt && (
                         <Link href="/doctor/schedule" className="transition-transform hover:scale-105 active:scale-95">
                           <Badge variant="warning" className="cursor-pointer bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight">
-                            {locale === "ar" ? "التالي: " : "Next: "}{nextAppt.patientName}
+                            {t("next")}: {locale === "ar" && nextAppt.patientNameAr ? nextAppt.patientNameAr : nextAppt.patientName}
                           </Badge>
                         </Link>
                       )}
                       {lastDoneAppt && (
                         <Link href="/doctor/schedule" className="transition-transform hover:scale-105 active:scale-95">
                           <Badge variant="success" className="cursor-pointer bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-black uppercase tracking-tight">
-                            {locale === "ar" ? "تم: " : "Done: "}{lastDoneAppt.patientName}
+                            {t("done")}: {locale === "ar" && lastDoneAppt.patientNameAr ? lastDoneAppt.patientNameAr : lastDoneAppt.patientName}
                           </Badge>
                         </Link>
                       )}
@@ -403,9 +427,7 @@ export default function DoctorDashboard() {
                   </div>
                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-1">
                     <CalendarDays className="h-3 w-3" />
-                    {locale === "ar"
-                      ? `${currentDate} • ${summaryCards?.todayAppointments ?? 0} مواعيد`
-                      : `${currentDate} • ${summaryCards?.todayAppointments ?? 0} appointments`}
+                    {currentDate} • {summaryCards?.todayAppointments ?? 0} {t("appointments")}
                   </p>
                 </div>
               </div>
@@ -422,7 +444,7 @@ export default function DoctorDashboard() {
                     <Calendar className="h-6 w-6 text-slate-300" />
                   </div>
                   <p className="text-sm font-medium text-slate-400">
-                    {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments scheduled for today"}
+                    {t("noUpcomingAppointments")}
                   </p>
                 </div>
               ) : (
@@ -468,17 +490,17 @@ export default function DoctorDashboard() {
                           </span>
                           {isNow && (
                             <span className="mt-2 rounded-full bg-blue-600 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-blue-200">
-                              {locale === "ar" ? "الآن" : "NOW"}
+                              {t("now")}
                             </span>
                           )}
                           {isNext && (
                             <span className="mt-2 rounded-full bg-amber-500 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-amber-200">
-                              {locale === "ar" ? "التالي" : "NEXT"}
+                              {t("next")}
                             </span>
                           )}
                           {isDone && (
                             <span className="mt-2 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[9px] font-black text-white uppercase tracking-wider shadow-sm shadow-emerald-200">
-                              {locale === "ar" ? "تم" : "DONE"}
+                              {t("done")}
                             </span>
                           )}
                         </div>
@@ -488,20 +510,18 @@ export default function DoctorDashboard() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-100 truncate">
-                                {p.patientName}
+                                {locale === "ar" && p.patientNameAr ? p.patientNameAr : p.patientName}
                               </h3>
                               <p className="mt-1 text-[12px] font-medium text-slate-400 dark:text-slate-500">
                                 {(() => {
                                   const age = calculateAge(p.patientDateOfBirth);
-                                  const gender = p.patientGender || (locale === "ar" ? "غير محدد" : "N/A");
-                                  const translatedGender = locale === "ar"
-                                    ? (gender === "MALE" || gender === "Male" ? "ذكر" : gender === "FEMALE" || gender === "Female" ? "أنثى" : gender)
-                                    : gender;
+                                  const gender = p.patientGender || t("ageNotAvailable");
+                                  const translatedGender = gender === "MALE" || gender === "Male" ? t("male") :
+                                    gender === "FEMALE" || gender === "Female" ? t("female") :
+                                      gender;
 
                                   if (age !== null) {
-                                    return locale === "ar"
-                                      ? `${age} عاماً • ${translatedGender}`
-                                      : `${age} years • ${translatedGender}`;
+                                    return `${age} ${t("years")} • ${translatedGender}`;
                                   }
                                   return translatedGender;
                                 })()}
@@ -509,7 +529,7 @@ export default function DoctorDashboard() {
                             </div>
                             {isNext && (
                               <span className="rounded-full bg-blue-100/80 dark:bg-blue-900/40 px-3 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                                {locale === "ar" ? "التالي" : "Up Next"}
+                                {t("upNext")}
                               </span>
                             )}
                           </div>
@@ -518,16 +538,16 @@ export default function DoctorDashboard() {
                           <div className="mt-4 flex flex-wrap items-center gap-4 text-[11px] font-bold">
                             <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                               <span className="h-2 w-2 rounded-full bg-blue-500" />
-                              BP: <span className="text-slate-400 dark:text-slate-500">120/80</span>
+                              {t("bloodPressure")}: <span className="text-slate-400 dark:text-slate-500">120/80</span>
                             </span>
                             <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                               <span className="h-2 w-2 rounded-full bg-rose-500" />
-                              HR: <span className="text-slate-400 dark:text-slate-500">72 bpm</span>
+                              {t("heartRate")}: <span className="text-slate-400 dark:text-slate-500">72 bpm</span>
                             </span>
                             {(isNow || isNormal) && (
                               <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                                 <span className="h-2 w-2 rounded-full bg-amber-400" />
-                                Temp: <span className="text-slate-400 dark:text-slate-500">98.6°F</span>
+                                {t("temperature")}: <span className="text-slate-400 dark:text-slate-500">98.6°F</span>
                               </span>
                             )}
                           </div>
@@ -535,8 +555,8 @@ export default function DoctorDashboard() {
                           {/* Footer: Reason & Actions */}
                           <div className="mt-5 pt-4 border-t border-slate-100/60 dark:border-slate-800/60 flex items-center justify-between">
                             <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 truncate mr-4">
-                              <span className="text-slate-500 dark:text-slate-400 font-bold mr-1">Reason:</span>
-                              {p.notes || p.type || (locale === "ar" ? "فحص دوري" : "Routine Checkup")}
+                              <span className="text-slate-500 dark:text-slate-400 font-bold mr-1">{t("reason")}:</span>
+                              {p.notes || t(normalizeKey(p.type) as TranslationKey) || p.type.replace("_", " ")}
                             </p>
 
                             {!isPast && (
@@ -551,13 +571,13 @@ export default function DoctorDashboard() {
                                   )}
                                 >
                                   <MessageSquare className="h-4 w-4" />
-                                  {locale === "ar" ? "دردشة" : "Chat"}
+                                  {t("chat")}
                                 </button>
                                 <Link
                                   href="/doctor/schedule"
                                   className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors sm:border-l sm:border-slate-100 sm:dark:border-slate-800 sm:pl-4"
                                 >
-                                  {locale === "ar" ? "عرض التفاصيل" : "View Details"}
+                                  {t("viewDetails")}
                                   <ChevronRight className="h-4 w-4" />
                                 </Link>
                               </div>
@@ -580,10 +600,10 @@ export default function DoctorDashboard() {
                 </div>
                 <div className="flex flex-col">
                   <CardTitle className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
-                    {locale === "ar" ? "طابور المرضى" : "Patient Queue"}
+                    {t("patientQueue")}
                   </CardTitle>
                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    {locale === "ar" ? "3 مرضى بانتظار المراجعة" : "3 patients waiting"}
+                    {`3 ${t("patientsWaiting")}`}
                   </p>
                 </div>
               </div>
@@ -610,20 +630,20 @@ export default function DoctorDashboard() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 truncate">
-                              {item.patientName}
+                              {locale === "ar" && item.patientNameAr ? item.patientNameAr : item.patientName}
                             </h4>
                             <p className="mt-0.5 text-[12px] font-medium text-slate-400 dark:text-slate-500">
                               {(() => {
                                 const age = calculateAge(item.patientDateOfBirth);
                                 if (age !== null) {
-                                  return locale === "ar" ? `${age} عاماً` : `${age} years`;
+                                  return `${age} ${t("years")}`;
                                 }
-                                return locale === "ar" ? "العمر غير متاح" : "Age N/A";
+                                return t("ageNotAvailable");
                               })()}
                             </p>
                           </div>
                           <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                            {locale === "ar" ? "الوصول" : "Checked in"}: {item.time}
+                            {t("arrival")}: {item.time}
                           </span>
                         </div>
 
@@ -637,8 +657,8 @@ export default function DoctorDashboard() {
                             )}
                             <p className="text-[12px] font-medium text-slate-600 dark:text-slate-400 truncate">
                               {i === 1
-                                ? locale === "ar" ? "مراجعة قلب - طارئ" : "Chest Pain - Emergency"
-                                : locale === "ar" ? "فحص دوري" : "Annual Physical"}
+                                ? t("chestPainEmergency")
+                                : t("annualPhysical")}
                             </p>
                           </div>
 
@@ -655,7 +675,7 @@ export default function DoctorDashboard() {
                               )}
                             >
                               <MessageSquare className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">{locale === "ar" ? "دردشة" : "Chat"}</span>
+                              <span className="hidden sm:inline">{t("chat")}</span>
                             </button>
                             <button
                               type="button"
@@ -676,7 +696,7 @@ export default function DoctorDashboard() {
                   onClick={() => setIsQueueOpen(true)}
                   className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  {locale === "ar" ? "عرض كل المرضى" : "View All Patients"}
+                  {t("viewAllPatients")}
                 </button>
               </div>
             </CardContent>
@@ -692,10 +712,10 @@ export default function DoctorDashboard() {
                   </div>
                   <div className="flex flex-col">
                     <DialogTitle className="text-[18px] font-bold text-slate-800 dark:text-slate-100">
-                      {locale === "ar" ? "طابور المرضى" : "Patient Queue"}
+                      {t("patientQueue")}
                     </DialogTitle>
                     <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">
-                      {locale === "ar" ? "٥ مرضى بانتظار المراجعة • إدارة ترتيب الاستشارات" : "5 patients waiting • Manage consultation order"}
+                      {`5 ${t("patientsWaiting")} • ${t("manageConsultationOrder")}`}
                     </p>
                   </div>
                 </div>
@@ -704,7 +724,7 @@ export default function DoctorDashboard() {
               <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4 bg-slate-50/30 dark:bg-slate-950/20">
                 {todayAppointments.length === 0 ? (
                   <div className="py-12 text-center text-slate-400">
-                    {locale === "ar" ? "لا يوجد مرضى في الطابور" : "No patients in queue"}
+                    {t("noPatientsInQueue")}
                   </div>
                 ) : (
                   todayAppointments.map((p, i) => {
@@ -726,42 +746,45 @@ export default function DoctorDashboard() {
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
                               <div>
-                                <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{p.patientName}</h4>
-                                <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Patient ID: {p.id.slice(0, 8)}</p>
+                                <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{locale === "ar" && p.patientNameAr ? p.patientNameAr : p.patientName}</h4>
+                                <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">{t("patientId")}: {p.id.slice(0, 8)}</p>
                               </div>
                               {isUrgent && (
                                 <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 dark:bg-rose-900/30 px-2.5 py-1 text-[11px] font-bold text-rose-500">
                                   <AlertCircle className="h-3.5 w-3.5" />
-                                  {locale === "ar" ? "طوارئ" : "Urgent"}
+                                  {t("urgent")}
                                 </span>
                               )}
                             </div>
 
                             <div className="mt-5 grid grid-cols-3 gap-4">
                               <div>
-                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Age & Gender</p>
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">{t("ageAndGender")}</p>
                                 <p className="mt-1 text-[13px] font-bold text-slate-700 dark:text-slate-200">
                                   {(() => {
                                     const age = calculateAge(p.patientDateOfBirth);
-                                    const gender = p.patientGender || "N/A";
-                                    return age !== null ? `${age}y • ${gender}` : gender;
+                                    const gender = p.patientGender || t("ageNotAvailable");
+                                    const translatedGender = gender === "MALE" || gender === "Male" ? t("male") :
+                                      gender === "FEMALE" || gender === "Female" ? t("female") :
+                                        gender;
+                                    return age !== null ? `${age}${t("years").charAt(0)} • ${translatedGender}` : translatedGender;
                                   })()}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Reason</p>
-                                <p className="mt-1 text-[13px] font-bold text-slate-700 dark:text-slate-200">{p.type.replace("_", " ")}</p>
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">{t("reason")}</p>
+                                <p className="mt-1 text-[13px] font-bold text-slate-700 dark:text-slate-200">{t(normalizeKey(p.type) as TranslationKey) || p.type.replace("_", " ")}</p>
                               </div>
                               <div>
-                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Appt Time</p>
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">{t("apptTime")}</p>
                                 <div className="mt-1 flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
                                   <Clock3 className="h-3.5 w-3.5 text-slate-400" />
                                   <p className="text-[13px] font-bold">{p.time}</p>
                                 </div>
                               </div>
                               <div>
-                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">Status</p>
-                                <p className="mt-1 text-[13px] font-bold text-blue-600 uppercase">{p.status}</p>
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">{t("status")}</p>
+                                <p className="mt-1 text-[13px] font-bold text-blue-600 uppercase">{t(normalizeKey(p.status) as TranslationKey) || p.status}</p>
                               </div>
                             </div>
 
@@ -770,7 +793,7 @@ export default function DoctorDashboard() {
                               className="mt-6 w-full flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 text-[13px] font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
                             >
                               <MessageSquare className="h-4 w-4" />
-                              {locale === "ar" ? "بدء الدردشة" : "Start Chat"}
+                              {t("startChat")}
                             </button>
                           </div>
                         </div>
@@ -782,11 +805,11 @@ export default function DoctorDashboard() {
 
               <div className="px-6 py-4 border-t border-slate-50 dark:border-slate-800/50 flex items-center justify-between bg-white dark:bg-slate-900 sticky bottom-0 z-10">
                 <p className="text-[12px] font-bold text-slate-500 dark:text-slate-400">
-                  {locale === "ar" ? "متوسط وقت الانتظار: ١٥ دقيقة" : "Average wait time: 15 minutes"}
+                  {`${t("averageWaitTime")}: 15 ${t("minutes")}`}
                 </p>
                 <DialogClose asChild>
                   <Button variant="ghost" className="text-[13px] font-bold text-slate-600 hover:bg-slate-50">
-                    {locale === "ar" ? "إغلاق" : "Close"}
+                    {t("close")}
                   </Button>
                 </DialogClose>
               </div>
@@ -798,7 +821,6 @@ export default function DoctorDashboard() {
             onOpenChange={setIsNotificationsOpen}
             notifications={realNotifications}
             onRefresh={refreshDashboard}
-            locale={locale}
           />
 
         </div>
@@ -812,12 +834,20 @@ export default function DoctorDashboard() {
                   <Bell className="h-4.5 w-4.5" />
                 </div>
                 <CardTitle className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
-                  {locale === "ar" ? "الإشعارات" : "Notifications"}
+                  {t("notifications")}
                 </CardTitle>
               </div>
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
-                {notificationItems.length}
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsNotificationsOpen(true)}
+                  className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  {t("viewAll")}
+                </button>
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
+                  {notificationItems.length}
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
@@ -859,19 +889,21 @@ export default function DoctorDashboard() {
                                 item.role === "PATIENT" ? "bg-emerald-100 text-emerald-700" :
                                   "bg-slate-100 text-slate-500"
                           )}>
-                            {item.role || item.type || "System"}
+                            {item.role ? t(item.role.toLowerCase() as TranslationKey) :
+                              item.type ? t(normalizeKey(item.type) as TranslationKey) || item.type.replace("_", " ") :
+                                t("system")}
                           </span>
                           <p className={cn(
                             "text-[13px] text-slate-800 dark:text-slate-100 leading-tight truncate",
                             item.unread ? "font-bold" : "font-medium"
                           )}>
-                            {item.title}
+                            {translateNotificationTitle(item.title)}
                           </p>
                         </div>
                         {item.unread && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 shrink-0 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
                       </div>
                       <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-normal line-clamp-2">
-                        {item.body}
+                        {translateNotificationBody(item.body)}
                       </p>
                       <div className="mt-2 flex items-center justify-between">
                         {item.time && (
@@ -892,7 +924,7 @@ export default function DoctorDashboard() {
                                 }}
                                 className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
                               >
-                                {locale === "ar" ? "مقروء" : "Read"}
+                                {t("read")}
                               </button>
                             )}
                             <button
@@ -911,14 +943,7 @@ export default function DoctorDashboard() {
                   </div>
                 ))}
               </div>
-              <div className="p-4 border-t border-slate-50 dark:border-slate-800/50 text-center">
-                <button
-                  onClick={() => setIsNotificationsOpen(true)}
-                  className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                  {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
-                </button>
-              </div>
+
             </CardContent>
           </Card>
 
@@ -930,10 +955,10 @@ export default function DoctorDashboard() {
                 </div>
                 <div className="flex flex-col">
                   <CardTitle className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
-                    {locale === "ar" ? "المهام السريعة" : "Quick Tasks"}
+                    {t("quickTasks")}
                   </CardTitle>
                   <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                    {pendingTasks.length} {locale === "ar" ? "مهام معلقة" : "tasks pending"}
+                    {pendingTasks.length} {t("tasksPending")}
                   </p>
                 </div>
               </div>
@@ -973,7 +998,7 @@ export default function DoctorDashboard() {
                           </p>
                         </div>
                         <p className="mt-1.5 ml-6 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
-                          {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true, locale: locale === "ar" ? ar : undefined })}
                         </p>
                       </div>
                       <button
@@ -993,7 +1018,7 @@ export default function DoctorDashboard() {
               {completedTasks.length > 0 && (
                 <div className="pt-2">
                   <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                    {locale === "ar" ? "مكتملة" : "Completed"}
+                    {t("completed_f")}
                   </p>
                   {completedTasks.map((task) => (
                     <div
@@ -1070,16 +1095,16 @@ export default function DoctorDashboard() {
         <Card className="lg:col-span-2 rounded-2xl border-slate-100 dark:border-slate-800/60 shadow-none dark:bg-slate-900/40 overflow-hidden">
           <CardHeader className="px-5 pb-3.5 pt-5">
             <CardTitle className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
-              {locale === "ar" ? "إجراءات سريعة" : "Quick Actions"}
+              {t("quickActions")}
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-3.5 pt-0">
             <div className="grid grid-cols-2 gap-4 sm:gap-4">
               {[
-                { label: locale === "ar" ? "مريض جديد" : "New Patient", icon: UserPlus, color: "blue", href: "/doctor/patients" },
-                { label: locale === "ar" ? "إضافة موعد" : "Add Appointment", icon: CalendarPlus, color: "blue", href: "/doctor/schedule" },
-                { label: locale === "ar" ? "كتابة وصفة" : "Write Prescription", icon: FilePenLine, color: "blue", href: "/doctor/patients" },
-                { label: locale === "ar" ? "إدارة الجدول" : "Manage Schedule", icon: CalendarDays, color: "blue", href: "/doctor/schedule" },
+                { label: t("newPatient"), icon: UserPlus, color: "blue", href: "/doctor/patients" },
+                { label: t("addAppointment"), icon: CalendarPlus, color: "blue", href: "/doctor/schedule" },
+                { label: t("writePrescription"), icon: FilePenLine, color: "blue", href: "/doctor/patients" },
+                { label: t("manageSchedule"), icon: CalendarDays, color: "blue", href: "/doctor/schedule" },
               ].map((action, idx) => (
                 <Link
                   key={idx}
@@ -1101,10 +1126,10 @@ export default function DoctorDashboard() {
         <Card className="rounded-2xl border-slate-100 dark:border-slate-800/60 shadow-sm transition-all hover:shadow-md dark:bg-slate-900/40 overflow-hidden">
           <CardHeader className="px-4 pb-3.5 pt-5 flex flex-row items-center justify-between">
             <CardTitle className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
-              {locale === "ar" ? "تخصيص الإشعارات" : "Customize notifications"}
+              {t("customizeNotifications")}
             </CardTitle>
             <Button size="sm" className="h-8 rounded-lg bg-blue-600 px-4 text-[12px] font-bold text-white hover:bg-blue-700">
-              {locale === "ar" ? "إرسال" : "send"}
+              {t("submit")}
             </Button>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
@@ -1118,7 +1143,7 @@ export default function DoctorDashboard() {
               </div>
               <div className="relative">
                 <textarea
-                  placeholder={locale === "ar" ? "أدخل إشعاراتك هنا..." : "Enter your notifications..."}
+                  placeholder={t("enterNotificationsHere")}
                   className="min-h-[140px] w-full resize-none rounded-xl border-none bg-transparent px-0 py-0 text-[13px] font-medium placeholder:text-slate-400 focus:outline-none"
                 />
                 <button className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none hover:bg-blue-700 transition-transform hover:scale-105">
@@ -1140,7 +1165,7 @@ export default function DoctorDashboard() {
                   <Plus className="h-5 w-5" />
                 </div>
                 <DialogTitle className="text-[18px] font-bold text-slate-800 dark:text-slate-100">
-                  {locale === "ar" ? "إضافة مهمة جديدة" : "Add New Task"}
+                  {t("addNewTask")}
                 </DialogTitle>
               </div>
             </DialogHeader>
@@ -1148,7 +1173,7 @@ export default function DoctorDashboard() {
             <div className="p-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
-                  {locale === "ar" ? "عنوان المهمة" : "Task Title"}
+                  {t("taskTitle")}
                 </label>
                 <Input
                   placeholder={locale === "ar" ? "مثلاً: الاتصال بالمريض" : "e.g. Follow up with patient"}
@@ -1161,16 +1186,16 @@ export default function DoctorDashboard() {
 
               <div className="space-y-2">
                 <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
-                  {locale === "ar" ? "الأولوية" : "Priority"}
+                  {t("priority")}
                 </label>
                 <Select
                   value={newTaskPriority}
                   onChange={(e) => setNewTaskPriority(e.target.value as TaskPriority)}
                   options={[
-                    { value: "LOW", label: locale === "ar" ? "منخفضة" : "Low" },
-                    { value: "NORMAL", label: locale === "ar" ? "عادية" : "Normal" },
-                    { value: "HIGH", label: locale === "ar" ? "عالية" : "High" },
-                    { value: "URGENT", label: locale === "ar" ? "عاجلة" : "Urgent" },
+                    { value: "LOW", label: t("low") },
+                    { value: "NORMAL", label: t("normal") },
+                    { value: "HIGH", label: t("high") },
+                    { value: "URGENT", label: t("urgent") },
                   ]}
                 />
               </div>
@@ -1183,14 +1208,14 @@ export default function DoctorDashboard() {
                 onClick={() => setIsCreateTaskOpen(false)}
                 className="flex-1 rounded-xl font-bold"
               >
-                {locale === "ar" ? "إلغاء" : "Cancel"}
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmittingTask || !newTaskTitle.trim()}
                 className="flex-1 rounded-xl bg-blue-600 font-bold text-white hover:bg-blue-700"
               >
-                {isSubmittingTask ? <Loader2 className="h-4 w-4 animate-spin" /> : (locale === "ar" ? "حفظ" : "Save")}
+                {isSubmittingTask ? <Loader2 className="h-4 w-4 animate-spin" /> : t("save")}
               </Button>
             </div>
           </form>

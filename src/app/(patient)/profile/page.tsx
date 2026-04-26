@@ -69,6 +69,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({
     fullName: "",
+    fullNameAr: "",
     phone: "",
     email: "",
     dateOfBirth: "",
@@ -87,6 +88,7 @@ export default function ProfilePage() {
       const history = (data.medicalHistory as Record<string, unknown>) || {};
       setEditForm({
         fullName: data.fullName || "",
+        fullNameAr: data.fullNameAr || "",
         phone: data.phone || "",
         email: data.email || "",
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split("T")[0] : "",
@@ -141,6 +143,7 @@ export default function ProfilePage() {
 
       await patientService.update(patient.id, {
         fullName: editForm.fullName,
+        fullNameAr: editForm.fullNameAr,
         phone: editForm.phone,
         email: editForm.email,
         dateOfBirth: editForm.dateOfBirth || undefined,
@@ -153,6 +156,9 @@ export default function ProfilePage() {
       toast.success(locale === "ar" ? "تم تحديث الملف الشخصي بنجاح" : "Profile updated successfully");
       setIsEditModalOpen(false);
       await loadPatientData();
+      
+      // Update global user session so the navbar catches the new name
+      useAuthStore.getState().bootSession(true);
     } catch (error) {
       console.error("Failed to update profile", error);
       toast.error(locale === "ar" ? "فشل تحديث الملف الشخصي" : "Failed to update profile");
@@ -436,11 +442,20 @@ export default function ProfilePage() {
           <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("fullName")}</label>
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "الاسم الكامل (بالإنجليزية)" : "Full Name (English)"}</label>
                 <Input 
                   value={editForm.fullName} 
                   onChange={e => setEditForm(prev => ({ ...prev, fullName: e.target.value }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold focus:ring-4 focus:ring-blue-500/10"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "الاسم الكامل (بالعربية)" : "Full Name (Arabic)"}</label>
+                <Input 
+                  value={editForm.fullNameAr} 
+                  onChange={e => setEditForm(prev => ({ ...prev, fullNameAr: e.target.value }))}
+                  dir="rtl"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold focus:ring-4 focus:ring-blue-500/10 text-right"
                 />
               </div>
               <div className="space-y-2">

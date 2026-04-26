@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 import { notificationsService } from "@/services/notificationsService";
 import { formatDistanceToNow } from "date-fns";
 import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
+import { useTranslation } from "@/hooks/useTranslation";
+import { TranslationKey } from "@/lib/i18n";
+import { ar } from "date-fns/locale";
 import {
   ShieldCheck,
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
@@ -82,12 +85,13 @@ const navByRole: Record<Role, NavItem[]> = {
 export function DashboardTopbar() {
   const router = useRouter();
   const { appointments, fetchAppointments } = useBookingStore();
-  const { locale, setLocale, theme, toggleTheme } = useStore();
+  const { setLocale, theme, toggleTheme } = useStore();
+  const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const [isFullNotificationsOpen, setIsFullNotificationsOpen] = useState(false);
   const [realNotifications, setRealNotifications] = useState<InAppNotification[]>([]);
-  
+
   const refreshNotifications = useCallback(async () => {
     try {
       const data = await notificationsService.getInAppNotifications();
@@ -96,6 +100,30 @@ export function DashboardTopbar() {
       console.error("Failed to fetch notifications in Topbar", err);
     }
   }, []);
+
+  const normalizeKey = (key: string) => 
+    key.toLowerCase().replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+
+  const translateNotificationTitle = (title: string) => {
+    if (title === "Appointment status updated") return t("appointmentStatusUpdated");
+    return title;
+  };
+
+  const translateNotificationBody = (body: string) => {
+    const match = body.match(/Patient (.*) moved from (.*) to (.*)/);
+    if (match) {
+      const [, name, oldStatus, newStatus] = match;
+      const cleanOld = oldStatus.replace(/\.$/, "").trim();
+      const cleanNew = newStatus.replace(/\.$/, "").trim();
+      const translatedOld = t(normalizeKey(cleanOld) as TranslationKey) || cleanOld;
+      const translatedNew = t(normalizeKey(cleanNew) as TranslationKey) || cleanNew;
+      return t("patientMoved")
+        .replace("{name}", name)
+        .replace("{old}", translatedOld)
+        .replace("{new}", translatedNew);
+    }
+    return body;
+  };
 
   useEffect(() => {
     // Defer the initial fetch to avoid sync setState in effect
@@ -112,7 +140,7 @@ export function DashboardTopbar() {
       clearInterval(intervalId);
     };
   }, [refreshNotifications]);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -124,19 +152,20 @@ export function DashboardTopbar() {
   }, [fetchAppointments]);
 
   const role = user?.role ?? "PATIENT";
-  const firstName = user?.name ? user.name.split(" ")[0] : "";
+  const displayName = (locale === "ar" && user?.nameAr) ? user.nameAr : (user?.name || "");
+  const firstName = displayName ? displayName.split(" ")[0] : "";
   const roleLabel = roleLabels[role][locale];
 
   // Derive search results from query and role
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    
+
     const query = searchQuery.toLowerCase();
     const availableRoutes = navByRole[role] || [];
-    
+
     return availableRoutes.filter(
-      (route) => 
-        route.label.toLowerCase().includes(query) || 
+      (route) =>
+        route.label.toLowerCase().includes(query) ||
         route.labelAr.toLowerCase().includes(query) ||
         route.href.toLowerCase().includes(query)
     );
@@ -189,15 +218,15 @@ export function DashboardTopbar() {
     const todaysAppointmentsCount = appointments.filter((a: { date: string; }) => a.date === todayStr).length;
 
     let message = "";
-    
+
     if (user?.role === "DOCTOR") {
       if (todaysAppointmentsCount === 0) {
         message = locale === "ar" ? "ليس لديك مواعيد اليوم" : "You have no appointments today";
       } else if (todaysAppointmentsCount === 1) {
         message = locale === "ar" ? "لديك موعد واحد اليوم" : "You have 1 appointment today";
       } else {
-        message = locale === "ar" 
-          ? `لديك ${todaysAppointmentsCount} مواعيد اليوم` 
+        message = locale === "ar"
+          ? `لديك ${todaysAppointmentsCount} مواعيد اليوم`
           : `You have ${todaysAppointmentsCount} appointments today`;
       }
     } else if (user?.role === "PATIENT") {
@@ -206,8 +235,8 @@ export function DashboardTopbar() {
       if (todaysAppointmentsCount === 0) {
         message = locale === "ar" ? "لا توجد مواعيد في العيادة اليوم" : "No appointments in the clinic today";
       } else {
-        message = locale === "ar" 
-          ? `هناك ${todaysAppointmentsCount} مواعيد في العيادة اليوم` 
+        message = locale === "ar"
+          ? `هناك ${todaysAppointmentsCount} مواعيد في العيادة اليوم`
           : `There are ${todaysAppointmentsCount} clinic appointments today`;
       }
     } else {
@@ -217,6 +246,7 @@ export function DashboardTopbar() {
     return `${dateStr} • ${message}`;
   };
 
+
   return (
     <div className="hidden lg:flex w-full border-b border-slate-100/80 dark:border-slate-800/60 bg-white dark:bg-slate-950 px-7 py-4 flex-col gap-2 transition-all duration-300">
       <div className="flex items-start justify-between w-full">
@@ -225,9 +255,9 @@ export function DashboardTopbar() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col min-w-0">
               <h1 className="text-[17px] font-bold text-slate-900 dark:text-slate-50 leading-tight truncate mb-1">
-                {user?.role === "DOCTOR" 
-                  ? `${getGreeting()}, Dr. ${firstName || "User"}`
-                  : `${getGreeting()}, ${firstName || "User"}`}
+                {user?.role === "DOCTOR"
+                  ? `${getGreeting()}, ${locale === "ar" ? "د. " : "Dr. "}${firstName || (locale === "ar" ? "مستخدم" : "User")}`
+                  : `${getGreeting()}, ${firstName || (locale === "ar" ? "مستخدم" : "User")}`}
               </h1>
               <p className="mt-0.5 text-[12px] font-medium text-slate-500 dark:text-slate-400 truncate">
                 {getSubtitle()}
@@ -250,7 +280,7 @@ export function DashboardTopbar() {
               }
               className="h-10 w-full rounded-sm border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-5 text-[13px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all group-hover:bg-white dark:group-hover:bg-slate-900"
             />
-            
+
             {/* Search Results Dropdown */}
             {isSearchFocused && searchQuery.trim() && (
               <div className="absolute top-full mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 z-[100] animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "60vh", overflowY: "auto" }}>
@@ -299,15 +329,15 @@ export function DashboardTopbar() {
           <div className="flex items-center gap-2">
             {/* Notifications */}
             <div className="relative">
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-2xl transition-all duration-300 border-2 border-slate-50 dark:border-slate-800",
-                    notifOpen 
-                      ? "bg-blue-600 text-white ring-4 ring-blue-50 dark:ring-blue-900/20" 
-                      : "bg-white dark:bg-slate-900 text-slate-400 hover:text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/20"
-                  )} 
+                  "flex h-8 w-8 items-center justify-center rounded-2xl transition-all duration-300 border-2 border-slate-50 dark:border-slate-800",
+                  notifOpen
+                    ? "bg-blue-600 text-white ring-4 ring-blue-50 dark:ring-blue-900/20"
+                    : "bg-white dark:bg-slate-900 text-slate-400 hover:text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/20"
+                )}
                 onClick={() => setNotifOpen(!notifOpen)}
               >
                 <Bell className="h-[17px] w-[17px]" />
@@ -328,93 +358,93 @@ export function DashboardTopbar() {
                       {realNotifications.filter(n => !n.readAt).length}
                     </span>
                   </div>
-                  
+
                   <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-50 dark:divide-slate-800/50">
                     {realNotifications.length > 0 ? (
                       realNotifications.slice(0, 8).map((n) => (
-                          <div 
-                            key={n.id} 
-                            onClick={() => {
-                              if (!n.readAt) {
-                                notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
-                              }
-                            }}
-                            className={cn(
-                              "group relative flex items-start gap-3 p-4 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer border-l-4",
-                              !n.readAt 
-                                ? "bg-blue-50/40 dark:bg-blue-900/10 border-l-blue-600" 
-                                : "bg-transparent border-l-transparent"
-                            )}
-                          >
-                            <div className={cn(
-                              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110",
-                              n.payload?.role === "ADMIN" ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600" :
+                        <div
+                          key={n.id}
+                          onClick={() => {
+                            if (!n.readAt) {
+                              notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
+                            }
+                          }}
+                          className={cn(
+                            "group relative flex items-start gap-3 p-4 transition-all hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer border-l-4",
+                            !n.readAt
+                              ? "bg-blue-50/40 dark:bg-blue-900/10 border-l-blue-600"
+                              : "bg-transparent border-l-transparent"
+                          )}
+                        >
+                          <div className={cn(
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-110",
+                            n.payload?.role === "ADMIN" ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600" :
                               n.payload?.role === "DOCTOR" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600" :
-                              n.payload?.role === "PATIENT" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
-                              n.type === "CRITICAL" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
-                              "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                            )}>
-                              {n.payload?.role === "ADMIN" ? <ShieldCheck className="h-4.5 w-4.5" /> : 
-                               n.payload?.role === "DOCTOR" ? <Stethoscope className="h-4.5 w-4.5" /> : 
-                               n.payload?.role === "PATIENT" ? <User className="h-4.5 w-4.5" /> : 
-                               <Bell className="h-4.5 w-4.5" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex flex-col gap-0.5 min-w-0">
-                                  <span className={cn(
-                                    "text-[9px] font-black uppercase tracking-[0.1em] mb-1 px-1.5 py-0.5 rounded-md w-fit",
-                                    n.payload?.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
+                                n.payload?.role === "PATIENT" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
+                                  n.type === "CRITICAL" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
+                                    "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                          )}>
+                            {n.payload?.role === "ADMIN" ? <ShieldCheck className="h-4.5 w-4.5" /> :
+                              n.payload?.role === "DOCTOR" ? <Stethoscope className="h-4.5 w-4.5" /> :
+                                n.payload?.role === "PATIENT" ? <User className="h-4.5 w-4.5" /> :
+                                  <Bell className="h-4.5 w-4.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span className={cn(
+                                  "text-[9px] font-black uppercase tracking-[0.1em] mb-1 px-1.5 py-0.5 rounded-md w-fit",
+                                  n.payload?.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
                                     n.payload?.role === "DOCTOR" ? "bg-blue-100 text-blue-700" :
-                                    n.payload?.role === "PATIENT" ? "bg-emerald-100 text-emerald-700" :
-                                    "bg-slate-100 text-slate-500"
-                                  )}>
-                                    {n.payload?.role as string || n.type || "System"}
-                                  </span>
-                                  <p className={cn(
-                                    "text-[13px] text-slate-800 dark:text-slate-100 truncate",
-                                    !n.readAt ? "font-bold" : "font-medium"
-                                  )}>
-                                    {n.title}
-                                  </p>
-                                </div>
-                                 {!n.readAt && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
+                                      n.payload?.role === "PATIENT" ? "bg-emerald-100 text-emerald-700" :
+                                        "bg-slate-100 text-slate-500"
+                                )}>
+                                  {n.payload?.role as string || n.type || "System"}
+                                </span>
+                                <p className={cn(
+                                  "text-[13px] text-slate-800 dark:text-slate-100 truncate",
+                                  !n.readAt ? "font-bold" : "font-medium"
+                                )}>
+                                  {translateNotificationTitle(n.title)}
+                                </p>
                               </div>
-                              <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                                {n.body}
-                              </p>
-                                <div className="mt-2 flex items-center gap-2">
-                                  <span 
-                                    title={new Date(n.createdAt).toLocaleString()}
-                                    className="text-[10px] font-bold text-slate-400 uppercase tracking-tight"
+                              {!n.readAt && <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.6)]" />}
+                            </div>
+                            <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                              {translateNotificationBody(n.body)}
+                            </p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <span
+                                title={new Date(n.createdAt).toLocaleString()}
+                                className="text-[10px] font-bold text-slate-400 uppercase tracking-tight"
+                              >
+                                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: locale === "ar" ? ar : undefined })}
+                              </span>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
+                                {!n.readAt && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
+                                    }}
+                                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
                                   >
-                                    {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
-                                  </span>
-                                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
-                                    {!n.readAt && (
-                                      <button 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          notificationsService.markInAppRead(n.id).then(() => refreshNotifications());
-                                        }}
-                                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700"
-                                      >
-                                        {locale === "ar" ? "مقروء" : "Read"}
-                                      </button>
-                                    )}
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        notificationsService.deleteInAppNotification(n.id).then(() => refreshNotifications());
-                                      }}
-                                      className="text-[10px] font-bold text-rose-500 hover:text-rose-600"
-                                    >
-                                      {locale === "ar" ? "حذف" : "Delete"}
-                                    </button>
-                                  </div>
-                                </div>
+                                    {locale === "ar" ? "مقروء" : "Read"}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    notificationsService.deleteInAppNotification(n.id).then(() => refreshNotifications());
+                                  }}
+                                  className="text-[10px] font-bold text-rose-500 hover:text-rose-600"
+                                >
+                                  {locale === "ar" ? "حذف" : "Delete"}
+                                </button>
+                              </div>
                             </div>
                           </div>
+                        </div>
                       ))
                     ) : (
                       <div className="py-12 text-center px-6">
@@ -427,38 +457,38 @@ export function DashboardTopbar() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="p-3 bg-slate-50/50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800/50">
-                     <button 
-                       onClick={() => {
-                         setNotifOpen(false);
-                         setIsFullNotificationsOpen(true);
-                       }}
-                       className="flex h-9 w-full items-center justify-center rounded-xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-[11px] font-bold text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
-                     >
-                        {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
-                        <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
-                     </button>
+                    <button
+                      onClick={() => {
+                        setNotifOpen(false);
+                        setIsFullNotificationsOpen(true);
+                      }}
+                      className="flex h-9 w-full items-center justify-center rounded-xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-[11px] font-bold text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all"
+                    >
+                      {locale === "ar" ? "عرض كل الإشعارات" : "View All Notifications"}
+                      <ChevronRight className="ml-1.5 h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Theme Toggle */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={toggleTheme}
               className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-200"
             >
-              {theme === "light" 
-                ? <Moon className="h-[18px] w-[18px]" /> 
+              {theme === "light"
+                ? <Moon className="h-[18px] w-[18px]" />
                 : <Sun className="h-[18px] w-[18px] text-amber-400" />}
             </Button>
 
             {/* Language Toggle */}
             <Button
-              variant="ghost" 
+              variant="ghost"
               size="icon"
               onClick={() => setLocale(locale === "en" ? "ar" : "en")}
               className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 font-bold text-[10px]"
@@ -468,7 +498,7 @@ export function DashboardTopbar() {
 
             {/* Profile Section */}
             {user && (
-              <Link 
+              <Link
                 href={role === "DOCTOR" ? "/doctor/profile" : (role === "PATIENT" ? "/profile" : (role === "STAFF" ? "/reception/profile" : "#"))}
                 className="flex items-center gap-3 pl-3 border-l border-slate-100 dark:border-slate-800 ml-2 group"
               >
@@ -478,7 +508,7 @@ export function DashboardTopbar() {
                 </Avatar>
                 <div className="hidden xl:flex flex-col items-start min-w-0">
                   <p className="text-[13px] font-bold text-slate-900 dark:text-slate-50 truncate max-w-[120px]">
-                    {user.name}
+                    {displayName || (locale === "ar" ? "مستخدم" : "User")}
                   </p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
                     {roleLabel}
@@ -498,8 +528,8 @@ export function DashboardTopbar() {
               }}
               className={cn(
                 "h-10 px-4 rounded-sm transition-all duration-200 flex items-center gap-2.5",
-                user.isAvailable 
-                  ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900" 
+                user.isAvailable
+                  ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900"
                   : "bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800"
               )}
             >
@@ -515,7 +545,7 @@ export function DashboardTopbar() {
                   {locale === "ar" ? "الحالة" : "Status"}
                 </span>
                 <span className="text-[12px] font-bold">
-                  {locale === "ar" 
+                  {locale === "ar"
                     ? (user.isAvailable ? "متاح" : "غير متاح")
                     : (user.isAvailable ? "Available" : "Unavailable")}
                 </span>
@@ -525,12 +555,11 @@ export function DashboardTopbar() {
         </div>
       </div>
 
-      <NotificationsDialog 
+      <NotificationsDialog
         isOpen={isFullNotificationsOpen}
         onOpenChange={setIsFullNotificationsOpen}
         notifications={realNotifications}
         onRefresh={refreshNotifications}
-        locale={locale}
       />
     </div>
   );

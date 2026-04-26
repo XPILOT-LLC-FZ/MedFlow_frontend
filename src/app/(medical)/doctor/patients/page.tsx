@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -37,6 +37,7 @@ import { patientService } from "@/services/patientService";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiPatient, CreatePatientPayload } from "@/types";
+import type { TranslationKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const chronicFilters = [
@@ -78,6 +79,7 @@ const canonicalizeCondition = (value: string) => {
 
 type AddPatientForm = {
   fullName: string;
+  fullNameAr: string;
   age: string;
   phone: string;
   email: string;
@@ -90,6 +92,7 @@ type AddPatientForm = {
 
 const getInitialAddPatientForm = (): AddPatientForm => ({
   fullName: "",
+  fullNameAr: "",
   age: "",
   phone: "",
   email: "",
@@ -212,7 +215,8 @@ const inAgeBucket = (age: number | null, bucket: string) => {
   return age >= 66;
 };
 
-const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string }) => {
+const PatientCard = ({ patient }: { patient: ApiPatient }) => {
+  const { t, locale } = useTranslation();
   const age = getAge(patient.dateOfBirth);
   const allConditions = extractAllConditions(patient);
   
@@ -239,11 +243,11 @@ const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string 
           </div>
           <div className="min-w-0 pt-1">
             <h4 className="text-[18px] font-black text-slate-900 dark:text-slate-100 leading-tight mb-1 truncate">
-              {patient.fullName}
+              {locale === "ar" && patient.fullNameAr ? patient.fullNameAr : patient.fullName}
             </h4>
             <div className="flex flex-col gap-0.5">
               <span className="text-[14px] font-bold text-slate-500 dark:text-slate-400">
-                {age !== null ? `${age} ${locale === "ar" ? "سنة" : "years"}` : locale === "ar" ? "العمر غير متاح" : "AGE N/A"}
+                {age !== null ? t("yearsOld").replace("{age}", age.toString()) : t("ageNotAvailable")}
               </span>
               <span className="text-[12px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
                 ID: PAT-{patient.id.slice(-4).toUpperCase()}
@@ -256,7 +260,7 @@ const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string 
         <div className="flex-grow flex flex-col gap-4 overflow-hidden">
           <div>
             <p className="text-[12px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
-              {locale === "ar" ? "الحالة الصحية" : "Health Status"}
+              {t("healthStatus")}
             </p>
             
             {/* Chronic Conditions (Scroll X) */}
@@ -267,12 +271,12 @@ const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string 
                     key={`${patient.id}-${condition}`} 
                     className="whitespace-nowrap rounded-xl bg-rose-50 dark:bg-rose-950/30 px-3.5 py-2 text-[12px] font-black text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-900/50"
                   >
-                    {condition}
+                    {t(condition.toLowerCase().replace(/\s+/g, "") as TranslationKey) || condition}
                   </span>
                 ))
               ) : (
                 <span className="whitespace-nowrap rounded-xl bg-blue-50 dark:bg-blue-950/30 px-3.5 py-2 text-[12px] font-black text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50">
-                  {locale === "ar" ? "فحص عام" : "General Checkup"}
+                  {t("generalCheckup")}
                 </span>
               )}
             </div>
@@ -282,14 +286,14 @@ const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string 
           <div className="flex flex-wrap gap-2">
             <span className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-2 text-[12px] font-black text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/50 flex items-center gap-1.5 shadow-sm shadow-emerald-500/5">
               <Check className="h-3.5 w-3.5 stroke-[3]" />
-              {locale === "ar" ? "متحكم به جيداً" : "Well Controlled"}
+              {t("wellControlled")}
             </span>
             {otherConditions.map((condition) => (
               <span 
                 key={`${patient.id}-other-${condition}`}
                 className="rounded-xl bg-slate-50 dark:bg-slate-900/50 px-3.5 py-2 text-[12px] font-black text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800"
               >
-                {condition}
+                {t(condition.toLowerCase().replace(/\s+/g, "") as TranslationKey) || condition}
               </span>
             ))}
           </div>
@@ -300,14 +304,14 @@ const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string 
           <div className="flex items-center gap-2.5 text-slate-500 dark:text-slate-400">
             <Calendar className="h-4.5 w-4.5 text-slate-400" />
             <span className="text-[13px] font-bold">
-              {locale === "ar" ? "آخر زيارة:" : "Last visit:"} {lastVisitDate}
+              {t("lastVisit")} {lastVisitDate}
             </span>
           </div>
           
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-[12px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">
-                {locale === "ar" ? "اتجاه العلامات الحيوية" : "Vitals Trend"}
+                {t("vitalsTrend")}
               </p>
               <Activity className="h-3.5 w-3.5 text-blue-500 opacity-50" />
             </div>
@@ -332,7 +336,7 @@ const PatientCard = ({ patient, locale }: { patient: ApiPatient; locale: string 
 };
 
 export default function DoctorPatientsPage() {
-  const { locale } = useTranslation();
+  const { t } = useTranslation();
   const toastSuccess = useToastStore((state) => state.success);
   const toastError = useToastStore((state) => state.error);
 
@@ -372,14 +376,12 @@ export default function DoctorPatientsPage() {
       const message =
         error instanceof Error
           ? error.message
-          : locale === "ar"
-            ? "تعذر تحميل المرضى"
-            : "Failed to load patients";
+          : t("failedToLoadSchedule");
       toastError(message);
     } finally {
       setIsLoading(false);
     }
-  }, [locale, toastError, debouncedSearch]);
+  }, [toastError, debouncedSearch, t]);
 
   useEffect(() => {
     void loadPatients();
@@ -393,6 +395,7 @@ export default function DoctorPatientsPage() {
 
       const haystack = [
         patient.fullName,
+        patient.fullNameAr,
         patient.email,
         patient.phone,
         patient.id,
@@ -447,7 +450,7 @@ export default function DoctorPatientsPage() {
 
   const exportPatients = () => {
     if (filteredPatients.length === 0) {
-      toastError(locale === "ar" ? "لا توجد بيانات للتصدير" : "No data to export");
+      toastError(t("exportFailed"));
       return;
     }
 
@@ -488,11 +491,7 @@ export default function DoctorPatientsPage() {
 
   const handleCreatePatient = async () => {
     if (addPatientForm.fullName.trim().length < 2) {
-      toastError(
-        locale === "ar"
-          ? "الاسم الكامل يجب أن يكون حرفين على الأقل"
-          : "Full name must be at least 2 characters",
-      );
+      toastError(t("nameTooShort"));
       return;
     }
 
@@ -500,7 +499,7 @@ export default function DoctorPatientsPage() {
     if (normalizedAge) {
       const age = Number(normalizedAge);
       if (!Number.isInteger(age) || age <= 0 || age > 120) {
-        toastError(locale === "ar" ? "العمر غير صالح" : "Age is invalid");
+        toastError(t("invalidAge"));
         return;
       }
     }
@@ -510,9 +509,7 @@ export default function DoctorPatientsPage() {
       normalizedEmail &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
     ) {
-      toastError(
-        locale === "ar" ? "صيغة البريد الإلكتروني غير صحيحة" : "Invalid email format",
-      );
+      toastError(t("invalidEmail"));
       return;
     }
 
@@ -531,6 +528,7 @@ export default function DoctorPatientsPage() {
 
     const payload: CreatePatientPayload = {
       fullName: addPatientForm.fullName.trim(),
+      fullNameAr: addPatientForm.fullNameAr.trim() || undefined,
       phone: addPatientForm.phone.trim() || undefined,
       email: normalizedEmail || undefined,
       dateOfBirth: ageToDateOfBirthIso(normalizedAge),
@@ -545,9 +543,7 @@ export default function DoctorPatientsPage() {
     setIsSavingPatient(true);
     try {
       await patientService.create(payload);
-      toastSuccess(
-        locale === "ar" ? "تم إضافة المريض بنجاح" : "Patient added successfully",
-      );
+      toastSuccess(t("patientAddedSuccessfully"));
       setIsAddDialogOpen(false);
       setAddPatientForm(getInitialAddPatientForm());
       await loadPatients();
@@ -555,9 +551,7 @@ export default function DoctorPatientsPage() {
       toastError(
         error instanceof Error
           ? error.message
-          : locale === "ar"
-            ? "تعذر إضافة المريض"
-            : "Failed to add patient",
+          : t("failedToAddPatient"),
       );
     } finally {
       setIsSavingPatient(false);
@@ -579,12 +573,10 @@ export default function DoctorPatientsPage() {
               </div>
               <div className="flex flex-col">
                 <h2 className="text-[20px] font-black text-slate-900 dark:text-slate-100 leading-tight">
-                  {locale === "ar" ? "دليل المرضى" : "Patients Directory"}
+                  {t("patientsDirectory")}
                 </h2>
                 <p className="mt-1 text-[13px] font-medium text-slate-500 dark:text-slate-400">
-                  {locale === "ar"
-                    ? "إدارة سجلات المرضى والتاريخ الطبي"
-                    : "Manage patient records and medical history"}
+                  {t("managePatientRecords")}
                 </p>
               </div>
             </div>
@@ -595,7 +587,7 @@ export default function DoctorPatientsPage() {
                 className="h-11 px-5 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-bold text-[13px] border border-blue-100/50 dark:border-blue-800/50 hover:bg-blue-100 transition-all flex items-center gap-2"
               >
                 <Download className="h-4 w-4" />
-                {locale === "ar" ? "تصدير البيانات" : "Export Data"}
+                {t("exportData")}
               </Button>
             </div>
           </div>
@@ -605,11 +597,7 @@ export default function DoctorPatientsPage() {
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={
-                locale === "ar"
-                  ? "ابحث عن المرضى بالاسم، الهاتف، المعرف (ID) أو السجل..."
-                  : "Search patients by name, phone, ID or medical history..."
-              }
+              placeholder={t("searchPatientsPlaceholder")}
               className="h-13 w-full rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-12 text-[14px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white dark:focus:bg-slate-950 transition-all"
             />
           </div>
@@ -629,7 +617,7 @@ export default function DoctorPatientsPage() {
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
                 <UserPlus className="h-5 w-5" />
               </div>
-              {locale === "ar" ? "إضافة مريض جديد" : "Add New Patient"}
+              {t("addNewPatient")}
             </DialogTitle>
           </DialogHeader>
 
@@ -638,23 +626,35 @@ export default function DoctorPatientsPage() {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
-                  {locale === "ar" ? "الاسم الكامل" : "Full Name"} *
+                  {t("fullName")} *
                 </label>
                 <Input
                   value={addPatientForm.fullName}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, fullName: e.target.value }))}
-                  placeholder={locale === "ar" ? "أدخل اسم المريض" : "Enter patient name"}
+                  placeholder={t("enterPatientName")}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] focus:ring-4 focus:ring-blue-600/5 transition-all"
                 />
               </div>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
-                  {locale === "ar" ? "العمر" : "Age"} *
+                  {t("fullName")} (Arabic)
+                </label>
+                <Input
+                  value={addPatientForm.fullNameAr}
+                  onChange={(e) => setAddPatientForm(prev => ({ ...prev, fullNameAr: e.target.value }))}
+                  placeholder="أحمد حسن"
+                  dir="rtl"
+                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] focus:ring-4 focus:ring-blue-600/5 transition-all text-right"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
+                  {t("age")} *
                 </label>
                 <Input
                   value={addPatientForm.age}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, age: e.target.value }))}
-                  placeholder={locale === "ar" ? "أدخل العمر" : "Enter age"}
+                  placeholder={t("enterAge")}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
@@ -665,7 +665,7 @@ export default function DoctorPatientsPage() {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                   <Phone className="h-4 w-4 text-blue-500" />
-                  {locale === "ar" ? "رقم الهاتف" : "Phone Number"} *
+                  {t("phoneNumber")} *
                 </label>
                 <Input
                   value={addPatientForm.phone}
@@ -677,7 +677,7 @@ export default function DoctorPatientsPage() {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                   <Mail className="h-4 w-4 text-blue-500" />
-                  {locale === "ar" ? "البريد الإلكتروني" : "Email"} *
+                  {t("email")} *
                 </label>
                 <Input
                   value={addPatientForm.email}
@@ -692,12 +692,12 @@ export default function DoctorPatientsPage() {
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                 <MapPin className="h-4 w-4 text-blue-500" />
-                {locale === "ar" ? "العنوان" : "Address"} *
+                {t("address")} *
               </label>
               <Input
                 value={addPatientForm.address}
                 onChange={(e) => setAddPatientForm(prev => ({ ...prev, address: e.target.value }))}
-                placeholder={locale === "ar" ? "123 شارع رئيسي، المدينة، الدولة ZIP" : "123 Main St, City, State ZIP"}
+                placeholder={t("addressPlaceholder") || t("address")}
                 className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
               />
             </div>
@@ -707,7 +707,7 @@ export default function DoctorPatientsPage() {
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
                   <Droplet className="h-4 w-4 text-blue-500" />
-                  {locale === "ar" ? "فصيلة الدم" : "Blood Type"} *
+                  {t("bloodType")} *
                 </label>
                 <Input
                   value={addPatientForm.bloodType}
@@ -718,12 +718,12 @@ export default function DoctorPatientsPage() {
               </div>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[13px] font-black text-slate-700 dark:text-slate-300">
-                  {locale === "ar" ? "الحساسية" : "Allergies"}
+                  {t("allergies")}
                 </label>
                 <Input
                   value={addPatientForm.allergies}
                   onChange={(e) => setAddPatientForm(prev => ({ ...prev, allergies: e.target.value }))}
-                  placeholder={locale === "ar" ? "افصل بين القيم بفاصلة" : "Separate with commas"}
+                  placeholder={t("separateWithCommas")}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-[14px] transition-all"
                 />
               </div>
@@ -732,7 +732,7 @@ export default function DoctorPatientsPage() {
             {/* Chronic Diseases Section */}
             <div className="space-y-3">
               <p className="text-[13px] font-black text-slate-700 dark:text-slate-300">
-                {locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}
+                {t("chronicDiseases")}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {chronicFilters.map((condition) => (
@@ -754,7 +754,7 @@ export default function DoctorPatientsPage() {
                         : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
                     )}
                   >
-                    {condition}
+                    {t(condition.toLowerCase().replace(/\s+/g, "") as TranslationKey) || condition}
                   </button>
                 ))}
               </div>
@@ -767,14 +767,14 @@ export default function DoctorPatientsPage() {
               onClick={() => setIsAddDialogOpen(false)}
               className="flex-1 h-12 rounded-xl font-black text-[15px] text-slate-500 bg-[#E9EEF4] dark:bg-slate-800 hover:bg-[#DDE5EF] transition-all"
             >
-              {locale === "ar" ? "إلغاء" : "Cancel"}
+              {t("cancel")}
             </Button>
             <Button
               onClick={() => void handleCreatePatient()}
               disabled={isSavingPatient}
               className="flex-1 h-12 rounded-xl bg-[#2563EB] text-white font-black text-[15px] hover:bg-blue-700 shadow-xl shadow-blue-600/20 transition-all disabled:opacity-50"
             >
-              {isSavingPatient ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...") : (locale === "ar" ? "إضافة المريض" : "Add Patient")}
+              {isSavingPatient ? t("adding") : t("addNewPatient")}
             </Button>
           </div>
         </DialogContent>
@@ -791,14 +791,10 @@ export default function DoctorPatientsPage() {
             <div className="rounded-2xl border bg-background sm:col-span-2 xl:col-span-3">
               <EmptyState
                 icon={<UserPlus className="h-8 w-8 text-muted-foreground/60" />}
-                title={locale === "ar" ? "لا يوجد مرضى حالياً" : "No patients found"}
-                description={
-                  locale === "ar"
-                    ? "ابدأ بإضافة مريض جديد لعرض السجل الطبي في هذا القسم"
-                    : "Start by adding a new patient to populate this directory"
-                }
+                title={t("noPatientsFound")}
+                description={t("noPatientsDescription")}
                 action={{
-                  label: locale === "ar" ? "إضافة مريض جديد" : "Add New Patient",
+                  label: t("addNewPatient"),
                   onClick: () => setIsAddDialogOpen(true),
                 }}
               />
@@ -808,21 +804,17 @@ export default function DoctorPatientsPage() {
           {!isLoading &&
             !hasNoPatients &&
             filteredPatients.map((patient) => (
-              <PatientCard key={patient.id} patient={patient} locale={locale} />
+              <PatientCard key={patient.id} patient={patient} />
             ))}
 
           {hasNoMatches && (
             <div className="rounded-2xl border bg-background sm:col-span-2 xl:col-span-3">
               <EmptyState
                 icon={<FilterX className="h-8 w-8 text-muted-foreground/60" />}
-                title={locale === "ar" ? "لا توجد نتائج مطابقة" : "No patients match current filters"}
-                description={
-                  locale === "ar"
-                    ? "جرّب تعديل الفلاتر أو مسح البحث للوصول إلى النتائج"
-                    : "Try adjusting filters or clearing search to see results"
-                }
+                title={t("noResultsFound")}
+                description={t("noPatientsMatchFilters") || t("noResultsFound")}
                 action={{
-                  label: locale === "ar" ? "إعادة تعيين الفلاتر" : "Reset Filters",
+                  label: t("resetFilters"),
                   onClick: resetFilters,
                 }}
               />
@@ -838,14 +830,14 @@ export default function DoctorPatientsPage() {
                 <Funnel className="h-4.5 w-4.5" />
               </div>
               <h3 className="text-[14px] font-black text-slate-900 dark:text-slate-100">
-                {locale === "ar" ? "فلاتر متقدمة" : "Advanced Filters"}
+                {t("filters")}
               </h3>
             </div>
 
             <div className="space-y-6">
               <div>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
-                  {locale === "ar" ? "الأمراض المزمنة" : "Chronic Diseases"}
+                  {t("chronicDiseases")}
                 </p>
                 <div className="space-y-2">
                   {chronicFilters.map((condition) => {
@@ -869,7 +861,7 @@ export default function DoctorPatientsPage() {
                           "text-[12px] font-bold transition-colors",
                           isSelected ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
                         )}>
-                          {condition}
+                          {t(condition.toLowerCase().replace(/\s+/g, "") as TranslationKey) || condition}
                         </span>
                         <div className={cn(
                           "h-4.5 w-4.5 rounded-md border-2 transition-all flex items-center justify-center",
@@ -887,7 +879,7 @@ export default function DoctorPatientsPage() {
 
               <div>
                 <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
-                  {locale === "ar" ? "الفئة العمرية" : "Age Group"}
+                  {t("ageBuckets")}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -899,7 +891,7 @@ export default function DoctorPatientsPage() {
                         : "border-slate-50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
                     )}
                   >
-                    {locale === "ar" ? "الكل" : "All"}
+                    {t("all")}
                   </button>
                   {ageBuckets.map((bucket) => (
                     <button
@@ -939,7 +931,7 @@ export default function DoctorPatientsPage() {
                       "text-[13px] font-black",
                       showRecentActivity ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
                     )}>
-                      {locale === "ar" ? "نشط حديث" : "Recent Activity"}
+                      {t("recentActivity")}
                     </span>
                   </div>
                   <div className={cn(
@@ -972,7 +964,7 @@ export default function DoctorPatientsPage() {
                       "text-[13px] font-black",
                       showPendingResults ? "text-blue-700 dark:text-blue-400" : "text-slate-700 dark:text-slate-300"
                     )}>
-                      {locale === "ar" ? "نتائج معلقة" : "Pending Results"}
+                      {t("pendingResults")}
                     </span>
                   </div>
                   <div className={cn(
@@ -991,7 +983,7 @@ export default function DoctorPatientsPage() {
                 onClick={resetFilters}
                 className="w-full h-10 rounded-xl text-slate-500 font-bold text-[12px] hover:bg-slate-50 hover:text-slate-900 transition-all border border-transparent hover:border-slate-100"
               >
-                {locale === "ar" ? "إعادة تعيين الفلاتر" : "Reset All Filters"}
+                {t("resetFilters")}
               </Button>
             </div>
           </section>
@@ -1003,7 +995,7 @@ export default function DoctorPatientsPage() {
                 <Activity className="h-12 w-12 text-blue-600" />
               </div>
               <h3 className="relative z-10 text-[14px] font-black text-slate-900 dark:text-slate-100">
-                {locale === "ar" ? "إحصائيات الدليل" : "Directory Statistics"}
+                {t("directoryStatistics") || t("analytics")}
               </h3>
             </div>
 
@@ -1014,7 +1006,7 @@ export default function DoctorPatientsPage() {
                     <Users className="h-4 w-4" />
                   </div>
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                    {locale === "ar" ? "إجمالي المرضى" : "Total Patients"}
+                    {t("totalPatients")}
                   </span>
                 </div>
                 <span className="text-[18px] font-black text-slate-900 dark:text-slate-100">
@@ -1028,7 +1020,7 @@ export default function DoctorPatientsPage() {
                     <Activity className="h-4 w-4" />
                   </div>
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                    {locale === "ar" ? "نشط" : "Active"}
+                    {t("activePatients")}
                   </span>
                 </div>
                 <span className="text-[18px] font-black text-emerald-600 dark:text-emerald-400">
@@ -1042,7 +1034,7 @@ export default function DoctorPatientsPage() {
                     <FileText className="h-4 w-4" />
                   </div>
                   <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                    {locale === "ar" ? "نتائج معلقة" : "Pending Results"}
+                    {t("pendingResults")}
                   </span>
                 </div>
                 <span className="text-[18px] font-black text-orange-600 dark:text-orange-400">
@@ -1058,10 +1050,11 @@ export default function DoctorPatientsPage() {
         type="button"
         onClick={() => setIsAddDialogOpen(true)}
         className="fixed bottom-28 right-6 rtl:right-auto rtl:left-6 grid h-14 w-14 place-items-center rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-500/40 transition-all hover:scale-110 active:scale-95 z-50 group/fab"
-        aria-label={locale === "ar" ? "إضافة مريض جديد" : "Add new patient"}
+        aria-label={t("addNewPatient")}
       >
         <Plus className="h-6 w-6 group-hover/fab:rotate-90 transition-transform duration-300 stroke-[3]" />
       </button>
     </div>
   );
 }
+

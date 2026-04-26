@@ -167,7 +167,7 @@ export function DoctorSlider() {
                     variant={doctor.status === "ACTIVE" ? "success" : "secondary"}
                     className="absolute top-3 right-3 rtl:right-auto rtl:left-3"
                   >
-                    {doctor.status === "ACTIVE" ? t("available") : t("unavailable")}
+                    {doctor.status === "ACTIVE" ? (locale === "ar" ? "متوفر" : "available") : (locale === "ar" ? "غير متوفر" : "unavailable")}
                   </Badge>
                 </div>
 

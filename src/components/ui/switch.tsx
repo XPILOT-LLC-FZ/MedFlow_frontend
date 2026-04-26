@@ -9,7 +9,10 @@ interface SwitchProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
   ({ className, checked, onCheckedChange, ...props }, ref) => (
-    <label className={cn("relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50", checked ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800", className)}>
+    <label 
+      dir="ltr"
+      className={cn("relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50", checked ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800", className)}
+    >
       <input
         type="checkbox"
         className="sr-only"

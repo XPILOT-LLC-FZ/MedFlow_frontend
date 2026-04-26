@@ -1,7 +1,6 @@
 "use client";
 
-import React from "react";
-import { Phone, Video, Info, MoreHorizontal, Paperclip, Mic, Send, Check, CheckCheck } from "lucide-react";
+import { Info, MoreHorizontal, Paperclip, Mic, Send, Check, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import Image from "next/image";
@@ -10,9 +9,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Star, Archive, BellOff, Trash2 } from "lucide-react";
+import { Star, Archive, BellOff } from "lucide-react";
 
 interface Message {
   id: string;
@@ -44,7 +42,6 @@ interface DoctorChatMainProps {
   onFavorite?: () => void;
   onArchive?: () => void;
   onMute?: () => void;
-  onDelete?: () => void;
   onToggleContactInfo?: () => void;
   isContactInfoOpen?: boolean;
 }
@@ -59,7 +56,6 @@ export function DoctorChatMain({
   onFavorite,
   onArchive,
   onMute,
-  onDelete,
   onToggleContactInfo,
   isContactInfoOpen,
 }: DoctorChatMainProps) {
@@ -115,12 +111,6 @@ export function DoctorChatMain({
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
-               <Video size={18} />
-          </button>
-          <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50 transition-all dark:border-slate-800 dark:hover:bg-slate-800">
-               <Phone size={18} />
-          </button>
           <button 
             onClick={onToggleContactInfo}
             className={cn(
@@ -163,15 +153,7 @@ export function DoctorChatMain({
                 <span>{recipient.isMuted ? (locale === "ar" ? "إلغاء كتم التنبيهات" : "Unmute notifications") : (locale === "ar" ? "كتم التنبيهات" : "Mute notifications")}</span>
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-900" />
-              
-              <DropdownMenuItem 
-                onClick={onDelete}
-                className="rounded-xl px-3 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 focus:bg-red-50 focus:text-red-600 transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>{locale === "ar" ? "حذف المحادثة" : "Delete chat"}</span>
-              </DropdownMenuItem>
+
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

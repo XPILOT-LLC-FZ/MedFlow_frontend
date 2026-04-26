@@ -761,7 +761,7 @@ export default function AppointmentsPage() {
                             )}
                           </div>
                           <Badge variant="success" className="self-start">
-                            {t("available")}
+                            {locale === "ar" ? "متوفر" : "available"}
                           </Badge>
                         </div>
                       </CardContent>

@@ -18,6 +18,7 @@ interface ContactInfoProps {
   user: {
     id: string;
     name: string;
+    fullNameAr?: string;
     avatar?: string;
     role: string;
     email?: string;
@@ -34,10 +35,10 @@ interface ContactInfoProps {
 
 export function DoctorChatContactInfo({ user, activity, files, onClose }: ContactInfoProps) {
   const { t, locale } = useTranslation();
-  const [activeTab, setActiveTab] = useState("Details");
+  const [activeTab, setActiveTab] = useState("details");
   const [viewingFile, setViewingFile] = useState<{ id: string; name: string; size: string; date: string; fileUrl?: string } | null>(null);
   const [isFetchingUrl, setIsFetchingUrl] = useState(false);
-  const tabs = ["Details", "History", "Files"];
+  const tabs = ["details", "history", "files"];
 
   const handleViewFile = async (file: { id: string; name: string; size: string; date: string; fileUrl?: string }) => {
     if (!user || user.role !== t("patient")) {
@@ -71,7 +72,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6 pb-2 shrink-0">
         <h3 className="text-[18px] font-black text-slate-900 dark:text-white">
-          {locale === "ar" ? "معلومات التواصل" : "Contact Info"}
+          {t("contactInfo")}
         </h3>
         <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-all">
           <X size={20} />
@@ -89,7 +90,9 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
             </div>
           )}
         </div>
-        <h2 className="mb-1 text-[20px] font-black text-slate-900 dark:text-white text-center leading-tight">{user.name}</h2>
+        <h2 className="mb-1 text-[20px] font-black text-slate-900 dark:text-white text-center leading-tight">
+          {locale === "ar" && user.fullNameAr ? user.fullNameAr : user.name}
+        </h2>
         <span className="mb-6 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest">
           {user.role}
         </span>
@@ -125,7 +128,8 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                   : "text-slate-400 hover:text-slate-600"
               )}
             >
-              {locale === "ar" ? (tab === "Details" ? "تفاصيل" : tab === "History" ? "تاريخ" : "ملفات") : tab}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {t(tab as any)}
             </button>
           ))}
         </div>
@@ -136,24 +140,25 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
             key={activeTab}
             className="space-y-6"
           >
-            {activeTab === "Details" && (
+            {activeTab === "details" && (
               <>
                 <section>
                   <h3 className="text-[13px] font-black text-slate-900 dark:text-slate-100 mb-4 px-1">
-                    {locale === "ar" ? "المعلومات الشخصية" : "Personal Information"}
+                    {t("personalInformation")}
                   </h3>
                   <div className="space-y-3">
                     {[
-                      { icon: Mail, label: "Email", value: user.email || "—" },
-                      { icon: Phone, label: "Phone", value: user.phone || "—" },
-                      { icon: MapPin, label: "Address", value: user.address || "123 Main St, New York, NY" },
+                      { icon: Mail, label: "Email", labelKey: "email", value: user.email || "—" },
+                      { icon: Phone, label: "Phone", labelKey: "phone", value: user.phone || "—" },
+                      { icon: MapPin, label: "Address", labelKey: "address", value: user.address || "—" },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
                         <div className="text-slate-400 dark:text-slate-500">
                           <item.icon size={18} />
                         </div>
                         <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{item.label}</p>
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as any)}</p>
                           <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[160px]">{item.value}</p>
                         </div>
                       </div>
@@ -163,15 +168,16 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
 
                 <section>
                   <h3 className="text-[13px] font-black text-slate-900 dark:text-slate-100 mb-4 px-1">
-                    {locale === "ar" ? "المعلومات الطبية" : "Medical Information"}
+                    {t("medicalInformation")}
                   </h3>
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     {[
-                      { label: "Age", value: user.age ? `${user.age} years` : "34 years" },
-                      { label: "Blood Type", value: user.bloodType || "O+" },
+                      { label: "Age", labelKey: "age", value: user.age ? `${user.age} ${t("years")}` : `34 ${t("years")}` },
+                      { label: "Blood Type", labelKey: "bloodType", value: user.bloodType || "O+" },
                     ].map((item) => (
                       <div key={item.label} className="p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{item.label}</p>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as any)}</p>
                         <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{item.value}</p>
                       </div>
                     ))}
@@ -181,18 +187,18 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                       <Calendar size={18} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Last Visit</p>
-                      <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{user.lastVisit || "April 10, 2026"}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("lastVisit")}</p>
+                      <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{user.lastVisit || "—"}</p>
                     </div>
                   </div>
                 </section>
               </>
             )}
 
-            {activeTab === "History" && (
+            {activeTab === "history" && (
               <div className="space-y-4">
                 <div className="px-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{locale === "ar" ? "النشاط الأخير" : "Recent Activity"}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{t("recentActivity")}</p>
                 </div>
                 {activity.map((item) => (
                   <div key={item.id} className="flex items-start gap-4 p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md">
@@ -207,16 +213,16 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                 ))}
                 {activity.length === 0 && (
                   <div className="py-8 text-center">
-                     <p className="text-[12px] font-medium text-slate-400">{locale === "ar" ? "لا يوجد نشاط مؤخراً" : "No recent activity"}</p>
+                     <p className="text-[12px] font-medium text-slate-400">{t("noRecentActivity")}</p>
                   </div>
                 )}
               </div>
             )}
 
-            {activeTab === "Files" && (
+            {activeTab === "files" && (
               <div className="space-y-4">
                 <div className="px-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{locale === "ar" ? "الملفات المشتركة" : "Shared Files"}</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{t("sharedFiles")}</p>
                 </div>
                 {files.map((file) => (
                   <div key={file.id} className="flex items-center justify-between p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md">
@@ -243,7 +249,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                 ))}
                 {files.length === 0 && (
                   <div className="py-8 text-center">
-                     <p className="text-[12px] font-medium text-slate-400">{locale === "ar" ? "لا توجد ملفات" : "No shared files"}</p>
+                     <p className="text-[12px] font-medium text-slate-400">{t("noSharedFiles")}</p>
                   </div>
                 )}
               </div>
@@ -280,7 +286,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                 <div className="h-full w-full flex flex-col items-center justify-center gap-4">
                   <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                   <p className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">
-                    {locale === "ar" ? "جاري التحميل..." : "Loading Viewer..."}
+                    {t("loadingViewer")}
                   </p>
                 </div>
               ) : viewingFile?.fileUrl ? (
@@ -295,10 +301,10 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
                      <FileText size={32} />
                    </div>
                    <p className="text-[14px] font-bold text-slate-600 dark:text-slate-300 mb-2">
-                     {locale === "ar" ? "تعذر عرض الملف" : "Unable to display file"}
+                     {t("unableToDisplayFile")}
                    </p>
                    <p className="text-[12px] font-medium text-slate-400 max-w-xs">
-                     {locale === "ar" ? "حاول تحميل الملف مباشرة لعرض محتوياته." : "Try downloading the file directly to view its contents."}
+                     {t("tryDownloadingFile")}
                    </p>
                 </div>
               )}
@@ -308,7 +314,7 @@ export function DoctorChatContactInfo({ user, activity, files, onClose }: Contac
       </Dialog>
 
       <div className="p-4 text-center shrink-0">
-        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700">MedFlow Secure Session</p>
+        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700">{t("secureSession")}</p>
       </div>
     </div>
   </div>

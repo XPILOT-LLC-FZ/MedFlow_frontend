@@ -3,6 +3,7 @@
 import React from "react";
 import { SettingsSidebar } from "@/components/doctor/SettingsSidebar";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { LanguageToggle } from "@/components/shared/LanguageToggle";
 import { useTranslation } from "@/hooks/useTranslation";
 
 // Metadata is not supported in Client Components
@@ -26,6 +27,7 @@ export default function DoctorSettingsLayout({
             ? "إدارة ملفك الشخصي وجدولك وتفضيلات العيادة" 
             : "Manage your profile, schedule, and clinic preferences"
         }
+        action={<LanguageToggle />}
       />
 
       <div className="flex flex-col sm:flex-row gap-6">

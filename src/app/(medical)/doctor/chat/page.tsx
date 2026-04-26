@@ -17,7 +17,6 @@ import { patientDocumentService } from "@/services/patientDocumentService";
 import { DoctorChatSidebar } from "./components/DoctorChatSidebar";
 import { DoctorChatMain } from "./components/DoctorChatMain";
 import { DoctorChatContactInfo } from "./components/DoctorChatContactInfo";
-import { ConfirmDeleteModal } from "./components/ConfirmDeleteModal";
 import { Loader2, AlertCircle } from "lucide-react";
 
 function formatTime(iso: string) {
@@ -63,10 +62,7 @@ export default function DoctorChatPage() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; conversationId: string }>({
-    isOpen: false,
-    conversationId: "",
-  });
+
 
   // Conversation metadata (favorites, archived, muted)
   const [convMeta, setConvMeta] = useState<Record<string, { isFavorite?: boolean; isArchived?: boolean; isMuted?: boolean }>>({});
@@ -196,36 +192,7 @@ export default function DoctorChatPage() {
     }));
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    setDeleteModal({ isOpen: true, conversationId: id });
-  }, []);
 
-  const confirmDelete = useCallback(async () => {
-    const id = deleteModal.conversationId;
-    if (!id) return;
-
-    try {
-      // Soft delete locally first
-      setConversations(prev => prev.filter(c => c.id !== id));
-      if (id === selectedConversationId) {
-        const remaining = conversations.filter(c => c.id !== id);
-        if (remaining.length > 0) {
-          handleSelectConversation(remaining[0].id);
-        } else {
-          handleSelectConversation("");
-        }
-      }
-      
-      // Phase 6: Call backend delete
-      await doctorChatService.deleteConversation(id);
-      
-      setDeleteModal({ isOpen: false, conversationId: "" });
-    } catch (err) {
-      console.error("Failed to delete conversation", err);
-      // Rollback or show error if needed
-      void loadConversations();
-    }
-  }, [deleteModal.conversationId, selectedConversationId, handleSelectConversation, conversations, loadConversations]);
 
   const selectedConversation = useMemo(() => 
     conversations.find(c => c.id === selectedConversationId),
@@ -610,7 +577,6 @@ export default function DoctorChatPage() {
         onFavorite={handleFavorite}
         onArchive={handleArchive}
         onMute={handleMute}
-        onDelete={handleDelete}
       />
       
       <DoctorChatMain 
@@ -635,7 +601,6 @@ export default function DoctorChatPage() {
         onFavorite={() => handleFavorite(selectedConversationId)}
         onArchive={() => handleArchive(selectedConversationId)}
         onMute={() => handleMute(selectedConversationId)}
-        onDelete={() => handleDelete(selectedConversationId)}
         onToggleContactInfo={() => setShowContactInfo(!showContactInfo)}
         isContactInfoOpen={showContactInfo}
       />
@@ -649,11 +614,7 @@ export default function DoctorChatPage() {
         />
       )}
 
-      <ConfirmDeleteModal 
-        isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal({ isOpen: false, conversationId: "" })}
-        onConfirm={confirmDelete}
-      />
+
     </div>
   );
 }

@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
-import { Search, Users, ShieldCheck, ShieldAlert, User, MoreVertical, Star, Archive, BellOff, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Search, Users, ShieldCheck, ShieldAlert, User, MoreVertical, Star, Archive, BellOff } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -35,7 +34,6 @@ interface DoctorChatSidebarProps {
   onFavorite?: (id: string) => void;
   onArchive?: (id: string) => void;
   onMute?: (id: string) => void;
-  onDelete?: (id: string) => void;
 }
 
 export function DoctorChatSidebar({
@@ -46,7 +44,6 @@ export function DoctorChatSidebar({
   onFavorite,
   onArchive,
   onMute,
-  onDelete,
 }: DoctorChatSidebarProps) {
   const { locale } = useTranslation();
   const [activeFilter, setActiveFilter] = useState("All");
@@ -102,7 +99,7 @@ export function DoctorChatSidebar({
                 onFilterChange(filter);
               }}
               className={cn(
-                "h-8 px-4 my-2 rounded-xl text-[12px] font-bold transition-all shrink-0",
+                "h-7 px-3 rounded-xl text-[11px] font-bold transition-all shrink-0",
                 activeFilter === filter
                   ? "bg-[#2563EB] text-white shadow-lg shadow-blue-600/20"
                   : "bg-slate-50 text-slate-500 hover:bg-slate-100 dark:bg-slate-900/50"
@@ -210,15 +207,7 @@ export function DoctorChatSidebar({
                     <span>{conv.isMuted ? (locale === "ar" ? "إلغاء كتم التنبيهات" : "Unmute notifications") : (locale === "ar" ? "كتم التنبيهات" : "Mute notifications")}</span>
                   </DropdownMenuItem>
 
-                  <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-900" />
-                  
-                  <DropdownMenuItem 
-                    onClick={() => onDelete?.(conv.id)}
-                    className="rounded-xl px-3 py-2 text-[13px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 focus:bg-red-50 focus:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>{locale === "ar" ? "حذف المحادثة" : "Delete chat"}</span>
-                  </DropdownMenuItem>
+
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

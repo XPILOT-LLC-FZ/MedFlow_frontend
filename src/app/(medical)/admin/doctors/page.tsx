@@ -1036,7 +1036,7 @@ export default function DoctorsPage() {
                     <span>{doc.experienceYears} {t("yearsExp")}</span>
                   </div>
                   <Badge variant={doc.status === "ACTIVE" ? "success" : doc.status === "ON_LEAVE" ? "warning" : "secondary"} className="text-xs">
-                    {doc.status === "ACTIVE" ? t("available") : doc.status === "ON_LEAVE" ? (locale === "ar" ? "إجازة" : "On Leave") : t("unavailable")}
+                    {doc.status === "ACTIVE" ? (locale === "ar" ? "متوفر" : "Available") : doc.status === "ON_LEAVE" ? (locale === "ar" ? "إجازة" : "On Leave") : (locale === "ar" ? "غير متوفر" : "Unavailable")}
                   </Badge>
                 </div>
               </CardContent>

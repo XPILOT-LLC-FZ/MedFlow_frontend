@@ -78,7 +78,7 @@ export function Sidebar() {
   const role = user?.role ?? "PATIENT";
   const items = navByRole[role];
   const isDoctorSidebar = role === "DOCTOR";
-  const profileName = user?.name || (locale === "ar" ? "مستخدم النظام" : "MedFlow User");
+  const profileName = (locale === "ar" && user?.nameAr) ? user.nameAr : (user?.name || (locale === "ar" ? "مستخدم النظام" : "MedFlow User"));
 
   const handleLogout = async () => {
     await logout();
@@ -93,8 +93,8 @@ export function Sidebar() {
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">ClinicFlow</span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider leading-tight">Medical Suite</span>
+            <span className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{t("clinicFlow")}</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider leading-tight">{t("medicalSuite")}</span>
           </div>
         </Link>
       );
@@ -220,7 +220,7 @@ export function Sidebar() {
               <div className="min-w-0">
                 <p className={cn("truncate font-semibold text-slate-800 dark:text-slate-100", isDoctorSidebar ? "text-sm" : "text-sm")}>{profileName}</p>
                 {isDoctorSidebar ? (
-                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Cardiologist</p>
+                  <p className="truncate text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">{t("cardiologist")}</p>
                 ) : (
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("settings")}</p>
                 )}

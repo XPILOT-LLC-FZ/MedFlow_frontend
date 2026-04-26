@@ -44,6 +44,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiTreatmentPlan, DashboardDoctorSummaryData, ApiPrescription, ApiPatient, DoctorSurveyStats } from "@/types";
+import type { TranslationKey } from "@/lib/i18n";
 import { cn, exportToCsv, formatDate, formatTime } from "@/lib/utils";
 
 const getDateRange = (range: string) => {
@@ -55,6 +56,7 @@ const getDateRange = (range: string) => {
     case 'day': start.setDate(now.getDate()); break;
     case 'week': start.setDate(now.getDate() - 7); break;
     case 'month': start.setMonth(now.getMonth() - 1); break;
+    case '6months': start.setMonth(now.getMonth() - 6); break;
     case 'year': start.setFullYear(now.getFullYear() - 1); break;
     case 'all': default: return { startDate: undefined, endDate: undefined };
   }
@@ -75,9 +77,10 @@ const isWithinRange = (dateStr: string | Date | null | undefined, range: string)
   const absDiffDays = Math.abs(diffTime / (1000 * 60 * 60 * 24));
   
   switch(range) {
-    case 'today': return absDiffDays <= 1;
+    case 'day': return absDiffDays <= 1;
     case 'week': return absDiffDays <= 7;
     case 'month': return absDiffDays <= 30;
+    case '6months': return absDiffDays <= 180;
     case 'year': return absDiffDays <= 365;
     case 'all': default: return true;
   }
@@ -95,9 +98,9 @@ const mockMedications = [
 ];
 
 const mockDemographics = [
-  { name: 'Pediatric (0-17)', value: 28, color: '#3B82F6' },
-  { name: 'Adult (18-64)', value: 56, color: '#10B981' },
-  { name: 'Senior (65+)', value: 16, color: '#F59E0B' },
+  { name: 'pediatric', value: 28, color: '#3B82F6' },
+  { name: 'adult', value: 56, color: '#10B981' },
+  { name: 'senior', value: 16, color: '#F59E0B' },
 ];
 
 // Mock Satisfaction removed in favor of real data from surveyService
@@ -180,6 +183,7 @@ interface VisitDetailsModalProps {
 }
 
 function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModalProps) {
+  const { t } = useTranslation();
   if (!plan) return null;
 
   return (
@@ -202,8 +206,8 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
             {/* Header */}
             <div className="p-8 flex items-center justify-between border-b border-slate-50 dark:border-slate-800">
               <div>
-                <h2 className="text-[22px] font-black text-slate-900 dark:text-white leading-tight">Visit Details</h2>
-                <p className="text-[13px] font-bold text-slate-400 dark:text-slate-500 mt-1">Comprehensive consultation record</p>
+                <h2 className="text-[22px] font-black text-slate-900 dark:text-white leading-tight">{t("visitDetails")}</h2>
+                <p className="text-[13px] font-bold text-slate-400 dark:text-slate-500 mt-1">{t("visitDetailsSubtitle")}</p>
               </div>
               <button onClick={onClose} className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 transition-all dark:bg-slate-800">
                 <X size={20} />
@@ -221,7 +225,7 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-[18px] font-black text-slate-900 dark:text-white">{plan.patientName}</h3>
-                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-black uppercase">Completed</span>
+                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-600 text-[10px] font-black uppercase">{t("completed")}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <div className="flex items-center gap-1.5 text-slate-500 text-[12px] font-bold">
@@ -250,7 +254,7 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                   <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
                     <Activity size={16} />
                   </div>
-                  <h4 className="text-[14px] font-black text-slate-900 dark:text-white uppercase tracking-wider">Diagnosis</h4>
+                  <h4 className="text-[14px] font-black text-slate-900 dark:text-white uppercase tracking-wider">{t("diagnosisTable")}</h4>
                 </div>
                 <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 leading-relaxed">{plan.title}</p>
               </div>
@@ -261,11 +265,11 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                   <div className="h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                     <FileText size={16} />
                   </div>
-                  <h4 className="text-[14px] font-black text-slate-900 dark:text-white uppercase tracking-wider">Clinical Notes</h4>
+                  <h4 className="text-[14px] font-black text-slate-900 dark:text-white uppercase tracking-wider">{t("clinicalNotes")}</h4>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Symptoms & Context</div>
+                    <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t("symptomsAndContext")}</div>
                     <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
                       {plan.patientName} is scheduled for {plan.totalSessions} {plan.serviceName || 'medical'} sessions to address {plan.title.toLowerCase()} 
                       {plan.doctorName ? ` with Dr. ${plan.doctorName}` : ''}. {plan.description}
@@ -273,12 +277,12 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     <div>
-                      <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Examination</div>
-                      <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">Physical examination conducted, vitals recorded within normal range.</p>
+                      <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t("examination")}</div>
+                      <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">{t("examinationPlaceholder")}</p>
                     </div>
                     <div>
-                      <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Tests Ordered</div>
-                      <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">Standard protocol checks and baseline investigations applied.</p>
+                      <div className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">{t("testsOrdered")}</div>
+                      <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">{t("testsOrderedPlaceholder")}</p>
                     </div>
                   </div>
                 </div>
@@ -295,7 +299,7 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                 }}
                 className="flex-1 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[14px] shadow-lg shadow-blue-500/25 transition-all"
               >
-                Download Report
+                {t("downloadReport")}
               </Button>
               <Button 
                 variant="outline" 
@@ -306,7 +310,7 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
                 }}
                 className="flex-1 h-12 rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-black text-[14px] transition-all"
               >
-                Share via WhatsApp
+                {t("shareViaWhatsApp")}
               </Button>
             </div>
           </motion.div>
@@ -321,16 +325,17 @@ function VisitDetailsModal({ isOpen, onClose, plan, patient }: VisitDetailsModal
 interface TimeRangeSelectProps {
   value: string;
   onChange: (val: string) => void;
-  locale: string;
 }
 
-function TimeRangeSelect({ value, onChange, locale }: TimeRangeSelectProps) {
+function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const options = [
-    { value: "day", label: locale === "ar" ? "يوم" : "Day" },
-    { value: "week", label: locale === "ar" ? "أسبوع" : "Week" },
-    { value: "month", label: locale === "ar" ? "شهر" : "Month" },
-    { value: "year", label: locale === "ar" ? "سنة" : "Year" },
+    { value: "day", label: t("today" as TranslationKey) },
+    { value: "week", label: t("lastWeek" as TranslationKey) },
+    { value: "month", label: t("monthly" as TranslationKey) },
+    { value: "6months", label: t("last6Months" as TranslationKey) },
+    { value: "year", label: t("yearly" as TranslationKey) },
   ];
 
   const selectedLabel = options.find(opt => opt.value === value)?.label || value;
@@ -390,7 +395,7 @@ function TimeRangeSelect({ value, onChange, locale }: TimeRangeSelectProps) {
 /* --- MAIN PAGE --- */
 
 export default function DoctorAnalyticsPage() {
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const toast = useToastStore();
   const { user } = useAuthStore();
   const { fetchDoctors } = useStaffStore();
@@ -426,7 +431,7 @@ export default function DoctorAnalyticsPage() {
       Status: plan.status
     }));
     exportToCsv(exportData, `MedFlow_Analytics_${timeRange}_${new Date().toISOString().split('T')[0]}.csv`);
-    toast.success(locale === "ar" ? "تم تصدير البيانات بنجاح" : "Data exported successfully");
+    toast.success(t("dataExportedSuccessfully"));
   };
 
   const loadAnalytics = useCallback(
@@ -435,8 +440,10 @@ export default function DoctorAnalyticsPage() {
 
       try {
         const { startDate, endDate } = getDateRange(timeRange);
+        const apiPeriod = (timeRange === "6months" ? "year" : timeRange) as "day" | "week" | "month" | "year";
+        
         const [doctorSummary, doctorPlans, doctorPrescriptions, allPatients, stats] = await Promise.all([
-          dashboardService.getDoctorSummary({ period: timeRange as "day" | "week" | "month" | "year" }),
+          dashboardService.getDoctorSummary({ period: apiPeriod }),
           treatmentPlanService.getAll({ 
             doctorId: targetDoctorId,
             startDate,
@@ -453,12 +460,12 @@ export default function DoctorAnalyticsPage() {
         setPatients(allPatients);
         setSurveyStats(stats);
       } catch {
-        toast.error(locale === "ar" ? "فشل تحميل تحليلات الطبيب" : "Failed to load doctor analytics");
+        toast.error(t("failedToLoadAnalytics"));
       } finally {
         if (!refresh) setIsLoading(false);
       }
     },
-    [locale, toast, timeRange],
+    [toast, timeRange, t],
   );
 
   useEffect(() => {
@@ -472,7 +479,7 @@ export default function DoctorAnalyticsPage() {
         );
 
         if (!currentDoctor) {
-          toast.error(locale === "ar" ? "لا يوجد ملف طبيب مرتبط" : "No doctor profile linked to current account");
+          toast.error(t("noDoctorProfileLinked"));
           setIsLoading(false);
           return;
         }
@@ -480,13 +487,13 @@ export default function DoctorAnalyticsPage() {
         setDoctorId(currentDoctor.id);
         await loadAnalytics(currentDoctor.id);
       } catch {
-        toast.error(locale === "ar" ? "فشل تهيئة صفحة التحليلات" : "Failed to initialize analytics page");
+        toast.error(t("failedToInitializeAnalytics"));
         setIsLoading(false);
       }
     };
 
     void initialize();
-  }, [fetchDoctors, loadAnalytics, locale, toast, user?.email, user?.id]);
+  }, [fetchDoctors, loadAnalytics, t, toast, user?.email, user?.id]);
 
   useEffect(() => {
     if (doctorId && !isLoading) {
@@ -501,7 +508,20 @@ export default function DoctorAnalyticsPage() {
   const completedPlansCount = plans.filter(p => p.status === "COMPLETED").length;
   const satisfactionRating = summary?.summaryCards.satisfaction ?? null;
   const completionRate = summary?.summaryCards.completionRate ?? 0;
-  const monthlyPatients = useMemo(() => summary?.charts.monthlyPatients || [], [summary?.charts.monthlyPatients]);
+  
+  const chartData = useMemo(() => {
+    if (!summary?.charts) return [];
+    
+    if (timeRange === "day" || timeRange === "week") {
+      return summary.charts.weeklyPatients || [];
+    }
+    
+    if (timeRange === "6months") {
+      return (summary.charts.monthlyPatients || []).slice(-6);
+    }
+    
+    return summary.charts.monthlyPatients || [];
+  }, [summary, timeRange]);
 
   const computedCaseTypes = useMemo(() => {
     const filteredPlans = plans.filter(p => isWithinRange(p.createdAt || p.updatedAt, timeRange));
@@ -581,9 +601,9 @@ export default function DoctorAnalyticsPage() {
   const computedDemographics = useMemo(() => {
     const filteredPatients = timeRange === "all" ? patients : patients.filter(p => isWithinRange(p.createdAt, timeRange));
     if (filteredPatients.length === 0) return [
-      { name: "Pediatric (0-17)", value: 0, color: "#3B82F6" },
-      { name: "Adult (18-64)", value: 0, color: "#10B981" },
-      { name: "Senior (65+)", value: 0, color: "#F59E0B" },
+      { name: "pediatric", value: 0, color: "#3B82F6" },
+      { name: "adult", value: 0, color: "#10B981" },
+      { name: "senior", value: 0, color: "#F59E0B" },
     ];
 
     let pediatrics = 0;
@@ -607,9 +627,9 @@ export default function DoctorAnalyticsPage() {
     if (total === 0) return mockDemographics;
 
     return [
-      { name: "Pediatric (0-17)", value: Math.round((pediatrics / total) * 100) || 1, color: "#3B82F6" },
-      { name: "Adult (18-64)", value: Math.round((adults / total) * 100) || 1, color: "#10B981" },
-      { name: "Senior (65+)", value: Math.round((seniors / total) * 100) || 0, color: "#F59E0B" },
+      { name: "pediatric", value: Math.round((pediatrics / total) * 100) || 1, color: "#3B82F6" },
+      { name: "adult", value: Math.round((adults / total) * 100) || 1, color: "#10B981" },
+      { name: "senior", value: Math.round((seniors / total) * 100) || 0, color: "#F59E0B" },
     ];
   }, [patients, timeRange]);
 
@@ -622,10 +642,11 @@ export default function DoctorAnalyticsPage() {
       ? Math.round(summary.summaryCards.averageWaitMinutes) + " mins"
       : "N/A";
 
+    const months = summary?.charts.monthlyPatients || [];
     const currentMonth = new Date().getMonth();
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const currentMonthPatients = monthlyPatients[currentMonth]?.patients || 0;
-    const prevMonthPatients = monthlyPatients[prevMonth]?.patients || 0;
+    const currentMonthPatients = months[currentMonth]?.patients || 0;
+    const prevMonthPatients = months[prevMonth]?.patients || 0;
 
     let growthString = "0%";
     if (prevMonthPatients === 0) {
@@ -640,7 +661,7 @@ export default function DoctorAnalyticsPage() {
       averageWaitTime: waitStr,
       patientGrowth: growthString
     };
-  }, [computedCaseTypes, summary?.summaryCards.averageWaitMinutes, monthlyPatients]);
+  }, [computedCaseTypes, summary?.summaryCards.averageWaitMinutes, summary?.charts.monthlyPatients]);
 
   if (isLoading && !summary) {
     return (
@@ -660,10 +681,10 @@ export default function DoctorAnalyticsPage() {
           </div>
           <div>
             <h1 className="text-[28px] font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-              {locale === "ar" ? "التقارير والتحليلات" : "Reports & Analytics"}
+              {t("reportsAndAnalytics")}
             </h1>
             <p className="text-[14px] font-bold text-slate-400 dark:text-slate-500 mt-1">
-              {locale === "ar" ? "رؤى شاملة لأداء عيادتك" : "Comprehensive insights into your practice performance"}
+              {t("reportsAndAnalyticsSubtitle")}
             </p>
           </div>
         </div>
@@ -672,7 +693,6 @@ export default function DoctorAnalyticsPage() {
           <TimeRangeSelect 
             value={timeRange} 
             onChange={setTimeRange} 
-            locale={locale} 
           />
 
           <Button 
@@ -680,7 +700,7 @@ export default function DoctorAnalyticsPage() {
             className="h-12 px-6 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-800 font-black text-[14px] shadow-sm transition-all flex items-center gap-3"
           >
             <Download size={18} className="text-blue-600" />
-            {locale === "ar" ? "تصدير البيانات" : "Export Data"}
+            {t("exportData")}
           </Button>
         </div>
       </div>
@@ -694,7 +714,7 @@ export default function DoctorAnalyticsPage() {
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
       >
         <StatsCard
-          title={locale === "ar" ? "إجمالي المرضى" : "Total Patients"}
+          title={t("totalPatients")}
           value={totalPatients}
           icon={Users}
           theme="blue"
@@ -702,20 +722,20 @@ export default function DoctorAnalyticsPage() {
           trendLabel={computedInsightsMetrics.patientGrowth}
         />
         <StatsCard
-          title={locale === "ar" ? "متوسط وقت الاستشارة" : "Avg. Consultation Time"}
+          title={t("avgConsultationTime")}
           value={waitMinutes !== null && waitMinutes !== undefined ? `${waitMinutes}m` : "--"}
           icon={Clock3}
           theme="green"
         />
         <StatsCard
-          title={locale === "ar" ? "الحالات المكتملة" : "Completed Cases"}
+          title={t("completedCases")}
           value={completedPlansCount}
           icon={CheckCircle}
           theme="orange"
-          trendLabel={`${completionRate}% Rate`}
+          trendLabel={`${completionRate}% ${t("rate")}`}
         />
         <StatsCard
-          title={locale === "ar" ? "المتابعات" : "Follow-ups"}
+          title={t("followUps")}
           value={todayAppointments}
           icon={TrendingUp}
           theme="teal"
@@ -737,10 +757,10 @@ export default function DoctorAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
-                    {locale === "ar" ? "المرضى بمرور الوقت" : "Patients Over Time"}
+                    {t("patientsOverTime")}
                   </CardTitle>
                   <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-                    {locale === "ar" ? "اتجاهات زيارات المرضى الشهرية على مدار العام" : "Monthly patient visit trends throughout the year"}
+                    {t(`patientsOverTimeDesc_${timeRange}` as TranslationKey)}
                   </CardDescription>
                 </div>
               </div>
@@ -748,7 +768,7 @@ export default function DoctorAnalyticsPage() {
             <CardContent className="px-2 pt-6 pb-6">
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyPatients} margin={{ top: 20, right: 30, left: -20, bottom: 0 }}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="currentColor" className="text-slate-200 dark:text-slate-800" />
                     <XAxis
                       dataKey="name"
@@ -772,7 +792,7 @@ export default function DoctorAnalyticsPage() {
                             <div className="rounded-2xl border-none bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] min-w-[120px] text-center dark:bg-slate-900">
                               <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
                               <p className="text-[18px] font-black text-slate-900 dark:text-white leading-none">
-                                {payload[0].value} <span className="text-[12px] text-slate-500 font-bold ml-0.5">patients</span>
+                                {payload[0].value} <span className="text-[12px] text-slate-500 font-bold ml-0.5">{t("patients")}</span>
                               </p>
                             </div>
                           );
@@ -806,10 +826,10 @@ export default function DoctorAnalyticsPage() {
           <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 flex flex-col h-full transition-colors duration-200">
             <CardHeader className="pb-0 pt-5 px-7">
               <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
-                {locale === "ar" ? "أنواع الحالات" : "Case Types"}
+                {t("caseTypes")}
               </CardTitle>
               <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-                {locale === "ar" ? "توزيع التشخيصات" : "Distribution of diagnoses"}
+                {t("caseTypesDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-7 pb-7 pt-4 flex-1 flex flex-col">
@@ -836,7 +856,7 @@ export default function DoctorAnalyticsPage() {
                         if (active && payload && payload.length) {
                           return (
                             <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 shadow-lg text-[13px]">
-                              <span className="font-medium text-slate-500 dark:text-slate-400">{payload[0].name} : </span>
+                              <span className="font-medium text-slate-500 dark:text-slate-400">{t(String(payload[0].name).toLowerCase().replace(/\s+/g, "") as TranslationKey) || payload[0].name} : </span>
                               <span className="font-bold text-slate-900 dark:text-slate-100">{payload[0].value}</span>
                             </div>
                           );
@@ -851,14 +871,14 @@ export default function DoctorAnalyticsPage() {
               <div className="mt-auto pt-6 space-y-3">
                 {computedCaseTypes.length === 0 ? (
                   <div className="text-center py-4 text-slate-400 text-[13px] font-medium">
-                    No cases recorded for this period
+                    {t("noMatchingRecords")}
                   </div>
                 ) : (
                   computedCaseTypes.map((item) => (
                     <div key={item.name} className="flex items-center justify-between text-[13px] font-medium">
                       <div className="flex items-center gap-2">
                         <div className="h-[9px] w-[9px] rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-slate-500 dark:text-slate-400">{item.name}</span>
+                        <span className="text-slate-500 dark:text-slate-400">{t(item.name.toLowerCase().replace(/\s+/g, "") as TranslationKey) || item.name}</span>
                       </div>
                       <span className="text-slate-900 dark:text-slate-100 font-bold">{item.value}</span>
                     </div>
@@ -880,16 +900,16 @@ export default function DoctorAnalyticsPage() {
             <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 rounded-3xl p-1 shrink-0 transition-colors duration-200">
               <CardHeader className="pb-4 pt-6 px-7">
                 <CardTitle className="text-[17px] font-bold text-slate-900 dark:text-slate-100">
-                  {locale === "ar" ? "أعلى الأدوية الموصوفة" : "Top Prescribed Medications"}
+                  {t("topPrescribedMedications")}
                 </CardTitle>
                 <CardDescription className="text-[13px] text-slate-500 dark:text-slate-400 font-medium mt-1">
-                  {locale === "ar" ? "الأدوية الأكثر وصفًا للفترة المحددة" : "Most frequently prescribed medications for the selected month"}
+                  {t("topPrescribedMedicationsDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-7 pb-8 space-y-6">
                 {computedTopMedications.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 text-[14px] font-medium">
-                    No medication data for this period
+                    {t("noMatchingRecords")}
                   </div>
                 ) : (
                   computedTopMedications.map((med, idx) => (
@@ -902,7 +922,7 @@ export default function DoctorAnalyticsPage() {
                           <span className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{med.name}</span>
                         </div>
                         <span className="text-[13px] font-black text-slate-900 dark:text-white">
-                          {med.count} <span className="text-slate-400 dark:text-slate-500 font-bold ml-1">prescriptions</span>
+                          {med.count} <span className="text-slate-400 dark:text-slate-500 font-bold ml-1">{t("prescriptionsCount")}</span>
                         </span>
                       </div>
                       <div className="h-2 w-full bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -925,7 +945,7 @@ export default function DoctorAnalyticsPage() {
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-blue-200" />
-                  <h3 className="font-semibold tracking-wide text-[16px] text-blue-50">Smart insights</h3>
+                  <h3 className="font-semibold tracking-wide text-[16px] text-blue-50">{t("smartInsights")}</h3>
                 </div>
                 <div className="flex items-center justify-center h-9 w-9 rounded-[10px] bg-white/10 backdrop-blur-sm">
                   <TrendingUp className="h-4 w-4 text-white" />
@@ -935,15 +955,15 @@ export default function DoctorAnalyticsPage() {
               <div className="space-y-6">
                 <div>
                   <p className="font-bold text-[16px] text-white">{computedInsightsMetrics.mostCommonDiagnosis}</p>
-                  <p className="text-[13px] text-blue-200 font-medium">Most Common Diagnosis</p>
+                  <p className="text-[13px] text-blue-200 font-medium">{t("mostCommonDiagnosis")}</p>
                 </div>
                 <div>
                   <p className="font-bold text-[16px] text-white">{computedInsightsMetrics.averageWaitTime}</p>
-                  <p className="text-[13px] text-blue-200 font-medium">Average Wait Time</p>
+                  <p className="text-[13px] text-blue-200 font-medium">{t("averageWaitTime")}</p>
                 </div>
                 <div>
                   <p className="font-bold text-[16px] text-white">{computedInsightsMetrics.patientGrowth}</p>
-                  <p className="text-[13px] text-blue-200 font-medium">Patient Growth This Month</p>
+                  <p className="text-[13px] text-blue-200 font-medium">{t("patientGrowthThisMonth")}</p>
                 </div>
               </div>
             </CardContent>
@@ -990,7 +1010,7 @@ export default function DoctorAnalyticsPage() {
                         if (active && payload && payload.length) {
                           return (
                             <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-lg text-[13px]">
-                              <span className="font-medium text-gray-500">{payload[0].name} : </span>
+                              <span className="font-medium text-gray-500">{t(String(payload[0].name).toLowerCase().replace(/\s+/g, "") as TranslationKey) || payload[0].name} : </span>
                               <span className="font-bold text-gray-900">{payload[0].value}%</span>
                             </div>
                           );
@@ -1007,7 +1027,7 @@ export default function DoctorAnalyticsPage() {
                   <div key={item.name} className="flex items-center justify-between text-[13px] font-medium">
                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                       <div className="h-[9px] w-[9px] rounded-full" style={{ backgroundColor: item.color }} />
-                      {item.name}
+                      {t(item.name.toLowerCase().replace(/\s+/g, "") as TranslationKey)}
                     </div>
                     <span className="text-slate-900 dark:text-slate-100 font-bold">{item.value}%</span>
                   </div>
@@ -1040,7 +1060,7 @@ export default function DoctorAnalyticsPage() {
                   ))}
                 </div>
                 <p className="text-[12px] font-semibold text-slate-500 dark:text-slate-400">
-                  {surveyStats?.totalReviews ? `Based on ${surveyStats.totalReviews} reviews` : `No ratings yet`}
+                  {surveyStats?.totalReviews ? t("basedOnReviews", { count: surveyStats.totalReviews }) : t("noRatingsYet")}
                 </p>
               </div>
 
@@ -1083,14 +1103,14 @@ export default function DoctorAnalyticsPage() {
               </CardDescription>
             </div>
             <div className="text-[13px] font-semibold text-slate-500 dark:text-slate-400">
-              {filteredTablePlans.length} of {plans.length} records
+              {t("recordsCount", { count: filteredTablePlans.length, total: plans.length })}
             </div>
           </CardHeader>
           <CardContent className="p-0 bg-transparent">
             {/* Filters Row */}
             <div className="flex flex-wrap items-center gap-2.5 px-8 py-5 border-b border-slate-50 dark:border-slate-800/50">
               <span className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 mr-2">
-                {locale === "ar" ? "تصفية حسب:" : "Filter by:"}
+                {t("filterBy")}
               </span>
               {["All", "COMPLETED", "ACTIVE", "CANCELLED"].map((statusStr) => {
                 const isActive = tableStatusFilter === statusStr;
@@ -1105,10 +1125,10 @@ export default function DoctorAnalyticsPage() {
                     }`}
                   >
                     {statusStr === "All" 
-                      ? "All Status" 
+                      ? t("allStatus") 
                       : statusStr === "ACTIVE" 
-                        ? "Follow-up" 
-                        : statusStr.charAt(0).toUpperCase() + statusStr.slice(1).toLowerCase()}
+                        ? t("followUp") 
+                        : t(statusStr.toLowerCase() as TranslationKey)}
                   </button>
                 );
               })}
@@ -1119,11 +1139,11 @@ export default function DoctorAnalyticsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 dark:bg-slate-800/50">
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Patient</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Date & Time</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Diagnosis</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">Status</th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap text-right">Action</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">{t("patientTable")}</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">{t("dateTimeTable")}</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">{t("diagnosisTable")}</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap">{t("statusTable")}</th>
+                    <th className="px-8 py-4 text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase whitespace-nowrap text-right">{t("actionTable")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1172,7 +1192,7 @@ export default function DoctorAnalyticsPage() {
                                 ? "bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
                                 : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                           }`}>
-                            {plan.status === "ACTIVE" ? "Follow-up" : plan.status.charAt(0).toUpperCase() + plan.status.slice(1).toLowerCase()}
+                            {plan.status === "ACTIVE" ? t("followUp") : t(plan.status.toLowerCase() as TranslationKey)}
                           </span>
                         </td>
                         <td className="px-8 py-5 text-right">
@@ -1182,7 +1202,7 @@ export default function DoctorAnalyticsPage() {
                             className="h-[34px] px-4 rounded-[10px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm transition-all ml-auto"
                           >
                              <Eye className="h-4 w-4 text-slate-500 dark:text-slate-400" />
-                             <span className="text-[12px] font-bold">View</span>
+                             <span className="text-[12px] font-bold">{t("view")}</span>
                           </Button>
                         </td>
                       </tr>
@@ -1205,3 +1225,4 @@ export default function DoctorAnalyticsPage() {
     </div>
   );
 }
+

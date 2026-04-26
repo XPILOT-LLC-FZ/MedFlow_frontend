@@ -28,7 +28,7 @@ import { useToastStore } from "@/stores/useToastStore";
 import type { ApiPatient, ApiService, ApiTreatmentPlan } from "@/types";
 
 export default function DoctorTreatmentTimelinesPage() {
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const toast = useToastStore();
   const { user } = useAuthStore();
   const { fetchDoctors } = useStaffStore();
@@ -339,12 +339,8 @@ export default function DoctorTreatmentTimelinesPage() {
   return (
     <div className="max-w-6xl space-y-5 lg:space-y-6">
       <PageHeader
-        title={locale === "ar" ? "الخطط العلاجية" : "Treatment Timelines"}
-        description={
-          locale === "ar"
-            ? "إنشاء ومتابعة خطط المرضى مع تثبيت الطبيب الحالي تلقائياً"
-            : "Create and track patient timelines with doctor auto-locked to current profile"
-        }
+        title={t("treatmentTimelines")}
+        description={t("treatmentTimelinesDesc")}
         action={
           <Button
             variant="outline"
@@ -353,7 +349,7 @@ export default function DoctorTreatmentTimelinesPage() {
             disabled={!doctorId || isLoadingPlans}
           >
             <RefreshCw className="h-4 w-4" />
-            {locale === "ar" ? "تحديث" : "Refresh"}
+            {t("refresh")}
           </Button>
         }
       />
@@ -367,7 +363,7 @@ export default function DoctorTreatmentTimelinesPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {locale === "ar" ? "إجمالي الخطط" : "Total Timelines"}
+                  {t("totalTimelines")}
                 </p>
                 <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{plans.length}</p>
               </div>
@@ -383,7 +379,7 @@ export default function DoctorTreatmentTimelinesPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {locale === "ar" ? "خطط نشطة" : "Active Timelines"}
+                  {t("activeTimelines")}
                 </p>
                 <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{activeCount}</p>
               </div>
@@ -399,7 +395,7 @@ export default function DoctorTreatmentTimelinesPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {locale === "ar" ? "مكتملة" : "Completed"}
+                  {t("completed")}
                 </p>
                 <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{completedCount}</p>
               </div>
@@ -415,7 +411,7 @@ export default function DoctorTreatmentTimelinesPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {locale === "ar" ? "معدل الإكمال" : "Completion Rate"}
+                  {t("completionRate")}
                 </p>
                 <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100">{completionRate}%</p>
               </div>
@@ -429,18 +425,16 @@ export default function DoctorTreatmentTimelinesPage() {
           <CardHeader className="space-y-1 pb-2">
             <CardTitle className="flex items-center gap-2 text-base text-slate-800 dark:text-slate-100">
               <Stethoscope className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              {locale === "ar" ? "إنشاء خطة جديدة" : "Create New Timeline"}
+              {t("createNewTimeline")}
             </CardTitle>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {locale === "ar"
-                ? "أدخل بيانات الخطة ثم أنشئها مباشرة للمريض"
-                : "Fill timeline details and create it directly for the patient"}
+              {t("timelineFormDesc")}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "الطبيب" : "Doctor"}
+                {t("dr")}
               </label>
               <Input
                 value={doctorName}
@@ -451,18 +445,14 @@ export default function DoctorTreatmentTimelinesPage() {
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "بحث المريض" : "Patient Search"}
+                {t("patientSearch")}
               </label>
               <div className="flex gap-2">
                 <Input
                   value={patientQuery}
                   onChange={(event) => setPatientQuery(event.target.value)}
                   className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder={
-                    locale === "ar"
-                      ? "ابحث بالاسم أو الهاتف"
-                      : "Search by name or phone"
-                  }
+                  placeholder={t("searchByNameOrPhone")}
                 />
                 <Button
                   type="button"
@@ -477,7 +467,7 @@ export default function DoctorTreatmentTimelinesPage() {
 
               {selectedPatient && (
                 <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-2.5 py-2 text-xs text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  {locale === "ar" ? "المريض المحدد:" : "Selected patient:"} {selectedPatient.fullName}
+                  {t("selectedPatient")}: {selectedPatient.fullName}
                 </div>
               )}
             </div>
@@ -506,12 +496,12 @@ export default function DoctorTreatmentTimelinesPage() {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              placeholder={locale === "ar" ? "عنوان الخطة" : "Timeline title"}
+              placeholder={t("timelineTitle")}
             />
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {locale === "ar" ? "الخدمة" : "Service"}
+                {t("services")}
               </label>
               <select
                 value={serviceName}
@@ -520,9 +510,7 @@ export default function DoctorTreatmentTimelinesPage() {
                 disabled={isLoadingServices}
               >
                 <option value="">
-                  {locale === "ar"
-                    ? "خطة عامة (بدون خدمة محددة)"
-                    : "General plan (no specific service)"}
+                  {t("generalPlan")}
                 </option>
                 {services.map((service) => (
                   <option key={service.id} value={service.name}>
@@ -538,7 +526,7 @@ export default function DoctorTreatmentTimelinesPage() {
               value={totalSessions}
               onChange={(event) => setTotalSessions(Number(event.target.value) || 1)}
               className="border-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              placeholder={locale === "ar" ? "عدد الجلسات" : "Total sessions"}
+              placeholder={t("totalSessions")}
             />
 
             <Input
@@ -552,18 +540,14 @@ export default function DoctorTreatmentTimelinesPage() {
               className="min-h-20 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-900/50"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder={locale === "ar" ? "وصف الخطة" : "Timeline description"}
+              placeholder={t("timelineDescription")}
             />
 
             <textarea
               className="min-h-20 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:ring-blue-900/50"
               value={predictedOutcome}
               onChange={(event) => setPredictedOutcome(event.target.value)}
-              placeholder={
-                locale === "ar"
-                  ? "النتيجة المتوقعة (اختياري)"
-                  : "Predicted outcome (optional)"
-              }
+              placeholder={t("predictedOutcome")}
             />
 
             <Button
@@ -575,22 +559,14 @@ export default function DoctorTreatmentTimelinesPage() {
             >
               <Sparkles className="h-4 w-4" />
               {isGeneratingDraft
-                ? locale === "ar"
-                  ? "جارٍ التوليد..."
-                  : "Generating..."
-                : locale === "ar"
-                  ? "توليد مسودة AI"
-                  : "Generate AI Draft"}
+                ? t("generating")
+                : t("generateAiDraft")}
             </Button>
 
             <Button className="w-full" onClick={() => void createTimeline()} disabled={isSubmitting || !doctorId}>
               {isSubmitting
-                ? locale === "ar"
-                  ? "جارٍ الإنشاء..."
-                  : "Creating..."
-                : locale === "ar"
-                  ? "إنشاء الخطة"
-                  : "Create Timeline"}
+                ? t("generating")
+                : t("createTimeline")}
             </Button>
           </CardContent>
         </Card>
@@ -600,18 +576,18 @@ export default function DoctorTreatmentTimelinesPage() {
             <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base text-slate-800 dark:text-slate-100">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span>{locale === "ar" ? "الخطط الحالية" : "Active Timelines"}</span>
+                <span>{t("activeTimelines")}</span>
               </div>
               <Badge variant="outline" className="border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                {locale === "ar"
-                  ? `مكتمل ${completedCount}/${plans.length}`
-                  : `Completed ${completedCount}/${plans.length}`}
+                {t("completedPlans")
+                  .replace("{completed}", String(completedCount))
+                  .replace("{total}", String(plans.length))}
               </Badge>
             </CardTitle>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {locale === "ar"
-                ? `إجمالي الجلسات المكتملة ${completedSessions} من ${totalSessionTarget}`
-                : `Completed sessions ${completedSessions} of ${totalSessionTarget}`}
+              {t("completedSessionsOf")
+                .replace("{completed}", String(completedSessions))
+                .replace("{total}", String(totalSessionTarget))}
             </p>
           </CardHeader>
           <CardContent className="space-y-3.5">
@@ -628,12 +604,10 @@ export default function DoctorTreatmentTimelinesPage() {
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/40 px-4 py-8 text-center dark:border-slate-700 dark:bg-slate-800/40">
                 <Stethoscope className="mx-auto h-5 w-5 text-slate-400 dark:text-slate-500" />
                 <p className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                  {locale === "ar" ? "لا توجد خطط علاجية بعد" : "No treatment timelines yet"}
+                  {t("noTimelinesYet")}
                 </p>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  {locale === "ar"
-                    ? "ابدأ بإضافة أول خطة من لوحة الإنشاء"
-                    : "Start by creating your first timeline from the form"}
+                  {t("startByCreatingTimeline")}
                 </p>
               </div>
             ) : (
@@ -655,17 +629,16 @@ export default function DoctorTreatmentTimelinesPage() {
                         <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{plan.title}</p>
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {plan.patientName} •{" "}
-                          {plan.serviceName ||
-                            (locale === "ar" ? "خطة عامة" : "General Plan")}
+                          {plan.serviceName || t("generalPlan")}
                         </p>
                       </div>
                       <Badge variant={plan.status === "COMPLETED" ? "success" : "info"}>
-                        {plan.status.replaceAll("_", " ")}
+                        {t(plan.status.toLowerCase() as Parameters<typeof t>[0])}
                       </Badge>
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                      <span>{locale === "ar" ? "التقدم" : "Progress"}</span>
+                      <span>{t("progress")}</span>
                       <span className="font-medium text-slate-700 dark:text-slate-200">{percentage}%</span>
                     </div>
 
@@ -683,7 +656,7 @@ export default function DoctorTreatmentTimelinesPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                       <span className="inline-flex items-center gap-1">
                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-                        {locale === "ar" ? "الجلسات" : "Sessions"}: {plan.completedSessions}/
+                        {t("sessionsCount")}: {plan.completedSessions}/
                         {plan.totalSessions}
                       </span>
                       <span className="inline-flex items-center gap-1">
@@ -711,12 +684,8 @@ export default function DoctorTreatmentTimelinesPage() {
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         {progressingPlanId === plan.id
-                          ? locale === "ar"
-                            ? "جارٍ التحديث..."
-                            : "Updating..."
-                          : locale === "ar"
-                            ? "تسجيل جلسة مكتملة"
-                            : "Mark Session Completed"}
+                          ? t("updating")
+                          : t("markSessionCompleted")}
                       </Button>
                     </div>
                   </div>

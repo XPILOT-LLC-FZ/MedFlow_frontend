@@ -63,12 +63,13 @@ function toMinutes(time: string): number {
   return (hours * 60) + minutes;
 }
 
-function calculateDuration(start: string, end: string) {
-  if (!start || !end) return "0 hrs";
+function calculateDuration(start: string, end: string, locale: string) {
+  const hrsLabel = locale === "ar" ? "ساعات" : "hrs";
+  if (!start || !end) return `0 ${hrsLabel}`;
   let diff = toMinutes(end) - toMinutes(start);
   if (diff < 0) diff += 24 * 60; // handle wrap around if someone puts weird times
-  if (diff === 0) return "0 hrs";
-  return `${(diff / 60).toFixed(0)} hrs`;
+  if (diff === 0) return `0 ${hrsLabel}`;
+  return `${(diff / 60).toFixed(0)} ${hrsLabel}`;
 }
 
 function validateShifts(shifts: DoctorShift[], locale: string): string | null {
@@ -329,14 +330,16 @@ export default function WorkingHoursSettingsPage() {
                         : "bg-transparent border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                      }`}
                    >
-                     {val} min
+                     {val} {locale === "ar" ? "دقيقة" : "min"}
                    </button>
                 ))}
               </div>
             </div>
             <div className="flex flex-col items-center justify-center min-w-[80px]">
                <span className="text-3xl font-bold text-blue-600 dark:text-blue-500">{consultationDuration}</span>
-               <span className="text-[10px] uppercase font-semibold text-slate-400">minutes</span>
+               <span className="text-[10px] uppercase font-semibold text-slate-400">
+                 {locale === "ar" ? "دقيقة" : "minutes"}
+               </span>
             </div>
           </div>
 
@@ -350,7 +353,7 @@ export default function WorkingHoursSettingsPage() {
                   {locale === "ar" ? "إجمالي وقت الموعد" : "Effective Appointment Duration"}
                </span>
                <span className="text-[10px] text-blue-600/70 dark:text-blue-400/60">
-                  {consultationDuration} min consultation + {bufferTime} min buffer = <span className="font-bold text-blue-700 dark:text-blue-300">{consultationDuration + bufferTime} min</span> total
+                  {consultationDuration} {locale === "ar" ? "دقيقة للاستشارة" : "min consultation"} + {bufferTime} {locale === "ar" ? "دقيقة وقت إضافي" : "min buffer"} = <span className="font-bold text-blue-700 dark:text-blue-300">{consultationDuration + bufferTime} {locale === "ar" ? "دقيقة" : "min"}</span> {locale === "ar" ? "إجمالاً" : "total"}
                </span>
             </div>
           </div>
@@ -365,10 +368,10 @@ export default function WorkingHoursSettingsPage() {
                  value={bufferTime}
                  onChange={(e) => setBufferTime(Number(e.target.value))}
                >
-                 <option value={0}>0 minutes</option>
-                 <option value={5}>5 minutes</option>
-                 <option value={10}>10 minutes</option>
-                 <option value={15}>15 minutes</option>
+                 <option value={0}>0 {locale === "ar" ? "دقيقة" : "minutes"}</option>
+                 <option value={5}>5 {locale === "ar" ? "دقائق" : "minutes"}</option>
+                 <option value={10}>10 {locale === "ar" ? "دقائق" : "minutes"}</option>
+                 <option value={15}>15 {locale === "ar" ? "دقيقة" : "minutes"}</option>
                </select>
                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             </div>
@@ -409,13 +412,17 @@ export default function WorkingHoursSettingsPage() {
                 ) : (
                   <HelpCircle className="h-8 w-8 text-blue-600" />
                 )}
-                <span className="text-[10px] uppercase font-semibold text-slate-400 pt-1">minutes</span>
+                <span className="text-[10px] uppercase font-semibold text-slate-400 pt-1">
+                  {locale === "ar" ? "دقيقة" : "minutes"}
+                </span>
              </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{locale === "ar" ? "بداية الاستراحة" : "Break Start"}</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "بداية الاستراحة" : "Break Start"}
+                </label>
                 <Input 
                   type="time" 
                   value={globalBreakStart} 
@@ -424,7 +431,9 @@ export default function WorkingHoursSettingsPage() {
                 />
              </div>
              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">{locale === "ar" ? "نهاية الاستراحة" : "Break End"}</label>
+                <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "نهاية الاستراحة" : "Break End"}
+                </label>
                 <Input 
                   type="time" 
                   value={globalBreakEnd} 
@@ -471,7 +480,9 @@ export default function WorkingHoursSettingsPage() {
                     <>
                       <div className="flex items-center gap-2 flex-1 w-full justify-center">
                          <div className="w-full max-w-[120px]">
-                            <label className="text-[10px] text-slate-400 mb-1 block">Start</label>
+                            <label className="text-[10px] text-slate-400 mb-1 block">
+                              {locale === "ar" ? "البداية" : "Start"}
+                            </label>
                             <Input 
                               type="time" 
                               value={shift.shiftStart} 
@@ -481,7 +492,9 @@ export default function WorkingHoursSettingsPage() {
                          </div>
                          <span className="text-slate-300 mt-4">—</span>
                          <div className="w-full max-w-[120px]">
-                            <label className="text-[10px] text-slate-400 mb-1 block">End</label>
+                            <label className="text-[10px] text-slate-400 mb-1 block">
+                              {locale === "ar" ? "النهاية" : "End"}
+                            </label>
                             <Input 
                               type="time" 
                               value={shift.shiftEnd} 
@@ -492,15 +505,23 @@ export default function WorkingHoursSettingsPage() {
                       </div>
                       
                       <div className="flex flex-col items-center justify-center w-[60px] shrink-0 mt-4 sm:mt-0">
-                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{calculateDuration(shift.shiftStart, shift.shiftEnd)}</span>
-                         <span className="text-[9px] text-slate-400">total</span>
+                         <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                           {calculateDuration(shift.shiftStart, shift.shiftEnd, locale)}
+                         </span>
+                         <span className="text-[9px] text-slate-400">
+                           {locale === "ar" ? "إجمالي" : "total"}
+                         </span>
                       </div>
                     </>
                   ) : (
                     <div className="flex-1 w-full flex justify-end xl:pr-5">
                        <div className="flex flex-col items-center justify-center w-[60px] shrink-0">
-                          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Off</span>
-                          <span className="text-[9px] text-slate-400/70">total</span>
+                          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                            {locale === "ar" ? "عطلة" : "Off"}
+                          </span>
+                          <span className="text-[9px] text-slate-400/70">
+                            {locale === "ar" ? "إجمالي" : "total"}
+                          </span>
                        </div>
                     </div>
                   )}

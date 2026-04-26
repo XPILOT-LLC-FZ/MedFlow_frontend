@@ -22,10 +22,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { Appointment, DoctorShift } from "@/types";
+import type { TranslationKey } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export default function SchedulePage() {
-  const { locale } = useTranslation();
+  const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { fetchDoctors } = useStaffStore();
   const { appointments, fetchAppointments, addAppointment } = useBookingStore();
@@ -45,11 +46,12 @@ export default function SchedulePage() {
   const [durationOpen, setDurationOpen] = useState(false);
   const [newAppointmentForm, setNewAppointmentForm] = useState({
     patientName: "",
+    patientNameAr: "",
     age: "",
     phoneNumber: "",
     date: "",
     time: "",
-    visitType: "New patient",
+    visitType: "newPatient",
     duration: "30",
     reason: "",
   });
@@ -130,7 +132,7 @@ export default function SchedulePage() {
       );
 
       if (!doctor) {
-        error(locale === "ar" ? "تعذر العثور على ملف الطبيب" : "Doctor profile not found");
+        error(t("doctorProfileNotFound"));
         setDoctorId(null);
         return;
       }
@@ -149,9 +151,9 @@ export default function SchedulePage() {
         }
       }
     } catch {
-      error(locale === "ar" ? "فشل تحميل الجدول" : "Failed to load schedule");
+      error(t("failedToLoadSchedule"));
     }
-  }, [error, fetchAppointments, fetchDoctors, locale, user?.email, user?.id, user?.name]);
+  }, [error, fetchAppointments, fetchDoctors, t, user?.email, user?.id, user?.name]);
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => {
@@ -183,13 +185,13 @@ export default function SchedulePage() {
     selected.setHours(0, 0, 0, 0);
     const diffDays = Math.round((selected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return locale === "ar" ? "اليوم" : "Today";
-    if (diffDays === 1) return locale === "ar" ? "غداً" : "Tomorrow";
-    if (diffDays === -1) return locale === "ar" ? "أمس" : "Yesterday";
+    if (diffDays === 0) return t("today");
+    if (diffDays === 1) return t("tomorrow");
+    if (diffDays === -1) return t("yesterday");
     
-    if (diffDays > 0) return locale === "ar" ? `بعد ${diffDays} يوم` : `In ${diffDays} days`;
-    return locale === "ar" ? `منذ ${Math.abs(diffDays)} يوم` : `${Math.abs(diffDays)} days ago`;
-  }, [selectedDate, locale]);
+    if (diffDays > 0) return t("inXDays").replace("{days}", diffDays.toString());
+    return t("xDaysAgo").replace("{days}", Math.abs(diffDays).toString());
+  }, [selectedDate, t]);
 
   const dateKey = useMemo(() => selectedDate.toISOString().slice(0, 10), [selectedDate]);
   
@@ -273,11 +275,12 @@ export default function SchedulePage() {
   const resetAppointmentForm = () => {
     setNewAppointmentForm({
       patientName: "",
+      patientNameAr: "",
       age: "",
       phoneNumber: "",
       date: "",
       time: "",
-      visitType: "New patient",
+      visitType: "newPatient",
       duration: "30",
       reason: "",
     });
@@ -285,11 +288,11 @@ export default function SchedulePage() {
 
   const handleCreateAppointment = async () => {
     if (!doctorId) {
-      error(locale === "ar" ? "ملف الطبيب غير متاح" : "Doctor profile is not available");
+      error(t("doctorProfileNotFound"));
       return;
     }
     if (!newAppointmentForm.patientName.trim() || !newAppointmentForm.date || !newAppointmentForm.time) {
-      error(locale === "ar" ? "الرجاء إدخال اسم المريض والتاريخ والوقت" : "Please enter patient name, date, and time");
+      error(t("fillRequired"));
       return;
     }
 
@@ -297,6 +300,7 @@ export default function SchedulePage() {
     try {
       await addAppointment({
         patientName: newAppointmentForm.patientName.trim(),
+        patientNameAr: newAppointmentForm.patientNameAr.trim() || undefined,
         patientId: newAppointmentForm.phoneNumber.trim() || `guest-${Date.now()}`,
         doctorId,
         doctorName: doctorName || user?.name || "Doctor",
@@ -308,7 +312,7 @@ export default function SchedulePage() {
         notes: `${newAppointmentForm.reason.trim()}${newAppointmentForm.age ? ` | Age: ${newAppointmentForm.age}` : ""}${newAppointmentForm.phoneNumber ? ` | Phone: ${newAppointmentForm.phoneNumber}` : ""}${newAppointmentForm.duration ? ` | Duration: ${newAppointmentForm.duration} min` : ""}`,
       });
       await fetchAppointments();
-      success(locale === "ar" ? "تمت إضافة الموعد بنجاح" : "Appointment added successfully");
+      success(t("appointmentBooked"));
       setShowAddAppointmentModal(false);
       resetAppointmentForm();
     } catch (err) {
@@ -332,11 +336,7 @@ export default function SchedulePage() {
 
   const handleRescheduleSubmit = async (appointment: Appointment) => {
     if (!rescheduleForm.date || !rescheduleForm.startTime) {
-      error(
-        locale === "ar"
-          ? "يرجى تعبئة التاريخ والوقت"
-          : "Please fill both date and start time",
-      );
+      error(t("fillRequired"));
       return;
     }
 
@@ -349,7 +349,7 @@ export default function SchedulePage() {
       });
       await fetchAppointments();
       setOpenForm(null);
-      success(locale === "ar" ? "تمت إعادة الجدولة بنجاح" : "Appointment rescheduled");
+      success(t("itemUpdated"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to reschedule appointment";
       error(message);
@@ -360,11 +360,7 @@ export default function SchedulePage() {
 
   const handleManualSummarySubmit = async (appointment: Appointment) => {
     if (!manualSummaryForm.content || manualSummaryForm.content.trim().length < 5) {
-      error(
-        locale === "ar"
-          ? "الملخص الطبي يجب أن يكون 5 أحرف على الأقل"
-          : "Medical summary must be at least 5 characters",
-      );
+      error(t("fillRequired"));
       return;
     }
 
@@ -377,7 +373,7 @@ export default function SchedulePage() {
       });
       await fetchAppointments();
       setOpenForm(null);
-      success(locale === "ar" ? "تم إرسال الملخص" : "Medical summary sent");
+      success(t("sent"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to send summary";
       error(message);
@@ -399,7 +395,7 @@ export default function SchedulePage() {
       });
       await fetchAppointments();
       setOpenForm(null);
-      success(locale === "ar" ? "تم إنشاء ملخص بالذكاء الاصطناعي" : "AI summary generated and sent");
+      success(t("sent"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to generate AI summary";
       error(message);
@@ -428,6 +424,7 @@ export default function SchedulePage() {
         if (!query) return true;
         return (
           appointment.patientName.toLowerCase().includes(query) ||
+          (appointment.patientNameAr || "").toLowerCase().includes(query) ||
           appointment.type.toLowerCase().includes(query) ||
           (appointment.notes || "").toLowerCase().includes(query)
         );
@@ -457,7 +454,7 @@ export default function SchedulePage() {
             </div>
             <div className="flex flex-col">
               <h2 className="text-[18px] font-bold text-slate-800 dark:text-slate-100 leading-tight mb-1">
-                {locale === "ar" ? "المواعيد" : "Appointments"}
+                {t("appointments")}
               </h2>
               <p className="mt-1 text-[12px] font-medium text-slate-500 dark:text-slate-400">
                 {locale === "ar" ? "إدارة جدولك اليومي" : "Manage your daily schedule"}
@@ -468,11 +465,7 @@ export default function SchedulePage() {
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
             <Input
-              placeholder={
-                locale === "ar"
-                  ? "ابحث عن المواعيد باسم المريض أو الهاتف أو السبب..."
-                  : "Search appointments by patient name, phone, or reason..."
-              }
+              placeholder={`${t("search")}...`}
               value={scheduleSearch}
               onChange={(event) => setScheduleSearch(event.target.value)}
               className="h-12 w-full rounded-md border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 pl-11"
@@ -576,7 +569,7 @@ export default function SchedulePage() {
               {dayAppointments.length === 0 && (
                 <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-10 text-center">
                   <p className="text-sm font-medium text-slate-500">
-                    {locale === "ar" ? "لا توجد مواعيد لهذا اليوم" : "No appointments scheduled for this day"}
+                    {t("noAppointmentsScheduledForThisDay")}
                   </p>
                 </div>
               )}
@@ -640,7 +633,7 @@ export default function SchedulePage() {
                       {isCurrent && (
                         <div className="absolute -top-3 left-8 z-20">
                           <div className="bg-[#818cf8] text-white text-[11px] font-bold px-4 py-1.5 rounded-full shadow-lg shadow-indigo-200/50 dark:shadow-none flex items-center gap-1.5 border border-white/20">
-                            {locale === "ar" ? "الموعد الحالي" : "Current Appointment"}
+                            {t("currentAppointment")}
                           </div>
                         </div>
                       )}
@@ -661,10 +654,10 @@ export default function SchedulePage() {
                                 "text-[15px] font-black tracking-tight",
                                 isCurrent ? "text-slate-900 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"
                               )}>
-                                {item.patientName}
+                                {locale === "ar" && item.patientNameAr ? item.patientNameAr : item.patientName}
                               </h4>
                               <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500">
-                                {item.patientAge || "Age N/A"}
+                                {item.patientAge ? t("yearsOld").replace("{age}", item.patientAge) : t("ageNotAvailable")}
                               </p>
                             </div>
                           </div>
@@ -687,22 +680,21 @@ export default function SchedulePage() {
                                   disabled={activeActionId === item.id}
                                   className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                                 >
-                                  <span className="ml-10">reschedule</span>
+                                  <span className="ml-10">{t("reschedule")}</span>
                                 </button>
                                 
                                 <button 
                                   onClick={() => router.push(`/doctor/patients/${item.patientId}`)}
                                   className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 >
-                                  <span className="ml-10">open file</span>
+                                  <span className="ml-10">{t("openFile")}</span>
                                 </button>
 
                                 <button 
                                   onClick={() => router.push(`/doctor/patients/${item.patientId}?tab=clinical`)}
                                   className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors relative"
                                 >
-                                  <Check className="absolute left-4 h-4 w-4 text-slate-900 dark:text-slate-100" />
-                                  <span className="ml-10">prescription</span>
+                                  <span className="ml-10">{t("prescription")}</span>
                                 </button>
 
                                 <button 
@@ -710,7 +702,7 @@ export default function SchedulePage() {
                                   disabled={activeActionId === item.id}
                                   className="flex w-full items-center px-4 py-2.5 text-[14px] font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                                 >
-                                  <span className="ml-10">open chat</span>
+                                  <span className="ml-10">{t("openChat")}</span>
                                 </button>
                               </div>
                             )}
@@ -723,7 +715,7 @@ export default function SchedulePage() {
                               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
                                 <Clock3 className="h-3.5 w-3.5 text-blue-600" />
                               </div>
-                              {item.time} • 30 min
+                              {item.time} • 30 {t("minutes")}
                             </div>
                             <div className="flex items-center gap-3 text-[12px] font-bold text-slate-500 dark:text-slate-400">
                               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
@@ -744,15 +736,15 @@ export default function SchedulePage() {
                                 ? "bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
                                 : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                             )}>
-                              {item.type}
+                              {t(item.type?.toLowerCase().replace(/\s+/g, "") as TranslationKey) || item.type}
                             </span>
                           </div>
                         </div>
 
                         <div className="pt-5 border-t border-slate-50 dark:border-slate-800/60">
                           <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-slate-400/80 tracking-widest shrink-0">Reason:</span> 
-                            <span className="truncate">{item.notes || "Regular checkup"}</span>
+                            <span className="text-[10px] font-black uppercase text-slate-400/80 tracking-widest shrink-0">{t("reasonColon")}</span> 
+                            <span className="truncate">{item.notes || t("regularCheckup")}</span>
                           </p>
                         </div>
                       </div>
@@ -769,14 +761,14 @@ export default function SchedulePage() {
               <div className="flex items-center gap-2 mb-5">
                 <Funnel className="h-4.5 w-4.5 text-blue-600" />
                 <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
-                  {locale === "ar" ? "فلاتر سريعة" : "Quick Filters"}
+                  {t("quickFilters")}
                 </h3>
               </div>
               
               <div className="space-y-3">
                 <div className="flex items-center justify-between rounded-xl bg-emerald-50/60 dark:bg-emerald-900/10 px-4 py-3 transition-all">
                   <span className="text-[13px] font-bold text-emerald-700 dark:text-emerald-400">
-                    {locale === "ar" ? "مؤكد" : "Confirmed"}
+                    {t("confirmed")}
                   </span>
                   <Switch 
                     checked={showConfirmed} 
@@ -786,7 +778,7 @@ export default function SchedulePage() {
                 
                 <div className="flex items-center justify-between rounded-xl bg-amber-50/60 dark:bg-amber-900/10 px-4 py-3 transition-all">
                   <span className="text-[13px] font-bold text-amber-700 dark:text-amber-400">
-                    {locale === "ar" ? "معلق" : "Pending"}
+                    {t("pending")}
                   </span>
                   <Switch 
                     checked={showPending} 
@@ -796,7 +788,7 @@ export default function SchedulePage() {
                 
                 <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-900 px-4 py-3 transition-all">
                   <span className="text-[13px] font-bold text-slate-600 dark:text-slate-400">
-                    {locale === "ar" ? "ملغي" : "Cancelled"}
+                    {t("cancelled")}
                   </span>
                   <Switch 
                     checked={showCancelled} 
@@ -813,16 +805,14 @@ export default function SchedulePage() {
               
               <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 mb-6 relative z-10">
                 {selectedDate.toDateString() === new Date().toDateString()
-                  ? (locale === "ar" ? "ملخص اليوم" : "Today's Summary")
-                  : (locale === "ar"
-                    ? `ملخص يوم ${selectedDate.toLocaleDateString("ar-EG", { day: "numeric", month: "long" })}`
-                    : `Summary for ${selectedDate.toLocaleDateString("en-US", { day: "numeric", month: "long" })}`)}
+                  ? t("todaysSummary")
+                  : t("summaryForDate").replace("{date}", selectedDate.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { day: "numeric", month: "long" }))}
               </h3>
               
               <div className="space-y-4 relative z-10">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
-                    {locale === "ar" ? "إجمالي المواعيد" : "Total Appointments"}
+                    {t("totalAppointments")}
                   </span>
                   <span className="text-[18px] font-black text-slate-900 dark:text-slate-100">
                     {dayAppointments.length}
@@ -831,7 +821,7 @@ export default function SchedulePage() {
                 
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
-                    {locale === "ar" ? "مكتمل" : "Completed"}
+                    {t("completed")}
                   </span>
                   <span className="text-[18px] font-black text-emerald-600 dark:text-emerald-400">
                     {completedCount}
@@ -840,7 +830,7 @@ export default function SchedulePage() {
                 
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
-                    {locale === "ar" ? "متبقي" : "Remaining"}
+                    {t("remaining")}
                   </span>
                   <span className="text-[18px] font-black text-blue-600 dark:text-blue-400">
                     {remainingCount}
@@ -869,7 +859,7 @@ export default function SchedulePage() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600">
                   <CalendarDays className="h-5 w-5" />
                 </div>
-                {locale === "ar" ? "إضافة موعد جديد" : "Add New Appointment"}
+                {t("addNewAppointment")}
               </h3>
               <button
                 type="button"
@@ -885,21 +875,33 @@ export default function SchedulePage() {
                 <div className="space-y-2.5">
                   <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
                     <User className="h-3.5 w-3.5 text-blue-500" />
-                    {locale === "ar" ? "اسم المريض" : "Patient Name"}
+                    {t("patientName")}
                   </label>
                   <Input
                     value={newAppointmentForm.patientName}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, patientName: event.target.value }))}
-                    placeholder={locale === "ar" ? "ادخل اسم المريض" : "Enter patient name"}
+                    placeholder={t("enterPatientName")}
                     className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 focus:ring-4 focus:ring-blue-600/5 transition-all"
                   />
                 </div>
                 <div className="space-y-2.5">
-                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{locale === "ar" ? "العمر" : "Age"}</label>
+                  <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
+                    {t("patientName")} (Arabic)
+                  </label>
+                  <Input
+                    value={newAppointmentForm.patientNameAr}
+                    onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, patientNameAr: event.target.value }))}
+                    placeholder="أحمد حسن"
+                    dir="rtl"
+                    className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 focus:ring-4 focus:ring-blue-600/5 transition-all text-right"
+                  />
+                </div>
+                <div className="space-y-2.5">
+                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{t("age")}</label>
                   <Input
                     value={newAppointmentForm.age}
                     onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, age: event.target.value }))}
-                    placeholder={locale === "ar" ? "ادخل العمر" : "Enter age"}
+                    placeholder={t("enterAge")}
                     className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 transition-all"
                   />
                 </div>
@@ -907,7 +909,7 @@ export default function SchedulePage() {
 
               <div className="space-y-2.5">
                 <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">
-                  {locale === "ar" ? "رقم الهاتف" : "Phone Number"}
+                  {t("phoneNumber")}
                 </label>
                 <Input
                   value={newAppointmentForm.phoneNumber}
@@ -921,7 +923,7 @@ export default function SchedulePage() {
                 <div className="space-y-2.5">
                   <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
                     <CalendarDays className="h-3.5 w-3.5 text-blue-500" />
-                    {locale === "ar" ? "التاريخ" : "Date"}
+                    {t("date")}
                   </label>
                   <Input
                     type="date"
@@ -933,7 +935,7 @@ export default function SchedulePage() {
                 <div className="space-y-2.5">
                   <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
                     <Clock3 className="h-3.5 w-3.5 text-blue-500" />
-                    {locale === "ar" ? "الوقت" : "Time"}
+                    {t("time")}
                   </label>
                   <Input
                     type="time"
@@ -946,7 +948,7 @@ export default function SchedulePage() {
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2.5">
-                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{locale === "ar" ? "نوع الزيارة" : "Visit Type"}</label>
+                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{t("visitType")}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -956,12 +958,12 @@ export default function SchedulePage() {
                       }}
                       className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <span>{newAppointmentForm.visitType}</span>
+                      <span>{t(newAppointmentForm.visitType as TranslationKey)}</span>
                       <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-200", visitTypeOpen && "rotate-180")} />
                     </button>
                     {visitTypeOpen && (
                       <div className="absolute z-60 mt-2 max-h-48 w-full overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 py-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-200">
-                        {["New patient", "Follow up", "Emergency", "Consultation"].map((option) => (
+                        {["newPatient", "followUp", "emergency", "consultation"].map((option) => (
                           <button
                             key={option}
                             type="button"
@@ -974,7 +976,7 @@ export default function SchedulePage() {
                             <span className="w-4 flex items-center justify-center">
                               {newAppointmentForm.visitType === option ? <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" /> : null}
                             </span>
-                            <span>{option}</span>
+                            <span>{t(option as TranslationKey)}</span>
                           </button>
                         ))}
                       </div>
@@ -982,7 +984,7 @@ export default function SchedulePage() {
                   </div>
                 </div>
                 <div className="space-y-2.5">
-                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{locale === "ar" ? "المدة (بالدقائق)" : "Duration (minutes)"}</label>
+                  <label className="text-[13px] font-bold text-slate-700 dark:text-slate-300">{t("durationMinutes")}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -992,7 +994,7 @@ export default function SchedulePage() {
                       }}
                       className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      <span>{`${newAppointmentForm.duration} minutes`}</span>
+                      <span>{`${newAppointmentForm.duration} ${t("minutes")}`}</span>
                       <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform duration-200", durationOpen && "rotate-180")} />
                     </button>
                     {durationOpen && (
@@ -1010,7 +1012,7 @@ export default function SchedulePage() {
                             <span className="w-4 flex items-center justify-center">
                               {newAppointmentForm.duration === option ? <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" /> : null}
                             </span>
-                            <span>{`${option} minutes`}</span>
+                            <span>{`${option} ${t("minutes")}`}</span>
                           </button>
                         ))}
                       </div>
@@ -1022,12 +1024,12 @@ export default function SchedulePage() {
               <div className="space-y-2.5">
                 <label className="flex items-center gap-2 text-[13px] font-bold text-slate-700 dark:text-slate-300">
                   <AlertCircle className="h-3.5 w-3.5 text-blue-500" />
-                  {locale === "ar" ? "سبب الزيارة" : "Reason for Visit"}
+                  {t("reasonForVisit")}
                 </label>
                 <textarea
                   value={newAppointmentForm.reason}
                   onChange={(event) => setNewAppointmentForm((prev) => ({ ...prev, reason: event.target.value }))}
-                  placeholder={locale === "ar" ? "ادخل سبب الزيارة" : "Enter reason for visit"}
+                  placeholder={t("enterReasonForVisit")}
                   rows={4}
                   className="w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-4 focus:ring-blue-600/5 transition-all outline-none resize-none"
                 />
@@ -1040,14 +1042,14 @@ export default function SchedulePage() {
                 onClick={() => setShowAddAppointmentModal(false)}
                 className="flex-1 h-14 rounded-2xl font-black text-[15px] text-slate-500 hover:bg-white hover:text-slate-900 shadow-sm border border-transparent hover:border-slate-100 transition-all bg-[#E9EEF4] dark:bg-slate-800"
               >
-                {locale === "ar" ? "إلغاء" : "Cancel"}
+                {t("cancel")}
               </Button>
               <Button
                 onClick={handleCreateAppointment}
                 disabled={isSubmittingAppointment}
                 className="flex-[1.5] h-14 rounded-2xl bg-blue-600 text-white font-black text-[15px] hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all disabled:opacity-50"
               >
-                {isSubmittingAppointment ? (locale === "ar" ? "جارٍ الإضافة..." : "Adding...") : (locale === "ar" ? "إضافة موعد" : "Add Appointment")}
+                {isSubmittingAppointment ? t("adding") : t("addAppointment")}
               </Button>
             </div>
           </div>
@@ -1060,9 +1062,9 @@ export default function SchedulePage() {
           <DialogContent className="max-w-2xl rounded-3xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-0 overflow-hidden shadow-2xl">
             <DialogHeader className="px-8 py-5 border-b border-slate-50 dark:border-slate-800/50">
               <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                {openForm.type === "reschedule" && (locale === "ar" ? "إعادة جدولة الموعد" : "Reschedule Appointment")}
-                {openForm.type === "manual-summary" && (locale === "ar" ? "إرسال ملخص طبي يدوي" : "Send Manual Medical Summary")}
-                {openForm.type === "ai-summary" && (locale === "ar" ? "إنشاء ملخص بالذكاء الاصطناعي" : "Generate AI Medical Summary")}
+                {openForm.type === "reschedule" && t("rescheduleAppointment")}
+                {openForm.type === "manual-summary" && t("sendManualMedicalSummary")}
+                {openForm.type === "ai-summary" && t("generateAiMedicalSummary")}
               </DialogTitle>
             </DialogHeader>
 
@@ -1071,7 +1073,7 @@ export default function SchedulePage() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "التاريخ الجديد" : "New Date"}</label>
+                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t("newDate")}</label>
                       <Input
                         type="date"
                         value={rescheduleForm.date}
@@ -1080,7 +1082,7 @@ export default function SchedulePage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "الوقت الجديد" : "New Start Time"}</label>
+                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t("newStartTime")}</label>
                       <Input
                         type="time"
                         value={rescheduleForm.startTime}
@@ -1090,16 +1092,16 @@ export default function SchedulePage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "سبب إعادة الجدولة (اختياري)" : "Reason for rescheduling (optional)"}</label>
+                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t("reasonForReschedulingOptional")}</label>
                     <textarea
                       className="min-h-24 w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       value={rescheduleForm.reason}
                       onChange={(e) => setRescheduleForm(prev => ({ ...prev, reason: e.target.value }))}
-                      placeholder={locale === "ar" ? "أدخل السبب هنا..." : "Enter reason here..."}
+                      placeholder={t("enterReasonHere")}
                     />
                   </div>
                   <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => setOpenForm(null)}>{t("cancel")}</Button>
                     <Button 
                       className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
                       onClick={() => {
@@ -1108,7 +1110,7 @@ export default function SchedulePage() {
                       }}
                       disabled={activeActionId === openForm.appointmentId}
                     >
-                      {activeActionId === openForm.appointmentId ? (locale === "ar" ? "جارٍ الحفظ..." : "Scheduling...") : (locale === "ar" ? "تأكيد الموعد الجديد" : "Confirm New Schedule")}
+                      {activeActionId === openForm.appointmentId ? t("scheduling") : t("confirmNewSchedule")}
                     </Button>
                   </div>
                 </div>
@@ -1117,12 +1119,12 @@ export default function SchedulePage() {
               {openForm.type === "manual-summary" && (
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "محتوى الملخص الطبي" : "Medical Summary Content"}</label>
+                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t("medicalSummaryContent")}</label>
                     <textarea
                       className="min-h-40 w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       value={manualSummaryForm.content}
                       onChange={(e) => setManualSummaryForm(prev => ({ ...prev, content: e.target.value }))}
-                      placeholder={locale === "ar" ? "اكتب ملاحظاتك الطبية وتوصياتك هنا..." : "Write your medical notes and recommendations here..."}
+                      placeholder={t("writeMedicalNotesAndRecommendations")}
                     />
                   </div>
                   <label className="flex items-center gap-3 cursor-pointer group">
@@ -1135,10 +1137,10 @@ export default function SchedulePage() {
                         onChange={(e) => setManualSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
                       />
                     </div>
-                    <span className="text-[14px] text-slate-600 dark:text-slate-400 font-bold group-hover:text-slate-900 dark:group-hover:text-slate-200">{locale === "ar" ? "إرسال نسخة للمريض عبر البريد/التطبيق" : "Send a copy to the patient via Email/App"}</span>
+                    <span className="text-[14px] text-slate-600 dark:text-slate-400 font-bold group-hover:text-slate-900 dark:group-hover:text-slate-200">{t("sendCopyViaEmailApp")}</span>
                   </label>
                   <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" onClick={() => setOpenForm(null)}>{t("cancel")}</Button>
                     <Button 
                       className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
                       onClick={() => {
@@ -1147,7 +1149,7 @@ export default function SchedulePage() {
                       }}
                       disabled={activeActionId === openForm.appointmentId}
                     >
-                      {activeActionId === openForm.appointmentId ? (locale === "ar" ? "جارٍ الإرسال..." : "Sending...") : (locale === "ar" ? "إرسال الملخص" : "Send Summary")}
+                      {activeActionId === openForm.appointmentId ? t("sending") : t("submit")}
                     </Button>
                   </div>
                 </div>
@@ -1156,25 +1158,25 @@ export default function SchedulePage() {
                {openForm.type === "ai-summary" && (
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "ملاحظات إضافية للذكاء الاصطناعي (اختياري)" : "Additional notes for AI (optional)"}</label>
+                    <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t("additionalNotesForAiOptional")}</label>
                     <textarea
                       className="min-h-32 w-full rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       value={aiSummaryForm.consultationNotes}
                       onChange={(e) => setAiSummaryForm(prev => ({ ...prev, consultationNotes: e.target.value }))}
-                      placeholder={locale === "ar" ? "أي سياق إضافي تريده في الملخص..." : "Any extra context you want included in the summary..."}
+                      placeholder={t("anyExtraContextForSummary")}
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{locale === "ar" ? "تنسيق الملخص" : "Summary Format"}</label>
+                      <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t("summaryFormat")}</label>
                       <select
                         value={aiSummaryForm.format}
                         onChange={(e) => setAiSummaryForm(prev => ({ ...prev, format: e.target.value as "brief" | "detailed" | "clinical" }))}
                         className="h-11 w-full rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-950 focus:outline-none transition-all"
                       >
-                        <option value="brief">Brief (Core points only)</option>
-                        <option value="detailed">Detailed (Comprehensive explanation)</option>
-                        <option value="clinical">Clinical (Structured medical report)</option>
+                        <option value="brief">{t("brief")}</option>
+                        <option value="detailed">{t("detailed")}</option>
+                        <option value="clinical">{t("clinical")}</option>
                       </select>
                     </div>
                     <div className="flex items-end pb-1.5">
@@ -1188,12 +1190,12 @@ export default function SchedulePage() {
                             onChange={(e) => setAiSummaryForm(prev => ({ ...prev, sendToPatient: e.target.checked }))}
                           />
                         </div>
-                        <span className="text-[14px] text-slate-600 dark:text-slate-400 font-bold group-hover:text-slate-900 dark:group-hover:text-slate-200">{locale === "ar" ? "مشاركة مع المريض" : "Share with patient"}</span>
+                        <span className="text-[14px] text-slate-600 dark:text-slate-400 font-bold group-hover:text-slate-900 dark:group-hover:text-slate-200">{t("shareWithPatient")}</span>
                       </label>
                     </div>
                   </div>
                   <div className="flex justify-end gap-3 pt-4">
-                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" onClick={() => setOpenForm(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</Button>
+                    <Button variant="ghost" className="h-12 px-6 rounded-2xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" onClick={() => setOpenForm(null)}>{t("cancel")}</Button>
                     <Button 
                       className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
                       onClick={() => {
@@ -1202,7 +1204,7 @@ export default function SchedulePage() {
                       }}
                       disabled={activeActionId === openForm.appointmentId}
                     >
-                      {activeActionId === openForm.appointmentId ? (locale === "ar" ? "جارٍ التوليد..." : "Generating...") : (locale === "ar" ? "توليد بالذكاء الاصطناعي" : "Generate with AI")}
+                      {activeActionId === openForm.appointmentId ? t("generating") : t("submit")}
                     </Button>
                   </div>
                 </div>
@@ -1220,14 +1222,14 @@ export default function SchedulePage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-none">
                 <CalendarDays className="h-5 w-5" />
               </div>
-              {locale === "ar" ? "اختر التاريخ" : "Select Date"}
+              {t("selectDate")}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
             <div className="flex gap-3">
               <div className="flex-1 space-y-1.5">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">{locale === "ar" ? "الشهر" : "Month"}</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">{t("month")}</label>
                 <Select 
                   options={months}
                   value={viewDate.getMonth().toString()}
@@ -1236,7 +1238,7 @@ export default function SchedulePage() {
                 />
               </div>
               <div className="w-32 space-y-1.5">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">{locale === "ar" ? "السنة" : "Year"}</label>
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider ml-1">{t("year")}</label>
                 <Select 
                   options={years}
                   value={viewDate.getFullYear().toString()}
@@ -1310,13 +1312,13 @@ export default function SchedulePage() {
                   setIsDatePickerOpen(false);
                 }}
               >
-                {locale === "ar" ? "اليوم" : "Today"}
+                {t("today")}
               </Button>
               <Button 
                 className="flex-[2] h-12 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold hover:opacity-90 transition-opacity"
                 onClick={() => setIsDatePickerOpen(false)}
               >
-                {locale === "ar" ? "إغلاق" : "Close"}
+                {t("close")}
               </Button>
             </div>
           </div>

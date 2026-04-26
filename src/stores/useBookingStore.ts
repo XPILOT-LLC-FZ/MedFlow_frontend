@@ -62,7 +62,7 @@ const calculateAge = (dob?: string | Date | null) => {
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
     age--;
   }
-  return age > 0 ? `${age} years` : undefined;
+  return age > 0 ? age.toString() : undefined;
 };
 
 const mapToLocal = (api: ApiAppointment): Appointment => {
@@ -74,6 +74,7 @@ const mapToLocal = (api: ApiAppointment): Appointment => {
     id: api.id,
     patientId: api.patientId || "guest",
     patientName: patient?.fullName || api.patientName,
+    patientNameAr: patient?.fullNameAr,
     patientPhone,
     patientAge: calculateAge(patient?.dateOfBirth),
     patientAvatar: patient?.user?.avatarUrl || undefined,

@@ -308,7 +308,7 @@ export default function CommunicationSettingsPage() {
                   <div className="absolute inset-0 bg-[#0b141a]/95"></div>
                   
                   <div className="relative mt-2 self-center bg-[#182229] text-[#8696a0] text-[10px] px-3 py-1 rounded-lg uppercase tracking-widest font-bold mb-6">
-                    Today
+                    {locale === "ar" ? "اليوم" : "Today"}
                   </div>
 
                   <AnimatePresence mode="wait">

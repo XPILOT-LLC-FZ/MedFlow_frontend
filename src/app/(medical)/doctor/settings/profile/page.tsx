@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { staffService } from "@/services/staffService";
 import type { ApiDoctorCredential, UpdateDoctorPayload } from "@/types";
 import { FilePreviewDialog } from "@/components/shared/FilePreviewDialog";
+import { LanguageToggle } from "@/components/shared/LanguageToggle";
 import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
 
 export default function DoctorProfileSettingsPage() {
@@ -22,8 +23,8 @@ export default function DoctorProfileSettingsPage() {
   const { doctors, fetchDoctors, updateDoctor } = useStaffStore();
   const { success, error } = useToastStore();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [fullNameEn, setFullNameEn] = useState("");
+  const [fullNameAr, setFullNameAr] = useState("");
   const [phone, setPhone] = useState("");
   const [ministryOfHealthId, setMinistryOfHealthId] = useState("");
   const [specialization, setSpecialization] = useState("");
@@ -95,12 +96,8 @@ export default function DoctorProfileSettingsPage() {
 
   useEffect(() => {
     const defaultFullName = user?.name ?? doctorRecord?.fullName ?? "";
-    const nameParts = defaultFullName.split(" ");
-    const defaultFirstName = nameParts[0] || "";
-    const defaultLastName = nameParts.slice(1).join(" ") || "";
-
-    setFirstName(defaultFirstName);
-    setLastName(defaultLastName);
+    setFullNameEn(defaultFullName);
+    setFullNameAr(doctorRecord?.fullNameAr ?? "");
     setPhone(doctorRecord?.phone ?? "");
     setMinistryOfHealthId(doctorRecord?.ministryOfHealthId ?? "");
     setSpecialization(doctorRecord?.specialization ?? "");
@@ -117,6 +114,7 @@ export default function DoctorProfileSettingsPage() {
     doctorRecord?.phone,
     doctorRecord?.ministryOfHealthId,
     doctorRecord?.specialization,
+    doctorRecord?.fullNameAr,
     user?.name
   ]);
 
@@ -138,14 +136,37 @@ export default function DoctorProfileSettingsPage() {
   }, [experienceStartDate]);
 
   const handleSaveProfile = async () => {
-    if (!firstName || firstName.trim().length < 2) {
-      error(locale === "ar" ? "الاسم الأول يجب أن يكون حرفين على الأقل" : "First name must be at least 2 characters");
+    if (!fullNameEn || fullNameEn.trim().length < 2) {
+      error(locale === "ar" ? "الاسم يجب أن يكون حرفين على الأقل" : "Name must be at least 2 characters");
       return;
     }
 
     setIsSavingProfile(true);
     try {
-      const combinedFullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const combinedFullName = fullNameEn.trim();
+
+      if (doctorRecord?.id) {
+        let formattedExperienceDate = null;
+        if (experienceStartDate) {
+          formattedExperienceDate = experienceStartDate;
+        }
+        
+        // Add proper ISO formatting
+        const doctorPayload: UpdateDoctorPayload = {
+          fullName: combinedFullName,
+          fullNameAr: fullNameAr.trim() || undefined,
+          phone: phone.trim() || undefined,
+          ministryOfHealthId: ministryOfHealthId.trim() || null,
+          specialization: specialization.trim() || undefined,
+          qualification: qualification.trim() || undefined,
+        };
+
+        if (user?.role !== "DOCTOR") {
+           doctorPayload.experienceStartDate = formattedExperienceDate;
+        }
+
+        await updateDoctor(doctorRecord.id, doctorPayload);
+      }
 
       const authUpdateResult = await updateProfile({
         name: combinedFullName,
@@ -160,29 +181,8 @@ export default function DoctorProfileSettingsPage() {
         return;
       }
 
-      if (doctorRecord?.id) {
-        let formattedExperienceDate = null;
-        if (experienceStartDate) {
-          formattedExperienceDate = experienceStartDate;
-        }
-        
-        // Add proper ISO formatting
-        const doctorPayload: UpdateDoctorPayload = {
-          fullName: combinedFullName,
-          phone: phone.trim() || undefined,
-          ministryOfHealthId: ministryOfHealthId.trim() || null,
-          specialization: specialization.trim() || undefined,
-          qualification: qualification.trim() || undefined,
-        };
-
-        if (user?.role !== "DOCTOR") {
-           doctorPayload.experienceStartDate = formattedExperienceDate;
-        }
-
-        await updateDoctor(doctorRecord.id, doctorPayload);
-      }
-
       success(locale === "ar" ? "تم تحديث البيانات" : "Profile updated successfully");
+      useAuthStore.getState().bootSession(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update profile";
       error(message);
@@ -392,9 +392,13 @@ export default function DoctorProfileSettingsPage() {
       {/* Profile Picture Card */}
       <Card className="border-slate-100 dark:border-slate-800 shadow-sm border-none shadow-none bg-transparent">
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-6 flex flex-col sm:flex-row gap-6 items-center sm:items-start">
-            <h2 className="text-sm font-semibold text-slate-900 absolute opacity-0 select-none -z-10">Profile Picture</h2>
+            <h2 className="text-sm font-semibold text-slate-900 absolute opacity-0 select-none -z-10">
+              {locale === "ar" ? "الصورة الشخصية" : "Profile Picture"}
+            </h2>
             <div className="flex flex-col w-full gap-4">
-            <span className="text-sm font-bold text-slate-900 dark:text-slate-100 block">Profile Picture</span>
+              <span className="text-sm font-bold text-slate-900 dark:text-slate-100 block">
+                {locale === "ar" ? "الصورة الشخصية" : "Profile Picture"}
+              </span>
               <div className="flex items-center gap-6">
                 <Avatar className="h-24 w-24 bg-blue-100 text-blue-600">
                   <AvatarImage src={avatarPreview || user?.avatarUrl || undefined} alt="Avatar" />
@@ -435,21 +439,24 @@ export default function DoctorProfileSettingsPage() {
         <CardContent className="space-y-4 pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{locale === "ar" ? "الاسم الأول" : "First Name"}</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{locale === "ar" ? "الاسم الكامل (بالإنجليزية)" : "Full Name (English)"}</label>
               <Input
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder={locale === "ar" ? "سارة" : "Sarah"}
+                value={fullNameEn}
+                onChange={(e) => setFullNameEn(e.target.value)}
+                placeholder={locale === "ar" ? "سارة ميتشل" : "Sarah Mitchell"}
                 className="bg-slate-50/50 dark:bg-slate-950/50 border-slate-100 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950 transition-all"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">{locale === "ar" ? "اسم العائلة" : "Last Name"}</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                {locale === "ar" ? "الاسم الكامل (بالعربية)" : "Full Name (Arabic)"}
+              </label>
               <Input
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder={locale === "ar" ? "ميتشل" : "Mitchell"}
-                className="bg-slate-50/50 dark:bg-slate-950/50 border-slate-100 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950 transition-all"
+                value={fullNameAr}
+                onChange={(e) => setFullNameAr(e.target.value)}
+                placeholder={locale === "ar" ? "سارة ميتشل" : "Sarah Mitchell"}
+                dir="rtl"
+                className="bg-slate-50/50 dark:bg-slate-950/50 border-slate-100 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950 transition-all text-right"
               />
             </div>
           </div>
@@ -567,6 +574,30 @@ export default function DoctorProfileSettingsPage() {
                 />
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Language & Preferences */}
+      <Card className="border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 overflow-hidden transition-colors duration-200">
+        <CardHeader className="pb-4 border-b border-slate-50 dark:border-slate-800/50">
+          <CardTitle className="text-base font-bold text-slate-900 dark:text-slate-100">
+            {locale === "ar" ? "اللغة والتفضيلات" : "Language & Preferences"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                {locale === "ar" ? "لغة العرض" : "Display Language"}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {locale === "ar" 
+                  ? "اختر اللغة التي تفضلها لواجهة المستخدم" 
+                  : "Choose your preferred language for the user interface"}
+              </p>
+            </div>
+            <LanguageToggle className="w-full sm:w-auto h-11 sm:h-10" />
           </div>
         </CardContent>
       </Card>

@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { TranslationKey } from "@/lib/i18n";
+import { LanguageToggle } from "@/components/shared/LanguageToggle";
 
 const NAV_ITEMS = [
   {
@@ -79,6 +80,10 @@ export function SettingsSidebar() {
           </Link>
         );
       })}
+
+      <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
+        <LanguageToggle className="w-full justify-start px-4 py-3 rounded-xl border-none shadow-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 h-auto" />
+      </div>
     </nav>
   );
 }

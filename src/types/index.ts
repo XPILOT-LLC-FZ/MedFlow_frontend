@@ -57,6 +57,7 @@ export interface ApiDoctor {
   userId?: string;
   clinicId?: string | null;
   fullName: string;
+  fullNameAr?: string;
   email: string;
   phone?: string;
   specialization?: string;
@@ -118,6 +119,7 @@ export interface ApiPublicDoctor {
   id: string;
   clinicId?: string | null;
   fullName: string;
+  fullNameAr?: string;
   specialization?: string | null;
   bio?: string | null;
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
@@ -175,6 +177,7 @@ export interface DoctorShift {
 
 export interface CreateDoctorPayload {
   fullName: string;
+  fullNameAr?: string;
   email: string;
   phone?: string;
   specialization?: string;
@@ -192,6 +195,7 @@ export interface CreateDoctorPayload {
 
 export interface UpdateDoctorPayload {
   fullName?: string;
+  fullNameAr?: string;
   phone?: string;
   specialization?: string;
   qualification?: string;
@@ -224,6 +228,7 @@ export interface Appointment {
   id: string;
   patientId: string;
   patientName: string;
+  patientNameAr?: string;
   patientPhone?: string;
   patientAge?: string;
   patientAvatar?: string;
@@ -641,6 +646,7 @@ export interface DashboardAdminSummaryData {
 export interface DashboardStaffQueueItem {
   id: string;
   patientName: string;
+  patientNameAr?: string;
   doctorName: string;
   time: string;
   status: DashboardAppointmentStatus;
@@ -671,6 +677,7 @@ export interface DashboardDoctorScheduleItem {
   patientPhone: string;
   id: string;
   patientName: string;
+  patientNameAr?: string;
   patientGender?: string;
   patientDateOfBirth?: string;
   type: string;
@@ -745,6 +752,7 @@ export interface ApiPatient {
   address: string;
   id: string;
   fullName: string;
+  fullNameAr?: string;
   email?: string;
   phone?: string;
   dateOfBirth?: string;
@@ -856,6 +864,7 @@ export interface PaginatedPatientsResponse {
 
 export interface CreatePatientPayload {
   fullName: string;
+  fullNameAr?: string;
   email?: string;
   phone?: string;
   dateOfBirth?: string | null;
