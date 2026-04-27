@@ -18,7 +18,13 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isAuthPath = pathname.startsWith("/login") || pathname.startsWith("/signup");
+  if (pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password")) {
+    return NextResponse.next();
+  }
+
+  const isAuthPath = 
+    pathname.startsWith("/login") || 
+    pathname.startsWith("/signup");
   const isOnboardingPath = pathname.startsWith("/onboarding");
   
   // Define protected paths

@@ -22,7 +22,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return !persistApi?.hasHydrated || persistApi.hasHydrated();
   });
 
-  const isAuthPage = pathname?.startsWith("/login") || pathname?.startsWith("/signup");
+  const isAuthPage = 
+    pathname?.startsWith("/login") || 
+    pathname?.startsWith("/signup") || 
+    pathname?.startsWith("/forgot-password") || 
+    pathname?.startsWith("/reset-password");
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

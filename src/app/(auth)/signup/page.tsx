@@ -1,275 +1,290 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowRight, User, Mail, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Eye, 
+  EyeOff, 
+  Check, 
+  AlertCircle,
+  ChevronLeft
+} from "lucide-react";
+import { FacebookIcon, GoogleIcon, AppleIcon } from "@/components/shared/SocialIcons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { BrandLogo } from "@/components/shared/BrandLogo";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
-
-interface FormData {
-  fullName: string;
-  role: "PATIENT" | "ADMIN";
-  email: string;
-  password: string;
-}
-
-const emptyForm: FormData = {
-  fullName: "",
-  role: "PATIENT",
-  email: "",
-  password: "",
-};
+import { LanguageToggle } from "@/components/shared/LanguageToggle";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
 export default function SignupPage() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const router = useRouter();
-  const { signup, isAuthenticated, getPostAuthPath } = useAuthStore();
+  const { sendSignupOtp } = useAuthStore();
 
-  const [form, setForm] = useState<FormData>(emptyForm);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [touched, setTouched] = useState(false);
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.replace(useAuthStore.getState().getPostAuthPath());
-    }
-  }, [isAuthenticated, router, getPostAuthPath]);
+  const [form, setForm] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "PATIENT" as "PATIENT" | "ADMIN"
+  });
 
-  const update = (field: keyof FormData, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const update = (field: keyof typeof form, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
     setError("");
   };
 
-  const validateForm = (): boolean => {
-    if (!form.fullName.trim()) {
-      setError(t("nameRequired"));
-      return false;
-    }
-
-    if (!form.email.trim()) {
-      setError(t("emailRequired"));
-      return false;
-    }
-
-    if (!form.password || form.password.length < 8) {
-      setError(locale === "ar" ? "كلمة المرور يجب أن تكون 8 أحرف على الأقل" : "Password must be at least 8 characters");
-      return false;
-    }
-
-    return true;
+  const requirements = {
+    length: form.password.length >= 8,
+    numbers: (form.password.match(/\d/g) || []).length >= 2,
+    uppercase: /[A-Z]/.test(form.password)
   };
 
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
+  const passwordsMatch = form.password.length > 0 && form.password === form.confirmPassword;
+  const hasPasswordError = touched && !Object.values(requirements).every(Boolean);
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTouched(true);
+
+    if (!form.fullName || !form.email || !form.password || !form.confirmPassword) {
+      setError(locale === "ar" ? "يرجى ملء جميع الحقول" : "Please fill in all fields");
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setError(locale === "ar" ? "كلمات المرور غير متطابقة" : "Passwords do not match");
+      return;
+    }
+
+    if (!Object.values(requirements).every(Boolean)) {
+      return;
+    }
 
     setIsLoading(true);
-    setError("");
-
-    const result = await signup({
-      name: form.fullName,
-      email: form.email,
-      password: form.password,
-      role: form.role,
-    });
+    const result = await sendSignupOtp(form.email, form.fullName, form.role);
+    setIsLoading(false);
 
     if (result.success) {
-      setSuccess(true);
-      const targetPath = result.isNewUser ? "/onboarding" : useAuthStore.getState().getPostAuthPath();
-      router.push(targetPath);
+      router.push(`/reset-password?step=otp&email=${encodeURIComponent(form.email)}&type=signup&name=${encodeURIComponent(form.fullName)}&pass=${encodeURIComponent(form.password)}&role=${form.role}`);
     } else {
-      const errorMsg = result.error || "Registration failed";
-      setError(errorMsg);
-      setIsLoading(false);
+      setError(result.error || (locale === "ar" ? "حدث خطأ ما" : "Something went wrong"));
     }
   };
 
   return (
-    <div className="min-h-screen flex" dir={locale === "ar" ? "rtl" : "ltr"}>
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.28),transparent_30%),linear-gradient(135deg,#0f172a_0%,#075985_52%,#0ea5e9_100%)] p-12">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.3))]" />
-        <div className="relative text-white max-w-md space-y-6">
-          <BrandLogo
-            iconClassName="h-14 w-14 rounded-[1.25rem]"
-            textClassName="text-3xl"
-            captionClassName="text-[11px] tracking-[0.34em]"
-            showCaption
-            theme="dark"
-          />
-          <h1 className="text-4xl font-bold">{t("createAccount")}</h1>
-          <p className="text-blue-100 text-lg leading-relaxed">
-            {locale === "ar"
-              ? "أنشئ حسابك بسرعة باستخدام الاسم الكامل والبريد الإلكتروني وكلمة المرور ونوع الحساب."
-              : "Create your account quickly with full name, email, password, and account role."}
-          </p>
-        </div>
+    <div className="min-h-screen bg-white dark:bg-slate-950 md:bg-[#F8F9FB] md:dark:bg-slate-950 flex flex-col items-center justify-center md:p-8 relative transition-colors duration-300" dir={locale === "ar" ? "rtl" : "ltr"}>
+      {/* Settings bar */}
+      <div className="fixed top-8 right-8 rtl:right-auto rtl:left-8 z-50 flex items-center gap-2">
+        <LanguageToggle variant="ghost" className="hover:bg-slate-100 dark:hover:bg-slate-900/50 backdrop-blur-sm dark:text-slate-100" />
+        <ThemeToggle variant="ghost" className="hover:bg-slate-100 dark:hover:bg-slate-900/50 backdrop-blur-sm" />
       </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-          <div className="text-center mb-6">
-            <Link href="/main" className="inline-flex items-center mb-4 lg:hidden">
-              <BrandLogo iconClassName="h-10 w-10 rounded-xl" textClassName="text-xl" />
-            </Link>
-            <h2 className="text-2xl font-bold">{t("createAccount")}</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              {locale === "ar" ? "نموذج تسجيل سريع" : "Simple signup form"}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full h-full min-h-screen md:min-h-[650px] md:max-w-[480px] md:h-auto bg-white dark:bg-slate-900 md:rounded-[3rem] md:shadow-xl md:shadow-slate-200/40 md:dark:shadow-none overflow-hidden flex flex-col relative transition-colors duration-300"
+      >
+        {/* Back Button */}
+        <button 
+          onClick={() => router.back()}
+          className="absolute top-8 left-8 rtl:left-auto rtl:right-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+
+        <div className="p-6 pt-24 md:p-12 md:pt-16 flex flex-col h-full">
+          {/* Header */}
+          <div className="mb-4">
+            <h1 className="text-[28px] md:text-[32px] font-black text-[#0F172A] dark:text-slate-50 mb-1 leading-tight tracking-tight">
+              {locale === "ar" ? "إنشاء حساب" : "Create Account"}
+            </h1>
+            <p className="text-[#94A3B8] dark:text-slate-400 text-base font-medium">
+              {locale === "ar" ? "متحمسون لانضمامك إلينا!" : "Excited to have you on board!"}
             </p>
           </div>
 
-          <Card>
-            <CardContent className="p-6">
-              {/* Error */}
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col gap-2 p-3 mb-4 rounded-lg bg-destructive/10 text-destructive text-sm"
+          <form onSubmit={handleSignup} className="flex-1 flex flex-col space-y-3">
+            {error && (
+              <div className="flex items-center gap-2 text-destructive text-sm font-medium bg-destructive/5 p-4 rounded-2xl animate-in fade-in slide-in-from-top-1">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Full Name */}
+            <div className="space-y-3">
+              <label className="text-base font-bold text-[#0F172A] dark:text-slate-200 px-2">
+                {locale === "ar" ? "الاسم الكامل" : "Full Name"}
+              </label>
+              <Input 
+                placeholder={locale === "ar" ? "أدخل اسمك الكامل" : "Enter your full name"}
+                className="h-[54px] mt-2 rounded-full bg-slate-50 dark:bg-slate-800/50 border-[#E2E8F0] dark:border-slate-800 text-[#0F172A] dark:text-slate-50 focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all text-base px-7 placeholder:text-slate-400"
+                value={form.fullName}
+                onChange={(e) => update("fullName", e.target.value)}
+              />
+            </div>
+
+            {/* Email / Phone */}
+            <div className="space-y-3">
+              <label className="text-base font-bold text-[#0F172A] dark:text-slate-200 px-2">
+                {locale === "ar" ? "البريد الإلكتروني / رقم الهاتف" : "Email / Phone number"}
+              </label>
+              <Input 
+                placeholder={locale === "ar" ? "أدخل بريدك الإلكتروني" : "Enter your email"}
+                className="h-[54px] mt-2 rounded-full bg-slate-50 dark:bg-slate-800/50 border-[#E2E8F0] dark:border-slate-800 text-[#0F172A] dark:text-slate-50 focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all text-base px-7 placeholder:text-slate-400"
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+              />
+            </div>
+
+            {/* Password */}
+            <div className="space-y-3">
+              <label className={`text-base font-bold transition-colors px-2 ${hasPasswordError ? "text-[#FF4D4D]" : "text-[#0F172A] dark:text-slate-200"}`}>
+                {locale === "ar" ? "كلمة المرور" : "Password"}
+              </label>
+              <div className="relative">
+                <Input 
+                  type={showPassword ? "text" : "password"}
+                  placeholder={locale === "ar" ? "أنشئ كلمة مرور" : "Create password"}
+                  className={`h-[54px] mt-2 rounded-full bg-slate-50 dark:bg-slate-800/50 border-2 transition-all text-base px-7 pr-14 rtl:pr-7 rtl:pl-14 text-[#0F172A] dark:text-slate-50 placeholder:text-slate-400 ${
+                    hasPasswordError ? "border-[#FF4D4D] focus:border-[#FF4D4D]" : "border-[#E2E8F0] dark:border-slate-800 focus:border-[#2563EB]"
+                  }`}
+                  value={form.password}
+                  onChange={(e) => update("password", e.target.value)}
+                  onBlur={() => setTouched(true)}
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-6 rtl:right-auto rtl:left-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                  {error.toLowerCase().includes("email") && error.toLowerCase().includes("use") && (
-                    <Link 
-                      href="/login" 
-                      className="text-xs font-semibold mt-1 inline-flex items-center gap-1 text-current hover:underline"
-                    >
-                      Try logging in instead →
-                    </Link>
-                  )}
-                </motion.div>
-              )}
-
-              {/* Success */}
-              {success && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 p-3 mb-4 rounded-lg bg-success/10 text-success text-sm"
-                >
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>{t("signupSuccess")}</span>
-                </motion.div>
-              )}
-
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t("fullName")}</label>
-                  <div className="relative">
-                    <User className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={form.fullName}
-                      onChange={(e) => update("fullName", e.target.value)}
-                      placeholder="John Smith"
-                      className="pl-10 rtl:pl-3 rtl:pr-10"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t("email")}</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={form.email}
-                      onChange={(e) => update("email", e.target.value)}
-                      placeholder="you@example.com"
-                      className="pl-10 rtl:pl-3 rtl:pr-10"
-                      type="email"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{t("password")}</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 rtl:left-auto rtl:right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => update("password", e.target.value)}
-                      placeholder="••••••••"
-                      className="pl-10 rtl:pl-3 rtl:pr-10"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {locale === "ar" ? "8 أحرف على الأقل" : "At least 8 characters"}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">{locale === "ar" ? "نوع الحساب" : "Account Type"}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      type="button"
-                      variant={form.role === "PATIENT" ? "default" : "outline"}
-                      className="w-full"
-                      onClick={() => update("role", "PATIENT")}
-                    >
-                      {locale === "ar" ? "مريض" : "Patient"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={form.role === "ADMIN" ? "default" : "outline"}
-                      className="w-full"
-                      onClick={() => update("role", "ADMIN")}
-                    >
-                      {locale === "ar" ? "إدارة عيادة" : "Clinic Admin"}
-                    </Button>
-                  </div>
-                </div>
-
-                <p className="text-sm text-muted-foreground text-center pt-1">
-                  {locale === "ar"
-                    ? "بإنشاء حساب، فأنت توافق على شروط الخدمة وسياسة الخصوصية."
-                    : "By creating an account, you agree to our Terms of Service and Privacy Policy."}
-                </p>
-              </motion.div>
-
-              <div className="mt-6">
-                <Button
-                  className="w-full gap-2"
-                  onClick={handleSubmit}
-                  disabled={isLoading || success}
-                >
-                  {isLoading ? (
-                    <>
-                      <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      {t("signingUp")}
-                    </>
-                  ) : (
-                    <>
-                      {t("createAccount")}
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </Button>
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
 
-              <p className="text-center text-sm text-muted-foreground mt-4">
-                {t("hasAccount")}{" "}
-                <Link href="/login" className="text-primary font-medium hover:underline">
-                  {t("login")}
+              {/* Password Requirements */}
+              <AnimatePresence>
+                {form.password.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-2 px-4 space-y-2 overflow-hidden"
+                  >
+                    <RequirementItem met={requirements.length} text={locale === "ar" ? "8 أحرف على الأقل" : "Min 8 characters length"} />
+                    <RequirementItem met={requirements.numbers} text={locale === "ar" ? "رقمين على الأقل" : "Min 2 number"} />
+                    <RequirementItem met={requirements.uppercase} text={locale === "ar" ? "حرف كبير واحد على الأقل" : "Min 1 uppercase letter"} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-3">
+              <label className="text-base font-bold text-[#0F172A] dark:text-slate-200 px-2">
+                {locale === "ar" ? "تأكيد كلمة المرور" : "Confirm password"}
+              </label>
+              <div className="relative">
+                <Input 
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder={locale === "ar" ? "أعد إدخال كلمة المرور" : "Confirm password"}
+                  className="h-[54px] mt-2 rounded-full bg-slate-50 dark:bg-slate-800/50 border-[#E2E8F0] dark:border-slate-800 text-[#0F172A] dark:text-slate-50 focus:border-[#2563EB] focus:ring-1 focus:ring-[#2563EB] transition-all text-base px-7 pr-14 rtl:pr-7 rtl:pl-14 placeholder:text-slate-400"
+                  value={form.confirmPassword}
+                  onChange={(e) => update("confirmPassword", e.target.value)}
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-6 rtl:right-auto rtl:left-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {form.confirmPassword.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pt-2 px-4 overflow-hidden"
+                  >
+                    <RequirementItem met={passwordsMatch} text={locale === "ar" ? "تطابق كلمات المرور" : "Passwords match"} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Submit */}
+            <div className="pt-2 space-y-4">
+              <Button
+                type="submit"
+                className="w-full h-[54px] rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-base font-bold shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-[0.98]"
+                disabled={isLoading}
+              >
+                {isLoading ? "..." : (locale === "ar" ? "إنشاء حساب" : "Sign up")}
+              </Button>
+
+              <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[#E2E8F0] dark:border-slate-800"></div>
+                </div>
+                <span className="relative px-4 bg-white dark:bg-slate-900 text-[#64748B] dark:text-slate-400 text-xs font-medium transition-colors">
+                  {locale === "ar" ? "أو المتابعة باستخدام" : "or continue with"}
+                </span>
+              </div>
+
+              <div className="flex justify-center gap-6">
+                <SocialButton icon={<FacebookIcon className="h-7 w-7 text-[#1877F2]" />} />
+                <SocialButton icon={<GoogleIcon className="h-7 w-7" />} />
+                <SocialButton icon={<AppleIcon className="h-7 w-7 text-black dark:text-white" />} />
+              </div>
+
+              <p className="text-center text-[#64748B] dark:text-slate-400 text-sm font-medium pb-12">
+                {locale === "ar" ? "هل لديك حساب بالفعل؟" : "Already have an account?"}{" "}
+                <Link href="/login" className="text-[#2563EB] font-black hover:underline ml-1">
+                  {locale === "ar" ? "تسجيل الدخول" : "Log in"}
                 </Link>
               </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+            </div>
+          </form>
+        </div>
+      </motion.div>
     </div>
+  );
+}
+
+function RequirementItem({ met, text }: { met: boolean; text: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`h-4 w-4 flex items-center justify-center`}>
+        {met ? (
+          <Check className="h-4 w-4 text-[#4ADE80] stroke-[3px]" />
+        ) : (
+          <div className="h-2 w-2 rounded-full bg-slate-100 dark:bg-slate-800" />
+        )}
+      </div>
+      <span className={`text-sm font-medium transition-colors duration-300 ${met ? "text-[#4ADE80]" : "text-[#94A3B8] dark:text-slate-500"}`}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function SocialButton({ icon }: { icon: React.ReactNode }) {
+  return (
+    <button className="w-20 h-14 rounded-2xl border border-[#E2E8F0] dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95">
+      {icon}
+    </button>
   );
 }

@@ -88,13 +88,13 @@ export function ChatWidget() {
     <>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors z-50 flex items-center justify-center"
+        className="fixed bottom-28 lg:bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors z-50 flex items-center justify-center"
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-80 sm:w-96 shadow-2xl bg-white border border-gray-200 rounded-xl flex flex-col z-50 overflow-hidden transition-all duration-300 ease-in-out" style={{ height: "500px", maxHeight: '80vh' }}>
+        <div className="fixed bottom-48 lg:bottom-24 right-6 w-80 sm:w-96 shadow-2xl bg-white border border-gray-200 rounded-xl flex flex-col z-50 overflow-hidden transition-all duration-300 ease-in-out" style={{ height: "500px", maxHeight: '80vh' }}>
           <div className="bg-blue-600 text-white p-4 font-semibold flex justify-between items-center">
             <div className="flex items-center gap-2">
               <MessageSquare size={18} />

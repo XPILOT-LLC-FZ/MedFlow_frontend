@@ -70,6 +70,10 @@ interface AuthState {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: (token: string, role?: "PATIENT" | "ADMIN") => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   signup: (data: SignupData) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
+  sendSignupOtp: (email: string, fullName: string, role: "PATIENT" | "ADMIN") => Promise<{ success: boolean; error?: string }>;
+  verifySignupOtp: (email: string, fullName: string, password: string, otpCode: string, role: "PATIENT" | "ADMIN") => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
+  sendResetOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyResetOtp: (email: string, otpCode: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
   bootSession: (force?: boolean) => Promise<void>;
@@ -257,6 +261,90 @@ export const useAuthStore = create<AuthState>()(
           };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Registration failed";
+          return { success: false, error: message };
+        }
+      },
+
+      // ─── OTP SIGNUP ──────────────────────────────────────────
+      sendSignupOtp: async (email, fullName, role) => {
+        try {
+          await apiClient.post("/auth/send-signup-otp", {
+            email,
+            fullName,
+            role,
+          });
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to send OTP";
+          return { success: false, error: message };
+        }
+      },
+
+      verifySignupOtp: async (email, fullName, password, otpCode, role) => {
+        try {
+          const response = await apiClient.post<Record<string, unknown>>(
+            "/auth/verify-signup-otp",
+            {
+              email,
+              fullName,
+              password,
+              otpCode,
+              role,
+            },
+          );
+          const { accessToken, refreshToken } = extractTokens(response);
+
+          let userData = response.user;
+          if (!userData) {
+            if (accessToken || refreshToken) {
+              set({
+                accessToken: accessToken ?? null,
+                refreshToken: refreshToken ?? null,
+              });
+            }
+            userData = await apiClient.get("/auth/me");
+          }
+
+          const parsedUser = mapUser(userData);
+          syncOnboardingHintCookie(parsedUser);
+
+          set({
+            user: parsedUser,
+            accessToken: accessToken ?? null,
+            refreshToken: refreshToken ?? null,
+            isAuthenticated: true,
+          });
+          return {
+            success: true,
+            isNewUser: requiresOnboarding(parsedUser.role) && !parsedUser.isOnboarded,
+          };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "OTP verification failed";
+          return { success: false, error: message };
+        }
+      },
+
+      // ─── OTP RESET PASSWORD ──────────────────────────────────
+      sendResetOtp: async (email) => {
+        try {
+          await apiClient.post("/auth/send-reset-otp", { email });
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to send reset OTP";
+          return { success: false, error: message };
+        }
+      },
+
+      verifyResetOtp: async (email, otpCode, newPassword) => {
+        try {
+          await apiClient.post("/auth/verify-reset-otp", {
+            email,
+            otpCode,
+            newPassword,
+          });
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Password reset failed";
           return { success: false, error: message };
         }
       },
