@@ -3,7 +3,10 @@
  */
 import { apiClient } from "@/lib/apiClient";
 import type {
+  ApiDoctor,
+  ApiLoyaltyTransaction,
   ApiPatient,
+  ApiPublicDoctor,
   CreatePatientPayload,
   PaginatedPatientsResponse,
   PatientListFilters,
@@ -116,5 +119,25 @@ export const patientService = {
       totalPatients: patients.length,
       // Add more client-side stats if needed
     };
+  },
+
+  async getDoctors(params?: { search?: string; specialization?: string }): Promise<ApiPublicDoctor[]> {
+    return apiClient.get("/patients/doctors", { params });
+  },
+
+  async getFavoriteDoctors(): Promise<ApiDoctor[]> {
+    return apiClient.get("/patients/me/favorites");
+  },
+
+  async addFavoriteDoctor(doctorId: string): Promise<void> {
+    await apiClient.post("/patients/me/favorites", { doctorId });
+  },
+
+  async removeFavoriteDoctor(doctorId: string): Promise<void> {
+    await apiClient.delete(`/patients/me/favorites/${doctorId}`);
+  },
+  
+  async getLoyaltyHistory(): Promise<ApiLoyaltyTransaction[]> {
+    return apiClient.get("/patients/me/loyalty-history");
   },
 };

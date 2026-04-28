@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, Loader2, MessageSquare } from "lucide-react";
 import {
@@ -70,7 +70,7 @@ function applyStatusToMessages(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function PatientChatPage() {
+function PatientChatPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -517,5 +517,17 @@ export default function PatientChatPage() {
         )
       }
     />
+  );
+}
+
+export default function PatientChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    }>
+      <PatientChatPageContent />
+    </Suspense>
   );
 }

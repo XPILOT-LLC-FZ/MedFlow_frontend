@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock, Search, Sparkles, UserRoundPlus } from "lucide-react";
@@ -18,7 +18,7 @@ import { patientService } from "@/services/patientService";
 import { formatDateKey } from "@/lib/dateUtils";
 import type { ApiPatient, CreatePatientPayload, SmartRecommendation } from "@/types";
 
-export default function BookingPage() {
+function BookingPageContent() {
   const searchParams = useSearchParams();
   const { locale } = useTranslation();
   const { doctors, fetchDoctors } = useStaffStore();
@@ -759,5 +759,17 @@ export default function BookingPage() {
         </motion.div>
       )}
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    }>
+      <BookingPageContent />
+    </Suspense>
   );
 }

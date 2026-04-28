@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Search, Calendar, Clock, Star, ChevronRight, Sparkles, Upload } from "lucide-react";
+import { Search, Calendar, Clock, Star, ChevronRight, Sparkles, Upload, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { usePatientStore } from "@/stores/usePatientStore";
 import { useToastStore } from "@/stores/useToastStore";
+import { useFavorites } from "@/hooks/useFavorites";
 import { bookingService } from "@/services/bookingService";
 import { patientDocumentService } from "@/services/patientDocumentService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
@@ -39,16 +40,18 @@ import type {
   Appointment,
   PreviewFileInfo,
 } from "@/types";
+import { cn } from "@/lib/utils";
 
 const specialtiesList = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"];
 
-export default function AppointmentsPage() {
+function AppointmentsPageContent() {
   const searchParams = useSearchParams();
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
   const { appointments, addAppointment, updateAppointment, fetchAppointments } = useBookingStore();
   const { currentPatient, fetchMe } = usePatientStore();
   const toast = useToastStore();
+  const { toggleFavorite, isFavorite } = useFavorites();
 
   const [services, setServices] = useState<ApiService[]>([]);
   const [staffDoctors, setStaffDoctors] = useState<ApiPublicDoctor[]>([]);
@@ -763,6 +766,20 @@ export default function AppointmentsPage() {
                           <Badge variant="success" className="self-start">
                             {locale === "ar" ? "متوفر" : "available"}
                           </Badge>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className={cn(
+                              "self-start h-8 w-8 -mr-2 transition-all",
+                              isFavorite(doc.id) ? "text-rose-500 hover:text-rose-600" : "text-slate-300 hover:text-rose-500"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite({ id: doc.id, fullName: doc.name });
+                            }}
+                          >
+                            <Heart className={cn("h-4 w-4", isFavorite(doc.id) && "fill-current")} />
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -955,7 +972,7 @@ export default function AppointmentsPage() {
             })
             .map((apt, i) => (
               <div key={apt.id} className="space-y-2">
-                <AppointmentCard appointment={apt} delay={i * 0.05} />
+                <AppointmentCard appointment={apt} delay={i * 0.05} isPatientView={true} />
                 <div className="flex justify-end">
                   <Button
                     size="sm"
@@ -989,7 +1006,7 @@ export default function AppointmentsPage() {
             })
             .map((apt, i) => (
               <div key={apt.id} className="space-y-2">
-                <AppointmentCard appointment={apt} delay={i * 0.05} />
+                <AppointmentCard appointment={apt} delay={i * 0.05} isPatientView={true} />
                 <div className="flex justify-end">
                   <Button
                     size="sm"
@@ -1137,5 +1154,17 @@ export default function AppointmentsPage() {
         onChange={handleAppointmentFileUpload}
       />
     </div>
+  );
+}
+
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    }>
+      <AppointmentsPageContent />
+    </Suspense>
   );
 }

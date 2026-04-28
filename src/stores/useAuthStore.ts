@@ -74,6 +74,8 @@ interface AuthState {
   verifySignupOtp: (email: string, fullName: string, password: string, otpCode: string, role: "PATIENT" | "ADMIN") => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   sendResetOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   verifyResetOtp: (email: string, otpCode: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  sendChangeEmailOtp: (newEmail: string) => Promise<{ success: boolean; error?: string }>;
+  verifyChangeEmailOtp: (newEmail: string, otpCode: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<boolean>;
   bootSession: (force?: boolean) => Promise<void>;
@@ -85,6 +87,11 @@ interface AuthState {
     newPassword: string,
   ) => Promise<{ success: boolean; error?: string }>;
   toggleAvailability: () => Promise<{ success: boolean; error?: string }>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
+  generate2fa: () => Promise<{ success: boolean; qrUrl?: string; error?: string }>;
+  enable2fa: (code: string) => Promise<{ success: boolean; error?: string }>;
+  getSessions: () => Promise<unknown[]>;
+  revokeSession: (sessionId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 /**
@@ -98,19 +105,19 @@ function extractTokens(response: Record<string, unknown>) {
 }
 
 /** Helper: map any user-shaped object from the API into our AuthUser. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapUser(raw: any, fallback?: Partial<SignupData>): AuthUser {
+function mapUser(raw: Record<string, unknown>, fallback?: Partial<SignupData>): AuthUser {
+  const clinic = raw["clinic"] as { id?: string } | undefined;
   return {
-    id: raw.id ?? "unknown",
-    name: raw.fullName ?? raw.name ?? fallback?.name ?? "User",
-    nameAr: raw.nameAr,
-    email: raw.email ?? fallback?.email ?? "",
-    role: normalizeRole(raw.role),
-    phone: raw.phone ?? fallback?.phone,
-    clinicId: raw.clinicId ?? raw.clinic_id ?? raw.clinic?.id ?? raw.tenantId ?? raw.tenant_id ?? raw.cid,
-    isOnboarded: raw.isOnboarded ?? false,
-    isAvailable: raw.isAvailable ?? true,
-    avatarUrl: raw.avatarUrl ?? raw.avatar ?? null,
+    id: (raw["id"] as string) ?? "unknown",
+    name: (raw["fullName"] as string) ?? (raw["name"] as string) ?? fallback?.name ?? "User",
+    nameAr: raw["nameAr"] as string | undefined,
+    email: (raw["email"] as string) ?? fallback?.email ?? "",
+    role: normalizeRole(raw["role"]),
+    phone: (raw["phone"] as string) ?? fallback?.phone,
+    clinicId: (raw["clinicId"] as string) ?? (raw["clinic_id"] as string) ?? clinic?.id ?? (raw["tenantId"] as string) ?? (raw["tenant_id"] as string) ?? (raw["cid"] as string),
+    isOnboarded: (raw["isOnboarded"] as boolean) ?? false,
+    isAvailable: (raw["isAvailable"] as boolean) ?? true,
+    avatarUrl: (raw["avatarUrl"] as string) ?? (raw["avatar"] as string) ?? null,
   };
 }
 
@@ -153,7 +160,7 @@ export const useAuthStore = create<AuthState>()(
           const { accessToken, refreshToken } = extractTokens(response);
 
           // If the response includes a user object, use it; otherwise fetch /auth/me
-          let userData = response.user;
+          let userData = response["user"] as Record<string, unknown> | undefined;
           if (!userData) {
             if (accessToken || refreshToken) {
               set({
@@ -161,7 +168,7 @@ export const useAuthStore = create<AuthState>()(
                 refreshToken: refreshToken ?? null,
               });
             }
-            userData = await apiClient.get("/auth/me");
+            userData = await apiClient.get<Record<string, unknown>>("/auth/me");
           }
 
           const parsedUser = mapUser(userData);
@@ -184,14 +191,14 @@ export const useAuthStore = create<AuthState>()(
       loginWithGoogle: async (token, role) => {
         try {
           const payload: Record<string, unknown> = { token };
-          if (role) payload.role = role;
+          if (role) payload["role"] = role;
           
           const response = await apiClient.post<Record<string, unknown>>(
             "/auth/oauth/google",
             payload,
           );
           const { accessToken, refreshToken } = extractTokens(response);
-          let userData = response.user;
+          let userData = response["user"] as Record<string, unknown> | undefined;
 
           if (!userData) {
             if (accessToken || refreshToken) {
@@ -200,7 +207,7 @@ export const useAuthStore = create<AuthState>()(
                 refreshToken: refreshToken ?? null,
               });
             }
-            userData = await apiClient.get("/auth/me");
+            userData = await apiClient.get<Record<string, unknown>>("/auth/me");
           }
 
           const parsedUser = mapUser(userData);
@@ -229,7 +236,7 @@ export const useAuthStore = create<AuthState>()(
             password: data.password,
             fullName: data.name,
           };
-          if (data.role) registerPayload.role = data.role;
+          if (data.role) registerPayload["role"] = data.role;
 
           const response = await apiClient.post<Record<string, unknown>>(
             "/auth/register",
@@ -243,8 +250,8 @@ export const useAuthStore = create<AuthState>()(
             });
           }
 
-          const userData = response.user;
-          const fallbackUserData = userData ?? (await apiClient.get("/auth/me").catch(() => null));
+          const userData = response["user"] as Record<string, unknown> | undefined;
+          const fallbackUserData = userData ?? (await apiClient.get<Record<string, unknown>>("/auth/me").catch(() => null));
           const parsedUser = mapUser(fallbackUserData ?? {}, data);
 
           syncOnboardingHintCookie(parsedUser);
@@ -294,7 +301,7 @@ export const useAuthStore = create<AuthState>()(
           );
           const { accessToken, refreshToken } = extractTokens(response);
 
-          let userData = response.user;
+          let userData = response["user"] as Record<string, unknown> | undefined;
           if (!userData) {
             if (accessToken || refreshToken) {
               set({
@@ -302,7 +309,7 @@ export const useAuthStore = create<AuthState>()(
                 refreshToken: refreshToken ?? null,
               });
             }
-            userData = await apiClient.get("/auth/me");
+            userData = await apiClient.get<Record<string, unknown>>("/auth/me");
           }
 
           const parsedUser = mapUser(userData);
@@ -349,6 +356,36 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // ─── OTP CHANGE EMAIL ──────────────────────────────────
+      sendChangeEmailOtp: async (newEmail) => {
+        try {
+          await apiClient.post("/auth/me/email/send-otp", { newEmail });
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to send code";
+          return { success: false, error: message };
+        }
+      },
+
+      verifyChangeEmailOtp: async (newEmail, otpCode) => {
+        try {
+          await apiClient.post("/auth/me/email/verify-otp", { newEmail, otpCode });
+          
+          // Update local user state
+          const currentUser = get().user;
+          if (currentUser) {
+            set({
+              user: { ...currentUser, email: newEmail }
+            });
+          }
+          
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Email verification failed";
+          return { success: false, error: message };
+        }
+      },
+
       // ─── LOGOUT ─────────────────────────────────────────────
       logout: async () => {
         try {
@@ -378,7 +415,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
           });
 
-          const me = await apiClient.get("/auth/me");
+          const me = await apiClient.get<Record<string, unknown>>("/auth/me");
           const parsedUser = mapUser(me);
           syncOnboardingHintCookie(parsedUser);
           set({ user: parsedUser, isAuthenticated: true });
@@ -415,7 +452,7 @@ export const useAuthStore = create<AuthState>()(
         bootSessionInFlight = (async () => {
           try {
             // Prefer cookie-backed identity check first.
-            const userData = await apiClient.get("/auth/me");
+            const userData = await apiClient.get<Record<string, unknown>>("/auth/me");
             const parsedUser = mapUser(userData);
             syncOnboardingHintCookie(parsedUser);
 
@@ -486,13 +523,13 @@ export const useAuthStore = create<AuthState>()(
           const payload: Record<string, unknown> = {};
 
           if (typeof data.name === "string") {
-            payload.fullName = data.name.trim();
+            payload["fullName"] = data.name.trim();
           }
           if (typeof data.avatarUrl === "string") {
-            payload.avatarUrl = data.avatarUrl;
+            payload["avatarUrl"] = data.avatarUrl;
           }
           if (typeof data.isAvailable === "boolean") {
-            payload.isAvailable = data.isAvailable;
+            payload["isAvailable"] = data.isAvailable;
           }
 
           const updatedUser = await apiClient.patch<Record<string, unknown>>(
@@ -505,39 +542,39 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const nextName =
-            typeof updatedUser.fullName === "string"
-              ? updatedUser.fullName
-              : typeof updatedUser.name === "string"
-                ? updatedUser.name
+            typeof updatedUser["fullName"] === "string"
+              ? (updatedUser["fullName"] as string)
+              : typeof updatedUser["name"] === "string"
+                ? (updatedUser["name"] as string)
                 : currentUser.name;
 
           const nextEmail =
-            typeof updatedUser.email === "string"
-              ? updatedUser.email
+            typeof updatedUser["email"] === "string"
+              ? (updatedUser["email"] as string)
               : currentUser.email;
 
           const nextNameAr =
-            typeof updatedUser.nameAr === "string"
-              ? updatedUser.nameAr
+            typeof updatedUser["nameAr"] === "string"
+              ? (updatedUser["nameAr"] as string)
               : currentUser.nameAr;
 
           const nextPhone =
-            typeof updatedUser.phone === "string"
-              ? updatedUser.phone
+            typeof updatedUser["phone"] === "string"
+              ? (updatedUser["phone"] as string)
               : currentUser.phone;
 
           const nextAvatarUrl =
-            typeof updatedUser.avatarUrl === "string"
-              ? updatedUser.avatarUrl
-              : typeof updatedUser.avatar === "string"
-                ? updatedUser.avatar
+            typeof updatedUser["avatarUrl"] === "string"
+              ? (updatedUser["avatarUrl"] as string)
+              : typeof updatedUser["avatar"] === "string"
+                ? (updatedUser["avatar"] as string)
                 : data.avatarUrl !== undefined
                   ? data.avatarUrl
                   : currentUser.avatarUrl;
 
           const nextIsAvailable =
-            typeof updatedUser.isAvailable === "boolean"
-              ? updatedUser.isAvailable
+            typeof updatedUser["isAvailable"] === "boolean"
+              ? (updatedUser["isAvailable"] as boolean)
               : currentUser.isAvailable;
 
           set({
@@ -579,6 +616,55 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: unknown) {
           const message =
             error instanceof Error ? error.message : "Password change failed";
+          return { success: false, error: message };
+        }
+      },
+
+      deleteAccount: async () => {
+        try {
+          await apiClient.delete("/auth/me");
+          get().logout();
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Account deletion failed";
+          return { success: false, error: message };
+        }
+      },
+
+      generate2fa: async () => {
+        try {
+          const response = await apiClient.post<{ qrUrl: string }>("/auth/me/2fa/generate");
+          return { success: true, qrUrl: response.qrUrl };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to generate 2FA";
+          return { success: false, error: message };
+        }
+      },
+
+      enable2fa: async (code) => {
+        try {
+          await apiClient.post("/auth/me/2fa/enable", { code });
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to enable 2FA";
+          return { success: false, error: message };
+        }
+      },
+
+      getSessions: async () => {
+        try {
+          return await apiClient.get<unknown[]>("/auth/me/sessions");
+        } catch {
+          return [];
+        }
+      },
+
+      revokeSession: async (sessionId) => {
+        try {
+          await apiClient.delete(`/auth/me/sessions/${sessionId}`);
+          return { success: true };
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to revoke session";
           return { success: false, error: message };
         }
       },

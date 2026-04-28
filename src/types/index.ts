@@ -1,3 +1,5 @@
+import { ReactNode } from "react";
+
 export type Role = "PATIENT" | "ADMIN" | "DOCTOR" | "STAFF" | "SUPER_ADMIN";
 
 export interface TokenPair {
@@ -787,6 +789,16 @@ export interface ApiPatient {
   } | null;
 }
 
+export interface ApiLoyaltyTransaction {
+  id: string;
+  patientId: string;
+  amount: number;
+  type: "EARN" | "REDEEM";
+  description: string;
+  descriptionAr?: string;
+  createdAt: string;
+}
+
 export interface PatientListFilters {
   search?: string;
   vipTier?: "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
@@ -882,6 +894,7 @@ export interface CreatePatientPayload {
 export type LabResultStatus = "PENDING" | "NORMAL" | "ABNORMAL" | "CRITICAL";
 
 export interface ApiPatientDocument {
+  type: ReactNode;
   uploadedByPatient: boolean;
   id: string;
   patientId: string;

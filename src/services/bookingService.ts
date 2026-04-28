@@ -18,7 +18,13 @@ import type {
 
 export const bookingService = {
   async getAll(filters?: Record<string, unknown>): Promise<ApiAppointment[]> {
-    const qs = filters ? `?${new URLSearchParams(filters as Record<string, string>).toString()}` : "";
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) params.set(k, String(v));
+      });
+    }
+    const qs = params.toString() ? `?${params.toString()}` : "";
     return apiClient.get(`/appointments${qs}`);
   },
 

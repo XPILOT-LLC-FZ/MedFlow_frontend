@@ -1,14 +1,16 @@
 "use client";
 
-import React from "react";
 import { motion } from "framer-motion";
 import { Clock, Phone, MoreVertical, User, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Heart } from "lucide-react";
 import type { Appointment } from "@/types";
 import { cn } from "@/lib/utils";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const statusStyles: Record<string, string> = {
   scheduled: "bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/50",
@@ -23,10 +25,19 @@ const statusStyles: Record<string, string> = {
 export function AppointmentCard({
   appointment,
   delay = 0,
+  isPatientView = false,
 }: {
   appointment: Appointment;
   delay?: number;
+  isPatientView?: boolean;
 }) {
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const { locale } = useTranslation();
+  const isFav = isFavorite(appointment.doctorId);
+
+  const displayName = isPatientView ? appointment.doctorName : appointment.patientName;
+  // Actually, Appointment type has doctorId and doctorName. It might not have doctorAvatar.
+  // Let's assume patientAvatar is what we have for now or fallback.
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -47,17 +58,35 @@ export function AppointmentCard({
               </Avatar>
               <div className="flex flex-col">
                 <h3 className="font-bold text-slate-800 dark:text-slate-100 text-[15px] leading-tight group-hover:text-blue-600 transition-colors">
-                  {appointment.patientName}
+                  {displayName}
                 </h3>
                 <span className="text-slate-400 dark:text-slate-500 text-xs font-medium mt-0.5">
-                  {appointment.patientAge || "Age N/A"}
+                  {isPatientView ? (appointment.specialty || (locale === 'ar' ? 'طبيب' : 'Doctor')) : (appointment.patientAge || "Age N/A")}
                 </span>
               </div>
             </div>
             
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 -mr-2">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1 -mr-2">
+              {isPatientView && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={cn(
+                    "h-8 w-8 transition-all",
+                    isFav ? "text-rose-500 hover:text-rose-600" : "text-slate-300 hover:text-rose-500"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite({ id: appointment.doctorId, fullName: appointment.doctorName });
+                  }}
+                >
+                  <Heart className={cn("h-4 w-4", isFav && "fill-current")} />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Details Section */}

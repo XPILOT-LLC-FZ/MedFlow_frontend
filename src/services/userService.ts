@@ -53,20 +53,20 @@ export const userService = {
       const raw = u as unknown as Record<string, unknown>;
 
       const fullName =
-        typeof raw.fullName === "string"
-          ? raw.fullName
-          : typeof raw.name === "string"
-            ? raw.name
+        typeof raw["fullName"] === "string"
+          ? (raw["fullName"] as string)
+          : typeof raw["name"] === "string"
+            ? (raw["name"] as string)
             : "Unknown User";
 
-      const email = typeof raw.email === "string" ? raw.email : "";
-      const phone = typeof raw.phone === "string" ? raw.phone : undefined;
-      const createdAt = typeof raw.createdAt === "string" ? raw.createdAt : undefined;
-      const rawRole = typeof raw.role === "string" ? raw.role : "STAFF";
-      const rawStatus = typeof raw.status === "string" ? raw.status : "INACTIVE";
+      const email = typeof raw["email"] === "string" ? (raw["email"] as string) : "";
+      const phone = typeof raw["phone"] === "string" ? (raw["phone"] as string) : undefined;
+      const createdAt = typeof raw["createdAt"] === "string" ? (raw["createdAt"] as string) : undefined;
+      const rawRole = typeof raw["role"] === "string" ? (raw["role"] as string) : "STAFF";
+      const rawStatus = typeof raw["status"] === "string" ? (raw["status"] as string) : "INACTIVE";
 
       return {
-        id: typeof raw.id === "string" ? raw.id : "",
+        id: typeof raw["id"] === "string" ? (raw["id"] as string) : "",
         name: fullName,
         email,
         role: normalizeRole(rawRole),

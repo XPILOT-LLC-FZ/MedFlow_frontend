@@ -61,6 +61,14 @@ class NotificationsService {
   async updateSettings(data: ClinicSettings): Promise<void> {
     await apiClient.patch("/notifications/settings", data);
   }
+
+  async getPreferences(): Promise<Record<string, unknown>> {
+    return apiClient.get("/notifications/preferences");
+  }
+
+  async updatePreferences(prefs: Record<string, unknown>): Promise<void> {
+    await apiClient.patch("/notifications/preferences", prefs);
+  }
 }
 
 export const notificationsService = new NotificationsService();

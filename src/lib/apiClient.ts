@@ -129,10 +129,15 @@ class ApiClient {
     // Fallback: Try to extract from JWT if state.user is not yet hydrated or missing the ID
     if (!clinicId && token) {
       const decoded = this.decodeToken(token);
-      const inferredClinicId =
-        decoded?.clinicId ?? decoded?.clinic_id ?? decoded?.tenantId ?? decoded?.cid;
-      if (typeof inferredClinicId === "string") {
-        clinicId = inferredClinicId;
+      if (decoded) {
+        const inferredClinicId =
+          (decoded["clinicId"] as string) ??
+          (decoded["clinic_id"] as string) ??
+          (decoded["tenantId"] as string) ??
+          (decoded["cid"] as string);
+        if (typeof inferredClinicId === "string") {
+          clinicId = inferredClinicId;
+        }
       }
     }
 
@@ -169,10 +174,11 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const code = typeof errorData?.code === "string" ? errorData.code : "";
-        const message = Array.isArray(errorData?.message)
-          ? errorData.message.join(", ")
-          : errorData?.message || `Request failed with status ${response.status}`;
+        const errorDataRecord = errorData as Record<string, unknown>;
+        const code = typeof errorDataRecord["code"] === "string" ? (errorDataRecord["code"] as string) : "";
+        const message = Array.isArray(errorDataRecord["message"])
+          ? (errorDataRecord["message"] as string[]).join(", ")
+          : (errorDataRecord["message"] as string) || `Request failed with status ${response.status}`;
 
         const isOnboardingEndpoint =
           normalizedEndpoint.startsWith("/onboarding") ||
@@ -234,11 +240,12 @@ class ApiClient {
       }
 
       // Unwrap global response format if present
-      if (rawJson && typeof rawJson === "object" && "success" in rawJson && "data" in rawJson) {
-        if (!rawJson.success) {
-          throw new Error(rawJson.message || "API request failed");
+      const rawJsonRecord = rawJson as Record<string, unknown>;
+      if (rawJson && typeof rawJson === "object" && "success" in rawJsonRecord && "data" in rawJsonRecord) {
+        if (!rawJsonRecord["success"]) {
+          throw new Error((rawJsonRecord["message"] as string) || "API request failed");
         }
-        return rawJson.data as T;
+        return rawJsonRecord["data"] as T;
       }
       
       return rawJson as T;
@@ -289,9 +296,9 @@ class ApiClient {
         const state = useAuthStore.getState();
         const currentRefreshToken = state.refreshToken;
 
-        const refreshPayload: Record<string, string> = {};
+        const refreshPayload: Record<string, unknown> = {};
         if (currentRefreshToken) {
-          refreshPayload.refreshToken = currentRefreshToken;
+          refreshPayload["refreshToken"] = currentRefreshToken;
         }
 
         const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -303,10 +310,9 @@ class ApiClient {
 
         if (refreshResponse.ok) {
           const rawData = await refreshResponse.json();
-          const data = (rawData && typeof rawData === "object" && "success" in rawData && "data" in rawData) ? rawData.data : rawData;
-          
-          const token = data.access_token || data.accessToken;
-          const newRefreshToken = data.refresh_token || data.refreshToken;
+          const dataRecord = rawData as Record<string, unknown>;
+          const token = (dataRecord["access_token"] as string) || (dataRecord["accessToken"] as string);
+          const newRefreshToken = (dataRecord["refresh_token"] as string) || (dataRecord["refreshToken"] as string);
           
           if (!token) throw new Error("No token in refresh response");
 
@@ -411,12 +417,12 @@ class ApiClient {
     const record = obj as Record<string, unknown>;
     
     // Check common fields
-    const id = record.clinicId || record.clinic_id || record.tenantId || record.tenant_id || record.cid;
+    const id = (record["clinicId"] as string) || (record["clinic_id"] as string) || (record["tenantId"] as string) || (record["tenant_id"] as string) || (record["cid"] as string);
     if (id && typeof id === "string") return id;
 
     // Check nested objects (limit depth)
-    const clinic = record.clinic as Record<string, unknown> | undefined;
-    if (clinic?.id && typeof clinic.id === "string") return clinic.id;
+    const clinic = record["clinic"] as Record<string, unknown> | undefined;
+    if (clinic?.["id"] && typeof clinic["id"] === "string") return clinic["id"] as string;
 
     // If array, check first item
     if (Array.isArray(obj) && obj.length > 0) {
@@ -424,7 +430,7 @@ class ApiClient {
     }
     
     // Check data property for wrapped responses
-    if (record.data) return this.findClinicId(record.data);
+    if (record["data"]) return this.findClinicId(record["data"]);
 
     return null;
   }

@@ -73,8 +73,8 @@ const mapUpdatePayload = (data: Partial<ApiUser>): Record<string, unknown> => {
   const payload: Record<string, unknown> = {};
   const raw = data as Record<string, unknown>;
 
-  if (typeof raw.fullName === "string" && raw.fullName.trim().length > 0) {
-    payload.fullName = raw.fullName.trim();
+  if (typeof raw["fullName"] === "string" && (raw["fullName"] as string).trim().length > 0) {
+    payload.fullName = (raw["fullName"] as string).trim();
   } else if (typeof data.name === "string" && data.name.trim().length > 0) {
     payload.fullName = data.name.trim();
   }
@@ -83,12 +83,12 @@ const mapUpdatePayload = (data: Partial<ApiUser>): Record<string, unknown> => {
     payload.role = data.role;
   }
 
-  if (typeof raw.isActive === "boolean") {
-    payload.isActive = raw.isActive;
+  if (typeof raw["isActive"] === "boolean") {
+    payload.isActive = raw["isActive"] as boolean;
   }
 
-  if (raw.clinicId === null || typeof raw.clinicId === "string") {
-    payload.clinicId = raw.clinicId;
+  if (raw["clinicId"] === null || typeof raw["clinicId"] === "string") {
+    payload.clinicId = raw["clinicId"] as string | null;
   }
 
   return payload;
@@ -97,26 +97,26 @@ const mapUpdatePayload = (data: Partial<ApiUser>): Record<string, unknown> => {
 const mapCreatePayload = (data: Record<string, unknown>): Record<string, unknown> => {
   const payload: Record<string, unknown> = {};
 
-  if (typeof data.fullName === "string" && data.fullName.trim().length > 0) {
-    payload.fullName = data.fullName.trim();
-  } else if (typeof data.name === "string" && data.name.trim().length > 0) {
-    payload.fullName = data.name.trim();
+  if (typeof data["fullName"] === "string" && (data["fullName"] as string).trim().length > 0) {
+    payload.fullName = (data["fullName"] as string).trim();
+  } else if (typeof data["name"] === "string" && (data["name"] as string).trim().length > 0) {
+    payload.fullName = (data["name"] as string).trim();
   }
 
-  if (typeof data.email === "string" && data.email.trim().length > 0) {
-    payload.email = data.email.trim();
+  if (typeof data["email"] === "string" && (data["email"] as string).trim().length > 0) {
+    payload.email = (data["email"] as string).trim();
   }
 
-  if (typeof data.password === "string" && data.password.length > 0) {
-    payload.password = data.password;
+  if (typeof data["password"] === "string" && (data["password"] as string).length > 0) {
+    payload.password = data["password"] as string;
   }
 
-  if (typeof data.role === "string") {
-    payload.role = data.role;
+  if (typeof data["role"] === "string") {
+    payload.role = data["role"] as string;
   }
 
-  if (data.clinicId === null || typeof data.clinicId === "string") {
-    payload.clinicId = data.clinicId;
+  if (data["clinicId"] === null || typeof data["clinicId"] === "string") {
+    payload.clinicId = data["clinicId"] as string | null;
   }
 
   return payload;

@@ -129,14 +129,14 @@ const inferClinicIdFromDoctor = async (doctorId?: string): Promise<string | null
     const doctor = await staffService.getDoctorById(doctorId);
     const doctorRecord = doctor as unknown as Record<string, unknown>;
     const nestedClinic =
-      typeof doctorRecord.clinic === "object" && doctorRecord.clinic !== null
-        ? (doctorRecord.clinic as Record<string, unknown>)
+      typeof doctorRecord["clinic"] === "object" && doctorRecord["clinic"] !== null
+        ? (doctorRecord["clinic"] as Record<string, unknown>)
         : undefined;
 
     const clinicId =
-      doctorRecord.clinicId ||
-      doctorRecord.clinic_id ||
-      nestedClinic?.id ||
+      (doctorRecord["clinicId"] as string) ||
+      (doctorRecord["clinic_id"] as string) ||
+      (nestedClinic?.["id"] as string) ||
       null;
 
     return typeof clinicId === "string" ? clinicId : null;

@@ -49,5 +49,33 @@ export const authService = {
 
   async bootSession(force?: boolean): Promise<void> {
     return useAuthStore.getState().bootSession(force);
+  },
+  
+  async deleteAccount() {
+    return useAuthStore.getState().deleteAccount();
+  },
+
+  async generate2fa() {
+    return useAuthStore.getState().generate2fa();
+  },
+
+  async enable2fa(code: string) {
+    return useAuthStore.getState().enable2fa(code);
+  },
+
+  async getSessions() {
+    return useAuthStore.getState().getSessions();
+  },
+
+  async revokeSession(sessionId: string) {
+    return useAuthStore.getState().revokeSession(sessionId);
+  },
+
+  async sendChangeEmailOtp(newEmail: string) {
+    return useAuthStore.getState().sendChangeEmailOtp(newEmail);
+  },
+
+  async verifyChangeEmailOtp(newEmail: string, otpCode: string) {
+    return useAuthStore.getState().verifyChangeEmailOtp(newEmail, otpCode);
   }
 };

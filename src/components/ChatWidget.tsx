@@ -17,7 +17,7 @@ export function ChatWidget() {
   }, [locale]);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{role: 'user'|'assistant', content: React.ReactNode}[]>([
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: React.ReactNode }[]>([
     { role: 'assistant', content: chatLanguage === 'ar' ? 'مرحباً! أنا المساعد الذكي لعيادتك. كيف يمكنني مساعدتك اليوم؟' : 'Hi there! I am your MedFlow Assistant. How can I help you today?' }
   ]);
   const [input, setInput] = useState("");
@@ -31,7 +31,7 @@ export function ChatWidget() {
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-    
+
     const userMessage = input.trim();
     setInput("");
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
@@ -39,8 +39,8 @@ export function ChatWidget() {
 
     if (!isAuthenticated) {
       setTimeout(() => {
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
+        setMessages(prev => [...prev, {
+          role: 'assistant',
           content: (
             <div className="flex flex-col gap-3">
               <p>{chatLanguage === 'ar' ? 'لتقديم أفضل مساعدة وتخصيص تجربتك، يرجى تسجيل الدخول أو إنشاء حساب جديد.' : 'To make it easier for me to help you contextually, please log in or create an account.'}</p>
@@ -86,22 +86,22 @@ export function ChatWidget() {
 
   return (
     <>
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-28 lg:bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors z-50 flex items-center justify-center"
+        className="fixed bottom-[90px] lg:bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors z-50 flex items-center justify-center"
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-48 lg:bottom-24 right-6 w-80 sm:w-96 shadow-2xl bg-white border border-gray-200 rounded-xl flex flex-col z-50 overflow-hidden transition-all duration-300 ease-in-out" style={{ height: "500px", maxHeight: '80vh' }}>
+        <div className="fixed bottom-[145px] lg:bottom-24 right-6 w-80 sm:w-96 shadow-2xl bg-white border border-gray-200 rounded-xl flex flex-col z-50 overflow-hidden transition-all duration-300 ease-in-out" style={{ height: "500px", maxHeight: '80vh' }}>
           <div className="bg-blue-600 text-white p-4 font-semibold flex justify-between items-center">
             <div className="flex items-center gap-2">
               <MessageSquare size={18} />
               <span>{chatLanguage === 'ar' ? 'المساعد الذكي' : 'MedFlow Assistant'}</span>
             </div>
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setChatLanguage(lang => lang === 'ar' ? 'en' : 'ar')}
                 className="text-[11px] px-2 py-1 bg-white/20 hover:bg-white/30 rounded border border-white/20 transition-colors uppercase font-bold tracking-wider"
               >
@@ -111,7 +111,7 @@ export function ChatWidget() {
               <button onClick={() => setIsOpen(false)} className="hover:text-gray-200"><X size={18} /></button>
             </div>
           </div>
-          
+
           <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 bg-gray-50">
             {messages.map((msg, idx) => (
               <div key={idx} className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white self-end rounded-br-sm' : 'bg-white text-gray-800 self-start border border-gray-100 rounded-bl-sm'}`}>
@@ -128,7 +128,7 @@ export function ChatWidget() {
           </div>
 
           <div className="p-3 border-t border-gray-200 bg-white flex items-center gap-2">
-            <input 
+            <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -137,7 +137,7 @@ export function ChatWidget() {
               className="flex-1 px-4 py-2.5 text-sm border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 border-gray-200 bg-gray-50"
               disabled={isLoading}
             />
-            <button 
+            <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading}
               className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors flex items-center justify-center shrink-0"

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { TranslationKey } from "@/lib/i18n";
@@ -42,7 +42,7 @@ function applyStatusToMessages(
   );
 }
 
-export default function DoctorChatPage() {
+function DoctorChatPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -616,6 +616,18 @@ export default function DoctorChatPage() {
 
 
     </div>
+  );
+}
+
+export default function DoctorChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    }>
+      <DoctorChatPageContent />
+    </Suspense>
   );
 }
 
