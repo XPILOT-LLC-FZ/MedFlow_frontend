@@ -10,10 +10,11 @@ import { LanguageToggle } from "@/components/shared/LanguageToggle";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Bell } from "lucide-react";
-import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
 import { notificationsService } from "@/services/notificationsService";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import type { InAppNotification } from "@/types";
+import { PatientNotificationsDialog } from "@/components/shared/PatientNotificationsDialog";
+import { cn } from "@/lib/utils";
 
 function MobileBottomNavWrapper() {
   const pathname = usePathname();
@@ -30,7 +31,6 @@ function MobileBottomNavWrapper() {
 }
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const { locale } = useTranslation();
   const pathname = usePathname();
 
