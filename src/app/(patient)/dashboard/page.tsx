@@ -108,11 +108,13 @@ export default function PatientDashboard() {
         ]);
         setPublicDoctors(docsData);
         setServices(servData);
-        if (meData && meData.loyaltyPoints !== undefined) {
-          useAuthStore.getState().setUser({
-            ...user!,
-            loyaltyPoints: meData.loyaltyPoints
-          });
+        if (meData && meData.loyaltyPoints !== undefined && user) {
+          if (user.loyaltyPoints !== meData.loyaltyPoints) {
+            useAuthStore.getState().setUser({
+              ...user,
+              loyaltyPoints: meData.loyaltyPoints
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to fetch dashboard data", err);
@@ -121,7 +123,7 @@ export default function PatientDashboard() {
       }
     };
     fetchData();
-  }, [refreshNotifications, fetchLoyaltyHistory, fetchFavorites, user]);
+  }, [refreshNotifications, fetchLoyaltyHistory, fetchFavorites, user?.id]);
 
   React.useEffect(() => {
     if (user?.id) {
