@@ -16,6 +16,7 @@ export interface AuthUser {
   isOnboarded?: boolean;
   isAvailable?: boolean;
   avatarUrl?: string | null;
+  loyaltyPoints?: number;
 }
 
 export interface SignupData {
@@ -92,6 +93,7 @@ interface AuthState {
   enable2fa: (code: string) => Promise<{ success: boolean; error?: string }>;
   getSessions: () => Promise<unknown[]>;
   revokeSession: (sessionId: string) => Promise<{ success: boolean; error?: string }>;
+  setUser: (user: AuthUser | null) => void;
 }
 
 /**
@@ -118,6 +120,7 @@ function mapUser(raw: Record<string, unknown>, fallback?: Partial<SignupData>): 
     isOnboarded: (raw["isOnboarded"] as boolean) ?? false,
     isAvailable: (raw["isAvailable"] as boolean) ?? true,
     avatarUrl: (raw["avatarUrl"] as string) ?? (raw["avatar"] as string) ?? null,
+    loyaltyPoints: (raw["loyaltyPoints"] as number) ?? 0,
   };
 }
 
@@ -668,6 +671,7 @@ export const useAuthStore = create<AuthState>()(
           return { success: false, error: message };
         }
       },
+      setUser: (user) => set({ user }),
     }),
     {
       name: "clinic-os-auth",

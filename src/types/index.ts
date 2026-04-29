@@ -31,6 +31,7 @@ export interface User {
   role: Role;
   avatar?: string;
   phone?: string;
+  loyaltyPoints?: number;
 }
 
 export interface ApiUser extends User {
@@ -227,6 +228,8 @@ export interface TimeSlot {
 }
 
 export interface Appointment {
+  endTime: string;
+  startTime: string;
   id: string;
   patientId: string;
   patientName: string;
@@ -243,9 +246,13 @@ export interface Appointment {
   status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress" | "no-show" | "rescheduled";
   type: string;
   notes?: string;
+  redeemPoints?: boolean;
+  amount?: number;
 }
 
 export interface ApiAppointment {
+  endTime: ReactNode;
+  time: string;
   createdAt: string | number | Date;
   id: string;
   patientId?: string;
@@ -264,6 +271,8 @@ export interface ApiAppointment {
   mode: "ONSITE" | "ONLINE" | "PHONE_CALL";
   notes?: string;
   branchId?: string;
+  redeemPoints?: boolean;
+  amount: number;
   consultationSession?: {
     id: string;
     notes?: string | null;
@@ -1135,6 +1144,7 @@ export interface Service {
 export interface ApiService {
   id: string;
   name: string;
+  nameAr?: string;
   description?: string;
   category: "CONSULTATION" | "DENTAL" | "DERMATOLOGY" | "LASER" | "AESTHETIC" | "SURGICAL" | "DIAGNOSTIC" | "WELLNESS" | "OTHER";
   price: number;
@@ -1146,6 +1156,7 @@ export interface ApiService {
 
 export interface CreateServicePayload {
   name: string;
+  nameAr?: string;
   description?: string;
   category: ApiService["category"];
   price: number;
@@ -1157,6 +1168,7 @@ export interface CreateServicePayload {
 
 export interface UpdateServicePayload {
   name?: string;
+  nameAr?: string;
   description?: string;
   category?: ApiService["category"];
   price?: number;

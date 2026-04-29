@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { ApiPatient, ApiLoyaltyTransaction } from '@/types';
 import { patientService } from '@/services/patientService';
@@ -13,8 +14,9 @@ interface PointsPanelProps {
   onBack?: () => void;
 }
 
-export default function PointsPanel({ patient }: PointsPanelProps) {
+export default function PointsPanel({ patient, onBack }: PointsPanelProps) {
   const { locale } = useTranslation();
+  const router = useRouter();
   const loyaltyPoints = patient?.loyaltyPoints ?? 0;
   
   const [history, setHistory] = useState<ApiLoyaltyTransaction[]>([]);
@@ -36,6 +38,18 @@ export default function PointsPanel({ patient }: PointsPanelProps) {
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-slate-950 pb-10">
+      {/* Header */}
+      <div className="flex items-center px-6 py-5 bg-white dark:bg-slate-950 shrink-0">
+        <button 
+          onClick={onBack}
+          className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+        <h1 className="flex-1 text-center text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight pr-8">
+          {locale === 'ar' ? 'النقاط والمكافآت' : 'Points & Rewards'}
+        </h1>
+      </div>
 
       {/* Main Card */}
       <div className="px-1 py-2">
@@ -54,7 +68,10 @@ export default function PointsPanel({ patient }: PointsPanelProps) {
               </span>
             </div>
             
-            <button className="mt-6 px-8 py-3 bg-[#0066FF] hover:bg-[#0052cc] text-white font-bold rounded-full transition-all shadow-lg shadow-blue-900/30 transform active:scale-95">
+            <button 
+              onClick={() => router.push('/appointments')}
+              className="mt-6 px-8 py-3 bg-[#0066FF] hover:bg-[#0052cc] text-white font-bold rounded-full transition-all shadow-lg shadow-blue-900/30 transform active:scale-95"
+            >
               {locale === 'ar' ? 'استبدال' : 'Redeem'}
             </button>
           </div>
@@ -86,29 +103,50 @@ export default function PointsPanel({ patient }: PointsPanelProps) {
             </span>
           </div>
         ) : history.length > 0 ? (
-          <div className="space-y-4 mt-4">
-            {history.map((item) => (
-              <div key={item.id} className="flex items-center justify-between group">
-                <div className="flex items-center gap-4">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center border-2 border-slate-50 dark:border-slate-900 shadow-sm ${item.type === 'EARN' ? 'bg-blue-50 text-blue-500' : 'bg-red-50 text-red-500'}`}>
-                    <span className="text-xl font-bold">
-                      {item.type === 'EARN' ? '✨' : '🎁'}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                      {locale === 'ar' ? item.descriptionAr || item.description : item.description}
-                    </h3>
-                    <span className="text-xs text-slate-400 font-medium">
-                      {format(new Date(item.createdAt), 'PPp', { locale: locale === 'ar' ? arSA : undefined })}
-                    </span>
-                  </div>
-                </div>
-                <div className={`text-[19px] font-black ${item.type === 'EARN' ? 'text-blue-500' : 'text-red-500'}`}>
-                  {item.type === 'EARN' ? '+' : '-'}{Math.abs(item.amount)}
-                </div>
-              </div>
-            ))}
+          <div className="space-y-6 mt-4">
+            {(() => {
+              const isToday = (date: string) => {
+                const d = new Date(date);
+                const now = new Date();
+                return d.getDate() === now.getDate() &&
+                       d.getMonth() === now.getMonth() &&
+                       d.getFullYear() === now.getFullYear();
+              };
+
+              const hasToday = history.some(item => isToday(item.createdAt));
+
+              return (
+                <>
+                  {hasToday && (
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+                      {locale === 'ar' ? 'اليوم' : 'TODAY'}
+                    </div>
+                  )}
+                  {history.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between group">
+                      <div className="flex items-center gap-4">
+                        <div className={`h-12 w-12 rounded-2xl flex items-center justify-center border-2 border-slate-50 dark:border-slate-900 shadow-sm ${item.type === 'EARN' ? 'bg-blue-50 text-blue-500' : 'bg-red-50 text-red-500'}`}>
+                          <span className="text-xl font-bold">
+                            {item.type === 'EARN' ? '✨' : '🎁'}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                            {locale === 'ar' ? item.descriptionAr || item.description : item.description}
+                          </h3>
+                          <span className="text-xs text-slate-400 font-medium">
+                            {format(new Date(item.createdAt), 'PPp', { locale: locale === 'ar' ? arSA : undefined })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={`text-[19px] font-black ${item.type === 'EARN' ? 'text-blue-500' : 'text-red-500'}`}>
+                        {item.type === 'EARN' ? '+' : '-'}{Math.abs(item.amount)}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
         ) : (
           <div className="text-center py-12">

@@ -111,6 +111,7 @@ function AppointmentsPageContent() {
     useState<SmartRecommendation[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [pendingUploadAppointmentId, setPendingUploadAppointmentId] = useState<string | null>(null);
+  const [redeemPoints, setRedeemPoints] = useState(false);
   const [uploadingAppointmentId, setUploadingAppointmentId] = useState<string | null>(null);
   const [credentialDoctor, setCredentialDoctor] = useState<{
     id: string;
@@ -355,6 +356,7 @@ function AppointmentsPageContent() {
     setCurrentBookingId(null);
     setPaymentCompleted(false);
     setPaymentMethod(null);
+    setRedeemPoints(false);
   };
 
   const handleConfirmBooking = async () => {
@@ -384,6 +386,7 @@ function AppointmentsPageContent() {
         time: selectedTime,
         status: "scheduled",
         type: "Consultation",
+        redeemPoints,
       });
 
       setCurrentBookingId(createdAppointment.id);
@@ -863,6 +866,38 @@ function AppointmentsPageContent() {
                             : "No slots available for this date"}
                       </p>
                     )}
+                    {currentPatient?.loyaltyPoints && currentPatient.loyaltyPoints > 0 && (
+                      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                              {locale === 'ar' ? 'نقاط الولاء' : 'Loyalty Points'}
+                            </span>
+                          </div>
+                          <Badge variant="info" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-none">
+                            {currentPatient.loyaltyPoints} {locale === 'ar' ? 'نقطة' : 'pts'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                          {locale === 'ar' 
+                            ? 'يمكنك الحصول على خصم مقابل نقاطك (10 نقاط = 1 دولار)' 
+                            : 'You can get a discount for your points (10 pts = $1)'}
+                        </p>
+                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                          <input
+                            type="checkbox"
+                            id="redeem-points"
+                            checked={redeemPoints}
+                            onChange={(e) => setRedeemPoints(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <label htmlFor="redeem-points" className="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer">
+                            {locale === 'ar' ? 'استخدام النقاط للخصم' : 'Use points for discount'}
+                          </label>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <Button
                     className="mt-4 w-full gap-2"
@@ -912,11 +947,11 @@ function AppointmentsPageContent() {
                     <span className="text-muted-foreground">
                       {locale === "ar" ? "رسوم الاستشارة" : "Consultation Fee"}
                     </span>
-                    <span className="font-medium">$150.00</span>
+                    <span className="font-medium">${(appointments.find(a => a.id === currentBookingId)?.amount ?? 150).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2 text-sm">
                     <span className="font-semibold">{locale === "ar" ? "الإجمالي" : "Total"}</span>
-                    <span className="font-bold text-primary">$150.00</span>
+                    <span className="font-bold text-primary">${(appointments.find(a => a.id === currentBookingId)?.amount ?? 150).toFixed(2)}</span>
                   </div>
                   <p className="pt-2 text-sm font-medium">
                     {locale === "ar" ? "اختر طريقة الدفع" : "Choose payment method"}

@@ -1,20 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Beaker, 
-  FileText, 
-  ChevronLeft, 
-  Plus, 
-  Upload, 
+import {
+  Beaker,
+  FileText,
+  ChevronLeft,
+  Plus,
+  Upload,
   ChevronDown,
   CheckCircle2,
   Loader2,
   Eye,
 } from 'lucide-react';
-import { 
-  Dialog as DialogRoot, 
-  DialogContent as DialogContentRoot, 
+import {
+  Dialog as DialogRoot,
+  DialogContent as DialogContentRoot,
   DialogTitle as DialogTitleRoot
 } from '@/components/ui/dialog';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -40,7 +40,7 @@ interface MedicalReport {
 export default function LabRadiologyPanel() {
   const { locale } = useTranslation();
   const toast = useToastStore();
-  
+
   const [view, setView] = useState<ViewState>('list');
   const [activeTab, setActiveTab] = useState<TabState>('lab');
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +62,7 @@ export default function LabRadiologyPanel() {
     setIsLoading(true);
     try {
       const docs = await patientDocumentService.getCurrentPatientDocuments();
-      
+
       const mapped: MedicalReport[] = docs.map(doc => {
         const parts = doc.name.split('|');
         if (parts.length >= 4) {
@@ -81,7 +81,7 @@ export default function LabRadiologyPanel() {
             fileUrl: doc.fileUrl
           };
         }
-        
+
         return {
           id: doc.id,
           name: doc.name.replace('diagnostic-report-', ''),
@@ -135,7 +135,7 @@ export default function LabRadiologyPanel() {
     setIsUploading(true);
     try {
       const encodedName = `${uploadType === 'radiology' ? 'Radiology' : 'Lab'}|${fileName}|${specialization}|${doctorName}`;
-      
+
       const payload = {
         name: encodedName,
         fileUrl: "https://placeholder-url.com/file.pdf",
@@ -143,11 +143,11 @@ export default function LabRadiologyPanel() {
       };
 
       await patientDocumentService.createForCurrentPatient(payload);
-      
+
       toast.success(locale === 'ar' ? 'تم حفظ البيانات بنجاح' : 'Data saved successfully');
       setView('list');
       loadData();
-      
+
       setFileName(''); setDoctorName(''); setSpecialization(''); setSelectedFile(null);
     } catch {
       toast.error(locale === 'ar' ? 'خطأ في الحفظ' : 'Error saving data');
@@ -181,8 +181,8 @@ export default function LabRadiologyPanel() {
                 onClick={() => setActiveTab('lab')}
                 className={cn(
                   "flex-1 py-4 px-3 rounded-md text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1",
-                  activeTab === 'lab' 
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30" 
+                  activeTab === 'lab'
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
                     : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
                 )}
               >
@@ -192,8 +192,8 @@ export default function LabRadiologyPanel() {
                 onClick={() => setActiveTab('radiology')}
                 className={cn(
                   "flex-1 py-4 px-3 rounded-md text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1",
-                  activeTab === 'radiology' 
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30" 
+                  activeTab === 'radiology'
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
                     : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
                 )}
               >
@@ -222,8 +222,8 @@ export default function LabRadiologyPanel() {
                     {/* PDF Icon Container */}
                     <div className="h-12 w-12 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 relative">
                       <div className="relative">
-                         <FileText className="h-8 w-8 text-rose-500" />
-                         <span className="absolute -top-1 left-1 bg-white dark:bg-slate-900 text-[8px] font-black text-rose-500 px-1 border border-rose-100 dark:border-rose-900 rounded-sm leading-none py-0.5">PDF</span>
+                        <FileText className="h-8 w-8 text-rose-500" />
+                        <span className="absolute -top-1 left-1 bg-white dark:bg-slate-900 text-[8px] font-black text-rose-500 px-1 border border-rose-100 dark:border-rose-900 rounded-sm leading-none py-0.5">PDF</span>
                       </div>
                     </div>
 
@@ -352,24 +352,24 @@ export default function LabRadiologyPanel() {
                 <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
                   {locale === 'ar' ? 'رفع الملف' : 'Upload file'}
                 </label>
-                <div 
+                <div
                   onClick={() => fileInputRef.current?.click()}
                   className={cn(
                     "w-full h-40 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group",
-                    selectedFile 
-                      ? "border-emerald-500 bg-emerald-50/30" 
+                    selectedFile
+                      ? "border-emerald-500 bg-emerald-50/30"
                       : "border-slate-200 hover:border-blue-400 bg-slate-50/50 dark:border-slate-800 dark:hover:border-blue-500"
                   )}
                 >
                   <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="application/pdf,image/*" />
-                  
+
                   <div className={cn(
                     "h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
                     selectedFile ? "bg-emerald-500 text-white" : "bg-white dark:bg-slate-900 text-slate-400 group-hover:text-blue-500 group-hover:scale-110 shadow-sm"
                   )}>
                     {selectedFile ? <CheckCircle2 className="h-6 w-6" /> : <Upload className="h-6 w-6" />}
                   </div>
-                  
+
                   <div className="text-center">
                     <p className="font-bold text-[15px] text-slate-700 dark:text-slate-300">
                       {selectedFile ? selectedFile.name : (locale === 'ar' ? 'اضغط للرفع أو سحب الملف' : 'Click to upload or drag and drop')}
@@ -411,7 +411,7 @@ export default function LabRadiologyPanel() {
                 {selectedReport?.name}
               </DialogTitleRoot>
               <p className="text-slate-400 font-bold text-sm mt-1 uppercase tracking-wider">
-                {selectedReport?.type === 'lab' 
+                {selectedReport?.type === 'lab'
                   ? (locale === 'ar' ? 'نتائج المختبر' : 'Lab Result')
                   : (locale === 'ar' ? 'تقرير الأشعة' : 'Radiology Report')
                 }
@@ -444,7 +444,7 @@ export default function LabRadiologyPanel() {
                 {isOpeningFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Eye className="h-5 w-5" />}
                 {locale === 'ar' ? 'عرض المستند' : 'View Document'}
               </button>
-              
+
               <button
                 onClick={() => setIsDetailOpen(false)}
                 className="w-full h-14 bg-slate-50 dark:bg-slate-900 text-slate-500 font-bold text-[16px] rounded-[24px] transition-all hover:bg-slate-100 dark:hover:bg-slate-800"

@@ -65,6 +65,19 @@ const calculateAge = (dob?: string | Date | null) => {
   return age > 0 ? age.toString() : undefined;
 };
 
+const calculateEndTime = (startTime: string, durationMinutes: number) => {
+  if (!startTime) return "";
+  try {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + durationMinutes;
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+  } catch {
+    return "";
+  }
+};
+
 const mapToLocal = (api: ApiAppointment): Appointment => {
   const patient = api.patient;
   const rawPhone = patient?.phone || undefined;
@@ -83,6 +96,8 @@ const mapToLocal = (api: ApiAppointment): Appointment => {
     specialty: api.serviceName || "Specialist",
     date: api.date,
     time: api.startTime,
+    startTime: api.startTime,
+    endTime: calculateEndTime(api.startTime, api.durationMinutes || 30),
     duration: api.durationMinutes ? `${api.durationMinutes} min` : undefined,
     status: api.status.toLowerCase().replace("_", "-") as Appointment["status"],
     type: api.type.charAt(0) + api.type.slice(1).toLowerCase(),
@@ -90,6 +105,7 @@ const mapToLocal = (api: ApiAppointment): Appointment => {
       api.consultationSession?.savedToPatient && api.consultationSession?.notes
         ? api.consultationSession.notes
         : api.notes,
+    amount: api.amount,
   };
 };
 
@@ -114,6 +130,7 @@ const mapToApi = (local: Partial<Appointment>): Partial<ApiAppointment> => {
   }
   if (local.notes) api.notes = local.notes;
   if (local.specialty) api.serviceName = local.specialty;
+  if (local.redeemPoints !== undefined) api.redeemPoints = local.redeemPoints;
   
   // Defaults for creation if missing
   if (!api.durationMinutes) api.durationMinutes = 30;

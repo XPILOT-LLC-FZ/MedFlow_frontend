@@ -3,15 +3,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { 
-  Phone, 
-  Edit3, 
-  FileText, 
-  Trash2, 
-  Eye, 
-  Check, 
-  X, 
-  Save, 
+import {
+  Phone,
+  Edit3,
+  FileText,
+  Trash2,
+  Eye,
+  Check,
+  X,
+  Save,
   Loader2,
   Plus,
   User,
@@ -90,7 +90,7 @@ function ProfilePageContent() {
 
   // Section navigation state
   type SectionId = "profile" | "lab-radiology" | "favorite-doctors" | "emergency-contact" | "insurance" | "points" | "notifications" | "payments" | "email" | "security" | "logout";
-  
+
   const SECTION_METADATA: Record<SectionId, { label: string; labelAr: string; icon: LucideIcon; color: string }> = {
     profile: { label: "Profile", labelAr: "الملف الشخصي", icon: User, color: "text-slate-400" },
     "lab-radiology": { label: "Lab & Radiology", labelAr: "المختبر والأشعة", icon: Beaker, color: "text-[#4659ff]" },
@@ -146,7 +146,7 @@ function ProfilePageContent() {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showMobilePersonalInfo, setShowMobilePersonalInfo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,12 +169,12 @@ function ProfilePageContent() {
     if (isInitialLoad.current) {
       setIsLoadingPatient(true);
     }
-    
+
     try {
       const data = await patientService.getMe();
       setPatient(data);
       const history = (data.medicalHistory as Record<string, unknown>) || {};
-      
+
       let gender = data.gender || "";
       if (!gender && data.user?.onboardingAnswers) {
         const genderAnswer = data.user.onboardingAnswers.find(
@@ -232,7 +232,7 @@ function ProfilePageContent() {
 
   const handleUpdateProfile = async () => {
     if (!patient?.id) return;
-    
+
     setIsSaving(true);
     try {
       const updatedMedicalHistory = {
@@ -258,7 +258,7 @@ function ProfilePageContent() {
       toastSuccess(locale === "ar" ? "تم تحديث الملف الشخصي بنجاح" : "Profile updated successfully");
       closeEditModal();
       await loadPatientData();
-      
+
       // Update global user session so the navbar catches the new name
       useAuthStore.getState().bootSession(true);
     } catch (error) {
@@ -284,7 +284,7 @@ function ProfilePageContent() {
     }));
   };
 
-  const files = useMemo(() => 
+  const files = useMemo(() =>
     documents.filter(doc => !doc.name.startsWith("diagnostic-report-") && (!doc.uploadedBy || doc.uploadedBy === user?.id)),
     [documents, user?.id]
   );
@@ -383,7 +383,9 @@ function ProfilePageContent() {
     );
   }
 
-  const patientName = patient?.fullName || (locale === "ar" ? user?.nameAr : user?.name) || "John Smith";
+  const patientName = locale === "ar"
+    ? (patient?.fullNameAr || user?.nameAr || patient?.fullName || user?.name || "John Smith")
+    : (patient?.fullName || user?.name || "John Smith");
   const chronicDiseases = (patient?.medicalHistory as Record<string, unknown>)?.chronicDiseases as string[] || [];
 
   return (
@@ -399,7 +401,7 @@ function ProfilePageContent() {
           }
         />
       </div>
-      
+
       {/* Mobile-only Profile View (Matches Image) */}
       <div className="lg:hidden space-y-4 -mt-4">
         <AnimatePresence mode="wait">
@@ -429,7 +431,7 @@ function ProfilePageContent() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 truncate leading-tight">{patientName}</h3>
                   <p className="text-xs font-medium text-slate-400">
-                    {patient?.dateOfBirth ? `${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} y.o.` : "Age not set"} 
+                    {patient?.dateOfBirth ? `${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} y.o.` : "Age not set"}
                     {patient?.dateOfBirth && ` (${new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(patient.dateOfBirth))})`}
                   </p>
                 </div>
@@ -440,7 +442,7 @@ function ProfilePageContent() {
               <div className="bg-white dark:bg-slate-900 rounded-md overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800">
                 {SIDEBAR_ITEMS.map((item) => {
                   const ItemIcon = item.icon;
-                  
+
                   if (item.id === "profile") return null; // Profile is accessed via card above
 
                   return (
@@ -479,7 +481,7 @@ function ProfilePageContent() {
             >
               {/* Header */}
               <div className="flex items-center p-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                <button 
+                <button
                   onClick={() => setActiveSectionWithUrl("profile")}
                   className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
@@ -510,7 +512,7 @@ function ProfilePageContent() {
           >
             {/* Header */}
             <div className="flex items-center p-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-              <button 
+              <button
                 onClick={closeMobilePersonalInfo}
                 className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
@@ -535,7 +537,7 @@ function ProfilePageContent() {
                     onSuccess={handleCloudinarySuccess}
                   >
                     {({ open }) => (
-                      <button 
+                      <button
                         onClick={() => open()}
                         disabled={isUploadingImage}
                         className="absolute bottom-0 right-0 h-9 w-9 bg-blue-600 rounded-full border-4 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-lg disabled:opacity-50"
@@ -553,8 +555,8 @@ function ProfilePageContent() {
                   <label className="text-[13px] font-bold text-slate-600 dark:text-slate-400 ml-1">
                     {locale === "ar" ? "الاسم الكامل (بالإنجليزية)" : "Full Name (English)"}
                   </label>
-                  <Input 
-                    value={editForm.fullName} 
+                  <Input
+                    value={editForm.fullName}
                     onChange={e => setEditForm(prev => ({ ...prev, fullName: e.target.value }))}
                     placeholder="Enter full name in English"
                     className="h-14 rounded-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 px-6 font-medium focus:ring-4 focus:ring-blue-500/10"
@@ -565,8 +567,8 @@ function ProfilePageContent() {
                   <label className="text-[13px] font-bold text-slate-600 dark:text-slate-400 ml-1">
                     {locale === "ar" ? "الاسم الكامل (بالعربية)" : "Full Name (Arabic)"}
                   </label>
-                  <Input 
-                    value={editForm.fullNameAr} 
+                  <Input
+                    value={editForm.fullNameAr}
                     onChange={e => setEditForm(prev => ({ ...prev, fullNameAr: e.target.value }))}
                     dir="rtl"
                     placeholder="أدخل الاسم الكامل بالعربية"
@@ -579,9 +581,9 @@ function ProfilePageContent() {
                     {t("dateOfBirth")}
                   </label>
                   <div className="relative">
-                    <Input 
+                    <Input
                       type="date"
-                      value={editForm.dateOfBirth} 
+                      value={editForm.dateOfBirth}
                       onChange={e => setEditForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
                       className="h-14 rounded-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 px-6 font-medium focus:ring-4 focus:ring-blue-500/10"
                     />
@@ -598,8 +600,8 @@ function ProfilePageContent() {
                       <span className="font-bold text-slate-700 dark:text-slate-200">+20</span>
                       <ChevronRight className="h-4 w-4 text-slate-400 rotate-90" />
                     </div>
-                    <Input 
-                      value={editForm.phone} 
+                    <Input
+                      value={editForm.phone}
                       onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="000 000 0000"
                       className="h-14 rounded-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 px-6 font-medium flex-1 focus:ring-4 focus:ring-blue-500/10"
@@ -611,8 +613,8 @@ function ProfilePageContent() {
                   <label className="text-[13px] font-bold text-slate-600 dark:text-slate-400 ml-1">
                     {t("email")}
                   </label>
-                  <Input 
-                    value={patient?.email || user?.email || ""} 
+                  <Input
+                    value={patient?.email || user?.email || ""}
                     disabled
                     placeholder="youremail@example.com"
                     className="h-14 rounded-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 px-6 font-medium text-slate-500 cursor-not-allowed"
@@ -624,7 +626,7 @@ function ProfilePageContent() {
                     {locale === "ar" ? "الجنس" : "Gender"}
                   </label>
                   <div className="relative">
-                    <select 
+                    <select
                       value={editForm.gender}
                       onChange={e => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
                       className="w-full h-14 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-6 font-medium appearance-none focus:outline-none focus:ring-4 focus:ring-blue-500/10"
@@ -641,8 +643,8 @@ function ProfilePageContent() {
                   <label className="text-[13px] font-bold text-slate-600 dark:text-slate-400 ml-1">
                     {t("address")}
                   </label>
-                  <Input 
-                    value={editForm.address} 
+                  <Input
+                    value={editForm.address}
                     onChange={e => setEditForm(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="Street Name, Building, Apartment"
                     className="h-14 rounded-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 px-6 font-medium focus:ring-4 focus:ring-blue-500/10"
@@ -653,8 +655,8 @@ function ProfilePageContent() {
 
             {/* Sticky Footer */}
             <div className="p-6 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800">
-              <Button 
-                onClick={handleUpdateProfile} 
+              <Button
+                onClick={handleUpdateProfile}
                 disabled={isSaving}
                 className="w-full h-14 rounded-full bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-lg shadow-xl shadow-blue-500/20 transition-all"
               >
@@ -686,8 +688,8 @@ function ProfilePageContent() {
                       }}
                       className={cn(
                         "relative flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group",
-                        isActive 
-                          ? "bg-blue-50 dark:bg-blue-900/20 text-[#4659ff]" 
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-[#4659ff]"
                           : item.isLogout
                             ? "text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
                             : "text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-600 dark:hover:text-slate-300"
@@ -695,15 +697,15 @@ function ProfilePageContent() {
                     >
                       <div className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                        isActive 
-                          ? "bg-white dark:bg-slate-900 shadow-none border border-blue-100 dark:border-blue-900/30" 
+                        isActive
+                          ? "bg-white dark:bg-slate-900 shadow-none border border-blue-100 dark:border-blue-900/30"
                           : item.isLogout
                             ? "bg-rose-50 dark:bg-rose-900/20 group-hover:bg-white dark:group-hover:bg-rose-900/40"
                             : "bg-slate-50 dark:bg-slate-800 group-hover:bg-white dark:group-hover:bg-slate-700"
                       )}>
                         <Icon className={cn("h-5 w-5", isActive ? "text-[#4659ff]" : SECTION_METADATA[item.id as SectionId].color)} />
                       </div>
-                      
+
                       <span className={cn(
                         "font-black text-[13px] uppercase tracking-wider",
                         item.isLogout && "text-rose-500"
@@ -712,7 +714,7 @@ function ProfilePageContent() {
                       </span>
 
                       {isActive && (
-                        <motion.div 
+                        <motion.div
                           layoutId="active-nav-indicator"
                           className={cn(
                             "absolute top-1/2 -translate-y-1/2 w-1.5 h-8 bg-[#4659ff] rounded-full",
@@ -765,13 +767,13 @@ function ProfilePageContent() {
                           <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${patient?.email || user?.email || "User"}`} />
                           <AvatarFallback className="text-lg font-black">{patientName.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        
+
                         <CldUploadWidget
                           uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "default_preset"}
                           onSuccess={handleCloudinarySuccess}
                         >
                           {({ open }) => (
-                            <button 
+                            <button
                               onClick={() => open()}
                               disabled={isUploadingImage}
                               className="absolute bottom-2 right-2 h-9 w-9 bg-primary rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center text-white shadow-lg opacity-0 group-hover/avatar:opacity-100 transition-all hover:bg-primary/90 disabled:opacity-50"
@@ -790,7 +792,7 @@ function ProfilePageContent() {
                         <h2 className="font-black text-2xl text-slate-900 dark:text-white leading-tight mb-0.5">{patientName}</h2>
                         <p className="text-muted-foreground text-xs font-medium">{patient?.email || user?.email}</p>
                       </div>
-                      
+
                       <div className="flex gap-2">
                         <Badge variant="secondary" className="px-4 py-1.5 font-bold text-[10px] uppercase tracking-wider bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border-none rounded-full">
                           {locale === "ar" ? "مريض" : "Patient"}
@@ -822,9 +824,9 @@ function ProfilePageContent() {
                             {locale === "ar" ? "المعلومات الشخصية" : "Personal Details"}
                           </CardTitle>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={openEditModal}
                           className="h-9 rounded-full bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-500 hover:text-blue-600 font-bold text-[11px] uppercase tracking-wider px-4 transition-all"
                         >
@@ -1064,21 +1066,21 @@ function ProfilePageContent() {
             </DialogTitle>
             <DialogDescription className="text-blue-100 font-medium">Update your medical information securely</DialogDescription>
           </DialogHeader>
-          
+
           <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "الاسم الكامل (بالإنجليزية)" : "Full Name (English)"}</label>
-                <Input 
-                  value={editForm.fullName} 
+                <Input
+                  value={editForm.fullName}
                   onChange={e => setEditForm(prev => ({ ...prev, fullName: e.target.value }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "الاسم الكامل (بالعربية)" : "Full Name (Arabic)"}</label>
-                <Input 
-                  value={editForm.fullNameAr} 
+                <Input
+                  value={editForm.fullNameAr}
                   onChange={e => setEditForm(prev => ({ ...prev, fullNameAr: e.target.value }))}
                   dir="rtl"
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold focus:ring-4 focus:ring-blue-500/10 text-right"
@@ -1086,25 +1088,25 @@ function ProfilePageContent() {
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("phone")}</label>
-                <Input 
-                  value={editForm.phone} 
+                <Input
+                  value={editForm.phone}
                   onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("dateOfBirth")}</label>
-                <Input 
+                <Input
                   type="date"
-                  value={editForm.dateOfBirth} 
+                  value={editForm.dateOfBirth}
                   onChange={e => setEditForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "فصيلة الدم" : "Blood Type"}</label>
-                <Input 
-                  value={editForm.bloodType} 
+                <Input
+                  value={editForm.bloodType}
                   onChange={e => setEditForm(prev => ({ ...prev, bloodType: e.target.value }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold placeholder:font-normal"
                   placeholder="e.g. O+"
@@ -1112,8 +1114,8 @@ function ProfilePageContent() {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("allergies")}</label>
-                <Input 
-                  value={editForm.allergies.join(", ")} 
+                <Input
+                  value={editForm.allergies.join(", ")}
                   onChange={e => setEditForm(prev => ({ ...prev, allergies: e.target.value.split(",").map(a => a.trim()).filter(Boolean) }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold"
                   placeholder={locale === "ar" ? "افصل بين الحساسية بفاصلة" : "Separate allergies with commas"}
@@ -1121,8 +1123,8 @@ function ProfilePageContent() {
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "الجنس" : "Gender"}</label>
-                <select 
-                  value={editForm.gender} 
+                <select
+                  value={editForm.gender}
                   onChange={e => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
                   className="w-full h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold focus:ring-4 focus:ring-blue-500/10 appearance-none"
                 >
@@ -1148,8 +1150,8 @@ function ProfilePageContent() {
                       onClick={() => toggleChronicDisease(disease)}
                       className={cn(
                         "flex items-center justify-between px-4 py-3 rounded-2xl border-2 text-[12px] font-black transition-all",
-                        isSelected 
-                          ? "bg-rose-50 border-rose-500 text-rose-600 dark:bg-rose-950/20 shadow-sm" 
+                        isSelected
+                          ? "bg-rose-50 border-rose-500 text-rose-600 dark:bg-rose-950/20 shadow-sm"
                           : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 hover:border-slate-200"
                       )}
                     >
@@ -1163,18 +1165,18 @@ function ProfilePageContent() {
 
             <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-slate-800">
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("emergencyContact")}</label>
-              <Input 
-                value={editForm.emergencyContact} 
+              <Input
+                value={editForm.emergencyContact}
                 onChange={e => setEditForm(prev => ({ ...prev, emergencyContact: e.target.value }))}
                 className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-5 font-bold"
                 placeholder={locale === "ar" ? "اسم وتليفون شخص للطوارئ" : "Emergency contact name and phone"}
               />
             </div>
-            
+
             <div className="space-y-4 pt-6 border-t border-slate-50 dark:border-slate-800">
               <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("address")}</label>
-              <Input 
-                value={editForm.address} 
+              <Input
+                value={editForm.address}
                 onChange={e => setEditForm(prev => ({ ...prev, address: e.target.value }))}
                 className="h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-5 font-bold"
                 placeholder={locale === "ar" ? "عنوان السكن الحالي" : "Current residential address"}
@@ -1183,15 +1185,15 @@ function ProfilePageContent() {
           </div>
 
           <DialogFooter className="p-8 pt-0 flex gap-3">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={closeEditModal}
               className="flex-1 h-14 rounded-2xl font-black text-[15px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-all"
             >
               <X className="h-4 w-4 mr-2" /> {locale === "ar" ? "إلغاء" : "Cancel"}
             </Button>
-            <Button 
-              onClick={handleUpdateProfile} 
+            <Button
+              onClick={handleUpdateProfile}
               disabled={isSaving}
               className="flex-1 h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[15px] shadow-xl shadow-blue-500/20 transition-all"
             >

@@ -10,16 +10,20 @@ interface PatientState {
   currentPatient: ApiPatient | null;
   isLoading: boolean;
   error: string | null;
+  favoriteDoctorIds: string[];
   fetchPatients: (filters?: PatientListFilters) => Promise<void>;
   fetchMe: () => Promise<void>;
+  fetchFavorites: () => Promise<void>;
+  toggleFavorite: (doctorId: string) => Promise<void>;
   updatePatientLocal: (id: string, updates: Partial<ApiPatient>) => void;
 }
 
-export const usePatientStore = create<PatientState>((set) => ({
+export const usePatientStore = create<PatientState>((set, get) => ({
   patients: [],
   currentPatient: null,
   isLoading: false,
   error: null,
+  favoriteDoctorIds: [],
 
   fetchPatients: async (filters) => {
     set({ isLoading: true, error: null });
@@ -67,6 +71,39 @@ export const usePatientStore = create<PatientState>((set) => ({
       }
 
       set({ error: message, isLoading: false });
+    }
+  },
+
+  fetchFavorites: async () => {
+    try {
+      const favorites = await patientService.getFavoriteDoctors();
+      set({ favoriteDoctorIds: favorites.map(f => f.id) });
+    } catch {
+      // Silently fail or handle error
+    }
+  },
+
+  toggleFavorite: async (doctorId) => {
+    const { favoriteDoctorIds } = get();
+    const isFav = favoriteDoctorIds.includes(doctorId);
+
+    // Optimistic update
+    if (isFav) {
+      set({ favoriteDoctorIds: favoriteDoctorIds.filter(id => id !== doctorId) });
+      try {
+        await patientService.removeFavoriteDoctor(doctorId);
+      } catch {
+        // Rollback
+        set({ favoriteDoctorIds: [...get().favoriteDoctorIds, doctorId] });
+      }
+    } else {
+      set({ favoriteDoctorIds: [...favoriteDoctorIds, doctorId] });
+      try {
+        await patientService.addFavoriteDoctor(doctorId);
+      } catch {
+        // Rollback
+        set({ favoriteDoctorIds: get().favoriteDoctorIds.filter(id => id !== doctorId) });
+      }
     }
   },
 

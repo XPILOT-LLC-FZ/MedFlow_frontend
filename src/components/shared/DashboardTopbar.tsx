@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { notificationsService } from "@/services/notificationsService";
 import { formatDistanceToNow } from "date-fns";
 import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
+import { PatientNotificationsDialog } from "@/components/shared/PatientNotificationsDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { TranslationKey } from "@/lib/i18n";
 import { ar } from "date-fns/locale";
@@ -555,12 +556,21 @@ export function DashboardTopbar() {
         </div>
       </div>
 
-      <NotificationsDialog
-        isOpen={isFullNotificationsOpen}
-        onOpenChange={setIsFullNotificationsOpen}
-        notifications={realNotifications}
-        onRefresh={refreshNotifications}
-      />
+      {user?.role === "PATIENT" ? (
+        <PatientNotificationsDialog
+          isOpen={isFullNotificationsOpen}
+          onOpenChange={setIsFullNotificationsOpen}
+          notifications={realNotifications}
+          onRefresh={refreshNotifications}
+        />
+      ) : (
+        <NotificationsDialog
+          isOpen={isFullNotificationsOpen}
+          onOpenChange={setIsFullNotificationsOpen}
+          notifications={realNotifications}
+          onRefresh={refreshNotifications}
+        />
+      )}
     </div>
   );
 }

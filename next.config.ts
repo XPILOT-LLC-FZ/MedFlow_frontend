@@ -11,6 +11,19 @@ const backendOrigin = normalizeBackendOrigin(
 );
 
 const nextConfig: NextConfig = {
+  images: {
+    dangerouslyAllowSVG: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.dicebear.com',
+      },
+    ],
+  },
   async rewrites() {
     return [
       {
