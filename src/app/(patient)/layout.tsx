@@ -10,6 +10,7 @@ import { LanguageToggle } from "@/components/shared/LanguageToggle";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Bell } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { NotificationsDialog } from "@/components/shared/NotificationsDialog";
 import { notificationsService } from "@/services/notificationsService";
 import { useState, useCallback, useEffect, Suspense } from "react";
@@ -20,13 +21,17 @@ function MobileBottomNavWrapper() {
   const searchParams = useSearchParams();
   const isDeepFlow = useProfileUiStore((state) => state.isDeepFlow);
   const profileSection = searchParams.get("section");
-  const shouldHideMobileBottomNav = pathname === "/profile" && (isDeepFlow || (profileSection && profileSection !== "profile"));
+  const conversationId = searchParams.get("conversationId");
+  const shouldHideMobileBottomNav = 
+    (pathname === "/profile" && (isDeepFlow || (profileSection && profileSection !== "profile"))) ||
+    (pathname.startsWith("/chat") && !!conversationId);
 
   if (shouldHideMobileBottomNav) return null;
   return <MobileBottomNav />;
 }
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { locale } = useTranslation();
 
   const [notifOpen, setNotifOpen] = useState(false);
@@ -81,7 +86,15 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </div>
           </div>
 
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6" dir={locale === "ar" ? "rtl" : "ltr"}>{children}</main>
+          <main 
+            className={cn(
+              "flex-1",
+              pathname.startsWith("/chat") ? "overflow-hidden" : "overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6"
+            )} 
+            dir={locale === "ar" ? "rtl" : "ltr"}
+          >
+            {children}
+          </main>
           <Suspense fallback={null}>
             <MobileBottomNavWrapper />
           </Suspense>

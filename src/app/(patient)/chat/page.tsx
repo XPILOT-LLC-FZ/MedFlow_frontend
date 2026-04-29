@@ -75,7 +75,7 @@ function PatientChatPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const appointmentIdParam = searchParams.get("appointmentId");
-  const selectedConversationId = searchParams.get("conversationId") ?? "";
+  const selectedConversationId = searchParams.get("conversationId");
   const { user, accessToken, refreshAccessToken } = useAuthStore();
   const { locale } = useTranslation();
 
@@ -209,7 +209,10 @@ function PatientChatPageContent() {
   }, [selectedConversationId, accessToken, user, refreshAccessToken]);
 
   useEffect(() => {
-    if (selectedConversationId || conversations.length === 0) return;
+    // Only auto-select on desktop. On mobile, we want to show the list first.
+    if (typeof window === "undefined") return;
+    const isMobile = window.innerWidth < 768;
+    if (selectedConversationId || conversations.length === 0 || isMobile) return;
     handleSelectConversation(conversations[0].id);
   }, [selectedConversationId, conversations, handleSelectConversation]);
 
@@ -399,32 +402,28 @@ function PatientChatPageContent() {
           item.latestMessage?.text ??
           (locale === "ar" ? "ابدأ المحادثة" : "Start conversation"),
         unreadCount: unreadByConversation[item.id] ?? 0,
+        lastMessageTime: item.latestMessage ? formatTime(item.latestMessage.createdAt) : undefined,
+        lastMessageStatus: (item.latestMessage && item.latestMessage.senderId === user?.id) ? item.latestMessage.status : undefined,
+        online: true, // Placeholder for online status
       }));
     },
-    [conversations, locale, unreadByConversation, lastActivityByConversation]
+    [conversations, locale, unreadByConversation, lastActivityByConversation, user?.id]
   );
 
   return (
     <ChatLayout
       sidebar={
         <ConversationList
-          title={locale === "ar" ? "محادثاتي مع الأطباء" : "My Consultations"}
+          title={locale === "ar" ? "الرسائل" : "Messages"}
           items={conversationItems}
-          selectedId={selectedConversationId}
+          selectedId={selectedConversationId ?? undefined}
           onSelect={handleSelectConversation}
           isDoctor={isDoctor}
         />
       }
       header={
         <ChatHeader
-          title={locale === "ar" ? "المحادثة مع الطبيب" : "Doctor Chat"}
-          subtitle={
-            selectedConversationId
-              ? `#${selectedConversationId.slice(0, 8)}`
-              : locale === "ar"
-              ? "لا توجد محادثة محددة"
-              : "No conversation selected"
-          }
+          title={locale === "ar" ? "د. هيلينا فوكس" : (conversations.find(c => c.id === selectedConversationId)?.otherParticipantName ?? "Doctor Chat")}
           isDoctor={isDoctor}
           connectionStatus={connectionStatus}
         />
@@ -473,12 +472,12 @@ function PatientChatPageContent() {
             !error &&
             groupByDay(messages).map(([day, dayMessages]) => (
               <div key={day}>
-                <div className="my-4 flex items-center gap-3">
-                  <hr className="flex-1 border-border" />
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                <div className="my-8 flex items-center gap-4">
+                  <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                  <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">
                     {day}
                   </span>
-                  <hr className="flex-1 border-border" />
+                  <div className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
                 </div>
 
                 {dayMessages.map((msg, idx) => (
