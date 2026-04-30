@@ -568,7 +568,7 @@ function DoctorChatPageContent() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-130px)] md:h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6">
+    <div className="flex h-full overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6">
       <DoctorChatSidebar 
         conversations={sidebarConversations}
         selectedId={selectedConversationId}

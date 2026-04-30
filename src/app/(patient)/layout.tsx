@@ -21,10 +21,8 @@ function MobileBottomNavWrapper() {
   const searchParams = useSearchParams();
   const isDeepFlow = useProfileUiStore((state) => state.isDeepFlow);
   const profileSection = searchParams.get("section");
-  const conversationId = searchParams.get("conversationId");
   const shouldHideMobileBottomNav = 
-    (pathname === "/profile" && (isDeepFlow || (profileSection && profileSection !== "profile"))) ||
-    (pathname.startsWith("/chat"));
+    (pathname === "/profile" && (isDeepFlow || (profileSection && profileSection !== "profile")));
 
   if (shouldHideMobileBottomNav) return null;
   return <MobileBottomNav />;
@@ -68,7 +66,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <DashboardTopbar />
 
           {/* Mobile Settings Toggles */}
-          {!pathname.includes("/dashboard") && !pathname.startsWith("/chat") && (
+          {!pathname.includes("/dashboard") && (
             <div className="lg:hidden fixed top-4 right-4 rtl:right-auto rtl:left-4 z-[100] flex items-center gap-3 pointer-events-none">
               <div className="pointer-events-auto flex items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-2 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-2xl shadow-slate-400/20 dark:shadow-none">
                 <button
@@ -91,7 +89,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <main 
             className={cn(
               "flex-1",
-              pathname.startsWith("/chat") ? "overflow-hidden" : "overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6"
+              pathname.startsWith("/chat") ? "overflow-hidden pb-20 lg:pb-0" : "overflow-y-auto p-4 md:p-6 pb-24 lg:pb-6"
             )} 
             dir={locale === "ar" ? "rtl" : "ltr"}
           >

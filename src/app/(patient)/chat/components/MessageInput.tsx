@@ -18,7 +18,6 @@ export function MessageInput({
   value,
   disabled,
   isSending,
-  placeholder,
   onChange,
   onSend,
   onKeyDown,
