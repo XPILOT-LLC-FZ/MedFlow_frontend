@@ -33,6 +33,7 @@ import { usePatientStore } from "@/stores/usePatientStore";
 import { staffService } from "@/services/staffService";
 import { surveyService } from "@/services/surveyService";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 interface DoctorProfileDialogProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ export function DoctorProfileDialog({
   doctor,
 }: DoctorProfileDialogProps) {
   const { t, locale, isRTL } = useTranslation();
+  const router = useRouter();
   const { favoriteDoctorIds, toggleFavorite } = usePatientStore();
 
   const [shifts, setShifts] = React.useState<DoctorShift[]>([]);
@@ -200,7 +202,7 @@ export function DoctorProfileDialog({
             </div>
             <div className="flex gap-2">
               <button 
-                onClick={() => window.location.href = `/chat?doctorId=${doctor.id}`}
+                onClick={() => router.push(`/chat?doctorId=${doctor.id}`)}
                 className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-sm hover:scale-110 transition-transform"
               >
                 <MessageCircle className="h-5 w-5" />
@@ -437,7 +439,10 @@ export function DoctorProfileDialog({
 
           {/* Book Button */}
           <div className="pt-4 pb-5 mt-auto">
-            <Button className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-sm shadow-blue-500/30 transition-all active:scale-95">
+            <Button 
+              onClick={() => router.push(`/appointments?doctorId=${doctor.id}`)}
+              className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-sm shadow-blue-500/30 transition-all active:scale-95"
+            >
               {t("bookAppointment") || "Book appointment"}
             </Button>
           </div>

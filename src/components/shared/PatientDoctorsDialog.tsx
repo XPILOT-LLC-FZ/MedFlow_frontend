@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,6 +44,7 @@ export function PatientDoctorsDialog({
   doctors,
 }: PatientDoctorsDialogProps) {
   const { t, locale, isRTL } = useTranslation();
+  const router = useRouter();
   const { favoriteDoctorIds, fetchFavorites, toggleFavorite } = usePatientStore();
   const [search, setSearch] = React.useState("");
   const [currentView, setCurrentView] = React.useState<"list" | "filters">("list");
@@ -261,7 +263,13 @@ export function PatientDoctorsDialog({
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-slate-50 dark:border-slate-800/50 flex justify-end">
-                    <Button className="h-10 px-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition-all shadow-sm shadow-blue-500/20">
+                    <Button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/appointments?doctorId=${doc.id}`);
+                      }}
+                      className="h-10 px-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition-all shadow-sm shadow-blue-500/20"
+                    >
                       {t("bookNow") || "Book"}
                     </Button>
                   </div>

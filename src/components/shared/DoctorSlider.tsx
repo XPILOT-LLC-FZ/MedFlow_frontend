@@ -208,7 +208,7 @@ export function DoctorSlider() {
                   )}
 
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    <Link href="/appointments">
+                    <Link href={`/appointments?doctorId=${doctor.id}`}>
                       <Button className="w-full" size="sm">
                         {t("bookNow")}
                       </Button>
