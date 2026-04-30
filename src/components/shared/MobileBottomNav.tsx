@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, Calendar, Plus, MessagesSquare, User, Users } from "lucide-react";
+import { Home, Calendar, Plus, MessagesSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useSearchParams } from "next/navigation";
 import { useProfileUiStore } from "@/stores/useProfileUiStore";
-import { useAuthStore } from "@/stores/useAuthStore";
 
-const PATIENT_NAV_ITEMS = [
+const NAV_ITEMS = [
   {
     label: "Home",
     labelAr: "الرئيسية",
@@ -44,64 +43,26 @@ const PATIENT_NAV_ITEMS = [
   },
 ];
 
-const DOCTOR_NAV_ITEMS = [
-  {
-    label: "Home",
-    labelAr: "الرئيسية",
-    href: "/doctor/dashboard",
-    icon: Home,
-  },
-  {
-    label: "Schedule",
-    labelAr: "المواعيد",
-    href: "/doctor/schedule",
-    icon: Calendar,
-  },
-  {
-    label: "Plus",
-    labelAr: "إضافة",
-    href: "/doctor/schedule",
-    icon: Plus,
-    isCenter: true,
-  },
-  {
-    label: "Chat",
-    labelAr: "المحادثة",
-    href: "/doctor/chat",
-    icon: MessagesSquare,
-  },
-  {
-    label: "Patients",
-    labelAr: "المرضى",
-    href: "/doctor/patients",
-    icon: Users,
-  },
-];
-
 export function MobileBottomNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { locale } = useTranslation();
-  const { user } = useAuthStore();
   const isDeepFlow = useProfileUiStore((state) => state.isDeepFlow);
 
-  const isDoctor = user?.role === "DOCTOR";
-  const navItems = isDoctor ? DOCTOR_NAV_ITEMS : PATIENT_NAV_ITEMS;
-
-  // Show on patient or doctor routes (excluding main landing and other modules)
-  const isAuthorizedRoute = pathname !== "/main" &&
+  // Show on patient routes (excluding main landing and other modules)
+  const isPatientRoute = pathname !== "/main" &&
     pathname !== "/" &&
+    !pathname.startsWith("/doctor") &&
     !pathname.startsWith("/admin") &&
     !pathname.startsWith("/reception") &&
     !pathname.startsWith("/super-dashboard") &&
     !pathname.startsWith("/login") &&
     !pathname.startsWith("/signup");
-
   const profileSection = searchParams.get("section");
-  const isProfileRoute = pathname === "/profile" || pathname === "/doctor/profile";
+  const isProfileRoute = pathname === "/profile";
   const shouldHideForProfile = isProfileRoute && (isDeepFlow || (profileSection && profileSection !== "profile"));
 
-  if (!isAuthorizedRoute || shouldHideForProfile) return null;
+  if (!isPatientRoute || shouldHideForProfile) return null;
 
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
@@ -130,7 +91,7 @@ export function MobileBottomNav() {
 
         {/* Navigation Content */}
         <div className="absolute bottom-0 left-0 right-0 h-22 flex items-start justify-around px-4 pt-6">
-          {navItems.map((item) => {
+          {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 

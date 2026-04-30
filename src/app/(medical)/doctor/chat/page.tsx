@@ -34,10 +34,10 @@ function applyStatusToMessages(
   return messages.map((message) =>
     idSet.has(message.id)
       ? {
-          ...message,
-          status,
-          seenAt: status === "seen" ? seenAt : message.seenAt,
-        }
+        ...message,
+        status,
+        seenAt: status === "seen" ? seenAt : message.seenAt,
+      }
       : message
   );
 }
@@ -50,7 +50,7 @@ function DoctorChatPageContent() {
   const conversationIdParam = searchParams.get("conversationId");
   const legacyConversationIdParam = searchParams.get("id");
   const selectedConversationId = conversationIdParam ?? legacyConversationIdParam ?? "";
-  
+
   const { user, accessToken, refreshAccessToken } = useAuthStore();
   const { t, locale } = useTranslation();
 
@@ -90,14 +90,14 @@ function DoctorChatPageContent() {
   const [showContactInfo, setShowContactInfo] = useState(true);
   const [patientDetails, setPatientDetails] = useState<
     | {
-        id: string;
-        name: string;
-        role: string;
-        email?: string;
-        phone?: string;
-        age?: number;
-        bloodType?: string;
-      }
+      id: string;
+      name: string;
+      role: string;
+      email?: string;
+      phone?: string;
+      age?: number;
+      bloodType?: string;
+    }
     | null
   >(null);
   const [patientActivity, setPatientActivity] = useState<
@@ -136,7 +136,7 @@ function DoctorChatPageContent() {
           if (
             previousTimestamp &&
             new Date(latestTimestamp).getTime() >
-              new Date(previousTimestamp).getTime() &&
+            new Date(previousTimestamp).getTime() &&
             conversation.latestMessage?.senderId &&
             conversation.latestMessage.senderId !== user?.id &&
             conversation.id !== selectedConversationId
@@ -174,7 +174,7 @@ function DoctorChatPageContent() {
       ...prev,
       [id]: { ...prev[id], isArchived: true }
     }));
-    
+
     if (id === selectedConversationId) {
       const remaining = conversations.filter(c => c.id !== id && !convMeta[c.id]?.isArchived);
       if (remaining.length > 0) {
@@ -194,7 +194,7 @@ function DoctorChatPageContent() {
 
 
 
-  const selectedConversation = useMemo(() => 
+  const selectedConversation = useMemo(() =>
     conversations.find(c => c.id === selectedConversationId),
     [conversations, selectedConversationId]
   );
@@ -368,8 +368,8 @@ function DoctorChatPageContent() {
       selectedConversation.otherParticipantRole === "PATIENT"
         ? t("patient")
         : selectedConversation.otherParticipantRole === "DOCTOR"
-        ? t("doctor")
-        : t("user");
+          ? t("doctor")
+          : t("user");
 
     setPatientDetails(prev => {
       const next = {
@@ -510,9 +510,9 @@ function DoctorChatPageContent() {
         lastMessage: conversation.latestMessage?.text || "No messages yet",
         time: conversation.latestMessage
           ? new Date(conversation.latestMessage.createdAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
+            hour: "2-digit",
+            minute: "2-digit",
+          })
           : "",
         unreadCount: unreadByConversation[conversation.id],
         status: "online" as const, // For now
@@ -549,14 +549,14 @@ function DoctorChatPageContent() {
     return (
       <div className="h-screen flex items-center justify-center bg-white flex-col gap-6 p-8 text-center">
         <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center text-red-500">
-           <AlertCircle size={40} />
+          <AlertCircle size={40} />
         </div>
         <div className="max-w-md">
           <h2 className="text-xl font-bold text-slate-900 mb-2">
             {locale === "ar" ? "خطأ في الاتصال" : "Connection Error"}
           </h2>
           <p className="text-slate-500 mb-6">{error}</p>
-          <button 
+          <button
             onClick={() => void loadConversations()}
             className="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
           >
@@ -568,18 +568,18 @@ function DoctorChatPageContent() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6">
-      <DoctorChatSidebar 
+    <div className="flex h-[calc(100vh-130px)] md:h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6">
+      <DoctorChatSidebar
         conversations={sidebarConversations}
         selectedId={selectedConversationId}
         onSelect={handleSelectConversation}
-        onFilterChange={() => {}} // TODO: Role filtering
+        onFilterChange={() => { }} // TODO: Role filtering
         onFavorite={handleFavorite}
         onArchive={handleArchive}
         onMute={handleMute}
       />
-      
-      <DoctorChatMain 
+
+      <DoctorChatMain
         recipient={selectedConversation ? {
           id: selectedConversation.otherParticipantId || "",
           name: selectedConversation.otherParticipantName || "User",
@@ -588,8 +588,8 @@ function DoctorChatPageContent() {
             selectedConversation.otherParticipantRole === "PATIENT"
               ? t("patient")
               : selectedConversation.otherParticipantRole === "DOCTOR"
-              ? t("doctor")
-              : t("user" as TranslationKey),
+                ? t("doctor")
+                : t("user" as TranslationKey),
           isFavorite: convMeta[selectedConversation.id]?.isFavorite,
           isMuted: convMeta[selectedConversation.id]?.isMuted,
         } : null}
@@ -606,7 +606,7 @@ function DoctorChatPageContent() {
       />
 
       {showContactInfo && (
-        <DoctorChatContactInfo 
+        <DoctorChatContactInfo
           user={patientDetails}
           activity={patientActivity}
           files={patientFiles}
