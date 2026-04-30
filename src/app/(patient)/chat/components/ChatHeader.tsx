@@ -21,8 +21,8 @@ export function ChatHeader({
   };
 
   return (
-    <div className="sticky top-0 z-20 border-b bg-white/80 dark:bg-slate-900/80 px-4 py-3 backdrop-blur-xl transition-all duration-300">
-      <div className="flex items-center justify-between gap-3">
+    <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 dark:bg-slate-900/95 px-4 py-4 backdrop-blur-xl transition-all duration-300">
+      <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           {/* Mobile Back Button */}
           <button
@@ -53,13 +53,13 @@ export function ChatHeader({
           </div>
         </div>
 
-        {/* Action Icons */}
-        <div className="flex items-center gap-1">
-          <button className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <Phone size={20} />
+        {/* Action Icons as per reference image */}
+        <div className="flex items-center gap-2">
+          <button className="h-10 w-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <Phone size={20} className="stroke-[1.5]" />
           </button>
-          <button className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-            <Video size={22} />
+          <button className="h-10 w-10 flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <Video size={22} className="stroke-[1.5]" />
           </button>
         </div>
       </div>

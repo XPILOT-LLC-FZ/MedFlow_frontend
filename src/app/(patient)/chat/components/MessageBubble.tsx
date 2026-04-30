@@ -87,30 +87,33 @@ export function MessageBubble({
           mine ? "items-end" : "items-start"
         )}>
           <div className={cn(
-            "relative max-w-[85vw] md:max-w-md px-5 py-3.5 shadow-sm transition-all duration-300",
+            "relative max-w-[85vw] md:max-w-md px-5 py-4 shadow-sm transition-all duration-300",
             mine 
-              ? "rounded-[24px] rounded-br-[4px] bg-[#4659ff] text-white" 
-              : "rounded-[24px] rounded-bl-[4px] bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+              ? "rounded-[28px] rounded-br-[8px] bg-[#4F46E5] text-white" 
+              : "rounded-[28px] rounded-bl-[8px] bg-[#EEF2F6] dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           )}>
             {/* Sender Name for incoming messages */}
             {!mine && (
-              <span className="block mb-1 text-[13px] font-bold text-slate-900/80 dark:text-slate-100/80">
+              <span className="block mb-1 text-[14px] font-bold text-slate-900 dark:text-slate-100 opacity-90">
                 {message.senderName ?? senderFallback}
               </span>
             )}
 
-            <p className="text-[15px] leading-relaxed font-medium">
+            <p className={cn(
+              "text-[15px] leading-relaxed font-medium",
+              !mine ? "text-slate-600 dark:text-slate-300" : "text-white"
+            )}>
               {message.text}
             </p>
 
-            <div className="mt-1.5 flex items-center justify-end gap-1.5">
+            <div className="mt-1 flex items-center justify-end gap-1.5">
+              {mine && <StatusIcon status={message.status} />}
               <span className={cn(
-                "text-[10px] font-bold tracking-tight opacity-50",
+                "text-[10px] font-bold tracking-tight opacity-70 uppercase",
                 mine ? "text-white" : "text-slate-400"
               )}>
                 {formattedTime}
               </span>
-              {mine && <StatusIcon status={message.status} />}
             </div>
           </div>
 

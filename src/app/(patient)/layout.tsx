@@ -24,7 +24,7 @@ function MobileBottomNavWrapper() {
   const conversationId = searchParams.get("conversationId");
   const shouldHideMobileBottomNav = 
     (pathname === "/profile" && (isDeepFlow || (profileSection && profileSection !== "profile"))) ||
-    (pathname.startsWith("/chat") && !!conversationId);
+    (pathname.startsWith("/chat"));
 
   if (shouldHideMobileBottomNav) return null;
   return <MobileBottomNav />;
@@ -62,13 +62,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
   return (
     <RoleGuard allowedRoles={["PATIENT"]}>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen h-[100dvh] overflow-hidden">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden relative">
           <DashboardTopbar />
 
           {/* Mobile Settings Toggles */}
-          {!pathname.includes("/dashboard") && (
+          {!pathname.includes("/dashboard") && !pathname.startsWith("/chat") && (
             <div className="lg:hidden fixed top-4 right-4 rtl:right-auto rtl:left-4 z-[100] flex items-center gap-3 pointer-events-none">
               <div className="pointer-events-auto flex items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-2 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-2xl shadow-slate-400/20 dark:shadow-none">
                 <button
