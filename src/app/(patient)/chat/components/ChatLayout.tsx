@@ -28,7 +28,7 @@ export function ChatLayout({ sidebar, header, messages, input }: ChatLayoutProps
 
         {/* Chat Area - Visible on desktop, and on mobile only when a conversation is selected */}
         <section className={cn(
-          "flex min-h-0 flex-col transition-all duration-300 bg-slate-50/30 dark:bg-slate-900/10 overflow-hidden relative",
+          "flex min-h-0 flex-col transition-all duration-300 bg-[#F8FAFC] dark:bg-slate-950 overflow-hidden relative",
           selectedConversationId ? "flex" : "hidden md:flex"
         )}>
           <div className="sticky top-0 z-20 w-full flex-shrink-0">

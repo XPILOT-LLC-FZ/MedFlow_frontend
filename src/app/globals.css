@@ -130,6 +130,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Safari h-screen fix */
+@supports (-webkit-touch-callout: none) {
+  .h-screen {
+    height: -webkit-fill-available;
+  }
+}
+
 [dir="rtl"] {
   font-family: "Segoe UI", Tahoma, Arial, sans-serif;
 }
