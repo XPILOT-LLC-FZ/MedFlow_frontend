@@ -1,9 +1,8 @@
 "use client";
 
-import { ChevronLeft, Loader2, Stethoscope, UserRound, Phone, Video } from "lucide-react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ChevronLeft, Stethoscope, UserRound, Phone, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface ChatHeaderProps {
   title: string;
@@ -14,11 +13,8 @@ interface ChatHeaderProps {
 export function ChatHeader({
   title,
   isDoctor,
-  connectionStatus,
 }: ChatHeaderProps) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const handleBack = () => {
     router.push("/chat");

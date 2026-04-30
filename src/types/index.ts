@@ -130,10 +130,20 @@ export interface ApiPublicDoctor {
   rating: number;
   consultationFee: number;
   services: string[];
+  availableModes?: ("ONSITE" | "ONLINE" | "PHONE_CALL")[];
+  branch?: {
+    id: string;
+    name: string;
+    address?: string | null;
+  } | null;
+  isAvailableNow?: boolean;
   user?: {
     avatarUrl?: string | null;
+    gender?: string | null;
   } | null;
   credentialSummary: DoctorCredentialSummary;
+  qualification?: string | null;
+  patientCount?: number;
 }
 
 export interface CreateDoctorCredentialPayload {
@@ -161,9 +171,22 @@ export interface DoctorListFilters {
   specialization?: string;
   search?: string;
   serviceId?: string;
+  clinicId?: string;
+  gender?: string;
+  experienceYears?: number;
+  availableNow?: boolean;
   role?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface DoctorFilterData {
+  specialties: string[];
+  experience: string;
+  gender: string;
+  appointmentType: string;
+  location: string;
+  urgentOnly: boolean;
 }
 
 export interface DoctorShift {
@@ -493,6 +516,21 @@ export interface DoctorSurveyStats {
   totalReviews: number;
   distribution: Array<{ stars: number; count: number }>;
   wouldRecommendRate: number;
+}
+
+export interface ApiDoctorReview {
+  id: string;
+  patientName: string;
+  doctorRating: number;
+  overallSatisfaction?: number;
+  wouldRecommend?: boolean;
+  feedback?: string;
+  createdAt: string;
+}
+
+export interface DoctorReviewsResponse {
+  stats: DoctorSurveyStats;
+  reviews: ApiDoctorReview[];
 }
 
 export interface DashboardRange {

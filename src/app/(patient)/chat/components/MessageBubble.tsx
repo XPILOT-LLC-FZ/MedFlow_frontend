@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Check, CheckCheck, Stethoscope, Copy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ChatMessage } from "@/services/doctorChatService";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -28,7 +28,6 @@ function StatusIcon({ status }: { status: ChatMessage["status"] }) {
 export function MessageBubble({
   message,
   mine,
-  showSender,
   senderFallback,
   formattedTime,
 }: MessageBubbleProps) {

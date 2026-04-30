@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { 
   Calendar,
   Clock,
@@ -34,6 +35,7 @@ export function PatientAppointmentsDialog({
   onOpenChange,
   appointments,
 }: PatientAppointmentsDialogProps) {
+  const router = useRouter();
   const { t, locale, isRTL } = useTranslation();
   const [search, setSearch] = React.useState("");
 
@@ -160,7 +162,14 @@ export function PatientAppointmentsDialog({
                     <span className="text-slate-900 dark:text-slate-50 font-black text-sm truncate">Dr. {apt.doctorName}</span>
                     <span className="text-slate-400 font-bold text-[10px] uppercase tracking-tight">{t("internistSpecialistDoctor")}</span>
                   </div>
-                  <button className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90 transition-all">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/chat?appointmentId=${apt.id}`);
+                      onOpenChange(false);
+                    }}
+                    className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90 transition-all"
+                  >
                     <MessageIcon className="h-4.5 w-4.5" />
                   </button>
                 </div>

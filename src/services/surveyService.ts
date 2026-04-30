@@ -5,6 +5,7 @@ import type {
   RequestSurveyResponse,
   SubmitSurveyPayload,
   DoctorSurveyStats,
+  DoctorReviewsResponse,
 } from "@/types";
 
 export const surveyService = {
@@ -25,5 +26,13 @@ export const surveyService = {
 
   async getDoctorStats(): Promise<DoctorSurveyStats> {
     return apiClient.get("/surveys/doctor-stats");
+  },
+
+  async getPublicDoctorReviews(doctorId: string): Promise<DoctorReviewsResponse> {
+    return apiClient.get(`/surveys/doctor/${doctorId}/reviews`);
+  },
+  
+  async submitDirectReview(payload: { doctorId: string; rating: number; feedback?: string }): Promise<void> {
+    return apiClient.post("/surveys/direct", payload);
   },
 };

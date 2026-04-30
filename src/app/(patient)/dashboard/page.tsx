@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Calendar, Clock, User, Plus, Activity,
@@ -30,6 +31,8 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { PatientNotificationsDialog } from "@/components/shared/PatientNotificationsDialog";
 import { PatientDoctorsDialog } from "@/components/shared/PatientDoctorsDialog";
 import { PatientAppointmentsDialog } from "@/components/shared/PatientAppointmentsDialog";
+import { DoctorProfileDialog } from "@/components/shared/DoctorProfileDialog";
+
 import { notificationsService } from "@/services/notificationsService";
 import type { InAppNotification } from "@/types";
 import { cn } from "@/lib/utils";
@@ -37,6 +40,7 @@ import { patientService } from "@/services/patientService";
 import { usePatientStore } from "@/stores/usePatientStore";
 
 export default function PatientDashboard() {
+  const router = useRouter();
   const { locale, t } = useTranslation();
   const { user } = useAuthStore();
   const displayName = (locale === "ar" && user?.nameAr) ? user.nameAr : (user?.name || "");
@@ -70,6 +74,9 @@ export default function PatientDashboard() {
   const [loyaltyHistory, setLoyaltyHistory] = useState<ApiLoyaltyTransaction[]>([]);
   const [isLoyaltyLoading, setIsLoyaltyLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDoctor, setSelectedDoctor] = useState<ApiPublicDoctor | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+
 
   const { favoriteDoctorIds, toggleFavorite, fetchFavorites } = usePatientStore();
 
@@ -123,7 +130,7 @@ export default function PatientDashboard() {
       }
     };
     fetchData();
-  }, [refreshNotifications, fetchLoyaltyHistory, fetchFavorites, user?.id]);
+  }, [user, refreshNotifications, fetchLoyaltyHistory, fetchFavorites]);
 
   React.useEffect(() => {
     if (user?.id) {
@@ -193,6 +200,7 @@ export default function PatientDashboard() {
       if (activeTab === "pediatricSpecialist") return spec.includes("pediatric");
       if (activeTab === "dermatologist") return spec.includes("dermatology") || spec.includes("dermatologist");
       if (activeTab === "surgeon") return spec.includes("surgeon");
+      if (activeTab === "other") return !spec.includes("pediatric") && !spec.includes("dermatolog") && !spec.includes("surgeon");
       return true;
     }).slice(0, 6);
   }, [publicDoctors, activeTab]);
@@ -249,6 +257,12 @@ export default function PatientDashboard() {
       { name: t("pediatric"), icon: <Baby className="h-6 w-6 text-amber-500" />, bg: "bg-amber-50 dark:bg-amber-900/10", categoryName: t("consultation") },
     ];
   }, [services, locale, t]);
+
+  const handleDoctorClick = (doc: ApiPublicDoctor) => {
+    setSelectedDoctor(doc);
+    setProfileOpen(true);
+  };
+
 
 
   return (
@@ -312,7 +326,12 @@ export default function PatientDashboard() {
             <div className="flex flex-col gap-3">
               {filteredDoctors.length > 0 ? (
                 filteredDoctors.map((doc) => (
-                  <div key={doc.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group">
+                  <div 
+                    key={doc.id} 
+                    onClick={() => handleDoctorClick(doc)}
+                    className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
+                  >
+
                     <div className="h-20 w-20 rounded-md overflow-hidden shrink-0">
                       <Image
                         src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
@@ -324,7 +343,7 @@ export default function PatientDashboard() {
                     </div>
                     <div className="flex-1 flex flex-col gap-1">
                       <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                        Dr. {doc.fullName}
+                        Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                       </h3>
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
                         <span>{doc.specialization}</span>
@@ -449,7 +468,13 @@ export default function PatientDashboard() {
                       <span className="text-slate-900 dark:text-slate-50 font-black text-sm truncate">Dr. {upcomingApt.doctorName}</span>
                       <span className="text-slate-400 font-bold text-[10px] uppercase tracking-tight">{t("internistSpecialistDoctor")}</span>
                     </div>
-                    <button className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90 transition-all">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/chat?appointmentId=${upcomingApt.id}`);
+                      }}
+                      className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90 transition-all"
+                    >
                       <MessageIcon className="h-4.5 w-4.5" />
                     </button>
                   </div>
@@ -497,7 +522,12 @@ export default function PatientDashboard() {
 
           <div className="flex flex-col gap-3">
             {publicDoctors.slice(0, 2).map((doc) => (
-              <div key={doc.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group">
+              <div 
+                key={doc.id} 
+                onClick={() => handleDoctorClick(doc)}
+                className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
+              >
+
                 <div className="h-20 w-20 rounded-md overflow-hidden shrink-0">
                   <Image
                     src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
@@ -509,7 +539,7 @@ export default function PatientDashboard() {
                 </div>
                 <div className="flex-1 flex flex-col gap-1">
                   <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                    Dr. {doc.fullName}
+                    Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                   </h3>
                   <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
                     <span>{doc.specialization}</span>
@@ -546,24 +576,30 @@ export default function PatientDashboard() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {["Latest", "Pediatric Specialist", "Other"].map((tab, idx) => (
+            {["latest", "pediatricSpecialist", "other"].map((tab) => (
               <button
-                key={idx}
+                key={tab}
+                onClick={() => setActiveTab(tab)}
                 className={cn(
                   "px-5 h-10 rounded-2xl text-[13px] font-black transition-all border shrink-0",
-                  idx === 0
-                    ? "bg-blue-600 border-blue-600 text-white"
+                  activeTab === tab
+                    ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20"
                     : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400"
                 )}
               >
-                {tab}
+                {t(tab as never)}
               </button>
             ))}
           </div>
 
           <div className="flex gap-4 overflow-x-auto no-scrollbar">
-            {publicDoctors.slice(0, 5).map((doc) => (
-              <div key={doc.id} className="min-w-[280px] bg-white dark:bg-slate-900 rounded-[20px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group">
+            {recommendedDoctors.map((doc) => (
+              <div 
+                key={doc.id} 
+                onClick={() => handleDoctorClick(doc)}
+                className="min-w-[280px] bg-white dark:bg-slate-900 rounded-[20px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group cursor-pointer"
+              >
+
                 <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
                   <Image
                     src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
@@ -597,7 +633,7 @@ export default function PatientDashboard() {
                 <div className="p-4 flex flex-col gap-1">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-                      Dr. {doc.fullName}
+                      Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                     </h3>
                     <div className="flex items-center gap-1.5">
                       <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -685,7 +721,12 @@ export default function PatientDashboard() {
                 {filteredDoctors.length > 0 ? (
                   <div className="grid grid-cols-2 xl:grid-cols-3 gap-6">
                     {filteredDoctors.map((doc) => (
-                      <div key={doc.id} className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300">
+                      <div 
+                        key={doc.id} 
+                        onClick={() => handleDoctorClick(doc)}
+                        className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+                      >
+
                         <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
                           <Image
                             src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
@@ -712,7 +753,7 @@ export default function PatientDashboard() {
                         <div className="p-8 flex flex-col gap-1">
                           <div className="flex items-center justify-between">
                             <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                              Dr. {doc.fullName}
+                              Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                             </h3>
                             <div className="flex items-center gap-1.5">
                               <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -778,7 +819,7 @@ export default function PatientDashboard() {
               </div>
 
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                {["latest", "pediatricSpecialist", "dermatologist", "surgeon"].map((tab) => (
+                {["latest", "pediatricSpecialist", "dermatologist", "surgeon", "other"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -796,7 +837,12 @@ export default function PatientDashboard() {
 
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-6">
                 {recommendedDoctors.map((doc) => (
-                  <div key={doc.id} className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300">
+                  <div 
+                    key={doc.id} 
+                    onClick={() => handleDoctorClick(doc)}
+                    className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+                  >
+
                     <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
                       <Image
                         src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
@@ -832,7 +878,7 @@ export default function PatientDashboard() {
                     <div className="p-8 flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                          Dr. {doc.fullName}
+                          Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                         </h3>
                         <div className="flex items-center gap-1.5">
                           <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -935,7 +981,10 @@ export default function PatientDashboard() {
                           </div>
                         </div>
                         <div
-                          onClick={(e) => { e.stopPropagation(); setComingSoonModal(true); }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            router.push(`/chat?appointmentId=${apt.id}`);
+                          }}
                           className="h-11 w-11 rounded-full border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
                         >
                           <MessageIcon className="h-5 w-5" />
@@ -965,7 +1014,12 @@ export default function PatientDashboard() {
 
               <div className="flex flex-col gap-4">
                 {publicDoctors.slice(0, 2).map((doc) => (
-                  <div key={doc.id} className="bg-white dark:bg-slate-900 p-4 rounded-md border border-slate-100 dark:border-slate-800 flex items-center gap-5 hover:shadow-md transition-shadow cursor-pointer">
+                  <div 
+                    key={doc.id} 
+                    onClick={() => handleDoctorClick(doc)}
+                    className="bg-white dark:bg-slate-900 p-4 rounded-md border border-slate-100 dark:border-slate-800 flex items-center gap-5 hover:shadow-md transition-shadow cursor-pointer"
+                  >
+
                     <div className="h-20 w-20 rounded-[20px] overflow-hidden shrink-0">
                       <Image
                         src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
@@ -1238,11 +1292,11 @@ export default function PatientDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Popular Specializations Dialog */}
       <PatientSpecializationsDialog
         isOpen={specOpen}
         onOpenChange={setSpecOpen}
         services={services}
+        doctors={publicDoctors}
       />
 
       {/* Coming Soon Dialog */}
@@ -1272,6 +1326,11 @@ export default function PatientDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+      <DoctorProfileDialog 
+        isOpen={profileOpen}
+        onOpenChange={setProfileOpen}
+        doctor={selectedDoctor}
+      />
       <PatientDoctorsDialog
         isOpen={docsOpen}
         onOpenChange={setDocsOpen}

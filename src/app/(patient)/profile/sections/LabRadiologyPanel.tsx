@@ -126,6 +126,15 @@ export default function LabRadiologyPanel() {
     }
   };
 
+  const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSave = async () => {
     if (!selectedFile || !fileName || !doctorName || !specialization) {
       toast.error(locale === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
@@ -136,9 +145,12 @@ export default function LabRadiologyPanel() {
     try {
       const encodedName = `${uploadType === 'radiology' ? 'Radiology' : 'Lab'}|${fileName}|${specialization}|${doctorName}`;
 
+      // Convert file to data URL for backend processing
+      const fileDataUrl = await fileToDataUrl(selectedFile);
+
       const payload = {
         name: encodedName,
-        fileUrl: "https://placeholder-url.com/file.pdf",
+        fileUrl: fileDataUrl,
         fileType: selectedFile.type,
       };
 
@@ -149,6 +161,7 @@ export default function LabRadiologyPanel() {
       loadData();
 
       setFileName(''); setDoctorName(''); setSpecialization(''); setSelectedFile(null);
+      setUploadType('lab');
     } catch {
       toast.error(locale === 'ar' ? 'خطأ في الحفظ' : 'Error saving data');
     } finally {
@@ -259,7 +272,10 @@ export default function LabRadiologyPanel() {
 
             {/* FAB */}
             <button
-              onClick={() => setView('upload')}
+              onClick={() => {
+                setUploadType(activeTab);
+                setView('upload');
+              }}
               className="fixed bottom-24 right-6 h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-blue-600/40 active:scale-90 transition-all z-40"
             >
               <Plus className="h-8 w-8" />
@@ -275,7 +291,16 @@ export default function LabRadiologyPanel() {
           >
             {/* Header with Back */}
             <div className="flex items-center justify-center relative py-2 mb-4">
-              <button onClick={() => setView('list')} className="absolute left-0 p-2 text-slate-500 hover:text-slate-700 transition-colors">
+              <button 
+                onClick={() => {
+                  setView('list');
+                  setFileName('');
+                  setDoctorName('');
+                  setSpecialization('');
+                  setSelectedFile(null);
+                }} 
+                className="absolute left-0 p-2 text-slate-500 hover:text-slate-700 transition-colors"
+              >
                 <ChevronLeft className="h-6 w-6" />
               </button>
               <h1 className="text-[20px] font-bold text-slate-900 dark:text-white">

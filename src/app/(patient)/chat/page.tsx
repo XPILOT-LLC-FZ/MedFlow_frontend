@@ -75,6 +75,7 @@ function PatientChatPageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const appointmentIdParam = searchParams.get("appointmentId");
+  const doctorIdParam = searchParams.get("doctorId");
   const selectedConversationId = searchParams.get("conversationId");
   const { user, accessToken, refreshAccessToken } = useAuthStore();
   const { locale } = useTranslation();
@@ -200,6 +201,22 @@ function PatientChatPageContent() {
     };
     void syncFromAppointment();
   }, [appointmentIdParam, selectedConversationId, handleSelectConversation]);
+
+  useEffect(() => {
+    if (!doctorIdParam || selectedConversationId || !user) return;
+    const syncFromDoctor = async () => {
+      try {
+        const conversation = await doctorChatService.getConversationByParticipants(user.id, doctorIdParam);
+        setConversations((prev) =>
+          prev.some((c) => c.id === conversation.id) ? prev : [conversation, ...prev]
+        );
+        handleSelectConversation(conversation.id);
+      } catch (err) {
+        console.error("[patient-chat] Failed to sync from doctorId", err);
+      }
+    };
+    void syncFromDoctor();
+  }, [doctorIdParam, selectedConversationId, user, handleSelectConversation]);
 
   useEffect(() => {
     if (!selectedConversationId || accessToken || !user) return;
