@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
   Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles,
-  LogOut, Activity
+  LogOut, Activity, CreditCard
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";
 import { useAuthStore } from "@/stores/useAuthStore";
@@ -53,12 +53,15 @@ const navByRole: Record<Role, NavItem[]> = {
   ],
   STAFF: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/reception/dashboard", icon: LayoutDashboard },
-    { label: "Patients", labelAr: "المرضى", href: "/reception/patients", icon: User },
-    { label: "Doctor Orders", labelAr: "أوامر الطبيب", href: "/reception/handoffs", icon: ClipboardList },
-    { label: "Booking", labelAr: "الحجز", href: "/reception/booking", icon: Calendar },
-    { label: "Smart Scheduler", labelAr: "الجدولة الذكية", href: "/reception/smart-scheduler", icon: Sparkles },
-    { label: "Waiting Room", labelAr: "غرفة الانتظار", href: "/reception/waiting-room", icon: Clock },
-    { label: "Profile", labelAr: "الملف الشخصي", href: "/reception/profile", icon: User },
+    { label: "Patients", labelAr: "المرضى", href: "/reception/patients", icon: Users },
+    { label: "Schedule", labelAr: "الجدول", href: "/reception/booking", icon: Calendar },
+    { label: "Queue Management", labelAr: "إدارة الطوابير", href: "/reception/waiting-room", icon: Activity },
+    { label: "Tasks", labelAr: "المهام", href: "/reception/tasks", icon: ClipboardList },
+    { label: "Prescriptions", labelAr: "الوصفات الطبية", href: "/reception/prescriptions", icon: Package },
+    { label: "Checkout & payment", labelAr: "الدفع والسداد", href: "/reception/payments", icon: CreditCard },
+    { label: "Invoice List", labelAr: "قائمة الفواتير", href: "/reception/invoices", icon: FileText },
+    { label: "Chats", labelAr: "المحادثات", href: "/doctor/chat", icon: MessageSquare },
+    { label: "Settings", labelAr: "الإعدادات", href: "/reception/profile", icon: Settings },
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", labelAr: "لوحة التحكم", href: "/super-dashboard", icon: LayoutDashboard },
@@ -74,10 +77,11 @@ export function Sidebar() {
   const { user, logout } = useAuthStore();
   const { t, locale, isRTL } = useTranslation();
 
-  // Use the authenticated user's role; fall back to PATIENT
   const role = user?.role ?? "PATIENT";
   const items = navByRole[role];
   const isDoctorSidebar = role === "DOCTOR";
+  const isReceptionSidebar = role === "STAFF";
+  const isPremiumSidebar = isDoctorSidebar || isReceptionSidebar;
   const profileName = (locale === "ar" && user?.nameAr) ? user.nameAr : (user?.name || (locale === "ar" ? "مستخدم النظام" : "MedFlow User"));
 
   const handleLogout = async () => {
@@ -86,9 +90,10 @@ export function Sidebar() {
   };
 
   const renderLogo = () => {
-    if (isDoctorSidebar) {
+    if (isPremiumSidebar) {
+      const dashboardHref = isDoctorSidebar ? "/doctor/dashboard" : "/reception/dashboard";
       return (
-        <Link href="/doctor/dashboard" className="flex items-center gap-3">
+        <Link href={dashboardHref} className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-sm">
             <Activity className="h-5 w-5 text-white" />
           </div>
@@ -112,7 +117,6 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile overlay */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -125,31 +129,24 @@ export function Sidebar() {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <motion.aside
         className={cn(
           "fixed top-0 z-50 h-full w-64 border-r border-sidebar-border bg-sidebar-bg text-sidebar-fg flex flex-col transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-auto",
-          isDoctorSidebar && "bg-white border-slate-100 dark:bg-slate-950 dark:border-slate-800",
+          isPremiumSidebar && "bg-white border-slate-100 dark:bg-slate-950 dark:border-slate-800",
           isRTL ? "right-0 border-l border-r-0" : "left-0",
-          sidebarOpen
-            ? "translate-x-0"
-            : isRTL
-              ? "translate-x-full lg:translate-x-0"
-              : "-translate-x-full lg:translate-x-0"
+          sidebarOpen ? "translate-x-0" : isRTL ? "translate-x-full lg:translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Logo */}
-        <div className={cn("flex items-center justify-between h-16 px-6", isDoctorSidebar ? "border-none" : "border-b border-slate-100 dark:border-slate-800")}>
+        <div className={cn("flex items-center justify-between h-16 px-6", isPremiumSidebar ? "border-none" : "border-b border-slate-100 dark:border-slate-800")}>
           {renderLogo()}
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 rounded-md hover:bg-muted">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {isDoctorSidebar && <div className="mx-6 border-b border-slate-100 dark:border-slate-800/50 mb-2" />}
+        {isPremiumSidebar && <div className="mx-6 border-b border-slate-100 dark:border-slate-800/50 mb-2" />}
 
-        {/* Nav items */}
-        <nav className={cn("flex-1 overflow-y-auto p-4 space-y-1.5", isDoctorSidebar && "px-5 py-4")}>
+        <nav className={cn("flex-1 overflow-y-auto p-4 space-y-1.5", isPremiumSidebar && "px-5 py-4")}>
           {items.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
             const Icon = item.icon;
@@ -163,64 +160,50 @@ export function Sidebar() {
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  isDoctorSidebar && (
+                  isPremiumSidebar && (
                     isActive
                       ? "bg-blue-600 text-white shadow-md shadow-blue-200/50 dark:shadow-none"
                       : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-100"
                   )
                 )}
               >
-                <Icon className={cn("h-4 w-4 shrink-0", isDoctorSidebar && "h-[18px] w-[18px]")} />
+                <Icon className={cn("h-4 w-4 shrink-0", isPremiumSidebar && "h-[18px] w-[18px]")} />
                 <span>{locale === "ar" ? item.labelAr : item.label}</span>
               </Link>
             );
           })}
 
-          {isDoctorSidebar && (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  setSidebarOpen(false);
-                  await handleLogout();
-                }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-                <span>{t("logout")}</span>
-              </button>
-            </div>
-          )}
-
-          {!isDoctorSidebar && (
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  setSidebarOpen(false);
-                  await handleLogout();
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>{t("logout")}</span>
-              </button>
-            </div>
-          )}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={async () => {
+                setSidebarOpen(false);
+                await handleLogout();
+              }}
+              className={cn(
+                "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30",
+                isPremiumSidebar && "hover:bg-rose-50 dark:hover:bg-rose-950/20"
+              )}
+            >
+              <LogOut className={cn("h-4 w-4", isPremiumSidebar && "h-[18px] w-[18px]")} />
+              <span>{t("logout")}</span>
+            </button>
+          </div>
         </nav>
 
-        {/* Footer */}
-        <div className={cn("p-4 border-t", isDoctorSidebar ? "border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30" : "border-sidebar-border")}>
+        <div className={cn("p-4 border-t", isPremiumSidebar ? "border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30" : "border-sidebar-border")}>
           {user && (
-            <div className={cn("flex items-center gap-3 rounded-xl px-2", isDoctorSidebar ? "py-1.5" : "py-1")}>
-              <Avatar className={cn("border border-border", isDoctorSidebar ? "h-10 w-10" : "h-9 w-9")}>
+            <div className={cn("flex items-center gap-3 rounded-xl px-2", isPremiumSidebar ? "py-1.5" : "py-1")}>
+              <Avatar className={cn("border border-border", isPremiumSidebar ? "h-10 w-10" : "h-9 w-9")}>
                 <AvatarImage src={user.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.email}`} />
                 <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className={cn("truncate font-semibold text-slate-800 dark:text-slate-100", isDoctorSidebar ? "text-sm" : "text-sm")}>{profileName}</p>
+                <p className={cn("truncate font-semibold text-slate-800 dark:text-slate-100", isPremiumSidebar ? "text-sm" : "text-sm")}>{profileName}</p>
                 {isDoctorSidebar ? (
                   <p className="truncate text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">{t("cardiologist")}</p>
+                ) : isReceptionSidebar ? (
+                  <p className="truncate text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest">{locale === "ar" ? "موظف استقبال" : "Receptionist"}</p>
                 ) : (
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">{t("settings")}</p>
                 )}
