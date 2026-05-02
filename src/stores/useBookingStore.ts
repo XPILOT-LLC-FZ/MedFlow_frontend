@@ -106,6 +106,7 @@ const mapToLocal = (api: ApiAppointment): Appointment => {
         ? api.consultationSession.notes
         : api.notes,
     amount: api.amount,
+    doctor: api.doctor,
   };
 };
 

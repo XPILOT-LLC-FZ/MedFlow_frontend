@@ -99,7 +99,7 @@ function ProfilePageContent() {
     insurance: { label: "Insurance information", labelAr: "معلومات التأمين", icon: HeartPulse, color: "text-[#4659ff]" },
     points: { label: "Points", labelAr: "النقاط", icon: Coins, color: "text-[#4659ff]" },
     notifications: { label: "Notification settings", labelAr: "إعدادات التنبيهات", icon: Bell, color: "text-[#4659ff]" },
-    payments: { label: "Payment settings", labelAr: "إعدادات الدفع", icon: CreditCard, color: "text-[#4659ff]" },
+    payments: { label: "Your Payments", labelAr: "مدفوعاتك", icon: CreditCard, color: "text-[#4659ff]" },
     email: { label: "Change email", labelAr: "تغيير البريد الإلكتروني", icon: Mail, color: "text-[#4659ff]" },
     security: { label: "Security settings", labelAr: "إعدادات الأمان", icon: Lock, color: "text-[#4659ff]" },
     logout: { label: "Log out", labelAr: "تسجيل الخروج", icon: LogOutIcon, color: "text-rose-500" },

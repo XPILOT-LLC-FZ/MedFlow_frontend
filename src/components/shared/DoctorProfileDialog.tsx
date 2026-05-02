@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { ApiPublicDoctor, DoctorShift, DoctorReviewsResponse } from "@/types";
 import { usePatientStore } from "@/stores/usePatientStore";
+import { useBookingStore } from "@/stores/useBookingStore";
 import { staffService } from "@/services/staffService";
 import { surveyService } from "@/services/surveyService";
 import { format } from "date-fns";
@@ -39,16 +40,19 @@ interface DoctorProfileDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   doctor: ApiPublicDoctor | null;
+  onBookAppointment?: (doctor: ApiPublicDoctor) => void;
 }
 
 export function DoctorProfileDialog({
   isOpen,
   onOpenChange,
   doctor,
+  onBookAppointment,
 }: DoctorProfileDialogProps) {
   const { t, locale, isRTL } = useTranslation();
   const router = useRouter();
   const { favoriteDoctorIds, toggleFavorite } = usePatientStore();
+  const { appointments } = useBookingStore();
 
   const [shifts, setShifts] = React.useState<DoctorShift[]>([]);
   const [reviewData, setReviewData] = React.useState<DoctorReviewsResponse | null>(null);
@@ -102,7 +106,11 @@ export function DoctorProfileDialog({
   
   // Real data mappings from doctor credentials and stats
   const degree = doctor.qualification || specialization;
-  const patientCount = doctor.patientCount ?? (reviewData?.stats.totalReviews || 0);
+  
+  const doctorAppointments = appointments.filter((a) => a.doctorId === doctor.id);
+  const patientCount = doctorAppointments.length;
+  const avgRating = reviewData?.stats.averageRating ?? doctor.rating ?? 5.0;
+
   const locations = [
     doctor.branch?.address || doctor.branch?.name || "Main Clinic",
   ];
@@ -218,7 +226,7 @@ export function DoctorProfileDialog({
             <div className="flex flex-col items-center gap-1">
               <div className="flex items-center gap-1.5">
                 <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                <span className="text-base font-black text-slate-900 dark:text-slate-50">{doctor.rating?.toFixed(1) || "5.0"}</span>
+                <span className="text-base font-black text-slate-900 dark:text-slate-50">{Number(avgRating).toFixed(1)}</span>
               </div>
               <span className="text-[10px] font-bold text-slate-400 uppercase text-center">{t("ratingReview") || "Rating & Review"}</span>
             </div>
@@ -382,14 +390,14 @@ export function DoctorProfileDialog({
               <div className="flex items-center justify-between py-2">
                 <div className="space-y-1">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-slate-900 dark:text-slate-50">{doctor.rating?.toFixed(1) || "4.5"}</span>
+                    <span className="text-3xl font-black text-slate-900 dark:text-slate-50">{Number(avgRating).toFixed(1)}</span>
                     <span className="text-xl font-bold text-slate-400">/5.0</span>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <div className="flex gap-0.5">
                     {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className={cn("h-4 w-4", s <= 4 ? "text-amber-400 fill-amber-400" : "text-slate-200")} />
+                      <Star key={s} className={cn("h-4 w-4", s <= Math.round(Number(avgRating)) ? "text-amber-400 fill-amber-400" : "text-slate-200")} />
                     ))}
                   </div>
                   <span className="text-[13px] font-bold text-slate-400">{patientCount}+ {t("reviews") || "Reviews"}</span>
@@ -440,7 +448,13 @@ export function DoctorProfileDialog({
           {/* Book Button */}
           <div className="pt-4 pb-5 mt-auto">
             <Button 
-              onClick={() => router.push(`/appointments?doctorId=${doctor.id}`)}
+              onClick={() => {
+                if (onBookAppointment) {
+                  onBookAppointment(doctor);
+                } else {
+                  router.push(`/appointments?doctorId=${doctor.id}`);
+                }
+              }}
               className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-sm shadow-blue-500/30 transition-all active:scale-95"
             >
               {t("bookAppointment") || "Book appointment"}

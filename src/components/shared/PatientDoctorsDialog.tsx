@@ -36,12 +36,16 @@ interface PatientDoctorsDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   doctors: ApiPublicDoctor[];
+  specializationFilter?: string | null;
+  onBookAppointment?: (doctor: ApiPublicDoctor) => void;
 }
 
 export function PatientDoctorsDialog({
   isOpen,
   onOpenChange,
   doctors,
+  specializationFilter,
+  onBookAppointment,
 }: PatientDoctorsDialogProps) {
   const { t, locale, isRTL } = useTranslation();
   const router = useRouter();
@@ -77,6 +81,11 @@ export function PatientDoctorsDialog({
       const name =
         locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName;
       const spec = doc.specialization || "";
+
+      // specializationFilter from props
+      if (specializationFilter && specializationFilter !== "All") {
+        if (!spec.toLowerCase().includes(specializationFilter.toLowerCase())) return false;
+      }
 
       // Search filter
       const matchesSearch =
@@ -127,7 +136,7 @@ export function PatientDoctorsDialog({
 
       return true;
     });
-  }, [doctors, search, locale, filters]);
+  }, [doctors, search, locale, filters, specializationFilter]);
 
   return (
     <>
@@ -137,13 +146,12 @@ export function PatientDoctorsDialog({
         dir={isRTL ? "rtl" : "ltr"}
         className={cn(
           "p-0 overflow-hidden border-none flex flex-col transition-all duration-300",
-          "w-full h-full md:h-[85vh] md:max-w-md md:rounded-[40px]",
-          "bg-slate-50/50 dark:bg-slate-950"
+          "w-full h-full md:h-[85vh] md:max-w-md md:rounded-[40px]"
         )}
       >
         {currentView === "list" ? (
           <>
-            <div className="flex items-center px-6 py-5 bg-transparent shrink-0">
+            <div className="flex items-center px-6 pt-4 bg-transparent shrink-0">
               <button 
                 onClick={() => onOpenChange(false)}
                 className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
@@ -266,7 +274,11 @@ export function PatientDoctorsDialog({
                     <Button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/appointments?doctorId=${doc.id}`);
+                        if (onBookAppointment) {
+                          onBookAppointment(doc);
+                        } else {
+                          router.push(`/appointments?doctorId=${doc.id}`);
+                        }
                       }}
                       className="h-10 px-8 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-xs transition-all shadow-sm shadow-blue-500/20"
                     >
@@ -308,6 +320,11 @@ export function PatientDoctorsDialog({
       isOpen={isProfileOpen}
       onOpenChange={setIsProfileOpen}
       doctor={selectedDoctor}
+      onBookAppointment={(doc) => {
+        setIsProfileOpen(false);
+        onOpenChange(false);
+        if (onBookAppointment) onBookAppointment(doc);
+      }}
     />
     </>
 

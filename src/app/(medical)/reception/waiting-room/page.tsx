@@ -18,7 +18,6 @@ import {
   X,
   AlertCircle,
   ClipboardList,
-  Phone,
   Edit2,
   Activity,
   CreditCard,
@@ -237,7 +236,15 @@ export default function QueueManagementPage() {
 }
 
 /* ── Stat Card ─────────────────────────────────────────────────── */
-function StatCard({ icon: Icon, label, value, iconBg, iconColor }: any) {
+interface StatCardProps {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  iconBg: string;
+  iconColor: string;
+}
+
+function StatCard({ icon: Icon, label, value, iconBg, iconColor }: StatCardProps) {
   return (
     <Card className="border-none shadow-[0_2px_16px_rgb(0,0,0,0.04)] rounded-[24px] bg-white">
       <CardContent className="p-6 flex items-center gap-5">
@@ -254,7 +261,15 @@ function StatCard({ icon: Icon, label, value, iconBg, iconColor }: any) {
 }
 
 /* ── Kanban Column Container ───────────────────────────────────── */
-function KanbanColumn({ dot, title, count, children, onFilter }: { dot: string; title: string; count: number; children: React.ReactNode; onFilter?: () => void }) {
+interface KanbanColumnProps {
+  dot: string;
+  title: string;
+  count: number;
+  children: React.ReactNode;
+  onFilter?: () => void;
+}
+
+function KanbanColumn({ dot, title, count, children, onFilter }: KanbanColumnProps) {
   return (
     <div className="bg-white rounded-[28px] shadow-[0_4px_24px_rgb(0,0,0,0.05)] p-5 space-y-4">
       {/* Column Header */}
@@ -303,7 +318,13 @@ function DoctorAvatar({ name }: { name: string }) {
 }
 
 /* ── Quick Action Row ──────────────────────────────────────────── */
-function QuickActionRow({ onAction, loading, doctorName }: any) {
+interface QuickActionRowProps {
+  onAction: () => void;
+  loading?: boolean;
+  doctorName: string;
+}
+
+function QuickActionRow({ onAction, loading, doctorName }: QuickActionRowProps) {
   return (
     <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-100">
       <DoctorAvatar name={doctorName} />
@@ -320,7 +341,19 @@ function QuickActionRow({ onAction, loading, doctorName }: any) {
 }
 
 /* ── Waiting Card ──────────────────────────────────────────────── */
-function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onAction, loading }: any) {
+interface WaitingCardProps {
+  priority: "high" | "standard";
+  name: string;
+  pid: string;
+  time: string;
+  waitMin: number;
+  doctor: string;
+  dept: string;
+  onAction: () => void;
+  loading?: boolean;
+}
+
+function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onAction, loading }: WaitingCardProps) {
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Priority */}
@@ -359,7 +392,18 @@ function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onActio
 }
 
 /* ── In Progress Card ──────────────────────────────────────────── */
-function InProgressCard({ room, name, pid, sessionMin, doctor, dept, onAction, loading }: any) {
+interface InProgressCardProps {
+  room: string;
+  name: string;
+  pid: string;
+  sessionMin: number;
+  doctor: string;
+  dept: string;
+  onAction: () => void;
+  loading?: boolean;
+}
+
+function InProgressCard({ room, name, pid, sessionMin, doctor, dept, onAction, loading }: InProgressCardProps) {
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Room Badge */}
@@ -394,7 +438,17 @@ function InProgressCard({ room, name, pid, sessionMin, doctor, dept, onAction, l
 }
 
 /* ── Done Card ─────────────────────────────────────────────────── */
-function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction }: any) {
+interface DoneCardProps {
+  name: string;
+  pid: string;
+  completedAt: string;
+  doctor: string;
+  dept: string;
+  prescription?: boolean;
+  onAction: () => void;
+}
+
+function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction }: DoneCardProps) {
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Checkout Badge */}
@@ -648,7 +702,7 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
                   </div>
                   <div>
                     <p className="text-[14px] font-bold text-slate-900">Verify Patient Identity</p>
-                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">Driver's License or ID scanned and confirmed</p>
+                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">Driver&apos;s License or ID scanned and confirmed</p>
                   </div>
                 </div>
                 <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg whitespace-nowrap">Verified</span>

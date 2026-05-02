@@ -32,6 +32,7 @@ export interface User {
   avatar?: string;
   phone?: string;
   loyaltyPoints?: number;
+  specialDiscount?: number;
 }
 
 export interface ApiUser extends User {
@@ -251,6 +252,7 @@ export interface TimeSlot {
 }
 
 export interface Appointment {
+  doctor?: ApiDoctor;
   endTime: string;
   startTime: string;
   id: string;
@@ -797,6 +799,21 @@ export interface Patient {
   gender?: string;
 }
 
+export interface InsuranceDetails {
+  provider: string;
+  category: string;
+  policyNumber: string;
+  memberId?: string;
+  expiryDate: string;
+  providerContact?: string;
+  cardImageUrl?: string;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
+  verifiedAt?: string;
+  verifiedBy?: string;
+  discountPercent?: number;
+  discountNote?: string;
+}
+
 export interface ApiPatient {
   address: string;
   id: string;
@@ -814,6 +831,7 @@ export interface ApiPatient {
   branchId?: string;
   vipTier?: "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
   loyaltyPoints?: number;
+  specialDiscount?: number;
   totalVisits?: number;
   totalSpent?: number;
   createdAt?: string;
@@ -954,6 +972,7 @@ export interface ApiPatientDocument {
   storageKey?: string | null;
   uploadedBy?: string | null;
   createdAt: string;
+  appointment?: ApiAppointment;
 }
 
 export interface CreatePatientDocumentPayload {

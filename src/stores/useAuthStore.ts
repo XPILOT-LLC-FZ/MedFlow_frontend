@@ -17,6 +17,7 @@ export interface AuthUser {
   isAvailable?: boolean;
   avatarUrl?: string | null;
   loyaltyPoints?: number;
+  specialDiscount?: number;
 }
 
 export interface SignupData {
@@ -121,6 +122,7 @@ function mapUser(raw: Record<string, unknown>, fallback?: Partial<SignupData>): 
     isAvailable: (raw["isAvailable"] as boolean) ?? true,
     avatarUrl: (raw["avatarUrl"] as string) ?? (raw["avatar"] as string) ?? null,
     loyaltyPoints: (raw["loyaltyPoints"] as number) ?? 0,
+    specialDiscount: (raw["specialDiscount"] as number) ?? (raw["patient"] as Record<string, unknown> | undefined)?.["specialDiscount"] ?? 0,
   };
 }
 

@@ -362,7 +362,16 @@ export default function CheckoutPaymentPage() {
 
 /* ── Sub-components ────────────────────────────────────────────── */
 
-function PaymentOption({ selected, onClick, icon, iconBg, title, subtitle }: any) {
+interface PaymentOptionProps {
+  selected: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  subtitle: string;
+}
+
+function PaymentOption({ selected, onClick, icon, iconBg, title, subtitle }: PaymentOptionProps) {
   return (
     <button
       onClick={onClick}

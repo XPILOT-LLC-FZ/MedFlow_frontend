@@ -133,6 +133,9 @@ export function PatientsManagementPage({ mode, hideTopSummary = false }: Props) 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [discountInput, setDiscountInput] = useState<Record<string, number>>({});
+  const [isUpdatingDiscount, setIsUpdatingDiscount] = useState<string | null>(null);
+
   const [searchDraft, setSearchDraft] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [vipTier, setVipTier] = useState<(typeof vipOptions)[number]["value"]>("ALL");
@@ -374,6 +377,27 @@ export function PatientsManagementPage({ mode, hideTopSummary = false }: Props) 
       toast.error(message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUpdateDiscount = async (id: string, discount: number) => {
+    setIsUpdatingDiscount(id);
+    try {
+      await patientService.update(id, { specialDiscount: discount });
+      toast.success(
+        locale === "ar"
+          ? "تم تحديث الخصم بنجاح"
+          : "Special discount updated successfully"
+      );
+      await loadPatients();
+    } catch {
+      toast.error(
+        locale === "ar"
+          ? "فشل تحديث الخصم"
+          : "Failed to update discount"
+      );
+    } finally {
+      setIsUpdatingDiscount(null);
     }
   };
 
@@ -836,6 +860,28 @@ export function PatientsManagementPage({ mode, hideTopSummary = false }: Props) 
                 <div>
                   <p className="text-xs text-muted-foreground">{locale === "ar" ? "ملاحظات" : "Notes"}</p>
                   <p className="text-sm">{selectedPatient.notes || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{locale === "ar" ? "خصم خاص (%)" : "Special Discount (%)"}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="w-24 h-8"
+                      value={discountInput[selectedPatient.id] ?? selectedPatient.specialDiscount ?? 0}
+                      onChange={(e) => setDiscountInput(prev => ({ ...prev, [selectedPatient.id]: Number(e.target.value) }))}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      disabled={isUpdatingDiscount === selectedPatient.id || (discountInput[selectedPatient.id] === undefined && selectedPatient.specialDiscount === undefined)}
+                      onClick={() => handleUpdateDiscount(selectedPatient.id, discountInput[selectedPatient.id] ?? selectedPatient.specialDiscount ?? 0)}
+                    >
+                      {isUpdatingDiscount === selectedPatient.id ? "..." : (locale === "ar" ? "تحديث" : "Update")}
+                    </Button>
+                  </div>
                 </div>
 
                 {mode === "reception" && (

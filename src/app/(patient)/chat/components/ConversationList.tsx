@@ -74,7 +74,7 @@ export function ConversationList({
       </div>
 
       {/* List */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-24 md:pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 px-10 text-center animate-in fade-in zoom-in duration-500">
             <div className="mb-8">

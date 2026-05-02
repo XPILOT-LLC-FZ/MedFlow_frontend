@@ -38,7 +38,6 @@ import {
   CalendarDays,
   Eye,
   XCircle,
-  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -56,7 +55,7 @@ const TABS = [
 ];
 
 export default function ReceptionProfilePage() {
-  const { user, updateProfile, changePassword } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const { success, error } = useToastStore();
 
   const [activeTab, setActiveTab] = useState("profile");
@@ -485,7 +484,15 @@ function BillingTab() {
   );
 }
 
-function ToggleRow({ icon, title, subtitle, enabled, onToggle }: any) {
+interface ToggleRowProps {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  enabled: boolean;
+  onToggle: () => void;
+}
+
+function ToggleRow({ icon, title, subtitle, enabled, onToggle }: ToggleRowProps) {
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-start gap-2.5">

@@ -46,6 +46,7 @@ export default function PaymentsPanel({ patient, onBack, onRefresh }: PaymentsPa
   
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'wallets' | 'history'>('wallets');
 
   // Add Card Form State
   const [newCard, setNewCard] = useState({
@@ -128,71 +129,156 @@ export default function PaymentsPanel({ patient, onBack, onRefresh }: PaymentsPa
   ];
 
   return (
-    <div className="flex flex-col min-h-screen pb-14">
-      <div className="flex-1 overflow-y-auto px-1 py-4 space-y-2">
-        {/* Payment Methods List */}
-        <div className="space-y-0.5">
-          {METHODS.map((method) => (
-            <div 
-              key={method.id}
-              onClick={() => setSelectedMethod(method.id)}
-              className="flex items-center justify-between p-2 py-5 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer group border-b border-slate-50 dark:border-slate-900"
-            >
-              <div className="flex items-center gap-4">
-                {method.icon}
-                <span className="text-[17px] font-bold text-slate-800 dark:text-slate-200">{method.label}</span>
-              </div>
-              <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                selectedMethod === method.id 
-                  ? 'border-blue-600 bg-blue-600' 
-                  : 'border-slate-200 dark:border-slate-800'
-              }`}>
-                {selectedMethod === method.id && <Check className="h-4 w-4 text-white" />}
-              </div>
-            </div>
-          ))}
+    <div className="flex flex-col min-h-screen pb-32">
+      {/* Tabs Switcher */}
+      <div className="p-1 bg-slate-50 dark:bg-slate-800/60 rounded-[18px] flex gap-1 mb-2 shadow-sm border border-slate-100/80 dark:border-slate-800/80 mx-1">
+        <button
+          onClick={() => setActiveTab('wallets')}
+          className={`flex-1 py-3 text-[14px] font-extrabold rounded-2xl transition-all ${
+            activeTab === 'wallets' 
+              ? 'bg-blue-600 text-white shadow-md' 
+              : 'text-slate-400 hover:text-slate-600 dark:text-slate-500'
+          }`}
+        >
+          {locale === 'ar' ? 'المحافظ والبطاقات' : 'Wallets'}
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 py-3 text-[14px] font-extrabold rounded-2xl transition-all ${
+            activeTab === 'history' 
+              ? 'bg-blue-600 text-white shadow-md' 
+              : 'text-slate-400 hover:text-slate-600 dark:text-slate-500'
+          }`}
+        >
+          {locale === 'ar' ? 'سجل المدفوعات' : 'Payment History'}
+        </button>
+      </div>
 
-          {/* Saved Cards */}
-          {savedCards.map((card) => (
-            <div 
-              key={card.id}
-              onClick={() => setSelectedMethod(card.id)}
-              className="flex items-center justify-between p-4 py-5 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer group border-b border-slate-50 dark:border-slate-900"
-            >
-              <div className="flex items-center gap-4">
-                <div className="h-8 w-12 border border-slate-100 dark:border-slate-800 rounded flex items-center justify-center bg-white">
-                  <span className="font-black text-[10px] text-blue-900 italic">VISA</span>
-                </div>
+      <div className="flex-1 overflow-y-auto px-1 py-2 space-y-2">
+        {activeTab === 'wallets' ? (
+          <div className="space-y-0.5">
+            {METHODS.map((method) => (
+              <div 
+                key={method.id}
+                onClick={() => setSelectedMethod(method.id)}
+                className="flex items-center justify-between p-2 py-5 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer group border-b border-slate-50 dark:border-slate-900"
+              >
                 <div className="flex items-center gap-4">
-                   <span className="text-[17px] font-bold text-slate-800 dark:text-slate-200">****{card.last4}</span>
-                   <button className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
-                     <Edit2 className="h-5 w-5 text-blue-500" />
-                   </button>
+                  {method.icon}
+                  <span className="text-[17px] font-bold text-slate-800 dark:text-slate-200">{method.label}</span>
+                </div>
+                <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                  selectedMethod === method.id 
+                    ? 'border-blue-600 bg-blue-600' 
+                    : 'border-slate-200 dark:border-slate-800'
+                }`}>
+                  {selectedMethod === method.id && <Check className="h-4 w-4 text-white" />}
                 </div>
               </div>
-              <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                selectedMethod === card.id 
-                  ? 'border-blue-600 bg-blue-600' 
-                  : 'border-slate-200 dark:border-slate-800'
-              }`}>
-                {selectedMethod === card.id && <Check className="h-4 w-4 text-white" />}
-              </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Add Card Button */}
-          <button 
-            onClick={() => setIsAddCardOpen(true)}
-            className="w-full flex items-center gap-4 p-4 py-6 text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
-          >
-            <div className="h-8 w-8 rounded-full border-2 border-blue-100 dark:border-blue-900 flex items-center justify-center">
-              <Plus className="h-5 w-5" />
+            {/* Saved Cards */}
+            {savedCards.map((card) => (
+              <div 
+                key={card.id}
+                onClick={() => setSelectedMethod(card.id)}
+                className="flex items-center justify-between p-4 py-5 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer group border-b border-slate-50 dark:border-slate-900"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-8 w-12 border border-slate-100 dark:border-slate-800 rounded flex items-center justify-center bg-white">
+                    <span className="font-black text-[10px] text-blue-900 italic">VISA</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     <span className="text-[17px] font-bold text-slate-800 dark:text-slate-200">****{card.last4}</span>
+                     <button className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                       <Edit2 className="h-5 w-5 text-blue-500" />
+                     </button>
+                  </div>
+                </div>
+                <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                  selectedMethod === card.id 
+                    ? 'border-blue-600 bg-blue-600' 
+                    : 'border-slate-200 dark:border-slate-800'
+                }`}>
+                  {selectedMethod === card.id && <Check className="h-4 w-4 text-white" />}
+                </div>
+              </div>
+            ))}
+
+            {/* Add Card Button */}
+            <button 
+              onClick={() => setIsAddCardOpen(true)}
+              className="w-full flex items-center gap-4 p-4 py-6 text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
+            >
+              <div className="h-8 w-8 rounded-full border-2 border-blue-100 dark:border-blue-900 flex items-center justify-center">
+                <Plus className="h-5 w-5" />
+              </div>
+              <span className="text-[17px] font-bold">
+                {locale === 'ar' ? 'إضافة بطاقة ائتمان' : 'Add credit card'}
+              </span>
+            </button>
+          </div>
+        ) : (
+          /* Fake Payments History Section */
+          <div className="px-1 pb-20">
+            <div className="space-y-3">
+              {[
+                {
+                  id: 'tx_1',
+                  title: locale === 'ar' ? 'استشارة عامة' : 'General Consultation',
+                  date: locale === 'ar' ? '28 أبريل 2026' : 'April 28, 2026',
+                  time: '10:30 AM',
+                  amount: '$120.00',
+                  status: locale === 'ar' ? 'ناجحة' : 'Successful',
+                  method: 'Visa'
+                },
+                {
+                  id: 'tx_2',
+                  title: locale === 'ar' ? 'فحوصات مخبرية' : 'Lab Tests & Radiology',
+                  date: locale === 'ar' ? '15 أبريل 2026' : 'April 15, 2026',
+                  time: '02:15 PM',
+                  amount: '$85.50',
+                  status: locale === 'ar' ? 'ناجحة' : 'Successful',
+                  method: 'Mastercard'
+                },
+                {
+                  id: 'tx_3',
+                  title: locale === 'ar' ? 'جلسة علاج طبيعي' : 'Physical Therapy Session',
+                  date: locale === 'ar' ? '02 أبريل 2026' : 'April 02, 2026',
+                  time: '11:00 AM',
+                  amount: '$60.00',
+                  status: locale === 'ar' ? 'ناجحة' : 'Successful',
+                  method: 'Apple Pay'
+                }
+              ].map((tx) => (
+                <div 
+                  key={tx.id}
+                  className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all rounded-[24px] flex justify-between items-center"
+                >
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-[15px] font-extrabold text-slate-800 dark:text-slate-200">
+                      {tx.title}
+                    </h4>
+                    <p className="text-[12px] font-bold text-slate-400">
+                      {tx.date} • {tx.time}
+                    </p>
+                    <p className="text-[12px] font-bold text-slate-500 dark:text-slate-400">
+                      {tx.method}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-[16px] font-black text-slate-800 dark:text-slate-100">
+                      {tx.amount}
+                    </span>
+                    <span className="text-[11px] font-bold px-3 py-1 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-full tracking-wider uppercase">
+                      {tx.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-            <span className="text-[17px] font-bold">
-              {locale === 'ar' ? 'إضافة بطاقة ائتمان' : 'Add credit card'}
-            </span>
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Footer Button */}

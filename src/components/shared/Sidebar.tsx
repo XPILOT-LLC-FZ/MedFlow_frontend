@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
-  Package, BarChart3, Clock, FileText, Settings, X, MessageSquare, Sparkles,
+  Package, BarChart3, FileText, Settings, X, MessageSquare, Sparkles,
   LogOut, Activity, CreditCard
 } from "lucide-react";
 import { useStore } from "@/stores/useStore";

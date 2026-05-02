@@ -9,6 +9,8 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useSearchParams } from "next/navigation";
 import { useProfileUiStore } from "@/stores/useProfileUiStore";
 
+import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
+
 const NAV_ITEMS = [
   {
     label: "Home",
@@ -98,15 +100,20 @@ export function MobileBottomNav() {
             if (item.isCenter) {
               return (
                 <div key={item.label} className="relative -top-12 flex flex-col items-center">
-                  <Link href={item.href}>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      useBookingFlowStore.getState().openSpec();
+                    }}
+                  >
                     <motion.div
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="h-16 w-16 rounded-full bg-[#4659ff] flex items-center justify-center text-white"
+                      className="h-16 w-16 rounded-full bg-[#4659ff] flex items-center justify-center text-white cursor-pointer"
                     >
                       <Plus className="h-10 w-10" strokeWidth={1} />
                     </motion.div>
-                  </Link>
+                  </button>
                 </div>
               );
             }

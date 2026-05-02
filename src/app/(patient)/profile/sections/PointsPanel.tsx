@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2, ChevronLeft } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { ApiPatient, ApiLoyaltyTransaction } from '@/types';
@@ -14,7 +14,7 @@ interface PointsPanelProps {
   onBack?: () => void;
 }
 
-export default function PointsPanel({ patient, onBack }: PointsPanelProps) {
+export default function PointsPanel({ patient }: PointsPanelProps) {
   const { locale } = useTranslation();
   const router = useRouter();
   const loyaltyPoints = patient?.loyaltyPoints ?? 0;
@@ -38,21 +38,9 @@ export default function PointsPanel({ patient, onBack }: PointsPanelProps) {
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-slate-950 pb-10">
-      {/* Header */}
-      <div className="flex items-center px-6 py-5 bg-white dark:bg-slate-950 shrink-0">
-        <button 
-          onClick={onBack}
-          className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-        <h1 className="flex-1 text-center text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight pr-8">
-          {locale === 'ar' ? 'النقاط والمكافآت' : 'Points & Rewards'}
-        </h1>
-      </div>
 
       {/* Main Card */}
-      <div className="px-1 py-2">
+      <div>
         <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-[#6297FF] to-[#8C6AFF] p-6 shadow-sm shadow-blue-500/20">
           {/* Content */}
           <div className="relative z-10 flex flex-col items-start gap-1">

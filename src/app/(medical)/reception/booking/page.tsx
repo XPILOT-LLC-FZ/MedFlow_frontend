@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   CalendarDays,
   Plus,
@@ -8,19 +8,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
-  X,
   User,
   Stethoscope,
   Calendar as CalendarIcon,
   Clock,
-  MessageSquare,
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -259,7 +257,17 @@ export default function ReceptionSchedulePage() {
   );
 }
 
-function AppointmentBlock({ top, height, color, time, name, reason, titleColor }: any) {
+interface AppointmentBlockProps {
+  top: number;
+  height: number;
+  color: string;
+  time: string;
+  name: string;
+  reason: string;
+  titleColor: string;
+}
+
+function AppointmentBlock({ top, height, color, time, name, reason, titleColor }: AppointmentBlockProps) {
   return (
     <div
       style={{ top: `${top}px`, height: `${height}px` }}
@@ -541,7 +549,14 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   );
 }
 
-function SummaryItem({ icon: Icon, label, value, subValue }: any) {
+interface SummaryItemProps {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  subValue?: string;
+}
+
+function SummaryItem({ icon: Icon, label, value, subValue }: SummaryItemProps) {
   return (
     <div className="flex gap-4">
       <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">

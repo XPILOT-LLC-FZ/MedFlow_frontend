@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Users,
   Clock,
@@ -11,7 +11,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  MoreVertical,
   Activity,
   MessageSquare,
   UserPlus,
@@ -38,7 +37,6 @@ import { Select } from "@/components/ui/select";
 export default function ReceptionPatientsPage() {
   const [view, setView] = useState<"list" | "new" | "details">("list");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   if (view === "new") {
     return <AddNewPatientView onBack={() => setView("list")} />;
@@ -253,7 +251,7 @@ export default function ReceptionPatientsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-6">
-                      <StatusBadge status={item.status as any} />
+                      <StatusBadge status={item.status} />
                     </td>
                     <td className="px-6 py-6">
                       <div className="flex items-center justify-end gap-3">
@@ -273,7 +271,7 @@ export default function ReceptionPatientsPage() {
                               size="sm"
                               variant="outline"
                               className="rounded-xl px-5 font-bold text-[11px] h-9 border-slate-100 text-slate-400 hover:bg-slate-50 uppercase tracking-widest"
-                              onClick={() => { setSelectedPatientId(item.id); setView("details"); }}
+                              onClick={() => { setView("details"); }}
                             >
                               Details
                             </Button>
@@ -620,7 +618,13 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function FormSection({ title, icon: Icon, children }: any) {
+interface FormSectionProps {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}
+
+function FormSection({ title, icon: Icon, children }: FormSectionProps) {
   return (
     <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[32px] bg-white overflow-hidden p-8 space-y-8">
       <div className="flex items-center gap-4">
@@ -634,7 +638,13 @@ function FormSection({ title, icon: Icon, children }: any) {
   );
 }
 
-function InputField({ label, placeholder, icon: Icon }: any) {
+interface InputFieldProps {
+  label: string;
+  placeholder: string;
+  icon?: React.ElementType;
+}
+
+function InputField({ label, placeholder, icon: Icon }: InputFieldProps) {
   return (
     <div className="space-y-2">
       <label className="text-[12px] font-bold text-slate-400 uppercase tracking-widest ml-1">{label}</label>
@@ -646,7 +656,14 @@ function InputField({ label, placeholder, icon: Icon }: any) {
   );
 }
 
-function ProgressItem({ label, number, active, completed }: any) {
+interface ProgressItemProps {
+  label: string;
+  number: number;
+  active?: boolean;
+  completed?: boolean;
+}
+
+function ProgressItem({ label, number, active, completed }: ProgressItemProps) {
   return (
     <div className="flex items-center gap-4 group">
        <div className={cn(
@@ -665,7 +682,18 @@ function ProgressItem({ label, number, active, completed }: any) {
 
 /* ── Original Sub-components ──────────────────────────────────────────── */
 
-function SummaryCard({ icon: Icon, label, value, iconBg, iconColor, badge, badgeBg, badgeColor }: any) {
+interface SummaryCardProps {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  iconBg: string;
+  iconColor: string;
+  badge?: string;
+  badgeBg?: string;
+  badgeColor?: string;
+}
+
+function SummaryCard({ icon: Icon, label, value, iconBg, iconColor, badge, badgeBg, badgeColor }: SummaryCardProps) {
   return (
     <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[24px] bg-white overflow-hidden transition-all hover:shadow-md">
       <CardContent className="p-6 md:p-8 flex items-center gap-6">
@@ -711,7 +739,12 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PaginationButton({ icon: Icon, disabled }: any) {
+interface PaginationButtonProps {
+  icon: React.ElementType;
+  disabled?: boolean;
+}
+
+function PaginationButton({ icon: Icon, disabled }: PaginationButtonProps) {
   return (
     <button
       disabled={disabled}
@@ -998,7 +1031,15 @@ function PatientDetailsView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function VitalRow({ emoji, label, value, unit, color }: any) {
+interface VitalRowProps {
+  emoji: string;
+  label: string;
+  value: string;
+  unit: string;
+  color: string;
+}
+
+function VitalRow({ emoji, label, value, unit, color }: VitalRowProps) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-slate-50 last:border-b-0">
       <div className="flex items-center gap-3">

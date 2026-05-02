@@ -1,71 +1,172 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
-import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Search, Calendar, Clock, Star, ChevronRight, Sparkles, Upload, Heart } from "lucide-react";
+import { Calendar, Clock, User, Video, Trash2 } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { AppointmentCard } from "@/components/shared/AppointmentCard";
-import { MiniCalendar } from "@/components/shared/MiniCalendar";
+import { AppointmentDetailsDialog } from "@/components/shared/AppointmentDetailsDialog";
+import { RescheduleDialog } from "@/components/shared/RescheduleDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { FilePreviewDialog } from "@/components/shared/FilePreviewDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { usePatientStore } from "@/stores/usePatientStore";
 import { useToastStore } from "@/stores/useToastStore";
-import { useFavorites } from "@/hooks/useFavorites";
-import { bookingService } from "@/services/bookingService";
-import { patientDocumentService } from "@/services/patientDocumentService";
-import { servicesCatalogService } from "@/services/servicesCatalogService";
+import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
 import { staffService } from "@/services/staffService";
-import { formatDateKey } from "@/lib/dateUtils";
-import type {
-  ApiDoctorCredential,
-  ApiPublicDoctor,
-  ApiService,
-  SmartRecommendation,
-  Appointment,
-  PreviewFileInfo,
-} from "@/types";
-import { cn } from "@/lib/utils";
+import { bookingService } from "@/services/bookingService";
+import type { Appointment, ApiPublicDoctor } from "@/types";
 
-const specialtiesList = ["All", "Cardiology", "Dermatology", "Pediatrics", "Orthopedics", "Ophthalmology", "Neurology"];
+interface MobilePatientCardProps {
+  appointment: Appointment;
+  isPast?: boolean;
+  onReschedule?: () => void;
+  onDetail?: () => void;
+  onBookAgain?: () => void;
+  onCancel?: () => void;
+  doctorAvatar?: string;
+  locale: string;
+}
+
+function MobilePatientAppointmentCard({
+  appointment,
+  isPast = false,
+  onReschedule,
+  onDetail,
+  onBookAgain,
+  onCancel,
+  doctorAvatar,
+  locale
+}: MobilePatientCardProps) {
+  const dateObj = new Date(appointment.date);
+  const formattedDate = dateObj.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  const timeStr = `${appointment.startTime} - ${appointment.endTime || "30 min"}`;
+
+  return (
+    <Card className="p-5 bg-white dark:bg-slate-900 border border-slate-100/80 dark:border-slate-800/80 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300">
+      {/* Date and Cancel */}
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <span className="text-xs text-slate-400 font-normal">
+            {locale === "ar" ? "تاريخ الموعد" : "Appointment date"}
+          </span>
+          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <span className="text-sm md:text-base font-semibold">
+              {formattedDate} • {timeStr}
+            </span>
+          </div>
+        </div>
+
+        {onCancel && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel();
+            }}
+            className="h-8 w-8 text-rose-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all rounded-full"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        )}
+      </div>
+
+      {/* Doctor Info */}
+      <div className="mt-5 flex items-center gap-3">
+        <div className="relative">
+          <Avatar className="h-14 w-14 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden bg-slate-50">
+            <AvatarImage src={doctorAvatar || appointment.patientAvatar} alt={appointment.doctorName} className="object-cover" />
+            <AvatarFallback className="bg-slate-50 dark:bg-slate-800 text-slate-400">
+              <User className="h-6 w-6" />
+            </AvatarFallback>
+          </Avatar>
+          {/* Circular check overlay exactly like the image */}
+          <div className="absolute bottom-0 right-0 h-5 w-5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
+            <Video className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          <h4 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
+            {appointment.doctorName}
+          </h4>
+          <span className="text-xs md:text-sm font-medium text-slate-400 mt-0.5">
+            {appointment.specialty || (locale === "ar" ? "طبيب متخصص" : "Specialist")}
+          </span>
+        </div>
+      </div>
+
+      {/* Buttons / Actions */}
+      <div className="mt-5">
+        {isPast ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDetail) onDetail();
+              }}
+              className="h-11 rounded-2xl font-bold border-[#2b66ff] text-[#2b66ff] hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors"
+            >
+              {locale === "ar" ? "التفاصيل" : "Detail"}
+            </Button>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onBookAgain) onBookAgain();
+              }}
+              className="h-11 rounded-2xl font-bold bg-[#2b66ff] hover:bg-[#1c54e0] text-white transition-colors"
+            >
+              {locale === "ar" ? "حجز مجددًا" : "Book again"}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onReschedule) onReschedule();
+            }}
+            className="w-full h-11 rounded-2xl font-bold bg-[#2b66ff] hover:bg-[#1c54e0] text-white transition-colors"
+          >
+            {locale === "ar" ? "إعادة جدولة" : "Reschedule"}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 function AppointmentsPageContent() {
-  const searchParams = useSearchParams();
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
-  const { appointments, addAppointment, updateAppointment, fetchAppointments } = useBookingStore();
+  const { appointments, fetchAppointments, updateAppointment } = useBookingStore();
   const { currentPatient, fetchMe } = usePatientStore();
   const toast = useToastStore();
-  const { toggleFavorite, isFavorite } = useFavorites();
+  const openBook = useBookingFlowStore((state) => state.openBook);
 
-  const [services, setServices] = useState<ApiService[]>([]);
-  const [staffDoctors, setStaffDoctors] = useState<ApiPublicDoctor[]>([]);
+  const [selectedAppointmentForDetails, setSelectedAppointmentForDetails] = useState<Appointment | null>(null);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("upcoming");
+  const [doctorAvatars, setDoctorAvatars] = useState<Record<string, string>>({});
 
+  // Fetch patient, appointments, and doctors on mount
   useEffect(() => {
     if (user?.id) {
       fetchMe();
-
-      void servicesCatalogService
-        .getAll({ isActive: "true" })
-        .then((data) => setServices(data))
-        .catch(() => setServices([]));
     }
-  }, [user?.id, fetchAppointments, fetchMe]);
+  }, [user?.id, fetchMe]);
 
   useEffect(() => {
     if (currentPatient?.id) {
@@ -73,1120 +174,249 @@ function AppointmentsPageContent() {
     }
   }, [currentPatient?.id, fetchAppointments]);
 
+  useEffect(() => {
+    const loadDoctorAvatars = async () => {
+      try {
+        const publicDocs = await staffService.getPublicDoctors();
+        const map: Record<string, string> = {};
+        publicDocs.forEach((doc: ApiPublicDoctor) => {
+          if (doc.user?.avatarUrl) {
+            map[doc.id] = doc.user.avatarUrl;
+          }
+        });
+        setDoctorAvatars(map);
+      } catch (err) {
+        console.error("Failed to fetch public doctors for avatars mapping", err);
+      }
+    };
+    if (user?.id) {
+      void loadDoctorAvatars();
+    }
+  }, [user?.id]);
+
+  // Filter appointments by status
   const patientAppointments = appointments.filter((a) => a.patientId === (currentPatient?.id ?? "guest"));
-  const selectableDoctors = staffDoctors
-    .filter((doctor) => doctor.status === "ACTIVE")
-    .map((s) => ({
-      ...s, // Include raw API properties to satisfy ApiPublicDoctor type
-      id: s.id,
-      name: s.fullName,
-      nameAr: s.fullName, // Fallback as ApiDoctor missing nameAr
-      specialty: s.specialization || "",
-      specialtyAr: s.specialization || "",
-      image:
-        s.user?.avatarUrl ||
-        `https://api.dicebear.com/9.x/avataaars/svg?seed=${s.id}`,
-      rating: s.rating || 4.8, 
-      reviewCount: 12,
-      experience: s.experienceYears || 5,
-      bio: s.bio || "",
-      schedule: [],
-    }));
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSpecialty, setSelectedSpecialty] = useState("All");
-  const [selectedServiceId, setSelectedServiceId] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [currentBookingId, setCurrentBookingId] = useState<string | null>(null);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"online" | "onsite" | null>(null);
-  const [bookingStep, setBookingStep] = useState(0); // 0=browse, 1=select time, 2=confirm
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [slotLoadFailed, setSlotLoadFailed] = useState(false);
-  const [isBooking, setIsBooking] = useState(false);
-  const [smartRecommendations, setSmartRecommendations] =
-    useState<SmartRecommendation[]>([]);
-  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
-  const [pendingUploadAppointmentId, setPendingUploadAppointmentId] = useState<string | null>(null);
-  const [redeemPoints, setRedeemPoints] = useState(false);
-  const [uploadingAppointmentId, setUploadingAppointmentId] = useState<string | null>(null);
-  const [credentialDoctor, setCredentialDoctor] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [credentialItems, setCredentialItems] = useState<ApiDoctorCredential[]>([]);
-  const [credentialLoading, setCredentialLoading] = useState(false);
-  const [previewingCredentialId, setPreviewingCredentialId] = useState<string | null>(null);
-  const [previewFile, setPreviewFile] = useState<PreviewFileInfo | null>(null);
-  const prefillAppliedRef = useRef(false);
-  const appointmentUploadInputRef = useRef<HTMLInputElement>(null);
+  const upcomingAppointments = patientAppointments.filter((a) => {
+    const status = String(a.status || "").toUpperCase();
+    return status !== "COMPLETED" && status !== "CANCELLED";
+  });
 
-  const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
-  const ALLOWED_UPLOAD_TYPES = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/gif",
-    "application/pdf",
-  ];
+  const pastAppointments = patientAppointments.filter((a) => {
+    const status = String(a.status || "").toUpperCase();
+    return status === "COMPLETED" || status === "CANCELLED";
+  });
 
-  useEffect(() => {
-    if (!selectedDoctor) return;
-
-    const stillSelectable = selectableDoctors.some((doctor) => doctor.id === selectedDoctor);
-    if (!stillSelectable) {
-      setSelectedDoctor(null);
-      setSelectedDate(undefined);
-      setSelectedTime(null);
-      setAvailableSlots([]);
-      if (bookingStep > 0) {
-        setBookingStep(0);
-      }
+  // Handle detail click - branches on status
+  const handleDetailClick = (appointment: Appointment) => {
+    const normalizedStatus = String(appointment.status || "").toUpperCase();
+    if (normalizedStatus === "COMPLETED" || normalizedStatus === "CANCELLED") {
+      setSelectedAppointmentForDetails(appointment);
+      setIsDetailsDialogOpen(true);
+    } else {
+      // Upcoming appointment - open reschedule
+      setSelectedAppointmentForReschedule(appointment);
+      setIsRescheduleDialogOpen(true);
     }
-  }, [selectedDoctor, selectableDoctors, bookingStep]);
+  };
 
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const timeout = setTimeout(() => {
-      const filters: Record<string, string> = {
-        search: "",
-      };
-
-      if (searchQuery.trim().length > 0) {
-        filters.search = searchQuery.trim();
-      }
-
-      if (selectedSpecialty !== "All") {
-        filters.specialization = selectedSpecialty;
-      }
-
-      if (selectedServiceId) {
-        filters.serviceId = selectedServiceId;
-      }
-
-      void staffService
-        .getPublicDoctors(filters)
-        .then((data) => setStaffDoctors(data))
-        .catch(() => setStaffDoctors([]));
-    }, 250);
-
-    return () => clearTimeout(timeout);
-  }, [user?.id, searchQuery, selectedSpecialty, selectedServiceId]);
-
-  const doctor = selectableDoctors.find((d) => d.id === selectedDoctor);
-
-  useEffect(() => {
-    if (prefillAppliedRef.current) {
-      return;
-    }
-
-    if (selectableDoctors.length === 0) {
-      return;
-    }
-
-    const prefilledDoctorId = searchParams.get("doctorId");
-    const prefilledDate = searchParams.get("date");
-    const prefilledTime = searchParams.get("time");
-    const prefilledServiceId = searchParams.get("serviceId");
-
-    if (!prefilledDoctorId && !prefilledDate && !prefilledTime && !prefilledServiceId) {
-      prefillAppliedRef.current = true;
-      return;
-    }
-
-    if (prefilledServiceId) {
-      setSelectedServiceId(prefilledServiceId);
-    }
-
-    if (prefilledDoctorId) {
-      const exists = selectableDoctors.some((doctorOption) => doctorOption.id === prefilledDoctorId);
-      if (exists) {
-        setSelectedDoctor(prefilledDoctorId);
-      }
-    }
-
-    if (prefilledDate) {
-      const [year, month, day] = prefilledDate.split("-").map(Number);
-      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
-        setSelectedDate(new Date(year, month - 1, day));
-      }
-    }
-
-    if (prefilledTime) {
-      setSelectedTime(prefilledTime);
-    }
-
-    if (prefilledDoctorId || prefilledDate || prefilledTime) {
-      setBookingStep(1);
-    }
-
-    prefillAppliedRef.current = true;
-  }, [searchParams, selectableDoctors]);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadSlots = async () => {
-      if (!selectedDoctor || !selectedDate) {
-        setAvailableSlots([]);
-        setSlotLoadFailed(false);
-        return;
-      }
-
-      setSlotsLoading(true);
-      setSlotLoadFailed(false);
-      try {
-        const slots = await bookingService.getAvailableSlots(
-          selectedDoctor,
-          formatDateKey(selectedDate),
-          selectedServiceId ? { serviceId: selectedServiceId } : undefined,
-        );
-        if (active) {
-          setAvailableSlots(slots);
-          setSlotLoadFailed(false);
-        }
-      } catch {
-        if (active) {
-          setAvailableSlots([]);
-          setSlotLoadFailed(true);
-        }
-      } finally {
-        if (active) {
-          setSlotsLoading(false);
-        }
-      }
-    };
-
-    void loadSlots();
-
-    return () => {
-      active = false;
-    };
-  }, [selectedDoctor, selectedDate, selectedServiceId]);
-
-  useEffect(() => {
-    let active = true;
-
-    const loadRecommendations = async () => {
-      if (bookingStep !== 0) {
-        return;
-      }
-
-      setIsLoadingRecommendations(true);
-      try {
-        const response = await bookingService.getSmartRecommendations({
-          patientId: currentPatient?.id,
-          serviceId: selectedServiceId || undefined,
-          horizonDays: 7,
-          limit: 9,
-        });
-
-        if (active) {
-          setSmartRecommendations(response.recommendations || []);
-        }
-      } catch {
-        if (active) {
-          setSmartRecommendations([]);
-        }
-      } finally {
-        if (active) {
-          setIsLoadingRecommendations(false);
-        }
-      }
-    };
-
-    void loadRecommendations();
-
-    return () => {
-      active = false;
-    };
-  }, [bookingStep, currentPatient?.id, selectedServiceId]);
-
-  const applySmartRecommendation = (recommendation: SmartRecommendation) => {
-    const exists = selectableDoctors.some((doctorOption) => doctorOption.id === recommendation.doctorId);
-    if (!exists) {
-      toast.error(
-        locale === "ar"
-          ? "الطبيب غير متاح حالياً ضمن الفلاتر الحالية"
-          : "The recommended doctor is not currently available with active filters",
+  // Handle cancel click
+  const handleCancelClick = async (appointment: Appointment) => {
+    try {
+      await updateAppointment(appointment.id, { status: "cancelled" });
+      toast.success(
+        locale === "ar" ? "تم إلغاء الموعد بنجاح" : "Appointment cancelled successfully"
       );
-      return;
-    }
-
-    const [year, month, day] = recommendation.date.split("-").map(Number);
-    if (
-      Number.isFinite(year) &&
-      Number.isFinite(month) &&
-      Number.isFinite(day)
-    ) {
-      setSelectedDate(new Date(year, month - 1, day));
-    }
-
-    setSelectedDoctor(recommendation.doctorId);
-    setSelectedTime(recommendation.startTime);
-    setBookingStep(1);
-  };
-
-  const formatRecommendationDate = (dateValue: string) => {
-    const date = new Date(`${dateValue}T00:00:00.000Z`);
-    return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  };
-  const formatSelectedDate = (date?: Date) =>
-    date
-      ? date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
-      : "—";
-
-  const resetBooking = () => {
-    setBookingStep(0);
-    setSelectedDoctor(null);
-    setSelectedDate(undefined);
-    setSelectedTime(null);
-    setCurrentBookingId(null);
-    setPaymentCompleted(false);
-    setPaymentMethod(null);
-    setRedeemPoints(false);
-  };
-
-  const handleConfirmBooking = async () => {
-    if (isBooking) return;
-
-    if (!user?.id) {
-      toast.error(locale === "ar" ? "يرجى تسجيل الدخول أولاً" : "Please log in first");
-      return;
-    }
-
-    if (!currentPatient?.id) {
-      toast.error(locale === "ar" ? "يرجى إكمال ملف المريض أولاً" : "Please complete your patient profile first");
-      return;
-    }
-
-    if (!doctor || !selectedDate || !selectedTime) return;
-
-    setIsBooking(true);
-    try {
-      const createdAppointment = await addAppointment({
-        patientId: currentPatient.id,
-        patientName: currentPatient.fullName || user.name || "Patient",
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        specialty: doctor.specialty,
-        date: formatDateKey(selectedDate),
-        time: selectedTime,
-        status: "scheduled",
-        type: "Consultation",
-        redeemPoints,
-      });
-
-      setCurrentBookingId(createdAppointment.id);
-      setPaymentCompleted(false);
-      setPaymentMethod(null);
-      toast.success(locale === "ar" ? "تم حجز الموعد بنجاح" : "Appointment booked successfully");
-      await fetchAppointments({ patientId: currentPatient.id });
-      setBookingStep(2);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to book appointment";
-      toast.error(message);
-    } finally {
-      setIsBooking(false);
-    }
-  };
-
-  const handlePayment = async (method: "online" | "onsite") => {
-    if (!currentBookingId || paymentCompleted) return;
-
-    try {
-      await updateAppointment(currentBookingId, { status: "confirmed" });
-      setPaymentCompleted(true);
-      setPaymentMethod(method);
-
-      if (method === "online") {
-        toast.success(locale === "ar" ? "تم الدفع أونلاين وتأكيد الموعد" : "Online payment completed and appointment confirmed");
-        return;
-      }
-
-      toast.success(locale === "ar" ? "تم تأكيد الموعد والدفع عند الحضور" : "Appointment confirmed with onsite payment");
     } catch {
-      toast.error("Payment update failed");
+      toast.error(locale === "ar" ? "فشل إلغاء الموعد" : "Failed to cancel appointment");
     }
   };
 
-  const canUploadForAppointment = (appointment: Appointment) => {
-    const normalizedStatus = String(appointment.status || "").toUpperCase().replace("-", "_");
-    return normalizedStatus !== "CANCELLED" && normalizedStatus !== "NO_SHOW";
+  // Handle book again - pre-select doctor and go to booking
+  const handleBookAgain = (appointment: Appointment) => {
+    setIsDetailsDialogOpen(false);
+    if (appointment.doctor) {
+      openBook(appointment.doctor as unknown as ApiPublicDoctor);
+    } else if (appointment.doctorId) {
+      openBook({
+        id: appointment.doctorId,
+        fullName: appointment.doctorName || "Doctor",
+        specialization: appointment.specialty || "Generalist",
+      } as unknown as ApiPublicDoctor);
+    }
+    toast.success(
+      locale === "ar"
+        ? `يمكنك الحجز مع ${appointment.doctorName}`
+        : `You can now book with ${appointment.doctorName}`
+    );
   };
 
-  const triggerAppointmentUpload = (appointmentId: string) => {
-    setPendingUploadAppointmentId(appointmentId);
-    appointmentUploadInputRef.current?.click();
-  };
-
-  const handleAppointmentFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = event.target.files;
-    const appointmentId = pendingUploadAppointmentId;
-    const resetInput = () => {
-      if (appointmentUploadInputRef.current) {
-        appointmentUploadInputRef.current.value = "";
+  // Handle reschedule confirmation
+  const handleReschedule = async (appointment: Appointment, newDate: string, newTime: string) => {
+    try {
+      setIsRescheduleDialogOpen(false);
+      await bookingService.rescheduleAppointment(appointment.id, {
+        date: newDate,
+        startTime: newTime,
+      });
+      if (currentPatient?.id) {
+        await fetchAppointments({ patientId: currentPatient.id });
       }
-    };
-
-    if (!files || files.length === 0 || !appointmentId) {
-      resetInput();
-      return;
-    }
-
-    if (!currentPatient?.id) {
-      toast.error(
+      toast.success(
         locale === "ar"
-          ? "تعذر رفع الملف بدون ملف مريض مكتمل"
-          : "Cannot upload files without a completed patient profile",
+          ? `تم إعادة جدولة الموعد إلى ${newDate} في ${newTime}`
+          : `Appointment rescheduled to ${newDate} at ${newTime}`
       );
-      resetInput();
-      setPendingUploadAppointmentId(null);
-      return;
-    }
-
-    const validFiles = Array.from(files).filter((file) => {
-      if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) {
-        toast.error(
-          locale === "ar"
-            ? `نوع غير مدعوم: ${file.name}`
-            : `Unsupported file type: ${file.name}`,
-        );
-        return false;
-      }
-
-      if (file.size > MAX_UPLOAD_SIZE) {
-        toast.error(
-          locale === "ar"
-            ? `الملف كبير جداً: ${file.name}`
-            : `File is too large: ${file.name}`,
-        );
-        return false;
-      }
-
-      return true;
-    });
-
-    if (validFiles.length === 0) {
-      resetInput();
-      setPendingUploadAppointmentId(null);
-      return;
-    }
-
-    setUploadingAppointmentId(appointmentId);
-    let uploadedCount = 0;
-
-    try {
-      for (const file of validFiles) {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (readerEvent) =>
-            resolve(String(readerEvent.target?.result || ""));
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.readAsDataURL(file);
-        });
-
-        await patientDocumentService.createForCurrentPatientAppointment(
-          appointmentId,
-          {
-            name: file.name,
-            fileUrl: dataUrl,
-            fileType: file.type || null,
-          },
-        );
-        uploadedCount += 1;
-      }
-
-      if (uploadedCount > 0) {
-        toast.success(
-          locale === "ar"
-            ? `تم رفع ${uploadedCount} ملف بنجاح`
-            : `Uploaded ${uploadedCount} file(s) successfully`,
-        );
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : locale === "ar"
-            ? "تعذر رفع الملفات"
-            : "Failed to upload files";
-      toast.error(message);
-    } finally {
-      setUploadingAppointmentId(null);
-      setPendingUploadAppointmentId(null);
-      resetInput();
-    }
-  };
-
-  const openCredentialDialog = (doctor: ApiPublicDoctor) => {
-    setCredentialDoctor({ id: doctor.id, name: doctor.fullName });
-    
-    // Construct items from the summary data which now includes previewUrls
-    const items: ApiDoctorCredential[] = [];
-    
-    if (doctor.credentialSummary.ministryOfHealthId) {
-      items.push({
-        ...doctor.credentialSummary.ministryOfHealthId,
-        doctorId: doctor.id,
-        credentialType: "MINISTRY_OF_HEALTH_ID",
-      } as ApiDoctorCredential);
-    }
-    
-    if (doctor.credentialSummary.qualifications) {
-      doctor.credentialSummary.qualifications.forEach((q) => {
-        items.push(q);
-      });
-    }
-    
-    setCredentialItems(items);
-    setCredentialLoading(false);
-  };
-
-  const openCredentialPreview = async (doctorId: string, item: ApiDoctorCredential) => {
-    // Try to use pre-signed URL first
-    if (item.previewUrl) {
-      setPreviewFile({
-        name: item.name,
-        fileUrl: item.previewUrl,
-        fileType: item.fileType || "application/pdf",
-      });
-      return;
-    }
-
-    setPreviewingCredentialId(item.id);
-
-    try {
-      const result = await staffService.getPatientDoctorCredentialPreview(doctorId, item.id);
-      setPreviewFile({
-        name: item.name,
-        fileUrl: result.previewUrl,
-        fileType: item.fileType || "application/pdf",
-      });
     } catch {
-      try {
-        const fallbackResult = await staffService.getPublicDoctorCredentialPreview(doctorId, item.id);
-        setPreviewFile({
-          name: item.name,
-          fileUrl: fallbackResult.previewUrl,
-          fileType: item.fileType || "application/pdf",
-        });
-      } catch {
-        toast.error(
-          locale === "ar"
-            ? "تعذر فتح ملف الاعتماد حالياً"
-            : "Failed to open credential file",
-        );
-      }
-    } finally {
-      setPreviewingCredentialId(null);
+      toast.error(
+        locale === "ar" ? "فشل إعادة جدولة الموعد" : "Failed to reschedule appointment"
+      );
     }
   };
 
   return (
-    <div className="max-w-7xl space-y-6">
+    <div className="max-w-4xl space-y-6">
+      {/* Page Header */}
       <PageHeader
         title={t("appointments")}
-        description={locale === "ar" ? "ابحث واحجز مع أفضل الأطباء" : "Search and book with top specialists"}
+        description={locale === "ar" ? "إدارة مواعيدك الطبية" : "Manage your appointments"}
       />
 
-      <Tabs defaultValue="book">
-        <TabsList>
-          <TabsTrigger value="book">{t("bookAppointment")}</TabsTrigger>
-          <TabsTrigger value="upcoming">{t("upcomingAppointments")}</TabsTrigger>
-          <TabsTrigger value="history">{locale === "ar" ? "السجل" : "History"}</TabsTrigger>
-        </TabsList>
+      {/* Empty State */}
+      {patientAppointments.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-3xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center bg-white dark:bg-slate-900 shadow-sm"
+        >
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+            <Calendar className="h-6 w-6 text-slate-400" />
+          </div>
+          <h3 className="mb-2 font-semibold text-slate-900 dark:text-slate-100">
+            {locale === "ar" ? "لا توجد مواعيد" : "No appointments"}
+          </h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {locale === "ar"
+              ? "لم تقم بحجز أي موعد بعد. ابدأ بالبحث عن طبيب متخصص."
+              : "You haven't booked any appointments yet. Start by searching for a specialist."}
+          </p>
+        </motion.div>
+      )}
 
-        <TabsContent value="book" className="mt-4 space-y-6">
-          {!currentPatient?.id && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-              {locale === "ar"
-                ? "لا يمكن إكمال الحجز قبل إتمام ملف المريض. أكمل بيانات ملفك ثم حاول مرة أخرى."
-                : "You need a completed patient profile before booking. Please finish your patient profile and try again."}
-            </div>
-          )}
+      {/* Appointments Tabs */}
+      {patientAppointments.length > 0 && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full h-14 backdrop-blur-md">
+            <TabsTrigger
+              value="upcoming"
+              className="rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
+            >
+              {locale === "ar" ? "قادمة" : "Upcoming"}
+              {upcomingAppointments.length > 0 && (
+                <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50/20 text-xs font-semibold">
+                  {upcomingAppointments.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
+            >
+              {locale === "ar" ? "السجل" : "History"}
+              {pastAppointments.length > 0 && (
+                <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/20 text-xs font-semibold">
+                  {pastAppointments.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-          {bookingStep === 0 && (
-            <>
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    {locale === "ar" ? "الجدولة الذكية" : "Smart Scheduler"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingRecommendations ? (
-                    <p className="text-sm text-muted-foreground">
-                      {locale === "ar"
-                        ? "جاري تحليل أفضل المواعيد المتاحة..."
-                        : "Analyzing best available booking options..."}
-                    </p>
-                  ) : smartRecommendations.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {locale === "ar"
-                        ? "لا توجد توصيات حالياً. اختر الطبيب والوقت يدوياً."
-                        : "No recommendations available right now. You can continue with manual booking."}
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                      {smartRecommendations.map((recommendation) => (
-                        <button
-                          key={`${recommendation.doctorId}-${recommendation.date}-${recommendation.startTime}`}
-                          type="button"
-                          onClick={() => applySmartRecommendation(recommendation)}
-                          className="rounded-lg border p-3 text-left transition hover:bg-muted"
-                        >
-                          <p className="text-sm font-medium">{recommendation.doctorName}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatRecommendationDate(recommendation.date)}
-                          </p>
-                          <p className="text-xs text-primary mt-1">{recommendation.startTime}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground rtl:left-auto rtl:right-3" />
-                  <Input
-                    placeholder={locale === "ar" ? "ابحث عن طبيب أو تخصص..." : "Search doctors or specialties..."}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 rtl:pl-3 rtl:pr-10"
-                  />
-                </div>
-                <select
-                  value={selectedServiceId}
-                  onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="h-10 rounded-md border bg-background px-3 text-sm"
-                >
-                  <option value="">{locale === "ar" ? "كل الخدمات" : "All services"}</option>
-                  {services.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {specialtiesList.map((s) => (
-                  <Button
-                    key={s}
-                    variant={selectedSpecialty === s ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedSpecialty(s)}
-                    className="rounded-full"
-                  >
-                    {s}
-                  </Button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {selectableDoctors.map((doc, i) => (
-                  <motion.div
-                    key={doc.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                  >
-                    <Card
-                      className="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                      onClick={() => {
-                        setSelectedDoctor(doc.id);
-                        setSelectedDate(undefined);
-                        setSelectedTime(null);
-                        setBookingStep(1);
-                      }}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex gap-4">
-                          <Image
-                            src={doc.image}
-                            alt={doc.name}
-                            width={64}
-                            height={64}
-                            className="h-16 w-16 rounded-xl object-cover"
-                            unoptimized
-                          />
-                          <div className="min-w-0 flex-1">
-                            <h3 className="truncate font-semibold">
-                              {locale === "ar" ? doc.nameAr : doc.name}
-                            </h3>
-                            <p className="text-sm text-primary">
-                              {locale === "ar" ? doc.specialtyAr : doc.specialty}
-                            </p>
-                            <div className="mt-2 flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                                <span className="text-xs font-medium">{doc.rating}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground">
-                                {doc.experience} {t("yearsExp")}
-                              </span>
-                            </div>
-                            {(doc.credentialSummary.hasVerifiedMinistryId ||
-                              doc.credentialSummary.qualificationCount > 0) && (
-                              <div className="mt-3 flex items-center gap-2">
-                                <Badge variant="outline" className="text-[11px]">
-                                  {locale === "ar"
-                                    ? `اعتمادات موثقة: ${doc.credentialSummary.qualificationCount + (doc.credentialSummary.hasVerifiedMinistryId ? 1 : 0)}`
-                                    : `Verified credentials: ${doc.credentialSummary.qualificationCount + (doc.credentialSummary.hasVerifiedMinistryId ? 1 : 0)}`}
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 text-[11px]"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openCredentialDialog(doc);
-                                  }}
-                                >
-                                  {locale === "ar" ? "عرض" : "View"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                          <Badge variant="success" className="self-start">
-                            {locale === "ar" ? "متوفر" : "available"}
-                          </Badge>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className={cn(
-                              "self-start h-8 w-8 -mr-2 transition-all",
-                              isFavorite(doc.id) ? "text-rose-500 hover:text-rose-600" : "text-slate-300 hover:text-rose-500"
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite({ id: doc.id, fullName: doc.name });
-                            }}
-                          >
-                            <Heart className={cn("h-4 w-4", isFavorite(doc.id) && "fill-current")} />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
-                {selectableDoctors.length === 0 && (
-                  <div className="col-span-full rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {locale === "ar"
-                      ? "لا يوجد أطباء متاحون حالياً بهذه الفلاتر. جرّب تغيير البحث أو التخصص أو الخدمة."
-                      : "No available doctors match your current filters. Try changing your search, specialty, or service."}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {bookingStep === 1 && doctor && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <Button variant="ghost" size="sm" onClick={() => setBookingStep(0)} className="gap-1">
-                &larr; {t("back")}
-              </Button>
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <Card className="p-6">
-                  <div className="space-y-3 text-center">
-                    <Image
-                      src={doctor.image}
-                      alt={doctor.name}
-                      width={96}
-                      height={96}
-                      className="mx-auto h-24 w-24 rounded-full object-cover"
-                      unoptimized
-                    />
-                    <h3 className="text-lg font-semibold">{locale === "ar" ? doctor.nameAr : doctor.name}</h3>
-                    <Badge variant="info">{locale === "ar" ? doctor.specialtyAr : doctor.specialty}</Badge>
-                    <div className="flex items-center justify-center gap-1">
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                      <span className="font-medium">{doctor.rating}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{doctor.bio}</p>
-                  </div>
-                </Card>
-
-                <div>
-                  <h3 className="mb-3 font-semibold">{locale === "ar" ? "اختر التاريخ" : "Select Date"}</h3>
-                  <MiniCalendar
-                    locale={locale}
-                    selectedDate={selectedDate}
-                    onDateSelect={(d) => setSelectedDate(d)}
-                    minDate={new Date()}
-                  />
-                </div>
-
-                <div>
-                  <h3 className="mb-3 font-semibold">{locale === "ar" ? "اختر الوقت" : "Select Time"}</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {slotsLoading && (
-                      <p className="col-span-2 text-sm text-muted-foreground">
-                        {locale === "ar" ? "جاري تحميل الأوقات المتاحة..." : "Loading available slots..."}
-                      </p>
-                    )}
-                    {!slotsLoading && availableSlots.map((time) => (
-                      <Button
-                        key={time}
-                        variant={selectedTime === time ? "default" : "outline"}
-                        size="sm"
-                        className="justify-start gap-2"
-                        onClick={() => setSelectedTime(time)}
-                      >
-                        <Clock className="h-3.5 w-3.5" />
-                        {time}
-                      </Button>
-                    ))}
-                    {!slotsLoading && availableSlots.length === 0 && (
-                      <p className="col-span-2 text-sm text-muted-foreground">
-                        {slotLoadFailed
-                          ? locale === "ar"
-                            ? "تعذر تحميل المواعيد حالياً. أعد المحاولة بعد لحظات."
-                            : "We could not load available slots right now. Please try again shortly."
-                          : locale === "ar"
-                            ? "لا توجد أوقات متاحة لهذا اليوم"
-                            : "No slots available for this date"}
-                      </p>
-                    )}
-                    {currentPatient?.loyaltyPoints && currentPatient.loyaltyPoints > 0 && (
-                      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-blue-500" />
-                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                              {locale === 'ar' ? 'نقاط الولاء' : 'Loyalty Points'}
-                            </span>
-                          </div>
-                          <Badge variant="info" className="bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-none">
-                            {currentPatient.loyaltyPoints} {locale === 'ar' ? 'نقطة' : 'pts'}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                          {locale === 'ar' 
-                            ? 'يمكنك الحصول على خصم مقابل نقاطك (10 نقاط = 1 دولار)' 
-                            : 'You can get a discount for your points (10 pts = $1)'}
-                        </p>
-                        <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                          <input
-                            type="checkbox"
-                            id="redeem-points"
-                            checked={redeemPoints}
-                            onChange={(e) => setRedeemPoints(e.target.checked)}
-                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <label htmlFor="redeem-points" className="text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer">
-                            {locale === 'ar' ? 'استخدام النقاط للخصم' : 'Use points for discount'}
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    className="mt-4 w-full gap-2"
-                    onClick={handleConfirmBooking}
-                    disabled={!selectedDate || !selectedTime || isBooking}
-                  >
-                    {isBooking
-                      ? locale === "ar"
-                        ? "جارٍ تأكيد الحجز..."
-                        : "Confirming booking..."
-                      : t("confirm")}
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {bookingStep === 2 && doctor && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto max-w-lg space-y-6">
-              <Card className="space-y-4 p-8 text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                  <Calendar className="h-8 w-8 text-emerald-600" />
-                </div>
-                <h2 className="text-xl font-bold">{locale === "ar" ? "تم تأكيد الحجز!" : "Booking Confirmed!"}</h2>
-                <p className="text-muted-foreground">
-                  {locale === "ar" ? "تم حجز موعدك بنجاح" : "Your appointment has been successfully booked."}
+          {/* Upcoming Tab */}
+          <TabsContent value="upcoming" className="mt-6 space-y-4">
+            {upcomingAppointments.length === 0 ? (
+              <Card className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
+                <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {locale === "ar" ? "لا توجد مواعيد قادمة" : "No upcoming appointments"}
                 </p>
-                <div className="space-y-2 rounded-xl bg-muted/50 p-4 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("doctor")}</span>
-                    <span className="font-medium">{doctor.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("date")}</span>
-                    <span className="font-medium">{formatSelectedDate(selectedDate)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("time")}</span>
-                    <span className="font-medium">{selectedTime ?? "—"}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3 rounded-xl border p-4">
-                  <h3 className="text-sm font-semibold">{locale === "ar" ? "ملخص الدفع" : "Payment Summary"}</h3>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {locale === "ar" ? "رسوم الاستشارة" : "Consultation Fee"}
-                    </span>
-                    <span className="font-medium">${(appointments.find(a => a.id === currentBookingId)?.amount ?? 150).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2 text-sm">
-                    <span className="font-semibold">{locale === "ar" ? "الإجمالي" : "Total"}</span>
-                    <span className="font-bold text-primary">${(appointments.find(a => a.id === currentBookingId)?.amount ?? 150).toFixed(2)}</span>
-                  </div>
-                  <p className="pt-2 text-sm font-medium">
-                    {locale === "ar" ? "اختر طريقة الدفع" : "Choose payment method"}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Button
-                      className="w-full"
-                      variant="success"
-                      onClick={() => handlePayment("online")}
-                      disabled={paymentCompleted}
-                    >
-                      {paymentMethod === "online"
-                        ? locale === "ar" ? "تم الدفع أونلاين" : "Paid Online"
-                        : locale === "ar" ? "ادفع أونلاين" : "Pay Online"}
-                    </Button>
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => handlePayment("onsite")}
-                      disabled={paymentCompleted}
-                    >
-                      {paymentMethod === "onsite"
-                        ? locale === "ar" ? "الدفع عند الحضور" : "Pay Onsite"
-                        : locale === "ar" ? "ادفع عند الحضور" : "Pay Onsite"}
-                    </Button>
-                  </div>
-                  {paymentCompleted && (
-                    <p className="text-sm text-muted-foreground">
-                      {paymentMethod === "onsite"
-                        ? locale === "ar"
-                          ? "تم تأكيد الموعد. ستدفع عند الوصول إلى العيادة."
-                          : "Your appointment is confirmed. You can pay when you arrive at the clinic."
-                        : locale === "ar"
-                          ? "تم تأكيد الدفع والموعد."
-                          : "Your payment and appointment have both been confirmed."}
-                    </p>
-                  )}
-                </div>
-
-                <Button variant="outline" onClick={resetBooking}>
-                  {locale === "ar" ? "حجز آخر" : "Book Another"}
-                </Button>
               </Card>
-            </motion.div>
-          )}
-        </TabsContent>
+            ) : (
+              upcomingAppointments.map((apt, i) => (
+                <motion.div
+                  key={apt.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <MobilePatientAppointmentCard
+                    appointment={apt}
+                    isPast={false}
+                    locale={locale}
+                    doctorAvatar={doctorAvatars[apt.doctorId]}
+                    onReschedule={() => handleDetailClick(apt)}
+                    onCancel={() => handleCancelClick(apt)}
+                  />
+                </motion.div>
+              ))
+            )}
+          </TabsContent>
 
-        <TabsContent value="upcoming" className="mt-4 space-y-3">
-          {patientAppointments
-            .filter((a) => {
-              const status = String(a.status || "").toUpperCase();
-              return status !== "COMPLETED" && status !== "CANCELLED";
-            })
-            .map((apt, i) => (
-              <div key={apt.id} className="space-y-2">
-                <AppointmentCard appointment={apt} delay={i * 0.05} isPatientView={true} />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                    disabled={
-                      !canUploadForAppointment(apt) ||
-                      uploadingAppointmentId === apt.id
-                    }
-                    onClick={() => triggerAppointmentUpload(apt.id)}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    {uploadingAppointmentId === apt.id
-                      ? locale === "ar"
-                        ? "جارٍ الرفع..."
-                        : "Uploading..."
-                      : locale === "ar"
-                        ? "رفع ملف لهذا الموعد"
-                        : "Upload File For This Appointment"}
-                  </Button>
-                </div>
-              </div>
-            ))}
-        </TabsContent>
+          {/* History Tab */}
+          <TabsContent value="history" className="mt-6 space-y-4">
+            {pastAppointments.length === 0 ? (
+              <Card className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center">
+                <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {locale === "ar" ? "لا توجد مواعيد سابقة" : "No past appointments"}
+                </p>
+              </Card>
+            ) : (
+              pastAppointments.map((apt, i) => (
+                <motion.div
+                  key={apt.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <MobilePatientAppointmentCard
+                    appointment={apt}
+                    isPast={true}
+                    locale={locale}
+                    doctorAvatar={doctorAvatars[apt.doctorId]}
+                    onDetail={() => handleDetailClick(apt)}
+                    onBookAgain={() => handleBookAgain(apt)}
+                    onCancel={() => handleCancelClick(apt)}
+                  />
+                </motion.div>
+              ))
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
 
-        <TabsContent value="history" className="mt-4 space-y-3">
-          {patientAppointments
-            .filter((a) => {
-              const status = String(a.status || "").toUpperCase();
-              return status === "COMPLETED" || status === "CANCELLED";
-            })
-            .map((apt, i) => (
-              <div key={apt.id} className="space-y-2">
-                <AppointmentCard appointment={apt} delay={i * 0.05} isPatientView={true} />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-2"
-                    disabled={
-                      !canUploadForAppointment(apt) ||
-                      uploadingAppointmentId === apt.id
-                    }
-                    onClick={() => triggerAppointmentUpload(apt.id)}
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    {uploadingAppointmentId === apt.id
-                      ? locale === "ar"
-                        ? "جارٍ الرفع..."
-                        : "Uploading..."
-                      : locale === "ar"
-                        ? "رفع ملف لهذا الموعد"
-                        : "Upload File For This Appointment"}
-                  </Button>
-                </div>
-              </div>
-            ))}
-        </TabsContent>
-      </Tabs>
-
-      <Dialog
-        open={Boolean(credentialDoctor)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCredentialDoctor(null);
-            setCredentialItems([]);
+      {/* Details Dialog */}
+      <AppointmentDetailsDialog
+        isOpen={isDetailsDialogOpen}
+        onOpenChange={setIsDetailsDialogOpen}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        appointment={selectedAppointmentForDetails as any}
+        onBookAgain={() => {
+          if (selectedAppointmentForDetails) {
+            handleBookAgain(selectedAppointmentForDetails);
           }
         }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {locale === "ar"
-                ? `اعتمادات الطبيب ${credentialDoctor?.name || ""}`
-                : `Doctor Credentials${credentialDoctor ? `: ${credentialDoctor.name}` : ""}`}
-            </DialogTitle>
-            <DialogDescription>
-              {locale === "ar"
-                ? "هذه الملفات موثقة من الإدارة قبل ظهورها للمرضى."
-                : "These files are admin-verified before becoming visible to patients."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {credentialLoading ? (
-            <p className="text-sm text-muted-foreground">
-              {locale === "ar" ? "جاري تحميل الاعتمادات..." : "Loading credentials..."}
-            </p>
-          ) : credentialItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {locale === "ar"
-                ? "لا توجد اعتمادات متاحة حالياً لهذا الطبيب."
-                : "No credential files are currently available for this doctor."}
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {credentialItems
-                .filter((item) => item.credentialType === "MINISTRY_OF_HEALTH_ID")
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {locale === "ar" ? "ترخيص وزارة الصحة" : "Ministry of Health License"}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={previewingCredentialId === item.id || !credentialDoctor}
-                      onClick={() =>
-                        credentialDoctor &&
-                        void openCredentialPreview(credentialDoctor.id, item)
-                      }
-                    >
-                      {previewingCredentialId === item.id
-                        ? locale === "ar"
-                          ? "جاري الفتح..."
-                          : "Opening..."
-                        : locale === "ar"
-                          ? "معاينة"
-                          : "Preview"}
-                    </Button>
-                  </div>
-                ))}
-
-              {credentialItems
-                .filter((item) => item.credentialType === "QUALIFICATION")
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {locale === "ar" ? "شهادة تأهيل" : "Qualification"}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={previewingCredentialId === item.id || !credentialDoctor}
-                      onClick={() =>
-                        credentialDoctor &&
-                        void openCredentialPreview(credentialDoctor.id, item)
-                      }
-                    >
-                      {previewingCredentialId === item.id
-                        ? locale === "ar"
-                          ? "جاري الفتح..."
-                          : "Opening..."
-                        : locale === "ar"
-                          ? "معاينة"
-                          : "Preview"}
-                    </Button>
-                  </div>
-                ))}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Unified File Preview Dialog */}
-      <FilePreviewDialog
-        open={Boolean(previewFile)}
-        onOpenChange={(open) => !open && setPreviewFile(null)}
-        file={previewFile}
       />
 
-      <input
-        ref={appointmentUploadInputRef}
-        type="file"
-        className="hidden"
-        multiple
-        accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-        onChange={handleAppointmentFileUpload}
+      {/* Reschedule Dialog */}
+      <RescheduleDialog
+        isOpen={isRescheduleDialogOpen}
+        onOpenChange={setIsRescheduleDialogOpen}
+        appointment={selectedAppointmentForReschedule}
+        onConfirm={(newDate, newTime) => {
+          if (selectedAppointmentForReschedule) {
+            handleReschedule(selectedAppointmentForReschedule, newDate, newTime);
+          }
+        }}
       />
     </div>
   );
@@ -1194,11 +424,13 @@ function AppointmentsPageContent() {
 
 export default function AppointmentsPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex h-[50vh] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        </div>
+      }
+    >
       <AppointmentsPageContent />
     </Suspense>
   );

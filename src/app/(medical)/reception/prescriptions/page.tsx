@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   CalendarDays,
   Search,
@@ -18,10 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ReceptionPrescriptionsPage() {
-  const { locale } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
 
   const prescriptions = [
@@ -232,7 +230,7 @@ export default function ReceptionPrescriptionsPage() {
                       </span>
                     </td>
                     <td className="px-4 md:px-6 py-4 md:py-6 text-center">
-                      <StatusBadge status={item.status as any} />
+                      <StatusBadge status={item.status as "Ready" | "Sent" | "Pending"} />
                     </td>
                     <td className="px-4 md:px-6 py-4 md:py-6">
                       <div className="flex items-center justify-center gap-3 md:gap-5">
@@ -304,7 +302,12 @@ function StatusBadge({ status }: { status: "Ready" | "Sent" | "Pending" }) {
   );
 }
 
-function PaginationButton({ icon: Icon, disabled }: any) {
+interface PaginationButtonProps {
+  icon: React.ElementType;
+  disabled?: boolean;
+}
+
+function PaginationButton({ icon: Icon, disabled }: PaginationButtonProps) {
   return (
     <button
       disabled={disabled}

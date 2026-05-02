@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   CalendarDays,
   Plus,
@@ -10,14 +10,10 @@ import {
   ClipboardList,
   CheckSquare,
   CheckCircle2,
-  Pencil,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Download,
   RefreshCw,
-  FileText,
-  X,
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,16 +104,6 @@ export default function ReceptionTasksPage() {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  const getTimeAgo = (dateStr: string) => {
-    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (seconds < 60) return locale === "ar" ? "الآن" : "Just now";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return locale === "ar" ? `منذ ${minutes} دقيقة` : `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return locale === "ar" ? `منذ ${hours} ساعة` : `${hours}h ago`;
-    return formatDate(dateStr);
   };
 
   const getTaskTitle = (h: ApiReceptionHandoff) => {
@@ -548,7 +534,16 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose
   );
 }
 
-function TaskSummaryCard({ label, value, icon: Icon, iconBg, iconColor, className }: any) {
+interface TaskSummaryCardProps {
+  label: string;
+  value: string;
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+  className?: string;
+}
+
+function TaskSummaryCard({ label, value, icon: Icon, iconBg, iconColor, className }: TaskSummaryCardProps) {
   return (
     <Card className={cn("border-none shadow-[0_8px_30px_rgb(0,0,0,0.03)] rounded-[24px] md:rounded-[32px] overflow-hidden bg-white", className)}>
       <CardContent className="p-6 md:p-8 flex items-center justify-between">
@@ -602,7 +597,12 @@ function StatusBadge({ status }: { status: "Pending" | "In Progress" | "Done" })
   );
 }
 
-function PaginationButton({ icon: Icon, disabled }: any) {
+interface PaginationButtonProps {
+  icon: React.ElementType;
+  disabled?: boolean;
+}
+
+function PaginationButton({ icon: Icon, disabled }: PaginationButtonProps) {
   return (
     <button
       disabled={disabled}

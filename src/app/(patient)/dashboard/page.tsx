@@ -18,7 +18,6 @@ import {
   DialogContent,
   DialogTitle
 } from "@/components/ui/dialog";
-import { PatientSpecializationsDialog } from "@/components/shared/PatientSpecializationsDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore } from "@/stores/useBookingStore";
@@ -31,13 +30,14 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { PatientNotificationsDialog } from "@/components/shared/PatientNotificationsDialog";
 import { PatientDoctorsDialog } from "@/components/shared/PatientDoctorsDialog";
 import { PatientAppointmentsDialog } from "@/components/shared/PatientAppointmentsDialog";
-import { DoctorProfileDialog } from "@/components/shared/DoctorProfileDialog";
 
 import { notificationsService } from "@/services/notificationsService";
 import type { InAppNotification } from "@/types";
 import { cn } from "@/lib/utils";
 import { patientService } from "@/services/patientService";
 import { usePatientStore } from "@/stores/usePatientStore";
+
+import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
 
 export default function PatientDashboard() {
   const router = useRouter();
@@ -67,15 +67,13 @@ export default function PatientDashboard() {
   } | null>(null);
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [comingSoonModal, setComingSoonModal] = useState(false);
-  const [specOpen, setSpecOpen] = useState(false);
+  const [, setSpecOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [aptsOpen, setAptsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("latest");
   const [loyaltyHistory, setLoyaltyHistory] = useState<ApiLoyaltyTransaction[]>([]);
   const [isLoyaltyLoading, setIsLoyaltyLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDoctor, setSelectedDoctor] = useState<ApiPublicDoctor | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
 
 
   const { favoriteDoctorIds, toggleFavorite, fetchFavorites } = usePatientStore();
@@ -259,8 +257,7 @@ export default function PatientDashboard() {
   }, [services, locale, t]);
 
   const handleDoctorClick = (doc: ApiPublicDoctor) => {
-    setSelectedDoctor(doc);
-    setProfileOpen(true);
+    useBookingFlowStore.getState().openBook(doc);
   };
 
 
@@ -490,7 +487,12 @@ export default function PatientDashboard() {
             <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
               {t("popularSpecializations")}
             </h2>
-            <button onClick={() => setSpecOpen(true)} className="text-[12px] font-black text-blue-600 uppercase tracking-wider">
+            <button
+              onClick={() => {
+                useBookingFlowStore.getState().setSpecOpen(true);
+              }}
+              className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
+            >
               {t("seeAll")}
             </button>
           </div>
@@ -515,7 +517,12 @@ export default function PatientDashboard() {
             <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
               {t("allDoctors")}
             </h2>
-            <button onClick={() => setDocsOpen(true)} className="text-[12px] font-black text-blue-600 uppercase tracking-wider">
+            <button
+              onClick={() => {
+                useBookingFlowStore.getState().setDocsOpen(true);
+              }}
+              className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
+            >
               {t("seeAll")}
             </button>
           </div>
@@ -1292,13 +1299,6 @@ export default function PatientDashboard() {
         </DialogContent>
       </Dialog>
 
-      <PatientSpecializationsDialog
-        isOpen={specOpen}
-        onOpenChange={setSpecOpen}
-        services={services}
-        doctors={publicDoctors}
-      />
-
       {/* Coming Soon Dialog */}
       <Dialog open={comingSoonModal} onOpenChange={setComingSoonModal}>
         <DialogContent className="max-w-[400px] bg-white dark:bg-slate-900 border-none rounded-[32px] p-0 overflow-hidden shadow-2xl">
@@ -1326,16 +1326,6 @@ export default function PatientDashboard() {
           </div>
         </DialogContent>
       </Dialog>
-      <DoctorProfileDialog 
-        isOpen={profileOpen}
-        onOpenChange={setProfileOpen}
-        doctor={selectedDoctor}
-      />
-      <PatientDoctorsDialog
-        isOpen={docsOpen}
-        onOpenChange={setDocsOpen}
-        doctors={publicDoctors}
-      />
     </div>
   );
 }

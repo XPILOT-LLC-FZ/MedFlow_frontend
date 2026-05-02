@@ -26,6 +26,7 @@ interface PatientSpecializationsDialogProps {
   onOpenChange: (open: boolean) => void;
   services: ApiService[];
   doctors: ApiPublicDoctor[];
+  onSelectSpecialization?: (specialization: string) => void;
 }
 
 export function PatientSpecializationsDialog({
@@ -33,6 +34,7 @@ export function PatientSpecializationsDialog({
   onOpenChange,
   services,
   doctors,
+  onSelectSpecialization,
 }: PatientSpecializationsDialogProps) {
   const { t, locale } = useTranslation();
   const [search, setSearch] = React.useState("");
@@ -54,18 +56,42 @@ export function PatientSpecializationsDialog({
       })();
 
       if (!specs.has(name)) {
-        specs.set(name, { name, category: s.category, count: 0 });
+        // Find real doctors matching this service
+        const count = doctors.filter(d => {
+          const docSpec = (d.specialization || "").toLowerCase();
+          const svcName = s.name.toLowerCase();
+          const cat = (s.category || "").toLowerCase();
+          
+          return docSpec.includes(svcName) ||
+                 svcName.includes(docSpec) ||
+                 docSpec.includes(cat) ||
+                 cat.includes(docSpec) ||
+                 (svcName.includes("general") && docSpec.includes("general")) ||
+                 (svcName.includes("dermato") && docSpec.includes("dermato")) ||
+                 (svcName.includes("teeth") && docSpec.includes("dental")) ||
+                 (svcName.includes("teeth") && docSpec.includes("dentist")) ||
+                 (svcName.includes("laser") && docSpec.includes("derma")) ||
+                 (svcName.includes("laser") && docSpec.includes("aesthetic"));
+        }).length;
+
+        specs.set(name, { name, category: s.category, count });
       }
     });
 
     // From Doctors (to get counts and any other specs)
     doctors.forEach(d => {
       const spec = d.specialization || (locale === "ar" ? "تخصص عام" : "General");
-      if (specs.has(spec)) {
-        const existing = specs.get(spec)!;
-        existing.count += 1;
-      } else {
-        specs.set(spec, { name: spec, category: "CONSULTATION", count: 1 });
+      let matched = false;
+      for (const [key] of specs.entries()) {
+        if (key.toLowerCase().includes(spec.toLowerCase()) || spec.toLowerCase().includes(key.toLowerCase())) {
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        const count = doctors.filter(doc => (doc.specialization || "").toLowerCase() === spec.toLowerCase()).length;
+        specs.set(spec, { name: spec, category: "CONSULTATION", count });
       }
     });
 
@@ -80,7 +106,8 @@ export function PatientSpecializationsDialog({
       ];
       fallbacks.forEach(f => {
         if (!specs.has(f.name)) {
-          specs.set(f.name, { name: f.name, category: f.category, count: 21 }); // Mocked 21 like the image
+          const count = doctors.filter(d => (d.specialization || "").toLowerCase().includes(f.name.toLowerCase())).length;
+          specs.set(f.name, { name: f.name, category: f.category, count });
         }
       });
     }
@@ -114,7 +141,7 @@ export function PatientSpecializationsDialog({
         )}
       >
         {/* Modern Header */}
-        <div className="flex items-center px-6 py-5 bg-transparent shrink-0">
+        <div className="flex items-center px-6 pt-4 bg-transparent shrink-0">
           <button 
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
@@ -156,7 +183,10 @@ export function PatientSpecializationsDialog({
           {specializations.map((spec, idx) => (
             <button
               key={idx}
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                if (onSelectSpecialization) onSelectSpecialization(spec.name);
+                onOpenChange(false);
+              }}
               className={cn(
                 "w-full flex items-center gap-4 p-4 rounded-lg transition-all",
                 "bg-white dark:bg-slate-900 border border-slate-100/50 dark:border-slate-800/50",
@@ -177,7 +207,7 @@ export function PatientSpecializationsDialog({
 
               <div className="flex items-center gap-1.5">
                 <span className="text-[12px] font-black text-slate-400">
-                  {spec.count > 0 ? spec.count : 21} {t("doctors").toLowerCase()}
+                  {spec.count} {t("doctors").toLowerCase()}
                 </span>
               </div>
             </button>

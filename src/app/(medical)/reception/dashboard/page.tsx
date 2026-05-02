@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Users,
   Clock,
@@ -24,24 +23,56 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
+import { patientService } from "@/services/patientService";
+import { useToastStore } from "@/stores/useToastStore";
 import { cn } from "@/lib/utils";
-import type { DashboardStaffSummaryData, DashboardAppointmentStatus } from "@/types";
+import type { DashboardStaffSummaryData, DashboardAppointmentStatus, ApiPatient, DashboardStaffQueueItem } from "@/types";
+import { Check, X, Eye } from "lucide-react";
 
 export default function ReceptionDashboard() {
   const { locale } = useTranslation();
+  const toast = useToastStore();
   const [dashboardData, setDashboardData] = React.useState<DashboardStaffSummaryData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [pendingPatients, setPendingPatients] = React.useState<ApiPatient[]>([]);
+  const [discountInputs, setDiscountInputs] = React.useState<Record<string, number>>({});
+  const [discountNotes, setDiscountNotes] = React.useState<Record<string, string>>({});
+  const [previewCard, setPreviewCard] = React.useState<string | null>(null);
 
   const refreshDashboard = React.useCallback(async () => {
     try {
       const summary = await dashboardService.getStaffSummary({ period: "day" });
       setDashboardData(summary);
+      
+      const patients = await patientService.getAll();
+      const filtered = (patients || []).filter((p: ApiPatient) => {
+        const mh = (p.medicalHistory as Record<string, unknown>) || {};
+        const ins = (mh.insuranceDetails as Record<string, unknown>) || {};
+        return ins.verificationStatus === "pending";
+      });
+      setPendingPatients(filtered);
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const handleVerify = async (patientId: string, status: "verified" | "rejected") => {
+    try {
+      await patientService.verifyInsurance(patientId, {
+        status,
+        discountPercent: status === "verified" ? (discountInputs[patientId] || 0) : undefined,
+        discountNote: status === "verified" ? (discountNotes[patientId] || "") : undefined,
+        verifiedBy: "receptionist",
+      });
+      toast.success(status === "verified" ? "Insurance approved successfully" : "Insurance rejected successfully");
+      void refreshDashboard();
+    } catch (err) {
+      console.error("Failed to verify insurance", err);
+      toast.error("Failed to verify insurance coverage");
+    }
+  };
 
   useEffect(() => {
     void refreshDashboard();
@@ -52,8 +83,10 @@ export default function ReceptionDashboard() {
   const summary = dashboardData?.summaryCards;
   const upcoming = dashboardData?.queue.upcoming || [];
 
+
   return (
     <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto bg-[#F9FAFB] min-h-screen relative pb-24">
+
       {/* 1. Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
@@ -71,7 +104,7 @@ export default function ReceptionDashboard() {
           <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
             <CalendarDays className="h-5 w-5 text-blue-600" />
             <span className="text-sm font-semibold text-slate-700">
-              {locale === "ar" ? "الإثنين، 24 أكتوبر، 2026" : "Monday, Oct 24th, 2026"}
+              {locale === "ar" ? "الاثنين، 24 أكتوبر، 2026" : "Monday, Oct 24th, 2026"}
             </span>
           </div>
           <div className="flex items-center gap-1 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
@@ -102,11 +135,147 @@ export default function ReceptionDashboard() {
         </div>
       </div>
 
-      {/* 4. Today's Appointments */}
+      {/* Pending Insurance Verification */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Today's Appointments</h2>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Pending Insurance Verification</h2>
+            <p className="text-slate-400 text-sm font-medium">Review patient insurance card submissions and approve or reject coverage.</p>
+          </div>
+          {pendingPatients.length > 0 && (
+            <Badge className="bg-amber-50 text-amber-600 border-none font-bold rounded-lg px-2 py-1">
+              {pendingPatients.length} pending
+            </Badge>
+          )}
+        </div>
+
+        {pendingPatients.length === 0 ? (
+          <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-[32px] overflow-hidden bg-white/60">
+            <CardContent className="p-8 text-center text-slate-400 text-sm font-medium">
+              No pending insurance card submissions for approval.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-6">
+            {pendingPatients.map((patient: ApiPatient) => {
+              const mh = (patient.medicalHistory as Record<string, unknown>) || {};
+              const ins = (mh.insuranceDetails as Record<string, unknown>) || {};
+              const imageUrl = (ins.cardImageUrl as string) || '';
+              return (
+                <Card key={patient.id} className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[32px] overflow-hidden bg-white group hover:shadow-[0_20px_50px_rgb(59,130,246,0.03)] transition-all duration-300">
+                  <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-14 w-14 border-2 border-white shadow-md">
+                        <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${patient.fullName}`} />
+                        <AvatarFallback>P</AvatarFallback>
+                      </Avatar>
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-bold text-slate-900">{patient.fullName}</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Provider: {String(ins.provider) || 'N/A'}</p>
+                        <p className="text-xs font-medium text-slate-400">Policy: {String(ins.policyNumber) || 'N/A'} • Exp: {String(ins.expiryDate) || 'N/A'}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[10px] tracking-wide rounded-lg px-2 py-1">
+                            {String(ins.category) || 'Individual'}
+                          </Badge>
+                          {imageUrl && (
+                            <Button
+                              variant="ghost"
+                              onClick={() => setPreviewCard(imageUrl)}
+                              className="text-xs font-bold text-blue-600 hover:text-blue-700 p-0 flex items-center gap-1 h-auto"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View Card
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Inline actions and inputs for discount/approval */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 shrink-0 bg-slate-50/50 p-4 rounded-[24px] border border-slate-100 dark:border-slate-800">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Discount (%)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={discountInputs[patient.id] ?? ''}
+                          onChange={(e) => setDiscountInputs(prev => ({ ...prev, [patient.id]: Number(e.target.value) }))}
+                          placeholder="e.g. 10"
+                          className="h-10 w-24 rounded-xl bg-white border border-slate-100 dark:border-slate-800 px-3 text-sm font-bold shadow-sm focus:border-blue-500 text-slate-800"
+                        />
+                      </div>
+
+                      <div className="space-y-1 flex-1 sm:w-48">
+                        <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Note (Optional)</span>
+                        <input
+                          type="text"
+                          value={discountNotes[patient.id] ?? ''}
+                          onChange={(e) => setDiscountNotes(prev => ({ ...prev, [patient.id]: e.target.value }))}
+                          placeholder="e.g. VIP Coverage"
+                          className="h-10 w-full rounded-xl bg-white border border-slate-100 dark:border-slate-800 px-3 text-sm font-medium shadow-sm focus:border-blue-500 text-slate-800"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 sm:pt-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleVerify(patient.id, 'rejected')}
+                          className="h-10 w-10 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 p-0 flex items-center justify-center transition active:scale-[0.96]"
+                        >
+                          <X className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          onClick={() => handleVerify(patient.id, 'verified')}
+                          className="h-10 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm px-4 shadow-md shadow-emerald-500/20 flex items-center gap-2 transition active:scale-[0.98]"
+                        >
+                          <Check className="w-4 h-4" /> Approve
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Card Image Lightbox modal */}
+      {previewCard && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative max-w-2xl w-full bg-white dark:bg-slate-900 rounded-[32px] p-4 shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-4">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100">Insurance Card Image</h3>
+              <Button
+                variant="ghost"
+                onClick={() => setPreviewCard(null)}
+                className="h-8 w-8 rounded-full p-0 flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="relative aspect-[3/2] w-full rounded-[24px] overflow-hidden bg-slate-50 border border-slate-100 dark:border-slate-800">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewCard} alt="Insurance card preview" className="w-full h-full object-contain select-none" />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setPreviewCard(null)}
+                className="rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold px-6 h-11"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Today's Appointments */}
+      <div className="space-y-6">
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Today&apos;s Appointments</h2>
             <p className="text-slate-400 text-sm font-medium">Managing {upcoming.length || 12} upcoming sessions for today</p>
           </div>
           <div className="flex items-center gap-3">
@@ -133,7 +302,7 @@ export default function ReceptionDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {(upcoming.length > 0 ? upcoming.slice(0, 4) : [1, 2, 3, 4]).map((apt: any, idx: number) => {
+                  {(upcoming.length > 0 ? upcoming.slice(0, 4) : [1, 2, 3, 4]).map((apt: DashboardStaffQueueItem | number, idx: number) => {
                     const patientName = typeof apt === "object" ? apt.patientName : (idx === 0 ? "Sarah Jenkins" : idx === 1 ? "Michael Ross" : idx === 2 ? "Emily Blunt" : "Robert Vance");
                     const status = typeof apt === "object" ? apt.status : (idx === 0 ? "CONFIRMED" : idx === 1 ? "IN_PROGRESS" : idx === 2 ? "SCHEDULED" : "COMPLETED");
                     const time = typeof apt === "object" ? apt.time : "09:00 AM";
@@ -269,8 +438,22 @@ export default function ReceptionDashboard() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, trend, badge, color }: any) {
-  const colorMap: any = { blue: "bg-blue-50 text-blue-600", orange: "bg-orange-50 text-orange-600", purple: "bg-purple-50 text-purple-600", green: "bg-emerald-50 text-emerald-600" };
+interface StatCardProps {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  trend?: string;
+  badge?: string;
+  color: "blue" | "orange" | "purple" | "green";
+}
+
+function StatCard({ icon: Icon, label, value, trend, badge, color }: StatCardProps) {
+  const colorMap: Record<string, string> = { 
+    blue: "bg-blue-50 text-blue-600", 
+    orange: "bg-orange-50 text-orange-600", 
+    purple: "bg-purple-50 text-purple-600", 
+    green: "bg-emerald-50 text-emerald-600" 
+  };
   return (
     <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
       <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[32px] overflow-hidden bg-white">
@@ -290,7 +473,14 @@ function StatCard({ icon: Icon, label, value, trend, badge, color }: any) {
   );
 }
 
-function ActionCard({ icon: Icon, title, subtitle, href }: any) {
+interface ActionCardProps {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  href: string;
+}
+
+function ActionCard({ icon: Icon, title, subtitle, href }: ActionCardProps) {
   return (
     <Link href={href}>
       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -305,13 +495,26 @@ function ActionCard({ icon: Icon, title, subtitle, href }: any) {
   );
 }
 
-function StatusBadge({ status }: any) {
-  const configs: any = { CONFIRMED: { label: "Confirmed", color: "bg-blue-50 text-blue-600" }, IN_PROGRESS: { label: "In Progress", color: "bg-orange-50 text-orange-600" }, SCHEDULED: { label: "Waiting", color: "bg-slate-100 text-slate-500" }, COMPLETED: { label: "Completed", color: "bg-emerald-50 text-emerald-600" } };
+interface StatusBadgeProps {
+  status: DashboardAppointmentStatus;
+}
+
+function StatusBadge({ status }: StatusBadgeProps) {
+  const configs: Record<string, { label: string; color: string }> = { 
+    CONFIRMED: { label: "Confirmed", color: "bg-blue-50 text-blue-600" }, 
+    IN_PROGRESS: { label: "In Progress", color: "bg-orange-50 text-orange-600" }, 
+    SCHEDULED: { label: "Waiting", color: "bg-slate-100 text-slate-500" }, 
+    COMPLETED: { label: "Completed", color: "bg-emerald-50 text-emerald-600" } 
+  };
   const config = configs[status] || configs.SCHEDULED;
   return <Badge className={cn("rounded-full px-4 py-1 border-none font-bold text-[11px]", config.color)}>{config.label}</Badge>;
 }
 
-function ActionButton({ status }: any) {
+interface ActionButtonProps {
+  status: DashboardAppointmentStatus;
+}
+
+function ActionButton({ status }: ActionButtonProps) {
   let label = "View";
   if (status === "CONFIRMED") label = "Check in";
   if (status === "SCHEDULED") label = "Go to queue";
@@ -319,13 +522,28 @@ function ActionButton({ status }: any) {
   return <Button variant="link" className="text-blue-600 font-bold hover:no-underline px-0">{label}</Button>;
 }
 
-function QueueStatusBadge({ status }: any) {
-  const configs: any = { IN_PROGRESS: { label: "IN-PROGRESS", color: "bg-emerald-50/60 text-emerald-600" }, WAITING: { label: "WAITING", color: "bg-orange-50 text-orange-400" }, UPCOMING: { label: "UPCOMING", color: "bg-blue-50/50 text-slate-400" } };
+interface QueueStatusBadgeProps {
+  status: "IN_PROGRESS" | "WAITING" | "UPCOMING";
+}
+
+function QueueStatusBadge({ status }: QueueStatusBadgeProps) {
+  const configs: Record<string, { label: string; color: string }> = { 
+    IN_PROGRESS: { label: "IN-PROGRESS", color: "bg-emerald-50/60 text-emerald-600" }, 
+    WAITING: { label: "WAITING", color: "bg-orange-50 text-orange-400" }, 
+    UPCOMING: { label: "UPCOMING", color: "bg-blue-50/50 text-slate-400" } 
+  };
   const config = configs[status] || configs.UPCOMING;
   return <Badge className={cn("rounded-full px-3 py-1 border-none font-bold text-[10px] tracking-tight", config.color)}>{config.label}</Badge>;
 }
 
-function TimelineItem({ time, title, subtitle, active }: any) {
+interface TimelineItemProps {
+  time: string;
+  title: string;
+  subtitle: string;
+  active?: boolean;
+}
+
+function TimelineItem({ time, title, subtitle, active }: TimelineItemProps) {
   return (
     <div className="flex gap-6 relative">
       <div className={cn("z-10 h-[22px] w-[22px] rounded-full border-4 border-white shadow-sm transition-colors", active ? "bg-blue-600" : "bg-slate-200")} />

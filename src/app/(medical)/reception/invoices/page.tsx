@@ -34,6 +34,14 @@ const INVOICES = Array.from({ length: 37 }, (_, i) => ({
 type Status = "all" | "paid" | "pending" | "overdue";
 const STATUS_LABELS: Record<Status, string> = { all: "All states", paid: "Paid", pending: "Pending", overdue: "Overdue" };
 const PAGE_SIZE = 10;
+interface Invoice {
+  id: string;
+  date: string;
+  patient: { name: string; avatar: string };
+  service: string;
+  amount: number;
+  status: "paid" | "pending" | "overdue";
+}
 
 export default function InvoiceListPage() {
   const [search, setSearch] = useState("");
@@ -67,7 +75,11 @@ export default function InvoiceListPage() {
   const toggleSelect = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
 
@@ -238,7 +250,7 @@ export default function InvoiceListPage() {
 
         {/* Table Rows */}
         <div className="divide-y divide-slate-50">
-          {pageItems.map((inv) => (
+          {pageItems.map((inv: Invoice) => (
             <div
               key={inv.id}
               className={cn(
@@ -362,7 +374,16 @@ export default function InvoiceListPage() {
 
 /* ── Sub-components ────────────────────────────────────────────── */
 
-function StatCard({ icon, iconBg, label, value, trend, trendUp }: any) {
+interface StatCardProps {
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
+  value: string;
+  trend: string;
+  trendUp: boolean;
+}
+
+function StatCard({ icon, iconBg, label, value, trend, trendUp }: StatCardProps) {
   return (
     <div className="bg-white rounded-[24px] shadow-[0_2px_16px_rgb(0,0,0,0.04)] p-6 flex items-center justify-between">
       <div className="space-y-2">

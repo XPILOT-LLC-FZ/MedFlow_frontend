@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bot, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface FloatingChatButtonProps {
   unreadCount?: number;
@@ -23,7 +22,7 @@ export function FloatingChatButton({
   }, []);
 
   return (
-    <div className="fixed right-6 bottom-10 lg:right-10 lg:bottom-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
+    <div className="fixed right-6 bottom-22 md:bottom-10 lg:right-10 lg:bottom-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
       <AnimatePresence>
         {showBubble && (
           <motion.div

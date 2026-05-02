@@ -9,7 +9,9 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Globe
+  Globe,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { authService } from '@/services/authService';
@@ -23,7 +25,7 @@ type ViewState = 'menu' | 'password';
 
 export default function SecurityPanel() {
   const { locale } = useTranslation();
-  const { setLocale } = useStore();
+  const { setLocale, theme, toggleTheme } = useStore();
   const toast = useToastStore();
   const setDeepFlow = useProfileUiStore((state) => state.setDeepFlow);
 
@@ -134,6 +136,31 @@ export default function SecurityPanel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-500 font-bold text-sm uppercase">{locale}</span>
+                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                </div>
+              </button>
+
+              {/* Dark Mode */}
+              <button
+                onClick={toggleTheme}
+                className="w-full h-18 bg-white dark:bg-slate-900 rounded-[18px] border border-slate-100 dark:border-slate-800 px-4 flex items-center justify-between hover:bg-slate-50 transition-all group"
+              >
+                <div className="flex items-center gap-4">
+                  {theme === 'light' ? (
+                    <Moon className="h-6 w-6 text-indigo-600" />
+                  ) : (
+                    <Sun className="h-6 w-6 text-indigo-600" />
+                  )}
+                  <span className="font-bold text-slate-800 dark:text-slate-100">
+                    {locale === 'ar' ? 'الوضع الداكن' : 'Dark Mode'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-blue-500 font-bold text-sm uppercase">
+                    {locale === 'ar' 
+                      ? (theme === 'light' ? 'إيقاف' : 'تشغيل') 
+                      : (theme === 'light' ? 'Off' : 'On')}
+                  </span>
                   <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
                 </div>
               </button>

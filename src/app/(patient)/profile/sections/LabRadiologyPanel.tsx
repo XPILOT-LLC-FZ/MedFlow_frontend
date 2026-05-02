@@ -35,6 +35,7 @@ interface MedicalReport {
   type: 'lab' | 'radiology';
   status: 'completed' | 'pending' | 'critical';
   fileUrl?: string;
+  uploadedByPatient?: boolean;
 }
 
 export default function LabRadiologyPanel() {
@@ -64,6 +65,9 @@ export default function LabRadiologyPanel() {
       const docs = await patientDocumentService.getCurrentPatientDocuments();
 
       const mapped: MedicalReport[] = docs.map(doc => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyDoc = doc as unknown as any;
+        const realDoctorName = anyDoc.appointment?.doctor?.fullName || anyDoc.appointment?.doctorName || (doc.name.split('|')[3]) || (locale === 'ar' ? 'طبيب' : 'Doctor');
         const parts = doc.name.split('|');
         if (parts.length >= 4) {
           return {
@@ -71,26 +75,34 @@ export default function LabRadiologyPanel() {
             type: parts[0].toLowerCase() === 'radiology' ? 'radiology' : 'lab',
             name: parts[1],
             specialization: parts[2],
-            doctorName: parts[3],
+            doctorName: realDoctorName,
             date: new Date(doc.createdAt).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+              weekday: 'short',
               day: 'numeric',
-              month: 'short',
+              month: 'numeric',
               year: 'numeric'
             }),
             status: 'completed',
-            fileUrl: doc.fileUrl
+            fileUrl: doc.fileUrl,
+            uploadedByPatient: doc.uploadedByPatient === true || !doc.appointmentId
           };
         }
 
         return {
           id: doc.id,
           name: doc.name.replace('diagnostic-report-', ''),
-          doctorName: 'DR. name',
+          doctorName: realDoctorName,
           specialization: 'specialization',
-          date: new Date(doc.createdAt).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US'),
+          date: new Date(doc.createdAt).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'numeric',
+            year: 'numeric'
+          }),
           type: doc.name.toLowerCase().includes('radiology') ? 'radiology' : 'lab',
           status: 'completed',
-          fileUrl: doc.fileUrl
+          fileUrl: doc.fileUrl,
+          uploadedByPatient: doc.uploadedByPatient === true || !doc.appointmentId
         };
       });
 
@@ -230,28 +242,35 @@ export default function LabRadiologyPanel() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     onClick={() => handleCardClick(report)}
-                    className="bg-white dark:bg-slate-900 p-5 rounded-md border border-slate-100 dark:border-slate-800 flex items-center gap-4 hover:shadow-md transition-all active:scale-[0.98] group cursor-pointer"
+                    className="bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all relative group cursor-pointer flex flex-col justify-between gap-4"
                   >
-                    {/* PDF Icon Container */}
-                    <div className="h-12 w-12 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 relative">
-                      <div className="relative">
-                        <FileText className="h-8 w-8 text-rose-500" />
-                        <span className="absolute -top-1 left-1 bg-white dark:bg-slate-900 text-[8px] font-black text-rose-500 px-1 border border-rose-100 dark:border-rose-900 rounded-sm leading-none py-0.5">PDF</span>
-                      </div>
+                    {/* Top row: Title and sender */}
+                    <div className="flex flex-col gap-1">
+                      <h3 className="font-extrabold text-[15px] md:text-[16px] text-emerald-600 dark:text-emerald-400 uppercase leading-snug break-words flex-1">
+                        {report.name}
+                      </h3>
+                      <p className="text-[12px] md:text-[13px] text-slate-500 font-medium">
+                        {report.uploadedByPatient
+                          ? (locale === 'ar' ? 'تم الرفع بواسطتك' : 'Uploaded by you')
+                          : (locale === 'ar' ? `تم الإرسال بواسطة: ${report.doctorName}` : `Sent by: ${report.doctorName}`)}
+                      </p>
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-bold text-[16px] text-slate-800 dark:text-white truncate pr-2">
-                          {report.name}
-                        </h3>
-                        <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 flex-shrink-0">
-                          {report.doctorName}
-                        </span>
-                      </div>
-                      <p className="text-[13px] text-slate-400 font-medium mt-0.5">
-                        {report.specialization}
-                      </p>
+                    {/* Bottom row: Date and View report button */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                        {locale === 'ar' ? 'التاريخ : ' : 'Date : '}
+                        {report.date}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDocument(report.id);
+                        }}
+                        className="bg-[#008AE6] hover:bg-blue-600 active:scale-95 text-white text-[14px] font-bold px-5 py-2 rounded-full transition-all shadow-sm flex items-center gap-1"
+                      >
+                        {locale === 'ar' ? 'عرض التقرير' : 'View report'}
+                      </button>
                     </div>
                   </motion.div>
                 ))
@@ -270,13 +289,12 @@ export default function LabRadiologyPanel() {
               )}
             </div>
 
-            {/* FAB */}
             <button
               onClick={() => {
                 setUploadType(activeTab);
                 setView('upload');
               }}
-              className="fixed bottom-24 right-6 h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-blue-600/40 active:scale-90 transition-all z-40"
+              className="fixed bottom-40 md:bottom-40 right-6 h-15 w-15 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-blue-600/40 active:scale-90 transition-all z-40"
             >
               <Plus className="h-8 w-8" />
             </button>

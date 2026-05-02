@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, Phone, MoreVertical, User, MessageSquare } from "lucide-react";
+import { Clock, Phone, User, MessageSquare, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,10 +26,14 @@ export function AppointmentCard({
   appointment,
   delay = 0,
   isPatientView = false,
+  onDetailClick,
+  onBookAgainClick,
 }: {
   appointment: Appointment;
   delay?: number;
   isPatientView?: boolean;
+  onDetailClick?: () => void;
+  onBookAgainClick?: () => void;
 }) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const { locale } = useTranslation();
@@ -83,9 +87,6 @@ export function AppointmentCard({
                   <Heart className={cn("h-4 w-4", isFav && "fill-current")} />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
             </div>
           </div>
 
@@ -136,12 +137,66 @@ export function AppointmentCard({
           </div>
         </div>
 
-        {/* Footer Section: Reason */}
-        <div className="px-5 py-3 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800/60">
+        {/* Footer Section: Actions */}
+        <div className="px-5 py-4 bg-slate-50/50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-800/60 space-y-3">
           <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium">
-            <span className="text-slate-400 dark:text-slate-500 font-normal">Reason: </span>
-            {appointment.notes || "Hypertension checkup"}
+            <span className="text-slate-400 dark:text-slate-500 font-normal">{locale === "ar" ? "الملاحظات:" : "Notes: "}</span>
+            {appointment.notes || (locale === "ar" ? "فحص عام" : "General checkup")}
           </p>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 items-center">
+            {/* Reschedule for Upcoming, Detail + Book Again for Past */}
+            {appointment.status === "completed" ? (
+              <>
+                {onDetailClick && (
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-10 text-sm font-bold rounded-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDetailClick();
+                    }}
+                  >
+                    {locale === "ar" ? "التفاصيل" : "Detail"}
+                  </Button>
+                )}
+                {onBookAgainClick && (
+                  <Button
+                    className="flex-1 h-10 text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onBookAgainClick();
+                    }}
+                  >
+                    {locale === "ar" ? "حجز مجددًا" : "Book again"}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                {onDetailClick && (
+                  <Button
+                    className="flex-1 h-10 text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDetailClick();
+                    }}
+                  >
+                    {locale === "ar" ? "إعادة جدولة" : "Reschedule"}
+                  </Button>
+                )}
+              </>
+            )}
+            {/* Delete Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </Card>
     </motion.div>

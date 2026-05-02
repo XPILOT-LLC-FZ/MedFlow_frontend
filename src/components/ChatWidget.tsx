@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, Loader2, RefreshCw, Bot } from "lucide-react";
+import { X, Send, Loader2, RefreshCw, Bot } from "lucide-react";
 import { aiChatService } from "@/services/aiChatService";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";

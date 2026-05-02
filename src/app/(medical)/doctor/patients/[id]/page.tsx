@@ -37,6 +37,7 @@ import { whatsAppService } from "@/services/whatsAppService";
 import { staffService } from "@/services/staffService";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
+import DocLabRadiologyPanel from "./DocLabRadiologyPanel";
 import type {
   ApiAppointment,
   ApiInvestigation,
@@ -127,12 +128,13 @@ export default function DoctorPatientDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [patient, setPatient] = useState<ApiPatient | null>(null);
   const [appointments, setAppointments] = useState<ApiAppointment[]>([]);
-  const [labResults, setLabResults] = useState<ApiLabResult[]>([]);
+  const [, setLabResults] = useState<ApiLabResult[]>([]);
   const [prescriptions, setPrescriptions] = useState<ApiPrescription[]>([]);
   const [investigations, setInvestigations] = useState<ApiInvestigation[]>([]);
   const [documents, setDocuments] = useState<ApiPatientDocument[]>([]);
 
   const [activeTab, setActiveTab] = useState("history");
+  const [doctorName, setDoctorName] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
 
   const [diagnosisDraft, setDiagnosisDraft] = useState("");
@@ -166,26 +168,6 @@ export default function DoctorPatientDetailsPage() {
     }
     setMedicationSearchQuery("");
     setActiveMedicationSearchIndex(null);
-  };
-
-  const previewDocument = async (document: ApiPatientDocument) => {
-    if (!patientId) {
-      return;
-    }
-
-    try {
-      const result = await patientDocumentService.getDocumentDownloadUrlForPatient(
-        patientId,
-        document.id,
-      );
-      setPreviewFile({ ...document, fileUrl: result.downloadUrl });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : t("failedToLoadFile");
-      toastError(errorMessage);
-    }
   };
 
   useEffect(() => {
@@ -328,6 +310,7 @@ export default function DoctorPatientDetailsPage() {
         // Load doctor's prescription preferences
         if (doctorProfileResult.status === "fulfilled") {
           const doctorData = doctorProfileResult.value;
+          setDoctorName(doctorData.fullName || "");
           const prefs = doctorData.preferences as {
             prescriptionSettings?: {
               favoriteMedications?: PrescriptionMedicationItem[]
@@ -654,21 +637,6 @@ export default function DoctorPatientDetailsPage() {
   const chronicConditions = deriveChronicConditions(patient);
   const allergies = Array.isArray(patient.allergies) ? patient.allergies : [];
   const latestVisit = appointments[0];
-  const documentLookup = new Map(
-    documents.map((document) => [document.id, document] as const),
-  );
-  const patientUploadedDocuments = [...documents]
-    .filter((document) => {
-      // Include if explicitly marked as patient uploaded OR if uploader matches patient user ID
-      const isExplicitlyPatient = document.uploadedByPatient === true;
-      const matchesPatientId = patient.user?.id && document.uploadedBy === patient.user.id;
-      return isExplicitlyPatient || matchesPatientId;
-    })
-    .sort((a, b) => {
-      const aTime = new Date(a.createdAt).getTime();
-      const bTime = new Date(b.createdAt).getTime();
-      return bTime - aTime;
-    });
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -752,8 +720,7 @@ export default function DoctorPatientDetailsPage() {
                 ) : (
                   chronicConditions.map((condition) => (
                     <div key={condition} className="rounded-lg bg-[#FFF9F0] dark:bg-amber-950/20 border border-[#FFE9C8] dark:border-amber-900/40 px-3 py-1.5 text-[12px] font-bold text-[#B45309]">
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                      {t(condition.toLowerCase().replace(/\s+/g, "") as any) || condition}
+                      {t(condition.toLowerCase().replace(/\s+/g, "") as Parameters<typeof t>[0]) || condition}
                     </div>
                   ))
                 )}
@@ -794,6 +761,7 @@ export default function DoctorPatientDetailsPage() {
           {[
             { id: "history", en: "Visit history", ar: "سجل الزيارات" },
             { id: "labs", en: "Lab results", ar: "نتائج التحاليل" },
+            { id: "radiology", en: "Radiology report", ar: "تقرير الأشعة" },
             { id: "clinical", en: "Clinical Notes & Diagnosis", ar: "الملاحظات السريرية" },
           ].map((tab) => (
             <TabsTrigger
@@ -801,8 +769,7 @@ export default function DoctorPatientDetailsPage() {
               value={tab.id}
               className="flex-1 py-2.5 rounded-xl bg-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-600/20 text-[14px] font-bold text-slate-500 dark:text-slate-400 transition-all duration-300 border-none"
             >
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {t(tab.id as any)}
+              {locale === "ar" ? tab.ar : tab.en}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -829,8 +796,7 @@ export default function DoctorPatientDetailsPage() {
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
                             <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-100">
-                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                              {visit.serviceName ? (t(visit.serviceName.toLowerCase().replace(/\s+/g, "") as any) || visit.serviceName) : t("routineCheckup")}
+                              {visit.serviceName ? (t(visit.serviceName.toLowerCase().replace(/\s+/g, "") as Parameters<typeof t>[0]) || visit.serviceName) : t("routineCheckup")}
                             </h4>
                             <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500">
                               {formatDate(visit.date, locale)}
@@ -848,106 +814,45 @@ export default function DoctorPatientDetailsPage() {
             )}
           </div>
         </TabsContent>
+
         <TabsContent value="labs" className="mt-0">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4">
-              {labResults.length === 0 && patientUploadedDocuments.length === 0 ? (
-                <Card className="border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 rounded-[24px]">
-                  <CardContent className="py-12 text-center">
-                    <p className="text-slate-500 dark:text-slate-400 text-[14px] font-medium">
-                      {t("noResults")}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  {/* Structured Lab Results */}
-                  {labResults.map((result) => {
-                    const linkedDocument =
-                      (result.documentId
-                        ? documentLookup.get(result.documentId)
-                        : result.document?.id
-                          ? documentLookup.get(result.document.id)
-                          : undefined) ||
-                      null;
+          <DocLabRadiologyPanel
+            fileType="lab"
+            patientId={patientId}
+            patientUserId={patient?.user?.id}
+            documents={documents}
+            doctorName={doctorName}
+            onRefresh={async () => {
+              if (patientId) {
+                try {
+                  const nextDocs = await patientDocumentService.getAll(patientId);
+                  setDocuments(nextDocs);
+                } catch (err) {
+                  console.error("Failed to refresh documents:", err);
+                }
+              }
+            }}
+          />
+        </TabsContent>
 
-                    const isNormal = result.status === "NORMAL";
-                    const cardStyles = isNormal
-                      ? "bg-[#F3FAF5] border-[#E2F2E9] dark:bg-emerald-950/10 dark:border-emerald-900/20"
-                      : "bg-[#FFF9F2] border-[#FCECD8] dark:bg-orange-950/10 dark:border-orange-900/20";
-
-                    const badgeStyles = isNormal
-                      ? "bg-[#D1FADF] text-[#027A48] dark:bg-emerald-900/30 dark:text-emerald-400"
-                      : "bg-[#FEE4E2] text-[#B42318] dark:bg-rose-900/30 dark:text-rose-400";
-
-                    return (
-                      <article key={result.id} className={`relative rounded-[16px] border p-5 transition-all hover:shadow-sm ${cardStyles}`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 space-y-4">
-                            <div className="flex justify-between items-start">
-                              <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{result.testName}</h4>
-                              <span className="text-[12px] font-bold text-slate-400">
-                                {formatDate(result.resultDate, locale)}
-                              </span>
-                            </div>
-
-                            <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400">
-                              {result.resultSummary || t("noResults")}
-                            </p>
-
-                            <div className="flex items-center gap-3">
-                              <span className="text-[13px] font-bold text-slate-400">{t("result")}</span>
-                              <Badge className={`px-2.5 py-1 rounded-lg border-none text-[11px] font-black uppercase tracking-tight shadow-none ${badgeStyles}`}>
-                                {isNormal ? t("normal") : t("abnormal")}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          <div className="ml-6 self-end">
-                            <Button
-                              className="h-10 px-6 rounded-xl bg-[#4A55EA] text-white hover:bg-[#3F48C7] font-bold text-[13px] transition-all shadow-lg shadow-blue-600/10"
-                              disabled={!linkedDocument}
-                              onClick={() => linkedDocument && void previewDocument(linkedDocument)}
-                            >
-                              {t("openPdf")}
-                            </Button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-
-                  {/* Patient Uploaded Documents (Styled as Results) */}
-                  {patientUploadedDocuments.map((document) => (
-                    <article key={document.id} className="relative rounded-[18px] border border-slate-100 bg-white dark:bg-slate-950 dark:border-slate-800 p-6 transition-all hover:border-blue-200 dark:hover:border-blue-900/50">
-                      <div className="flex justify-between items-start mb-4">
-                        <h4 className="text-[16px] font-bold text-slate-800 dark:text-slate-100">{document.name}</h4>
-                        <span className="text-[11px] font-bold text-slate-400">
-                          {formatDate(document.createdAt, locale)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          <span className="text-[13px] font-medium text-slate-500 uppercase tracking-widest">
-                            {t("patientUpload")}
-                          </span>
-                        </div>
-
-                        <Button
-                          className="h-10 px-6 rounded-2xl bg-slate-800 text-white hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 font-bold text-[13px] transition-all"
-                          onClick={() => void previewDocument(document)}
-                        >
-                          {t("view")}
-                        </Button>
-                      </div>
-                    </article>
-                  ))}
-                </>
-              )}
-            </div>
-          </div>
+        <TabsContent value="radiology" className="mt-0">
+          <DocLabRadiologyPanel
+            fileType="radiology"
+            patientId={patientId}
+            patientUserId={patient?.user?.id}
+            documents={documents}
+            doctorName={doctorName}
+            onRefresh={async () => {
+              if (patientId) {
+                try {
+                  const nextDocs = await patientDocumentService.getAll(patientId);
+                  setDocuments(nextDocs);
+                } catch (err) {
+                  console.error("Failed to refresh documents:", err);
+                }
+              }
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="clinical" className="mt-0">
