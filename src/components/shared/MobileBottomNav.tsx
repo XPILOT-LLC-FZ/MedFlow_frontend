@@ -92,7 +92,7 @@ export function MobileBottomNav() {
         </div>
 
         {/* Navigation Content */}
-        <div className="absolute bottom-0 left-0 right-0 h-22 flex items-start justify-around px-4 pt-6">
+        <div className="absolute bottom-0 left-0 right-0 h-20 flex items-start justify-around px-4 pt-6">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;

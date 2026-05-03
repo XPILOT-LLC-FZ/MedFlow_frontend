@@ -36,7 +36,7 @@ export function FloatingChatButton({
   }, [pathname]);
 
   return (
-    <div className="fixed right-6 bottom-22 md:bottom-10 lg:right-10 lg:bottom-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
+    <div className="fixed right-6 bottom-24 md:bottom-10 lg:right-10 lg:bottom-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
       <AnimatePresence>
         {showBubble && (
           <motion.div
