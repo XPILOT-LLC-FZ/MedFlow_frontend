@@ -7,6 +7,7 @@ export interface PendingBooking {
   date: string;
   time: string;
   mode: "ONSITE" | "ONLINE";
+  redeemPoints?: boolean;
 }
 
 interface BookingFlowState {
