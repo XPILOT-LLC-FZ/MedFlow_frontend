@@ -435,7 +435,7 @@ function ProfilePageContent() {
                     {patient?.dateOfBirth && ` (${new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(patient.dateOfBirth))})`}
                   </p>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300" />
+                <ChevronRight className={cn("h-5 w-5 text-slate-300 transition-all", locale === "ar" && "rotate-180")} />
               </motion.div>
 
               {/* Menu List */}
@@ -464,7 +464,7 @@ function ProfilePageContent() {
                     >
                       <ItemIcon className={cn("h-6 w-6", SECTION_METADATA[item.id as SectionId].color)} strokeWidth={1.5} />
                       <span className={cn("flex-1 text-left rtl:text-right font-medium text-[15px]", item.isLogout ? "text-rose-500" : "text-slate-700 dark:text-slate-200")}>{locale === "ar" ? item.labelAr : item.label}</span>
-                      <ChevronRight className="h-5 w-5 text-slate-300" />
+                      <ChevronRight className={cn("h-5 w-5 text-slate-300 transition-all", locale === "ar" && "rotate-180")} />
                     </button>
                   );
                 })}

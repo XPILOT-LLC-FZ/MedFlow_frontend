@@ -274,6 +274,7 @@ export interface Appointment {
   notes?: string;
   redeemPoints?: boolean;
   amount?: number;
+  paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
 }
 
 export interface ApiAppointment {
@@ -309,26 +310,6 @@ export interface ApiAppointment {
   } | null;
   prescriptions?: ApiPrescription[];
   investigationOrders?: ApiInvestigation[];
-  invoices?: ApiInvoice[];
-}
-
-export interface ApiInvoice {
-  id: string;
-  invoiceNumber?: string | null;
-  appointmentId?: string | null;
-  patientId?: string | null;
-  patientName?: string | null;
-  doctorName?: string | null;
-  items?: any;
-  subtotal: number;
-  discount: number;
-  tax: number;
-  totalAmount: number;
-  paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
-  paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt?: string;
 }
 
 export interface ApiPatientPaymentHistoryItem {
@@ -375,13 +356,13 @@ export interface NotifyAppointmentWhatsAppPayload {
   message?: string;
   estimatedWaitMinutes?: number;
   status?:
-    | "SCHEDULED"
-    | "CONFIRMED"
-    | "IN_PROGRESS"
-    | "COMPLETED"
-    | "CANCELLED"
-    | "NO_SHOW"
-    | "RESCHEDULED";
+  | "SCHEDULED"
+  | "CONFIRMED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW"
+  | "RESCHEDULED";
 }
 
 export interface NotifyAppointmentWhatsAppResponse {
@@ -919,11 +900,11 @@ export interface PatientListFilters {
   vipTier?: "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
   gender?: string;
   portalStatus?:
-    | "all"
-    | "with_account"
-    | "without_account"
-    | "onboarding_pending"
-    | "onboarding_completed";
+  | "all"
+  | "with_account"
+  | "without_account"
+  | "onboarding_pending"
+  | "onboarding_completed";
   sortBy?: "fullName" | "createdAt" | "totalVisits" | "totalSpent";
   sortOrder?: "asc" | "desc";
   take?: number;

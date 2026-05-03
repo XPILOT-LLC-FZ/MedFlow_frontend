@@ -93,7 +93,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     isSpecOpen, isDocsOpen, isBookOpen, isCheckoutOpen,
     selectedSpecialization, selectedDoctor, pendingBooking,
     setSpecOpen, setDocsOpen, setBookOpen, setCheckoutOpen,
-    openDocs, openBook, openCheckout, closeAll
+    openSpec, openDocs, openBook, openCheckout, closeAll
   } = useBookingFlowStore();
 
   const { addAppointment } = useBookingStore();
@@ -162,7 +162,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     return Math.max(0, Math.min(100, rawDiscount));
   };
 
-  const handleBookNow = async (data: { redeemPoints: boolean; notes?: string }) => {
+  const handleBookNow = async (data: { redeemPoints: boolean; notes?: string; paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" }) => {
     if (!selectedDoctor || !pendingBooking) return;
 
     const patientId = currentPatient?.id || user?.id || "guest";
@@ -181,6 +181,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         type: "Consultation",
         notes: data.notes,
         redeemPoints: data.redeemPoints,
+        paymentMethodType: data.paymentMethodType,
       });
 
       toast.success(locale === "ar" ? "تم حجز الموعد بنجاح" : "Appointment booked successfully");
@@ -241,6 +242,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <PatientDoctorsDialog
             isOpen={isDocsOpen}
             onOpenChange={setDocsOpen}
+            onBack={() => openSpec()}
             doctors={doctors}
             specializationFilter={selectedSpecialization}
             onBookAppointment={(doc) => openBook(doc)}
@@ -249,18 +251,20 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <BookAppointmentDialog
             isOpen={isBookOpen}
             onOpenChange={setBookOpen}
+            onBack={() => openDocs(selectedSpecialization)}
             doctor={selectedDoctor}
-            loyaltyPoints={user?.loyaltyPoints || 0}
+            loyaltyPoints={currentPatient?.loyaltyPoints || user?.loyaltyPoints || 0}
             onConfirm={(booking) => openCheckout(booking)}
           />
 
           <CheckoutDialog
             isOpen={isCheckoutOpen}
             onOpenChange={setCheckoutOpen}
+            onBack={() => selectedDoctor && openBook(selectedDoctor)}
             doctor={selectedDoctor}
             bookingData={pendingBooking}
-            loyaltyPoints={user?.loyaltyPoints || 0}
-            specialDiscount={user?.specialDiscount || 0}
+            loyaltyPoints={currentPatient?.loyaltyPoints || user?.loyaltyPoints || 0}
+            specialDiscount={currentPatient?.specialDiscount || user?.specialDiscount || 0}
             insuranceDiscount={getVerifiedInsuranceDiscount()}
             onBookNow={handleBookNow}
           />

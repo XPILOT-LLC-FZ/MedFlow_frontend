@@ -27,6 +27,7 @@ import { surveyService } from "@/services/surveyService";
 interface BookAppointmentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onBack?: () => void;
   doctor: ApiPublicDoctor | null;
   loyaltyPoints: number;
   onConfirm: (data: {
@@ -38,15 +39,15 @@ interface BookAppointmentDialogProps {
 }
 
 const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
 const MONTH_NAMES_AR = [
-  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
-  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
 ];
-const DAY_HEADERS = ["Mo","Tu","We","Th","Fr","Sa","Su"];
-const DAY_HEADERS_AR = ["إث","ث","أر","خ","ج","س","أح"];
+const DAY_HEADERS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+const DAY_HEADERS_AR = ["إث", "ث", "أر", "خ", "ج", "س", "أح"];
 
 function buildCalendarDays(year: number, month: number) {
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
@@ -63,6 +64,7 @@ function buildCalendarDays(year: number, month: number) {
 export function BookAppointmentDialog({
   isOpen,
   onOpenChange,
+  onBack,
   doctor,
   loyaltyPoints,
   onConfirm,
@@ -91,7 +93,7 @@ export function BookAppointmentDialog({
       setRedeemPoints(false);
       setSlots([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   React.useEffect(() => {
@@ -161,8 +163,8 @@ export function BookAppointmentDialog({
 
   const displaySlots = filteredSlots.length > 0 ? filteredSlots : (
     selectedDay ? (timePeriod === "AM"
-      ? ["09:00","10:00","11:00","09:30","10:30"]
-      : ["13:00","14:00","15:00","16:00","17:00"]
+      ? ["09:00", "10:00", "11:00", "09:30", "10:30"]
+      : ["13:00", "14:00", "15:00", "16:00", "17:00"]
     ) : []
   );
 
@@ -193,7 +195,7 @@ export function BookAppointmentDialog({
       >
         <div className="flex items-center px-6 py-4 bg-transparent shrink-0">
           <button
-            onClick={() => onOpenChange(false)}
+            onClick={() => onBack ? onBack() : onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition-all"
           >
             <ChevronLeft className={cn("h-6 w-6", isRTL && "rotate-180")} />
@@ -296,7 +298,7 @@ export function BookAppointmentDialog({
                   viewYear === todayDate.getFullYear();
                 const isSelected = day === selectedDay;
                 const past = isPast(day);
-                
+
                 // Color dots/points based on real working shifts
                 const dObj = new Date(viewYear, viewMonth, day);
                 const dayOfWeekNumber = dObj.getDay();
@@ -385,7 +387,7 @@ export function BookAppointmentDialog({
 
               {loadingSlots ? (
                 <div className="grid grid-cols-3 gap-2">
-                  {[1,2,3].map(i => (
+                  {[1, 2, 3].map(i => (
                     <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
                   ))}
                 </div>

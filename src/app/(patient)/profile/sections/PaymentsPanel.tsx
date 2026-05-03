@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ShieldAlert } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { ApiPatient, ApiPatientPaymentHistoryItem } from '@/types';
 import { patientService } from '@/services/patientService';
@@ -35,6 +34,28 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
   }, [patient?.id]);
 
   const [activeTab, setActiveTab] = useState<'history' | 'wallets'>('history');
+  const [selectedWallet, setSelectedWallet] = useState<string>('apple');
+  const [cards, setCards] = useState<{ id: string; number: string; expiry: string; holder: string }[]>([]);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [cardForm, setCardForm] = useState({ cardholderName: '', cardNumber: '', expiryDate: '', cvv: '', isDefault: true });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('saved_cards');
+      if (stored) {
+        try {
+          setCards(JSON.parse(stored));
+        } catch {
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && cards.length > 0) {
+      localStorage.setItem('saved_cards', JSON.stringify(cards));
+    }
+  }, [cards]);
 
   const formatPaymentMethod = (method?: ApiPatientPaymentHistoryItem["paymentMethodType"]) => {
     switch (method) {
@@ -96,22 +117,230 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
 
       <div className="flex-1 overflow-y-auto px-1 py-2 space-y-2">
         {activeTab === 'wallets' ? (
-          <div className="p-5 rounded-[24px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-                <ShieldAlert className="h-5 w-5" />
+          <div className="space-y-4 max-w-lg mx-auto bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 rounded-[24px] shadow-sm animate-in fade-in duration-200">
+            {!showAddCard ? (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100">
+                    {locale === 'ar' ? 'إعدادات الدفع' : 'Payment settings'}
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Apple Pay */}
+                  <div
+                    onClick={() => setSelectedWallet('apple')}
+                    className={`flex items-center justify-between p-3.5 border rounded-2xl cursor-pointer transition-all select-none ${
+                      selectedWallet === 'apple'
+                        ? 'bg-blue-50/60 border-blue-600 dark:bg-blue-900/20 ring-1 ring-blue-600'
+                        : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-slate-100 dark:bg-slate-700/60 rounded-xl flex items-center justify-center text-slate-800 dark:text-slate-200">
+                        <span className="text-xl">🍎</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-800 dark:text-slate-200">Apple Pay</span>
+                    </div>
+                    <div className="h-5 w-5 rounded-full border border-slate-300 flex items-center justify-center">
+                      {selectedWallet === 'apple' && <div className="h-3 w-3 bg-blue-600 rounded-full" />}
+                    </div>
+                  </div>
+
+                  {/* Google Pay */}
+                  <div
+                    onClick={() => setSelectedWallet('google')}
+                    className={`flex items-center justify-between p-3.5 border rounded-2xl cursor-pointer transition-all select-none ${
+                      selectedWallet === 'google'
+                        ? 'bg-blue-50/60 border-blue-600 dark:bg-blue-900/20 ring-1 ring-blue-600'
+                        : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-slate-100 dark:bg-slate-700/60 rounded-xl flex items-center justify-center text-slate-800 dark:text-slate-200">
+                        <span className="text-xl">📱</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-800 dark:text-slate-200">Google Pay</span>
+                    </div>
+                    <div className="h-5 w-5 rounded-full border border-slate-300 flex items-center justify-center">
+                      {selectedWallet === 'google' && <div className="h-3 w-3 bg-blue-600 rounded-full" />}
+                    </div>
+                  </div>
+
+                  {/* Cash */}
+                  <div
+                    onClick={() => setSelectedWallet('cash')}
+                    className={`flex items-center justify-between p-3.5 border rounded-2xl cursor-pointer transition-all select-none ${
+                      selectedWallet === 'cash'
+                        ? 'bg-blue-50/60 border-blue-600 dark:bg-blue-900/20 ring-1 ring-blue-600'
+                        : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 bg-slate-100 dark:bg-slate-700/60 rounded-xl flex items-center justify-center text-slate-800 dark:text-slate-200">
+                        <span className="text-xl">💵</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-800 dark:text-slate-200">{locale === 'ar' ? 'كاش' : 'Cash'}</span>
+                    </div>
+                    <div className="h-5 w-5 rounded-full border border-slate-300 flex items-center justify-center">
+                      {selectedWallet === 'cash' && <div className="h-3 w-3 bg-blue-600 rounded-full" />}
+                    </div>
+                  </div>
+
+                  {/* Dynamic Cards */}
+                  {cards.map((card) => (
+                    <div
+                      key={card.id}
+                      onClick={() => setSelectedWallet(card.id)}
+                      className={`flex items-center justify-between p-3.5 border rounded-2xl cursor-pointer transition-all select-none ${
+                        selectedWallet === card.id
+                          ? 'bg-blue-50/60 border-blue-600 dark:bg-blue-900/20 ring-1 ring-blue-600'
+                          : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-slate-100 dark:bg-slate-700/60 rounded-xl flex items-center justify-center text-slate-800 dark:text-slate-200">
+                          <span className="text-xl">💳</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-black text-slate-800 dark:text-slate-200">
+                            Visa **** {card.number.slice(-4) || '8975'}
+                          </span>
+                          <p className="text-[10px] font-medium text-slate-500">Expires {card.expiry}</p>
+                        </div>
+                      </div>
+                      <div className="h-5 w-5 rounded-full border border-slate-300 flex items-center justify-center">
+                        {selectedWallet === card.id && <div className="h-3 w-3 bg-blue-600 rounded-full" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAddCard(true)}
+                  className="w-full flex items-center gap-2 py-3 px-1 mt-2 text-sm font-bold text-blue-600 hover:text-blue-700 select-none hover:underline"
+                >
+                  <span className="text-lg">+</span> {locale === 'ar' ? 'إضافة بطاقة ائتمان' : 'Add credit card'}
+                </button>
+
+                <button
+                  onClick={() => alert(locale === 'ar' ? 'تم الحفظ بنجاح' : 'Payment method saved successfully')}
+                  className="w-full py-3.5 bg-blue-600 text-white font-extrabold rounded-2xl shadow-md hover:bg-blue-700 transition-all mt-4 text-[15px]"
+                >
+                  {locale === 'ar' ? 'حفظ البيانات' : 'Save data'}
+                </button>
+              </>
+            ) : (
+              /* Add credit card view */
+              <div className="space-y-4 animate-in fade-in duration-200 select-none">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100">
+                    {locale === 'ar' ? 'إضافة بطاقة ائتمان' : 'Add credit card'}
+                  </h3>
+                  <button
+                    onClick={() => setShowAddCard(false)}
+                    className="text-sm font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    {locale === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </button>
+                </div>
+
+                <div className="space-y-3 mt-4">
+                  <div>
+                    <label className="text-xs font-black text-slate-700 dark:text-slate-300 mb-1 block">
+                      {locale === 'ar' ? 'اسم صاحب البطاقة' : 'Cardholder Name'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Doe"
+                      value={cardForm.cardholderName}
+                      onChange={(e) => setCardForm({ ...cardForm, cardholderName: e.target.value })}
+                      className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-slate-700 dark:text-slate-300 mb-1 block">
+                      {locale === 'ar' ? 'رقم البطاقة' : 'Card Number'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="0000 0000 0000 0000"
+                      value={cardForm.cardNumber}
+                      onChange={(e) => setCardForm({ ...cardForm, cardNumber: e.target.value })}
+                      className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-black text-slate-700 dark:text-slate-300 mb-1 block">
+                        {locale === 'ar' ? 'تاريخ الانتهاء' : 'Expiration Date'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="MM/YY"
+                        value={cardForm.expiryDate}
+                        onChange={(e) => setCardForm({ ...cardForm, expiryDate: e.target.value })}
+                        className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-black text-slate-700 dark:text-slate-300 mb-1 block">
+                        CVV
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="***"
+                        value={cardForm.cvv}
+                        onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value })}
+                        className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 select-none">
+                    <input
+                      type="checkbox"
+                      id="isDefault"
+                      checked={cardForm.isDefault}
+                      onChange={(e) => setCardForm({ ...cardForm, isDefault: e.target.checked })}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="isDefault" className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                      {locale === 'ar' ? 'تعيين كطريقة دفع افتراضية' : 'Set up as default payment method'}
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (!cardForm.cardholderName || !cardForm.cardNumber) {
+                      alert(locale === 'ar' ? 'الرجاء إدخال الاسم ورقم البطاقة' : 'Please enter cardholder name and card number');
+                      return;
+                    }
+                    const newCardId = `card-${Date.now()}`;
+                    setCards([
+                      ...cards,
+                      {
+                        id: newCardId,
+                        number: cardForm.cardNumber,
+                        expiry: cardForm.expiryDate || '12/28',
+                        holder: cardForm.cardholderName,
+                      },
+                    ]);
+                    setSelectedWallet(newCardId);
+                    setCardForm({ cardholderName: '', cardNumber: '', expiryDate: '', cvv: '', isDefault: true });
+                    setShowAddCard(false);
+                  }}
+                  className="w-full py-3.5 bg-blue-600 text-white font-extrabold rounded-2xl shadow-md hover:bg-blue-700 transition-all mt-6 text-[15px]"
+                >
+                  {locale === 'ar' ? 'إضافة البطاقة' : 'Add card'}
+                </button>
               </div>
-              <div className="space-y-1">
-                <p className="text-[15px] font-extrabold text-slate-800 dark:text-slate-100">
-                  {locale === 'ar' ? 'طرق الدفع غير محفوظة بعد' : 'Saved payment methods are not available yet'}
-                </p>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {locale === 'ar'
-                    ? 'نحفظ سجل الفواتير الحقيقي فقط في الوقت الحالي. يتم اختيار طريقة الدفع أثناء الحجز أو الدفع في العيادة.'
-                    : 'Only real invoice history is stored right now. Payment methods are selected during booking or at the clinic.'}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         ) : (
           /* Real Payments History Section */

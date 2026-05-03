@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, X } from "lucide-react";
+import { Bot} from "lucide-react";
+import { usePathname } from "next/navigation";
 
 interface FloatingChatButtonProps {
   unreadCount?: number;
@@ -14,12 +15,25 @@ export function FloatingChatButton({
   onClick,
 }: FloatingChatButtonProps) {
   const [showBubble, setShowBubble] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
-    // Show bubble after a delay when component mounts
-    const timer = setTimeout(() => setShowBubble(true), 15000);
-    return () => clearTimeout(timer);
-  }, []);
+    const isDashboard = pathname === "/dashboard" || pathname?.endsWith("/dashboard");
+    let showTimer: NodeJS.Timeout | undefined;
+    let hideTimer: NodeJS.Timeout | undefined;
+
+    if (isDashboard) {
+      showTimer = setTimeout(() => setShowBubble(true), 0);
+      hideTimer = setTimeout(() => setShowBubble(false), 3000);
+    } else {
+      showTimer = setTimeout(() => setShowBubble(false), 0);
+    }
+
+    return () => {
+      if (showTimer) clearTimeout(showTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, [pathname]);
 
   return (
     <div className="fixed right-6 bottom-22 md:bottom-10 lg:right-10 lg:bottom-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
@@ -29,17 +43,8 @@ export function FloatingChatButton({
             initial={{ opacity: 0, scale: 0.8, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            className="relative bg-blue-600 text-white px-6 py-4 rounded-3xl shadow-2xl shadow-blue-200 mb-2 max-w-[240px] pointer-events-auto"
+            className="relative bg-blue-600 text-white px-6 py-4 rounded-3xl shadow-xl shadow-blue-200 mb-2 max-w-[240px] pointer-events-auto"
           >
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowBubble(false);
-              }}
-              className="absolute -top-2 -right-2 bg-white text-slate-400 rounded-full p-1 shadow-md hover:text-slate-600 transition-colors"
-            >
-              <X className="h-3 w-3" />
-            </button>
             <p className="text-sm font-bold leading-relaxed">
               Need help? Ask me anything
             </p>

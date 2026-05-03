@@ -656,7 +656,15 @@ export const translations = {
     specialDiscount: "Special Discount",
     specialDiscountMsg: "A custom discount approved by reception has been applied.",
     totalPrice: "Total Price",
-    confirmBookNow: "Confirm & Book Now"
+    confirmBookNow: "Confirm & Book Now",
+    onsiteCash: "Onsite Cash",
+    payAtClinic: "Pay at Clinic",
+    onsiteCard: "Onsite Card",
+    useCardAtClinic: "POS Terminal",
+    onlineCard: "Online Card",
+    secureOnlineCard: "Visa, Mastercard",
+    onlineWallet: "Digital Wallet",
+    vodafoneCashEtc: "Mobile Wallets"
   },
   ar: {
     // Nav & Common
@@ -1315,7 +1323,15 @@ export const translations = {
     specialDiscount: "خصم خاص",
     specialDiscountMsg: "تم تطبيق خصم خاص معتمد من الاستقبال.",
     totalPrice: "المبلغ الإجمالي",
-    confirmBookNow: "تأكيد والحجز الآن"
+    confirmBookNow: "تأكيد والحجز الآن",
+    onsiteCash: "دفع نقدي بالعيادة",
+    payAtClinic: "الدفع بالعيادة",
+    onsiteCard: "دفع بالبطاقة بالعيادة",
+    useCardAtClinic: "جهاز الدفع بالعيادة",
+    onlineCard: "دفع بالبطاقة أونلاين",
+    secureOnlineCard: "فيزا، ماستركارد",
+    onlineWallet: "محفظة إلكترونية",
+    vodafoneCashEtc: "محافظ الهواتف الذكية"
   },
 } as const;
 
