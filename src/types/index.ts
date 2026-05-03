@@ -274,6 +274,7 @@ export interface Appointment {
   notes?: string;
   redeemPoints?: boolean;
   amount?: number;
+  paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
 }
 
 export interface ApiAppointment {
@@ -309,6 +310,7 @@ export interface ApiAppointment {
   } | null;
   prescriptions?: ApiPrescription[];
   investigationOrders?: ApiInvestigation[];
+  paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
 }
 
 export interface ApiPatientPaymentHistoryItem {

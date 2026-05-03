@@ -32,9 +32,9 @@ const NAV_ITEMS = [
     isCenter: true,
   },
   {
-    label: "Cart",
-    labelAr: "السلة",
-    href: "/chat", // Mapping to chat for now as there's no cart
+    label: "Chat",
+    labelAr: "المحادثات",
+    href: "/chat",
     icon: MessagesSquare,
   },
   {

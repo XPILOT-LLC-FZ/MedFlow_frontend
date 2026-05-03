@@ -35,6 +35,7 @@ import { DoctorProfileDialog } from "./DoctorProfileDialog";
 interface PatientDoctorsDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onBack?: () => void;
   doctors: ApiPublicDoctor[];
   specializationFilter?: string | null;
   onBookAppointment?: (doctor: ApiPublicDoctor) => void;
@@ -43,6 +44,7 @@ interface PatientDoctorsDialogProps {
 export function PatientDoctorsDialog({
   isOpen,
   onOpenChange,
+  onBack,
   doctors,
   specializationFilter,
   onBookAppointment,
@@ -153,7 +155,7 @@ export function PatientDoctorsDialog({
           <>
             <div className="flex items-center px-6 pt-4 bg-transparent shrink-0">
               <button 
-                onClick={() => onOpenChange(false)}
+                onClick={() => onBack ? onBack() : onOpenChange(false)}
                 className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
               >
                 <ChevronLeft className="h-6 w-6" />

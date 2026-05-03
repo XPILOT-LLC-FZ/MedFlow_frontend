@@ -108,6 +108,7 @@ export const mapToLocal = (api: ApiAppointment): Appointment => {
         : api.notes,
     amount: api.amount,
     doctor: api.doctor,
+    paymentMethodType: api.paymentMethodType,
   };
 };
 
@@ -133,11 +134,12 @@ const mapToApi = (local: Partial<Appointment>): Partial<ApiAppointment> => {
   if (local.notes) api.notes = local.notes;
   if (local.specialty) api.serviceName = local.specialty;
   if (local.redeemPoints !== undefined) api.redeemPoints = local.redeemPoints;
-  
+  if (local.paymentMethodType) api.paymentMethodType = local.paymentMethodType;
+
   // Defaults for creation if missing
   if (!api.durationMinutes) api.durationMinutes = 30;
   if (!api.mode) api.mode = "ONSITE";
-  
+
   return api;
 };
 

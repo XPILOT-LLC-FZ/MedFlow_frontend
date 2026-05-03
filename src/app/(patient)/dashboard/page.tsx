@@ -24,19 +24,15 @@ import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { staffService } from "@/services/staffService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
-import type { ApiPublicDoctor, ApiDoctorCredential, ApiService, ApiLoyaltyTransaction } from "@/types";
-import { LanguageToggle } from "@/components/shared/LanguageToggle";
-import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import type { ApiPublicDoctor, ApiDoctorCredential, ApiService, ApiLoyaltyTransaction, Appointment } from "@/types";
 import { PatientNotificationsDialog } from "@/components/shared/PatientNotificationsDialog";
 import { PatientDoctorsDialog } from "@/components/shared/PatientDoctorsDialog";
 import { PatientAppointmentsDialog } from "@/components/shared/PatientAppointmentsDialog";
-
 import { notificationsService } from "@/services/notificationsService";
 import type { InAppNotification } from "@/types";
 import { cn } from "@/lib/utils";
 import { patientService } from "@/services/patientService";
 import { usePatientStore } from "@/stores/usePatientStore";
-
 import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
 
 export default function PatientDashboard() {
@@ -70,6 +66,7 @@ export default function PatientDashboard() {
   const [, setSpecOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [aptsOpen, setAptsOpen] = useState(false);
+  const [, setSelectedDetailApt] = useState<Appointment | null>(null);
   const [activeTab, setActiveTab] = useState("latest");
   const [loyaltyHistory, setLoyaltyHistory] = useState<ApiLoyaltyTransaction[]>([]);
   const [isLoyaltyLoading, setIsLoyaltyLoading] = useState(false);
@@ -292,21 +289,15 @@ export default function PatientDashboard() {
               {t("howIsYourHealth")}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-            <button
-              onClick={() => setNotifOpen(true)}
-              className="relative h-9 w-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-blue-600 dark:text-slate-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
-            >
-              <Bell className="h-5 w-5" />
-              {notificationsList.filter(n => !n.readAt).length > 0 && (
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />
-              )}
-            </button>
-            <div className="w-px h-4 bg-slate-100 dark:bg-slate-800 mx-0.5" />
-            <LanguageToggle variant="ghost" className="h-9 w-9 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" />
-            <div className="w-px h-4 bg-slate-100 dark:bg-slate-800 mx-0.5" />
-            <ThemeToggle variant="ghost" className="h-9 w-9 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" />
-          </div>
+          <button
+            onClick={() => setNotifOpen(true)}
+            className="relative h-11 w-11 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-600 dark:text-slate-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+          >
+            <Bell className="h-5 w-5" />
+            {notificationsList.filter(n => !n.readAt).length > 0 && (
+              <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />
+            )}
+          </button>
         </div>
 
         {/* Search Bar */}
@@ -370,7 +361,10 @@ export default function PatientDashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => toggleFavorite(doc.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(doc.id);
+                      }}
                       className={cn(
                         "h-10 w-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all",
                         favoriteDoctorIds.includes(doc.id)
@@ -395,7 +389,7 @@ export default function PatientDashboard() {
         {!searchQuery && (
           <>
             {/* Points Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#6297FF] to-[#8C6AFF] p-5">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#6297FF] to-[#8C6AFF] p-6">
               <div className="relative z-10 flex flex-col items-start gap-1">
                 <span className="text-white/90 text-base font-bold uppercase tracking-wider">
                   {t("yourWisePoints")}
@@ -409,20 +403,13 @@ export default function PatientDashboard() {
                   </span>
                 </div>
 
-                <div className="mt-6 flex items-center gap-3 w-full">
+                <div className="mt-3 flex items-center gap-3 w-full">
                   <Link
                     href="/appointments"
                     className="w-1/2 h-10 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg shadow-blue-900/30 active:scale-95 transition-all uppercase tracking-widest text-[11px] flex items-center justify-center"
                   >
                     {t("redeemNow")}
                   </Link>
-                  <button
-                    onClick={() => setRedeemOpen(true)}
-                    className="h-10 w-10 bg-white/20 hover:bg-white/30 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg"
-                    title={t("activityHistory")}
-                  >
-                    <Clock className="h-5 w-5" />
-                  </button>
                 </div>
               </div>
 
@@ -434,7 +421,7 @@ export default function PatientDashboard() {
             {/* Upcoming Appointment Card */}
             {upcomingApt && (
               <div
-                onClick={() => setAptsOpen(true)}
+                onClick={() => setSelectedDetailApt(upcomingApt)}
                 className="bg-blue-600 rounded-3xl py-4 px-5 text-white shadow-sm shadow-blue-500/10 relative overflow-hidden group active:scale-[0.98] transition-all cursor-pointer"
               >
                 <div className="relative z-10">
@@ -479,16 +466,16 @@ export default function PatientDashboard() {
                       />
                     </div>
                     <div className="flex-1 flex flex-col min-w-0">
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          <span className="text-[13px] font-black text-slate-900 leading-tight truncate">Dr. {upcomingApt.doctorName}</span>
-                          {upcomingApt.status === "in-progress" && (
-                            <span className="flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/20 flex-shrink-0">
-                              <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
-                              {locale === "ar" ? "مباشر" : "Live"}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{upcomingApt.specialty || t("internistSpecialistDoctor")}</span>
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <span className="text-[13px] font-black text-slate-900 leading-tight truncate">Dr. {upcomingApt.doctorName}</span>
+                        {upcomingApt.status === "in-progress" && (
+                          <span className="flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/20 flex-shrink-0">
+                            <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
+                            {locale === "ar" ? "مباشر" : "Live"}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{upcomingApt.specialty || t("internistSpecialistDoctor")}</span>
                     </div>
                     <button
                       onClick={(e) => {
@@ -584,7 +571,10 @@ export default function PatientDashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => toggleFavorite(doc.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(doc.id);
+                      }}
                       className={cn(
                         "h-10 w-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all",
                         favoriteDoctorIds.includes(doc.id)
@@ -642,7 +632,10 @@ export default function PatientDashboard() {
                       />
                       <div className="absolute top-4 end-4 flex flex-col gap-2">
                         <button
-                          onClick={() => toggleFavorite(doc.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(doc.id);
+                          }}
                           className={cn(
                             "h-10 w-10 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
                             favoriteDoctorIds.includes(doc.id)
@@ -702,21 +695,15 @@ export default function PatientDashboard() {
           </div>
 
           <div className="flex lg:hidden items-center gap-3">
-            <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-              <button
-                onClick={() => setNotifOpen(true)}
-                className="relative h-10 w-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-blue-600 dark:text-slate-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
-              >
-                <Bell className="h-5 w-5" />
-                {notificationsList.filter(n => !n.readAt).length > 0 && (
-                  <span className="absolute top-2.5 right-2.5 h-2.5 w-2.5 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />
-                )}
-              </button>
-              <div className="w-px h-5 bg-slate-100 dark:bg-slate-800 mx-1" />
-              <LanguageToggle variant="ghost" className="h-10 w-10 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" />
-              <div className="w-px h-5 bg-slate-100 dark:bg-slate-800 mx-1" />
-              <ThemeToggle variant="ghost" className="h-10 w-10 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" />
-            </div>
+            <button
+              onClick={() => setNotifOpen(true)}
+              className="relative h-12 w-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-center text-slate-400 hover:text-blue-600 dark:text-slate-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+            >
+              <Bell className="h-5 w-5" />
+              {notificationsList.filter(n => !n.readAt).length > 0 && (
+                <span className="absolute top-3 right-3 h-2 w-2 rounded-full bg-rose-500 border-2 border-white dark:border-slate-900" />
+              )}
+            </button>
           </div>
         </div>
 
@@ -771,7 +758,10 @@ export default function PatientDashboard() {
                             <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Available</span>
                           </div>
                           <button
-                            onClick={() => toggleFavorite(doc.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(doc.id);
+                            }}
                             className={cn(
                               "absolute top-5 end-5 h-10 w-10 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
                               favoriteDoctorIds.includes(doc.id)
@@ -888,7 +878,10 @@ export default function PatientDashboard() {
                           </div>
 
                           <button
-                            onClick={() => toggleFavorite(doc.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(doc.id);
+                            }}
                             className={cn(
                               "absolute top-5 end-5 h-11 w-11 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
                               favoriteDoctorIds.includes(doc.id)
@@ -948,22 +941,6 @@ export default function PatientDashboard() {
                     {t("pts")}
                   </span>
                 </div>
-
-                <div className="mt-8 flex items-center gap-4 w-full">
-                  <Link
-                    href="/appointments"
-                    className="flex-1 h-14 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg shadow-blue-900/30 active:scale-95 transition-all uppercase tracking-widest text-xs flex items-center justify-center"
-                  >
-                    {t("redeemNow")}
-                  </Link>
-                  <button
-                    onClick={() => setRedeemOpen(true)}
-                    className="h-14 w-14 bg-white/20 hover:bg-white/30 text-white rounded-2xl flex items-center justify-center transition-all active:scale-95 shadow-lg"
-                    title={t("activityHistory")}
-                  >
-                    <Clock className="h-6 w-6" />
-                  </button>
-                </div>
               </div>
 
               <div className="absolute top-6 w-[200px] h-[200px] pointer-events-none drop-shadow-2xl opacity-90 end-[-20px] rtl:-scale-x-100">
@@ -987,6 +964,7 @@ export default function PatientDashboard() {
                   upcoming.map((apt) => (
                     <div
                       key={apt.id}
+                      onClick={() => setSelectedDetailApt(apt)}
                       className="bg-blue-600 rounded-[40px] p-8 text-white shadow-xl shadow-blue-500/20 hover:scale-[1.02] transition-transform cursor-pointer"
                     >
                       <div className="flex gap-4 mb-8">
