@@ -8,6 +8,7 @@ import {
   MapPin,
   Globe,
   Star,
+  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -27,10 +28,12 @@ interface BookAppointmentDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   doctor: ApiPublicDoctor | null;
+  loyaltyPoints: number;
   onConfirm: (data: {
     date: string;
     time: string;
     mode: "ONSITE" | "ONLINE";
+    redeemPoints: boolean;
   }) => void;
 }
 
@@ -61,6 +64,7 @@ export function BookAppointmentDialog({
   isOpen,
   onOpenChange,
   doctor,
+  loyaltyPoints,
   onConfirm,
 }: BookAppointmentDialogProps) {
   const { t, locale, isRTL } = useTranslation();
@@ -72,6 +76,7 @@ export function BookAppointmentDialog({
   const [selectedTime, setSelectedTime] = React.useState<string | null>(null);
   const [timePeriod, setTimePeriod] = React.useState<"AM" | "PM">("AM");
   const [mode, setMode] = React.useState<"ONSITE" | "ONLINE">("ONSITE");
+  const [redeemPoints, setRedeemPoints] = React.useState(false);
   const [slots, setSlots] = React.useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = React.useState(false);
   const [reviewsRating, setReviewsRating] = React.useState<number | null>(null);
@@ -83,6 +88,7 @@ export function BookAppointmentDialog({
       setViewMonth(today.getMonth());
       setSelectedDay(null);
       setSelectedTime(null);
+      setRedeemPoints(false);
       setSlots([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,7 +177,7 @@ export function BookAppointmentDialog({
   const handleConfirm = () => {
     if (!selectedDay || !selectedTime) return;
     const dateStr = formatDateKey(new Date(viewYear, viewMonth, selectedDay));
-    onConfirm({ date: dateStr, time: selectedTime, mode });
+    onConfirm({ date: dateStr, time: selectedTime, mode, redeemPoints });
   };
 
   return (
@@ -429,6 +435,28 @@ export function BookAppointmentDialog({
                   {sessionMin} min
                 </span>
               </div>
+            </div>
+          )}
+
+          {selectedDay && selectedTime && loyaltyPoints > 0 && (
+            <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/40">
+              <div className="flex items-center gap-2">
+                <Gift className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <h5 className="text-xs font-black text-slate-800 dark:text-slate-100">
+                    {t("redeemLoyaltyPoints") || "Redeem Your Loyalty Points"}
+                  </h5>
+                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {loyaltyPoints} {t("pts") || "pts"} {t("available") || "available"}
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={redeemPoints}
+                onChange={() => setRedeemPoints(!redeemPoints)}
+                className="h-4 w-4 rounded border-emerald-300 focus:ring-emerald-500"
+              />
             </div>
           )}
         </div>

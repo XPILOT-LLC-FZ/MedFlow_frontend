@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { 
+import {
   Calendar,
   Clock,
   ChevronLeft,
@@ -44,19 +44,19 @@ export function PatientAppointmentsDialog({
       .filter(apt => {
         const name = apt.doctorName || "";
         const dateStr = new Date(apt.date).toLocaleDateString();
-        return name.toLowerCase().includes(search.toLowerCase()) || 
-               dateStr.includes(search);
+        return name.toLowerCase().includes(search.toLowerCase()) ||
+          dateStr.includes(search);
       })
       .sort((a, b) => {
-        const timeA = new Date(`${a.date}T${a.time || '00:00'}:00`).getTime();
-        const timeB = new Date(`${b.date}T${b.time || '00:00'}:00`).getTime();
-        return timeB - timeA;
+        const timeA = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
+        const timeB = new Date(`${b.date}T${b.startTime || '00:00'}:00`).getTime();
+        return timeA - timeB; // Ascending (closest first for upcoming appointments)
       });
   }, [appointments, search]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         hideClose
         dir={isRTL ? "rtl" : "ltr"}
         className={cn(
@@ -67,7 +67,7 @@ export function PatientAppointmentsDialog({
       >
         {/* Mobile Header */}
         <div className="md:hidden flex items-center px-6 py-5 bg-white dark:bg-slate-950 border-b border-slate-50 dark:border-slate-800/50 shrink-0">
-          <button 
+          <button
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
           >
@@ -118,7 +118,7 @@ export function PatientAppointmentsDialog({
         {/* Content */}
         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 no-scrollbar p-4 md:px-6 space-y-3">
           {filteredAppointments.map((apt, idx) => (
-            <div 
+            <div
               key={idx}
               className="bg-blue-600 rounded-[32px] py-4 px-5 text-white shadow-sm shadow-blue-500/10 relative overflow-hidden group active:scale-[0.98] transition-all"
             >
@@ -150,7 +150,7 @@ export function PatientAppointmentsDialog({
 
                 <div className="bg-white dark:bg-slate-900 rounded-lg p-3 flex items-center gap-3">
                   <div className="h-11 w-11 rounded-full overflow-hidden shrink-0 border-2 border-slate-50 dark:border-slate-800">
-                    <Image 
+                    <Image
                       src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.doctorName}`}
                       alt={apt.doctorName || "Doctor"}
                       width={44}
@@ -162,7 +162,7 @@ export function PatientAppointmentsDialog({
                     <span className="text-slate-900 dark:text-slate-50 font-black text-sm truncate">Dr. {apt.doctorName}</span>
                     <span className="text-slate-400 font-bold text-[10px] uppercase tracking-tight">{t("internistSpecialistDoctor")}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       router.push(`/chat?appointmentId=${apt.id}`);

@@ -78,7 +78,7 @@ const calculateEndTime = (startTime: string, durationMinutes: number) => {
   }
 };
 
-const mapToLocal = (api: ApiAppointment): Appointment => {
+export const mapToLocal = (api: ApiAppointment): Appointment => {
   const patient = api.patient;
   const rawPhone = patient?.phone || undefined;
   const patientPhone = rawPhone && !isUuid(rawPhone) ? rawPhone : undefined;
@@ -93,6 +93,7 @@ const mapToLocal = (api: ApiAppointment): Appointment => {
     patientAvatar: patient?.user?.avatarUrl || undefined,
     doctorId: api.doctorId || "unknown",
     doctorName: api.doctorName || "Unknown Doctor",
+    serviceName: api.serviceName || "General Consultation",
     specialty: api.serviceName || "Specialist",
     date: api.date,
     time: api.startTime,

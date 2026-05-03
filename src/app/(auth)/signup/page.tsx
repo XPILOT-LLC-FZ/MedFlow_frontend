@@ -147,6 +147,37 @@ export default function SignupPage() {
               />
             </div>
 
+            {/* Role Selection */}
+            <div className="space-y-3">
+              <label className="text-base font-bold text-[#0F172A] dark:text-slate-200 px-2">
+                {locale === "ar" ? "نوع الحساب" : "Account type"}
+              </label>
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-[#E2E8F0] dark:border-slate-800 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => update("role", "PATIENT")}
+                  className={`h-11 rounded-xl text-sm font-bold transition-all ${
+                    form.role === "PATIENT"
+                      ? "bg-[#2563EB] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {locale === "ar" ? "مريض" : "Patient"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => update("role", "ADMIN")}
+                  className={`h-11 rounded-xl text-sm font-bold transition-all ${
+                    form.role === "ADMIN"
+                      ? "bg-[#2563EB] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {locale === "ar" ? "مدير العيادة" : "Clinic Admin"}
+                </button>
+              </div>
+            </div>
+
             {/* Password */}
             <div className="space-y-3">
               <label className={`text-base font-bold transition-colors px-2 ${hasPasswordError ? "text-[#FF4D4D]" : "text-[#0F172A] dark:text-slate-200"}`}>

@@ -165,10 +165,13 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   const handleBookNow = async (data: { redeemPoints: boolean; notes?: string }) => {
     if (!selectedDoctor || !pendingBooking) return;
 
+    const patientId = currentPatient?.id || user?.id || "guest";
+    const patientName = currentPatient?.fullName || user?.name || "Patient";
+
     try {
       await addAppointment({
-        patientId: user?.id || "guest",
-        patientName: user?.name || "Patient",
+        patientId,
+        patientName,
         doctorId: selectedDoctor.id,
         doctorName: selectedDoctor.fullName,
         specialty: selectedDoctor.specialization || "Generalist",
@@ -247,6 +250,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             isOpen={isBookOpen}
             onOpenChange={setBookOpen}
             doctor={selectedDoctor}
+            loyaltyPoints={user?.loyaltyPoints || 0}
             onConfirm={(booking) => openCheckout(booking)}
           />
 

@@ -26,7 +26,7 @@ interface CheckoutDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   doctor: ApiPublicDoctor | null;
-  bookingData: { date: string; time: string; mode: "ONSITE" | "ONLINE" } | null;
+  bookingData: { date: string; time: string; mode: "ONSITE" | "ONLINE"; redeemPoints?: boolean } | null;
   loyaltyPoints: number;
   specialDiscount?: number;
   insuranceDiscount?: number;
@@ -44,7 +44,7 @@ export function CheckoutDialog({
   onBookNow,
 }: CheckoutDialogProps) {
   const { t, isRTL } = useTranslation();
-  const [redeemPoints, setRedeemPoints] = React.useState(false);
+  const [redeemPoints, setRedeemPoints] = React.useState(Boolean(bookingData?.redeemPoints));
   const [notes, setNotes] = React.useState("");
 
   // Payment method
@@ -57,6 +57,13 @@ export function CheckoutDialog({
   const remainingAfterPercentDiscounts = Math.max(0, basePrice - percentDiscountAmount);
   const pointsDiscount = redeemPoints ? Math.min(loyaltyPoints * 0.1, remainingAfterPercentDiscounts) : 0;
   const totalPrice = Math.max(0, basePrice - percentDiscountAmount - pointsDiscount);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    setRedeemPoints(Boolean(bookingData?.redeemPoints));
+    setNotes("");
+    setPaymentMethod("onsite");
+  }, [isOpen, bookingData?.redeemPoints]);
 
   const handleBook = () => {
     onBookNow({ redeemPoints, notes });

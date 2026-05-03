@@ -132,13 +132,23 @@ export default function PatientDashboard() {
 
   React.useEffect(() => {
     if (user?.id) {
-      useBookingStore.getState().fetchAppointments({ patientId: user.id });
+      useBookingStore.getState().fetchAppointments({ patientId: user.id, filterType: 'upcoming' });
     }
   }, [user?.id]);
 
   const patientAppointments = appointments.filter((a) => a.patientId === patientId);
   const upcoming = patientAppointments
-    .filter((a) => a.status === "scheduled" || a.status === "confirmed")
+    .filter((a) => {
+      // Only include scheduled and confirmed appointments
+      if (a.status !== "scheduled" && a.status !== "confirmed" && a.status !== "in-progress") return false;
+      const aptTime = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
+      return aptTime > Date.now();
+    })
+    .sort((a, b) => {
+      const timeA = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
+      const timeB = new Date(`${b.date}T${b.startTime || '00:00'}:00`).getTime();
+      return timeA - timeB; // Ascending (Closest first)
+    })
     .slice(0, 3);
 
   const openCredentialPreview = async (doctorId: string, credential: ApiDoctorCredential) => {
@@ -179,11 +189,18 @@ export default function PatientDashboard() {
   }, [loyaltyHistory, user?.loyaltyPoints]);
 
   const allUpcomingApts = useMemo(() => {
-    return appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed')
+    const now = Date.now();
+    return appointments
+      .filter(a => {
+        // Only show scheduled and confirmed appointments in upcoming
+        if (a.status !== 'scheduled' && a.status !== 'confirmed') return false;
+        const aptTime = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
+        return aptTime > now;
+      })
       .sort((a, b) => {
-        const timeA = new Date(`${a.date}T${a.time || '00:00'}:00`).getTime();
-        const timeB = new Date(`${b.date}T${b.time || '00:00'}:00`).getTime();
-        return timeB - timeA; // Descending (New to Old)
+        const timeA = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
+        const timeB = new Date(`${b.date}T${b.startTime || '00:00'}:00`).getTime();
+        return timeA - timeB; // Ascending (Closest first)
       });
   }, [appointments]);
 
@@ -206,8 +223,8 @@ export default function PatientDashboard() {
   const filteredDoctors = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return publicDoctors.filter(doc => 
-      doc.fullName.toLowerCase().includes(q) || 
+    return publicDoctors.filter(doc =>
+      doc.fullName.toLowerCase().includes(q) ||
       (doc.specialization?.toLowerCase() || "").includes(q)
     );
   }, [publicDoctors, searchQuery]);
@@ -303,7 +320,7 @@ export default function PatientDashboard() {
             className="w-full h-14 rounded-2xl border-none bg-white dark:bg-slate-900 shadow-sm shadow-slate-200/50 dark:shadow-none text-sm font-medium transition-all ps-12 pe-6 text-start focus:ring-2 focus:ring-blue-600/10"
           />
           {searchQuery && (
-            <button 
+            <button
               onClick={() => setSearchQuery("")}
               className="absolute top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-slate-300 hover:text-slate-500 end-2"
             >
@@ -323,8 +340,8 @@ export default function PatientDashboard() {
             <div className="flex flex-col gap-3">
               {filteredDoctors.length > 0 ? (
                 filteredDoctors.map((doc) => (
-                  <div 
-                    key={doc.id} 
+                  <div
+                    key={doc.id}
                     onClick={() => handleDoctorClick(doc)}
                     className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
                   >
@@ -462,8 +479,16 @@ export default function PatientDashboard() {
                       />
                     </div>
                     <div className="flex-1 flex flex-col min-w-0">
-                      <span className="text-slate-900 dark:text-slate-50 font-black text-sm truncate">Dr. {upcomingApt.doctorName}</span>
-                      <span className="text-slate-400 font-bold text-[10px] uppercase tracking-tight">{t("internistSpecialistDoctor")}</span>
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <span className="text-[13px] font-black text-slate-900 leading-tight truncate">Dr. {upcomingApt.doctorName}</span>
+                          {upcomingApt.status === "in-progress" && (
+                            <span className="flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/20 flex-shrink-0">
+                              <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
+                              {locale === "ar" ? "مباشر" : "Live"}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{upcomingApt.specialty || t("internistSpecialistDoctor")}</span>
                     </div>
                     <button
                       onClick={(e) => {
@@ -483,184 +508,184 @@ export default function PatientDashboard() {
 
             {/* Popular Specializations */}
             <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              {t("popularSpecializations")}
-            </h2>
-            <button
-              onClick={() => {
-                useBookingFlowStore.getState().setSpecOpen(true);
-              }}
-              className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
-            >
-              {t("seeAll")}
-            </button>
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-            {realSpecializations.map((spec, idx) => (
-              <div key={idx} className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 pr-6 rounded-2xl shadow-sm min-w-max">
-                <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", spec.bg)}>
-                  {spec.icon}
-                </div>
-                <span className="text-[15px] font-black text-slate-700 dark:text-slate-200">
-                  {spec.name}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* All Doctors List */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              {t("allDoctors")}
-            </h2>
-            <button
-              onClick={() => {
-                useBookingFlowStore.getState().setDocsOpen(true);
-              }}
-              className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
-            >
-              {t("seeAll")}
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            {publicDoctors.slice(0, 2).map((doc) => (
-              <div 
-                key={doc.id} 
-                onClick={() => handleDoctorClick(doc)}
-                className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
-              >
-
-                <div className="h-20 w-20 rounded-md overflow-hidden shrink-0">
-                  <Image
-                    src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
-                    alt={doc.fullName}
-                    width={80}
-                    height={80}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 flex flex-col gap-1">
-                  <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                    Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
-                  </h3>
-                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
-                    <span>{doc.specialization}</span>
-                    <span className="h-1 w-1 rounded-full bg-slate-300" />
-                    <span>Medica Hospital</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-blue-600 mt-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span className="text-[12px] font-black uppercase tracking-tight">4.30 PM - 7.30 PM</span>
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                  {t("popularSpecializations")}
+                </h2>
                 <button
-                  onClick={() => toggleFavorite(doc.id)}
-                  className={cn(
-                    "h-10 w-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all",
-                    favoriteDoctorIds.includes(doc.id)
-                      ? "text-rose-500 bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30"
-                      : "text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-                  )}
+                  onClick={() => {
+                    useBookingFlowStore.getState().setSpecOpen(true);
+                  }}
+                  className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
                 >
-                  <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
+                  {t("seeAll")}
                 </button>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Recommended Doctors (Horizontal) */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
-              {t("recommendedDoctors")}
-            </h2>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {["latest", "pediatricSpecialist", "other"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "px-5 h-10 rounded-2xl text-[13px] font-black transition-all border shrink-0",
-                  activeTab === tab
-                    ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20"
-                    : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400"
-                )}
-              >
-                {t(tab as never)}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto no-scrollbar">
-            {recommendedDoctors.map((doc) => (
-              <div 
-                key={doc.id} 
-                onClick={() => handleDoctorClick(doc)}
-                className="min-w-[280px] bg-white dark:bg-slate-900 rounded-[20px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group cursor-pointer"
-              >
-
-                <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
-                  <Image
-                    src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
-                    alt={doc.fullName}
-                    width={280}
-                    height={240}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                    <div className="absolute top-4 end-4 flex flex-col gap-2">
-                      <button
-                        onClick={() => toggleFavorite(doc.id)}
-                        className={cn(
-                          "h-10 w-10 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
-                          favoriteDoctorIds.includes(doc.id)
-                            ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20"
-                            : "bg-white/80 dark:bg-slate-900/80 text-slate-400 border-white/20 hover:text-rose-500"
-                        )}
-                      >
-                        <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
-                      </button>
+              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+                {realSpecializations.map((spec, idx) => (
+                  <div key={idx} className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 pr-6 rounded-2xl shadow-sm min-w-max">
+                    <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", spec.bg)}>
+                      {spec.icon}
                     </div>
+                    <span className="text-[15px] font-black text-slate-700 dark:text-slate-200">
+                      {spec.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-4">
-                      <span className="text-[13px] font-black text-white">Madelyn Hospital</span>
-                      <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
-                        <Plus className="h-4 w-4 text-white" />
+            {/* All Doctors List */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                  {t("allDoctors")}
+                </h2>
+                <button
+                  onClick={() => {
+                    useBookingFlowStore.getState().setDocsOpen(true);
+                  }}
+                  className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
+                >
+                  {t("seeAll")}
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {publicDoctors.slice(0, 2).map((doc) => (
+                  <div
+                    key={doc.id}
+                    onClick={() => handleDoctorClick(doc)}
+                    className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
+                  >
+
+                    <div className="h-20 w-20 rounded-md overflow-hidden shrink-0">
+                      <Image
+                        src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
+                        alt={doc.fullName}
+                        width={80}
+                        height={80}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 flex flex-col gap-1">
+                      <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
+                        Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                      </h3>
+                      <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
+                        <span>{doc.specialization}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>Medica Hospital</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-blue-600 mt-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span className="text-[12px] font-black uppercase tracking-tight">4.30 PM - 7.30 PM</span>
                       </div>
                     </div>
-                </div>
+                    <button
+                      onClick={() => toggleFavorite(doc.id)}
+                      className={cn(
+                        "h-10 w-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all",
+                        favoriteDoctorIds.includes(doc.id)
+                          ? "text-rose-500 bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30"
+                          : "text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                      )}
+                    >
+                      <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                <div className="p-4 flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-                      Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
-                    </h3>
-                    <div className="flex items-center gap-1.5">
-                      <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">4.5</span>
+            {/* Recommended Doctors (Horizontal) */}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                  {t("recommendedDoctors")}
+                </h2>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
+                {["latest", "pediatricSpecialist", "other"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "px-5 h-10 rounded-2xl text-[13px] font-black transition-all border shrink-0",
+                      activeTab === tab
+                        ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20"
+                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400"
+                    )}
+                  >
+                    {t(tab as never)}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-4 overflow-x-auto no-scrollbar">
+                {recommendedDoctors.map((doc) => (
+                  <div
+                    key={doc.id}
+                    onClick={() => handleDoctorClick(doc)}
+                    className="min-w-[280px] bg-white dark:bg-slate-900 rounded-[20px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group cursor-pointer"
+                  >
+
+                    <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
+                      <Image
+                        src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
+                        alt={doc.fullName}
+                        width={280}
+                        height={240}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      />
+                      <div className="absolute top-4 end-4 flex flex-col gap-2">
+                        <button
+                          onClick={() => toggleFavorite(doc.id)}
+                          className={cn(
+                            "h-10 w-10 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
+                            favoriteDoctorIds.includes(doc.id)
+                              ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20"
+                              : "bg-white/80 dark:bg-slate-900/80 text-slate-400 border-white/20 hover:text-rose-500"
+                          )}
+                        >
+                          <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
+                        </button>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 h-12 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-4">
+                        <span className="text-[13px] font-black text-white">Madelyn Hospital</span>
+                        <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
+                          <Plus className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
+                          Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                        </h3>
+                        <div className="flex items-center gap-1.5">
+                          <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                          <span className="text-sm font-black text-slate-700 dark:text-slate-200">4.5</span>
+                        </div>
+                      </div>
+                      <p className="text-[13px] font-bold text-slate-400 mb-4">
+                        {doc.specialization}
+                      </p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-lg font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[13px] font-bold text-slate-400 mb-4">
-                    {doc.specialization}
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-          </div>
-              </>
-            )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* DESKTOP VERSION (hidden md:block) */}
@@ -708,7 +733,7 @@ export default function PatientDashboard() {
                 className="w-full h-16 rounded-[24px] border-none bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/40 dark:shadow-none text-base font-medium focus:ring-4 focus:ring-blue-600/5 transition-all outline-none ps-14 pe-8 text-start"
               />
               {searchQuery && (
-                <button 
+                <button
                   onClick={() => setSearchQuery("")}
                   className="absolute top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center text-slate-300 hover:text-slate-500 end-4"
                 >
@@ -728,8 +753,8 @@ export default function PatientDashboard() {
                 {filteredDoctors.length > 0 ? (
                   <div className="grid grid-cols-2 xl:grid-cols-3 gap-6">
                     {filteredDoctors.map((doc) => (
-                      <div 
-                        key={doc.id} 
+                      <div
+                        key={doc.id}
                         onClick={() => handleDoctorClick(doc)}
                         className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
                       >
@@ -791,122 +816,122 @@ export default function PatientDashboard() {
               <>
                 {/* Popular Specializations */}
                 <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                  {t("popularSpecializations")}
-                </h2>
-                <button onClick={() => setSpecOpen(true)} className="text-[13px] font-black text-blue-600 uppercase tracking-wider hover:underline">
-                  {t("seeAll")}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
-                {realSpecializations.map((spec, idx) => (
-                  <div key={idx} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[32px] shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-                    <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center", spec.bg)}>
-                      {spec.icon}
-                    </div>
-                    <span className="text-[15px] font-black text-slate-700 dark:text-slate-200 text-center">
-                      {spec.name}
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">
-                      {spec.categoryName}
-                    </span>
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                      {t("popularSpecializations")}
+                    </h2>
+                    <button onClick={() => setSpecOpen(true)} className="text-[13px] font-black text-blue-600 uppercase tracking-wider hover:underline">
+                      {t("seeAll")}
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Recommended Doctors (Grid) */}
-            <div className="flex flex-col gap-5 pt-2">
-              <div className="flex flex-col gap-1 px-1">
-                <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
-                  {t("recommendedDoctors")}
-                </h2>
-              </div>
-
-              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
-                {["latest", "pediatricSpecialist", "dermatologist", "surgeon", "other"].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={cn(
-                      "px-8 h-12 rounded-[18px] text-[14px] font-black transition-all border shrink-0",
-                      activeTab === tab
-                        ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20"
-                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    )}
-                  >
-                    {t(tab as never)}
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-6">
-                {recommendedDoctors.map((doc) => (
-                  <div 
-                    key={doc.id} 
-                    onClick={() => handleDoctorClick(doc)}
-                    className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
-                  >
-
-                    <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
-                      <Image
-                        src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
-                        alt={doc.fullName}
-                        fill
-                        className="object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute top-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/20 start-5">
-                        <div className="h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse" />
-                        <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Available</span>
+                  <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
+                    {realSpecializations.map((spec, idx) => (
+                      <div key={idx} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[32px] shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                        <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center", spec.bg)}>
+                          {spec.icon}
+                        </div>
+                        <span className="text-[15px] font-black text-slate-700 dark:text-slate-200 text-center">
+                          {spec.name}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">
+                          {spec.categoryName}
+                        </span>
                       </div>
+                    ))}
+                  </div>
+                </div>
 
+                {/* Recommended Doctors (Grid) */}
+                <div className="flex flex-col gap-5 pt-2">
+                  <div className="flex flex-col gap-1 px-1">
+                    <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+                      {t("recommendedDoctors")}
+                    </h2>
+                  </div>
+
+                  <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                    {["latest", "pediatricSpecialist", "dermatologist", "surgeon", "other"].map((tab) => (
                       <button
-                        onClick={() => toggleFavorite(doc.id)}
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
                         className={cn(
-                          "absolute top-5 end-5 h-11 w-11 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
-                          favoriteDoctorIds.includes(doc.id)
-                            ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20"
-                            : "bg-white/80 dark:bg-slate-900/80 text-slate-400 border-white/20 hover:text-rose-500"
+                          "px-8 h-12 rounded-[18px] text-[14px] font-black transition-all border shrink-0",
+                          activeTab === tab
+                            ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20"
+                            : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         )}
                       >
-                        <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
+                        {t(tab as never)}
                       </button>
-
-                      <div className="absolute bottom-0 left-0 right-0 h-16 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-8">
-                        <span className="text-[14px] font-black text-white">Madelyn Hospital</span>
-                        <div className="h-9 w-9 bg-white/20 rounded-xl flex items-center justify-center">
-                          <Plus className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-8 flex flex-col gap-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                          Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
-                        </h3>
-                        <div className="flex items-center gap-1.5">
-                          <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                          <span className="text-base font-black text-slate-700 dark:text-slate-200">4.5</span>
-                        </div>
-                      </div>
-                      <p className="text-[14px] font-bold text-slate-400 mb-6">
-                        {doc.specialization}
-                      </p>
-                      <div className="flex items-baseline gap-1 mt-auto">
-                        <span className="text-2xl font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+
+                  <div className="grid grid-cols-2 xl:grid-cols-3 gap-6">
+                    {recommendedDoctors.map((doc) => (
+                      <div
+                        key={doc.id}
+                        onClick={() => handleDoctorClick(doc)}
+                        className="bg-white dark:bg-slate-900 rounded-[48px] overflow-hidden border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col group hover:scale-[1.02] transition-transform duration-300 cursor-pointer"
+                      >
+
+                        <div className="relative h-[240px] bg-slate-50 dark:bg-slate-800/50">
+                          <Image
+                            src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`}
+                            alt={doc.fullName}
+                            fill
+                            className="object-cover transition-transform duration-700 group-hover:scale-110"
+                          />
+                          <div className="absolute top-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/20 start-5">
+                            <div className="h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse" />
+                            <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Available</span>
+                          </div>
+
+                          <button
+                            onClick={() => toggleFavorite(doc.id)}
+                            className={cn(
+                              "absolute top-5 end-5 h-11 w-11 rounded-full backdrop-blur-md flex items-center justify-center transition-all border",
+                              favoriteDoctorIds.includes(doc.id)
+                                ? "bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/20"
+                                : "bg-white/80 dark:bg-slate-900/80 text-slate-400 border-white/20 hover:text-rose-500"
+                            )}
+                          >
+                            <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
+                          </button>
+
+                          <div className="absolute bottom-0 left-0 right-0 h-16 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-8">
+                            <span className="text-[14px] font-black text-white">Madelyn Hospital</span>
+                            <div className="h-9 w-9 bg-white/20 rounded-xl flex items-center justify-center">
+                              <Plus className="h-5 w-5 text-white" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-8 flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
+                              Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                            </h3>
+                            <div className="flex items-center gap-1.5">
+                              <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                              <span className="text-base font-black text-slate-700 dark:text-slate-200">4.5</span>
+                            </div>
+                          </div>
+                          <p className="text-[14px] font-bold text-slate-400 mb-6">
+                            {doc.specialization}
+                          </p>
+                          <div className="flex items-baseline gap-1 mt-auto">
+                            <span className="text-2xl font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           <aside className="col-span-4 space-y-8">
             {/* Points Card */}
@@ -982,14 +1007,22 @@ export default function PatientDashboard() {
                           <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden">
                             <User className="h-7 w-7 text-slate-400" />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-[15px] font-black text-slate-900">Dr. {apt.doctorName}</span>
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Specialist</span>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[15px] font-black text-slate-900">Dr. {apt.doctorName}</span>
+                              {apt.status === "in-progress" && (
+                                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/20">
+                                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                                  {locale === "ar" ? "مباشر" : "Live"}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">{apt.specialty || "Specialist"}</span>
                           </div>
                         </div>
                         <div
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
+                          onClick={(e) => {
+                            e.stopPropagation();
                             router.push(`/chat?appointmentId=${apt.id}`);
                           }}
                           className="h-11 w-11 rounded-full border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
@@ -1021,8 +1054,8 @@ export default function PatientDashboard() {
 
               <div className="flex flex-col gap-4">
                 {publicDoctors.slice(0, 2).map((doc) => (
-                  <div 
-                    key={doc.id} 
+                  <div
+                    key={doc.id}
                     onClick={() => handleDoctorClick(doc)}
                     className="bg-white dark:bg-slate-900 p-4 rounded-md border border-slate-100 dark:border-slate-800 flex items-center gap-5 hover:shadow-md transition-shadow cursor-pointer"
                   >

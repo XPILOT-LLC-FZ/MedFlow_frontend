@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { ApiPatient } from '@/types';
 import { Input } from '@/components/ui/input';
@@ -20,10 +20,10 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
   const { locale } = useTranslation();
   const toast = useToastStore();
   
-  const medicalHistory = (patient?.medicalHistory as Record<string, unknown>) || {};
-  const currentInsurance = (medicalHistory["insuranceDetails"] as Record<string, unknown>) || {};
+  const medicalHistory = React.useMemo(() => (patient?.medicalHistory as Record<string, unknown>) || {}, [patient?.medicalHistory]);
+  const currentInsurance = React.useMemo(() => (medicalHistory["insuranceDetails"] as Record<string, unknown>) || {}, [medicalHistory]);
 
-  const [formData, setFormData] = useState({
+  const getFormData = React.useCallback(() => ({
     provider: (currentInsurance["provider"] as string) || (medicalHistory["insuranceProvider"] as string) || '',
     policyNumber: (currentInsurance["policyNumber"] as string) || (medicalHistory["insurancePolicyNumber"] as string) || '',
     expiryDate: (currentInsurance["expiryDate"] as string) || (medicalHistory["insuranceExpiry"] ? new Date(medicalHistory["insuranceExpiry"] as string).toISOString().split('T')[0] : ''),
@@ -31,7 +31,9 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
     category: (currentInsurance["category"] as string) || 'Individual',
     memberId: (currentInsurance["memberId"] as string) || '',
     cardImageUrl: (currentInsurance["cardImageUrl"] as string) || '',
-  });
+  }), [currentInsurance, medicalHistory]);
+
+  const [formData, setFormData] = useState(getFormData);
 
   const [verificationStatus, setVerificationStatus] = useState<string>(
     (currentInsurance["verificationStatus"] as string) || 'unverified'
@@ -39,6 +41,11 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
   
   const discountPercent = (currentInsurance["discountPercent"] as number) || 0;
   const discountNote = (currentInsurance["discountNote"] as string) || '';
+
+  useEffect(() => {
+    setFormData(getFormData());
+    setVerificationStatus((currentInsurance["verificationStatus"] as string) || 'unverified');
+  }, [getFormData, currentInsurance]);
 
   const [isSaving, setIsSaving] = useState(false);
 

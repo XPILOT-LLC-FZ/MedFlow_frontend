@@ -12,7 +12,7 @@ import { RescheduleDialog } from "@/components/shared/RescheduleDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
-import { useBookingStore } from "@/stores/useBookingStore";
+import { useBookingStore, mapToLocal } from "@/stores/useBookingStore";
 import { usePatientStore } from "@/stores/usePatientStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
@@ -149,7 +149,7 @@ function MobilePatientAppointmentCard({
 function AppointmentsPageContent() {
   const { t, locale } = useTranslation();
   const { user } = useAuthStore();
-  const { appointments, fetchAppointments, updateAppointment } = useBookingStore();
+  const { updateAppointment } = useBookingStore();
   const { currentPatient, fetchMe } = usePatientStore();
   const toast = useToastStore();
   const openBook = useBookingFlowStore((state) => state.openBook);
@@ -160,6 +160,8 @@ function AppointmentsPageContent() {
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [doctorAvatars, setDoctorAvatars] = useState<Record<string, string>>({});
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [pastAppointments, setPastAppointments] = useState<Appointment[]>([]);
 
   // Fetch patient, appointments, and doctors on mount
   useEffect(() => {
@@ -168,11 +170,60 @@ function AppointmentsPageContent() {
     }
   }, [user?.id, fetchMe]);
 
+  // Extract fetch and distribute logic for reuse
+  const fetchAndDistribute = React.useCallback(async () => {
+    if (!currentPatient?.id) return;
+    try {
+      const [upcomingList, pastList] = await Promise.all([
+        bookingService.getAll({ patientId: currentPatient.id, filterType: 'upcoming' }),
+        bookingService.getAll({ patientId: currentPatient.id, filterType: 'past' })
+      ]);
+
+      const allFetched = [...(upcomingList || []), ...(pastList || [])].map(mapToLocal);
+      
+      // Deduplicate by ID
+      const uniqueApts = Array.from(new Map(allFetched.map(a => [a.id, a])).values());
+      
+      const now = Date.now();
+      
+      const strictUpcoming = uniqueApts.filter(apt => {
+        // Only include non-final statuses
+        const isNotCompleted = ["scheduled", "confirmed", "in-progress"].includes(apt.status);
+        if (!isNotCompleted) return false;
+        
+        // Check if it's in the future (including today's future hours)
+        const aptTime = new Date(`${apt.date}T${apt.startTime || '00:00'}:00`).getTime();
+        
+        // If it's in progress, it's considered "current" if it's for today
+        if (apt.status === "in-progress") {
+          const todayString = new Date().toISOString().split('T')[0];
+          return apt.date >= todayString;
+        }
+
+        return aptTime > now;
+      }).sort((a, b) => new Date(`${a.date}T${a.startTime}`).getTime() - new Date(`${b.date}T${b.startTime}`).getTime());
+      
+      const strictPast = uniqueApts.filter(apt => {
+        const aptTime = new Date(`${apt.date}T${apt.startTime || '00:00'}:00`).getTime();
+        const isCompleted = ["completed", "cancelled", "no-show", "rescheduled"].includes(apt.status);
+        return isCompleted || aptTime <= now;
+      }).sort((a, b) => new Date(`${b.date}T${b.startTime}`).getTime() - new Date(`${a.date}T${a.startTime}`).getTime());
+
+      setUpcomingAppointments(strictUpcoming);
+      setPastAppointments(strictPast);
+    } catch (err) {
+      console.error("Failed to fetch appointments", err);
+    }
+  }, [currentPatient]);
+
   useEffect(() => {
     if (currentPatient?.id) {
-      fetchAppointments({ patientId: currentPatient.id });
+      const timer = setTimeout(() => {
+        fetchAndDistribute();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [currentPatient?.id, fetchAppointments]);
+  }, [currentPatient?.id, fetchAndDistribute]);
 
   useEffect(() => {
     const loadDoctorAvatars = async () => {
@@ -194,23 +245,10 @@ function AppointmentsPageContent() {
     }
   }, [user?.id]);
 
-  // Filter appointments by status
-  const patientAppointments = appointments.filter((a) => a.patientId === (currentPatient?.id ?? "guest"));
-
-  const upcomingAppointments = patientAppointments.filter((a) => {
-    const status = String(a.status || "").toUpperCase();
-    return status !== "COMPLETED" && status !== "CANCELLED";
-  });
-
-  const pastAppointments = patientAppointments.filter((a) => {
-    const status = String(a.status || "").toUpperCase();
-    return status === "COMPLETED" || status === "CANCELLED";
-  });
-
   // Handle detail click - branches on status
-  const handleDetailClick = (appointment: Appointment) => {
+  const handleDetailClick = (appointment: Appointment, forceDetails = false) => {
     const normalizedStatus = String(appointment.status || "").toUpperCase();
-    if (normalizedStatus === "COMPLETED" || normalizedStatus === "CANCELLED") {
+    if (forceDetails || normalizedStatus === "COMPLETED" || normalizedStatus === "CANCELLED" || normalizedStatus === "NO_SHOW" || normalizedStatus === "RESCHEDULED") {
       setSelectedAppointmentForDetails(appointment);
       setIsDetailsDialogOpen(true);
     } else {
@@ -224,6 +262,7 @@ function AppointmentsPageContent() {
   const handleCancelClick = async (appointment: Appointment) => {
     try {
       await updateAppointment(appointment.id, { status: "cancelled" });
+      void fetchAndDistribute();
       toast.success(
         locale === "ar" ? "تم إلغاء الموعد بنجاح" : "Appointment cancelled successfully"
       );
@@ -259,9 +298,7 @@ function AppointmentsPageContent() {
         date: newDate,
         startTime: newTime,
       });
-      if (currentPatient?.id) {
-        await fetchAppointments({ patientId: currentPatient.id });
-      }
+      void fetchAndDistribute();
       toast.success(
         locale === "ar"
           ? `تم إعادة جدولة الموعد إلى ${newDate} في ${newTime}`
@@ -283,7 +320,7 @@ function AppointmentsPageContent() {
       />
 
       {/* Empty State */}
-      {patientAppointments.length === 0 && (
+      {upcomingAppointments.length === 0 && pastAppointments.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -304,7 +341,7 @@ function AppointmentsPageContent() {
       )}
 
       {/* Appointments Tabs */}
-      {patientAppointments.length > 0 && (
+      {(upcomingAppointments.length > 0 || pastAppointments.length > 0) && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full h-14 backdrop-blur-md">
             <TabsTrigger
@@ -383,7 +420,7 @@ function AppointmentsPageContent() {
                     isPast={true}
                     locale={locale}
                     doctorAvatar={doctorAvatars[apt.doctorId]}
-                    onDetail={() => handleDetailClick(apt)}
+                    onDetail={() => handleDetailClick(apt, true)}
                     onBookAgain={() => handleBookAgain(apt)}
                     onCancel={() => handleCancelClick(apt)}
                   />
@@ -435,3 +472,4 @@ export default function AppointmentsPage() {
     </Suspense>
   );
 }
+

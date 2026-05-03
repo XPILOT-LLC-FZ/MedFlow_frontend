@@ -63,10 +63,15 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
   };
 
   const RELATIONSHIPS = [
-    { value: 'parent', label: locale === 'ar' ? 'والد/والدة' : 'Parent' },
-    { value: 'spouse', label: locale === 'ar' ? 'زوج/زوجة' : 'Spouse' },
-    { value: 'sibling', label: locale === 'ar' ? 'أخ/أخت' : 'Sibling' },
-    { value: 'child', label: locale === 'ar' ? 'ابن/ابنة' : 'Child' },
+    { value: 'father', label: locale === 'ar' ? 'أب' : 'Father' },
+    { value: 'mother', label: locale === 'ar' ? 'أم' : 'Mother' },
+    { value: 'husband', label: locale === 'ar' ? 'زوج' : 'Husband' },
+    { value: 'wife', label: locale === 'ar' ? 'زوجة' : 'Wife' },
+    { value: 'brother', label: locale === 'ar' ? 'أخ' : 'Brother' },
+    { value: 'sister', label: locale === 'ar' ? 'أخت' : 'Sister' },
+    { value: 'son', label: locale === 'ar' ? 'ابن' : 'Son' },
+    { value: 'daughter', label: locale === 'ar' ? 'ابنة' : 'Daughter' },
+    { value: 'relative', label: locale === 'ar' ? 'قريب' : 'Relative' },
     { value: 'friend', label: locale === 'ar' ? 'صديق' : 'Friend' },
     { value: 'other', label: locale === 'ar' ? 'آخر' : 'Other' },
   ];

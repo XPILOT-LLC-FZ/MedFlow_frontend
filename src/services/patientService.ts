@@ -6,6 +6,7 @@ import type {
   ApiDoctor,
   ApiLoyaltyTransaction,
   ApiPatient,
+  ApiPatientPaymentHistoryItem,
   ApiPublicDoctor,
   CreatePatientPayload,
   PaginatedPatientsResponse,
@@ -139,6 +140,10 @@ export const patientService = {
   
   async getLoyaltyHistory(): Promise<ApiLoyaltyTransaction[]> {
     return apiClient.get("/patients/me/loyalty-history");
+  },
+
+  async getPaymentHistory(): Promise<ApiPatientPaymentHistoryItem[]> {
+    return apiClient.get("/patients/me/payments");
   },
 
   async verifyInsurance(id: string, data: { status: 'verified' | 'rejected'; discountPercent?: number; discountNote?: string; verifiedBy: string }): Promise<ApiPatient> {
