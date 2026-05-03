@@ -173,8 +173,16 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorDataRecord = errorData as Record<string, unknown>;
+        const textData = await response.text();
+        console.error(`[ApiClient] Error response (status ${response.status}): ${textData}`);
+
+        let errorDataRecord: Record<string, unknown> = {};
+        try {
+          errorDataRecord = JSON.parse(textData);
+        } catch {
+          errorDataRecord = { message: textData || `Request failed with status ${response.status}` };
+        }
+
         const code = typeof errorDataRecord["code"] === "string" ? (errorDataRecord["code"] as string) : "";
         const message = Array.isArray(errorDataRecord["message"])
           ? (errorDataRecord["message"] as string[]).join(", ")

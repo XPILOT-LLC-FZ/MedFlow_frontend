@@ -54,7 +54,7 @@ export default function InvoiceListPage() {
       setInvoices(res.items);
       setTotalItems(res.total);
       setStats(s);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load invoices");
     } finally {
       setIsLoading(false);
@@ -255,7 +255,15 @@ export default function InvoiceListPage() {
               <p className="text-slate-400 font-bold">No invoices found</p>
             </div>
           )}
-          {invoices.map((inv) => (
+          {invoices.map((inv) => {
+            const invExtra = inv as unknown as {
+              appointment?: {
+                patient?: { user?: { avatarUrl?: string } };
+                patientName?: string;
+                serviceName?: string;
+              };
+            };
+            return (
             <div
               key={inv.id}
               className={cn(
@@ -291,15 +299,15 @@ export default function InvoiceListPage() {
               {/* Patient */}
               <div className="col-span-2 flex items-center gap-2.5">
                 <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={(inv as any).appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${(inv as any).appointment?.patientName || "Guest"}`} />
+                  <AvatarImage src={invExtra.appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${invExtra.appointment?.patientName || "Guest"}`} />
                   <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">PT</AvatarFallback>
                 </Avatar>
-                <span className="text-[13px] font-bold text-slate-800 truncate">{(inv as any).appointment?.patientName || "Walk-in"}</span>
+                <span className="text-[13px] font-bold text-slate-800 truncate">{invExtra.appointment?.patientName || "Walk-in"}</span>
               </div>
 
               {/* Service */}
               <div className="col-span-2">
-                <span className="text-[12px] font-bold text-slate-500 leading-tight">{(inv as any).appointment?.serviceName || "Consultation"}</span>
+                <span className="text-[12px] font-bold text-slate-500 leading-tight">{invExtra.appointment?.serviceName || "Consultation"}</span>
               </div>
 
               {/* Amount */}
@@ -311,7 +319,7 @@ export default function InvoiceListPage() {
 
               {/* Status */}
               <div className="col-span-1">
-                <StatusBadge status={inv.paymentStatus.toLowerCase() as any} />
+                <StatusBadge status={inv.paymentStatus.toLowerCase() as "paid" | "pending" | "overdue"} />
               </div>
 
               {/* Actions */}
@@ -327,7 +335,8 @@ export default function InvoiceListPage() {
                 </button>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
 
         {/* Pagination */}

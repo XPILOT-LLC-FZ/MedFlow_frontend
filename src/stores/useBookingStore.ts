@@ -235,6 +235,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     try {
       const apiData = mapToApi(data);
+      // Remove status and amount which are not part of the CreateAppointmentSchema
+      // If nestjs-zod is strict, these will cause a 400 Bad Request.
+      delete apiData.status;
+      delete apiData.amount;
+      
+      console.log("[useBookingStore] Sending payload:", JSON.stringify(apiData, null, 2));
       const created = await bookingService.create(apiData);
       const localCreated = mapToLocal(created);
       set((s) => ({

@@ -111,8 +111,6 @@ export default function QueueManagementPage() {
     }
   };
 
-  const showDemo = false; // Force real data
-
   // ── Early return AFTER all hooks ──
   if (checkInOpen) {
     return <AddToQueueView onBack={() => setCheckInOpen(false)} />;

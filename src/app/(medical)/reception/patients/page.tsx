@@ -20,7 +20,6 @@ import {
   User as UserIcon,
   MapPin,
   ShieldCheck,
-  Upload,
   Star,
   CheckCircle2,
   X,
@@ -49,7 +48,7 @@ export default function ReceptionPatientsPage() {
   const [dashboardData, setDashboardData] = useState<DashboardStaffSummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage] = useState(1);
   const toast = useToastStore();
 
   // Handle deep linking from URL
@@ -422,7 +421,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
         fullName: `${formData.firstName} ${formData.lastName}`,
         email: formData.email,
         phone: formData.phone,
-        gender: formData.gender as any,
+        gender: formData.gender as "MALE" | "FEMALE" | "OTHER",
         dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
         medicalHistory: {
           address: {
@@ -445,7 +444,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
         },
       };
 
-      await patientService.create(payload as any);
+      await patientService.create(payload as unknown as Parameters<typeof patientService.create>[0]);
       toast.success("Patient created successfully");
       onBack();
     } catch (err) {
@@ -849,20 +848,6 @@ function TableFilter({ label }: { label: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const configs: Record<string, string> = {
-    "Ready for Checkout": "bg-blue-50 text-blue-500",
-    "Waiting": "bg-[#F5F3FF] text-[#7C3AED]",
-    "In Session": "bg-orange-50 text-orange-400",
-    "Done": "bg-slate-100 text-slate-400",
-  };
-  return (
-    <Badge className={cn("rounded-[12px] px-4 py-1.5 border-none font-black text-[10px] uppercase tracking-widest whitespace-nowrap", configs[status] || "bg-slate-50 text-slate-500")}>
-      {status}
-    </Badge>
-  );
-}
-
 interface PaginationButtonProps {
   icon: React.ElementType;
   disabled?: boolean;
@@ -924,14 +909,14 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
   const handleVerifyInsurance = async (status: 'verified' | 'rejected' | 'pending') => {
     try {
       await patientService.verifyInsurance(id, {
-        status: status === 'pending' ? 'verified' : status as any, // Simple toggle/update logic
+        status: status === 'pending' ? 'verified' : status as "verified" | "rejected", // Simple toggle/update logic
         verifiedBy: "Reception Staff",
         discountPercent: status === 'verified' ? 20 : 0,
         discountNote: status === 'verified' ? "Verified via insurance portal" : "Provider rejected coverage"
       });
       toast.success(`Insurance status updated to ${status}`);
       void fetchDetails();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update insurance status");
     }
   };

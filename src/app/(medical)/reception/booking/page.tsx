@@ -80,7 +80,9 @@ export default function ReceptionSchedulePage() {
   const getPositionForTime = (timeStr: string) => {
     // Expecting "HH:MM" or "HH:MM AM/PM"
     const [time, modifier] = timeStr.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
+    const [hoursStr, minutesStr] = time.split(':').map(Number);
+    let hours = hoursStr;
+    const minutes = minutesStr;
     
     if (modifier === 'PM' && hours < 12) hours += 12;
     if (modifier === 'AM' && hours === 12) hours = 0;
@@ -203,7 +205,7 @@ export default function ReceptionSchedulePage() {
               <div className="w-[100px] flex items-center justify-center border-r border-slate-100">
                 <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em]">GMT-5</span>
               </div>
-              {doctors.map((doc, idx) => (
+              {doctors.map((doc) => (
                 <div key={doc.id} className={cn("flex-1 flex items-center px-8 border-r border-slate-100 last:border-r-0")}>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border-2 border-slate-100 shadow-sm">
@@ -485,7 +487,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                       {["CONSULTATION", "FOLLOW_UP", "PROCEDURE", "EMERGENCY"].map((type) => (
                         <div 
                           key={type}
-                          onClick={() => setSelectedType(type as any)}
+                          onClick={() => setSelectedType(type as "CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY")}
                           className="px-5 py-4 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
                         >
                           <span className="text-[13px] font-bold text-slate-700 capitalize">{type.replace('_', ' ').toLowerCase()}</span>

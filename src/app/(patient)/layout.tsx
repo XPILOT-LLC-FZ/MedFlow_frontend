@@ -179,6 +179,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         time: pendingBooking.time,
         status: "scheduled",
         type: "Consultation",
+        mode: pendingBooking.mode,
         notes: data.notes,
         redeemPoints: data.redeemPoints,
         paymentMethodType: data.paymentMethodType,

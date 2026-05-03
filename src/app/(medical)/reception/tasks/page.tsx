@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Download,
   RefreshCw,
-  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +56,7 @@ export default function ReceptionTasksPage() {
           limit: 50,
         }),
         tasksService.getAll({
-          status: statusFilter === "ALL" ? undefined : (statusFilter === "REVIEWED" ? "COMPLETED" : "PENDING") as any,
+          status: statusFilter === "ALL" ? undefined : (statusFilter === "REVIEWED" ? "COMPLETED" : "PENDING") as "PENDING" | "IN_PROGRESS" | "COMPLETED",
         })
       ]);
 
@@ -472,7 +471,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
   const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [, setIsLoadingData] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -508,7 +507,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
         patientId: selectedPatientId,
         doctorId: selectedDoctorId,
         dueDate: dueDate || undefined,
-        priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as any,
+        priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as "LOW" | "NORMAL" | "HIGH" | "URGENT",
       });
       toastSuccess(locale === "ar" ? "تم إنشاء المهمة بنجاح" : "Task created successfully");
       onClose();
@@ -518,7 +517,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
       setSelectedPatientId("");
       setSelectedDoctorId("");
       setDueDate("");
-    } catch (err) {
+    } catch {
       toastError(locale === "ar" ? "فشل إنشاء المهمة" : "Failed to create task");
     } finally {
       setIsSubmitting(false);

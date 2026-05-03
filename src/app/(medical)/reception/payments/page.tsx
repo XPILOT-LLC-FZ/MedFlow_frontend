@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   Printer,
@@ -34,21 +34,35 @@ const BILLING_HISTORY = [
   { month: "Jun", value: 200 },
 ];
 
+interface CheckedService {
+  id: string;
+  name: string;
+  dept: string;
+  code: string;
+  qty: number;
+  amount: number;
+  checked: boolean;
+}
+
+interface ChartHistoryItem {
+  month: string;
+  value: number;
+}
+
 export default function CheckoutPaymentPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const toast = useToastStore();
   const { locale } = useTranslation();
   const appointmentId = searchParams.get("appointmentId");
 
   const [appointment, setAppointment] = useState<ApiAppointment | null>(null);
   const [patient, setPatient] = useState<ApiPatient | null>(null);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<CheckedService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "insurance" | "cash">("card");
   const [processing, setProcessing] = useState(false);
   const [paid, setPaid] = useState(false);
-  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  const [billingHistory, setBillingHistory] = useState<ChartHistoryItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<ApiInvoice | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -83,16 +97,16 @@ export default function CheckoutPaymentPage() {
 
       if (appt.invoices && appt.invoices.length > 0) {
         const inv = appt.invoices[0]; // Take the latest/primary invoice
-        const items = (inv.items as any[]) || [];
+        const items = (inv.items as Record<string, unknown>[]) || [];
         
         if (items.length > 0) {
           setServices(items.map((item, idx) => ({
             id: `inv-item-${idx}`,
-            name: item.description || "Medical Service",
+            name: (item.description as string) || "Medical Service",
             dept: appt.type || "Clinic Service",
-            code: item.code || "99204",
-            qty: item.quantity || 1,
-            amount: item.amount || 0,
+            code: (item.code as string) || "99204",
+            qty: (item.quantity as number) || 1,
+            amount: (item.amount as number) || 0,
             checked: true
           })));
         } else {
@@ -138,7 +152,8 @@ export default function CheckoutPaymentPage() {
 
   const subtotal = services.filter((s) => s.checked).reduce((sum, s) => sum + s.amount * s.qty, 0);
   
-  const discountPercent = (patient?.medicalHistory?.insuranceDetails as any)?.discountPercent || 0;
+  const insuranceDetails = patient?.medicalHistory?.insuranceDetails as Record<string, unknown> | undefined;
+  const discountPercent = (insuranceDetails?.discountPercent as number) || 0;
   const insuranceCoverage = Math.round(subtotal * (discountPercent / 100));
   const totalDue = subtotal - insuranceCoverage;
 
@@ -159,7 +174,7 @@ export default function CheckoutPaymentPage() {
       }
       setPaid(true);
       toast.success(locale === "ar" ? "تم معالجة الدفع بنجاح" : "Payment processed successfully");
-    } catch (err) {
+    } catch {
       toast.error(locale === "ar" ? "فشلت عملية الدفع" : "Payment processing failed");
     } finally {
       setProcessing(false);
@@ -252,8 +267,8 @@ export default function CheckoutPaymentPage() {
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl">
                 <span className="text-[12px] font-bold text-slate-500">INSURANCE</span>
-                <span className="text-[12px] font-bold text-slate-900 ml-1">{(patient?.medicalHistory?.insuranceDetails as any)?.provider || "No Insurance"}</span>
-                {(patient?.medicalHistory?.insuranceDetails as any)?.verificationStatus === "verified" ? (
+                <span className="text-[12px] font-bold text-slate-900 ml-1">{(patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.provider as string || "No Insurance"}</span>
+                {(patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.verificationStatus === "verified" ? (
                   <span className="text-[11px] font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-lg ml-2">✓ Verified</span>
                 ) : (
                   <span className="text-[11px] font-black text-amber-600 bg-amber-100 px-2 py-0.5 rounded-lg ml-2">Pending</span>
@@ -327,7 +342,7 @@ export default function CheckoutPaymentPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-bold text-emerald-600">
-                  {patient?.medicalHistory?.insuranceDetails ? (patient.medicalHistory.insuranceDetails as any).provider : "Insurance"} Coverage ({discountPercent}%):
+                  {patient?.medicalHistory?.insuranceDetails ? ((patient.medicalHistory.insuranceDetails as Record<string, unknown>).provider as string) : "Insurance"} Coverage ({discountPercent}%):
                 </span>
                 <span className="text-[14px] font-bold text-emerald-600">-${insuranceCoverage.toFixed(2)}</span>
               </div>

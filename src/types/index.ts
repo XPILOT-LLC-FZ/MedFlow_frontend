@@ -272,6 +272,7 @@ export interface Appointment {
   duration?: string;
   status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress" | "no-show" | "rescheduled";
   type: string;
+  mode?: "ONSITE" | "ONLINE" | "PHONE_CALL";
   notes?: string;
   redeemPoints?: boolean;
   amount?: number;
@@ -322,7 +323,7 @@ export interface ApiInvoice {
   patientId?: string | null;
   patientName?: string | null;
   doctorName?: string | null;
-  items?: any;
+  items?: unknown;
   subtotal: number;
   discount: number;
   tax: number;
