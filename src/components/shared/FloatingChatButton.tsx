@@ -36,14 +36,14 @@ export function FloatingChatButton({
   }, [pathname]);
 
   return (
-    <div className="fixed right-6 bottom-24 md:bottom-10 lg:right-10 lg:bottom-10 z-[100] flex flex-col items-end gap-4 pointer-events-none">
+    <div className="fixed right-6 rtl:right-auto rtl:left-6 bottom-[110px] md:bottom-[40px] lg:right-10 lg:bottom-[40px] z-[100] flex flex-col items-end gap-4 pointer-events-none">
       <AnimatePresence>
         {showBubble && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            className="relative bg-blue-600 text-white px-6 py-4 rounded-3xl shadow-xl shadow-blue-200 mb-2 max-w-[240px] pointer-events-auto"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="relative bg-blue-600 text-white px-6 py-4 rounded-3xl shadow-xl shadow-blue-200 w-[240px] pointer-events-auto"
           >
             <p className="text-sm font-bold leading-relaxed">
               Need help? Ask me anything
