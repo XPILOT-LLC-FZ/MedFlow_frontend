@@ -145,6 +145,10 @@ export const patientService = {
   async getPaymentHistory(): Promise<ApiPatientPaymentHistoryItem[]> {
     return apiClient.get("/patients/me/payments");
   },
+  
+  async getPatientPayments(patientId: string): Promise<ApiPatientPaymentHistoryItem[]> {
+    return apiClient.get(`/patients/${patientId}/payments`);
+  },
 
   async verifyInsurance(id: string, data: { status: 'verified' | 'rejected'; discountPercent?: number; discountNote?: string; verifiedBy: string }): Promise<ApiPatient> {
     return apiClient.patch(`/patients/${id}/insurance/verify`, data);

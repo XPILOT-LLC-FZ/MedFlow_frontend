@@ -26,9 +26,12 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useToastStore } from "@/stores/useToastStore";
 import { HandoffPdfModal } from "@/components/reception/HandoffPdfModal";
 import { cn } from "@/lib/utils";
-import type { ApiReceptionHandoff } from "@/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { patientService } from "@/services/patientService";
+import { staffService } from "@/services/staffService";
+import { tasksService } from "@/services/tasksService";
+import type { ApiReceptionHandoff, ApiQuickTask, ApiPatient, ApiDoctor } from "@/types";
 
 type StatusFilter = "ALL" | "NEW" | "REVIEWED";
 
@@ -39,54 +42,74 @@ export default function ReceptionTasksPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [handoffs, setHandoffs] = useState<ApiReceptionHandoff[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tasks, setTasks] = useState<(ApiReceptionHandoff | ApiQuickTask)[]>([]);
   const [selectedHandoff, setSelectedHandoff] = useState<ApiReceptionHandoff | null>(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // ── Data fetching ────────────────────────────────────────────
-  const fetchHandoffs = useCallback(async () => {
+  const fetchTasks = useCallback(async () => {
     try {
-      const result = await bookingService.getReceptionHandoffs({
-        status: statusFilter === "ALL" ? undefined : (statusFilter as "NEW" | "REVIEWED"),
-        limit: 50,
-      });
-      setHandoffs(result);
+      const [handoffResults, quickTaskResults] = await Promise.all([
+        bookingService.getReceptionHandoffs({
+          status: statusFilter === "ALL" ? undefined : (statusFilter === "REVIEWED" ? "REVIEWED" : "NEW"),
+          limit: 50,
+        }),
+        tasksService.getAll({
+          status: statusFilter === "ALL" ? undefined : (statusFilter === "REVIEWED" ? "COMPLETED" : "PENDING") as any,
+        })
+      ]);
+
+      const combined = [...handoffResults, ...quickTaskResults].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setTasks(combined);
     } catch (error) {
-      console.error("Failed to fetch handoffs:", error);
+      console.error("Failed to fetch tasks:", error);
     } finally {
       setIsLoading(false);
     }
   }, [statusFilter]);
 
   useEffect(() => {
-    void fetchHandoffs();
-    const interval = setInterval(() => void fetchHandoffs(), 30000);
+    void fetchTasks();
+    const interval = setInterval(() => void fetchTasks(), 30000);
     return () => clearInterval(interval);
-  }, [fetchHandoffs]);
+  }, [fetchTasks]);
 
   // ── Derived data ─────────────────────────────────────────────
-  const filteredHandoffs = useMemo(
+  const filteredTasks = useMemo(
     () =>
-      handoffs.filter(
-        (h) =>
-          h.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          h.doctorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (h.diagnosis || "").toLowerCase().includes(searchQuery.toLowerCase())
+      tasks.filter(
+        (t) => {
+          const name = 'patientName' in t ? t.patientName : (t.patient?.fullName || "");
+          const dName = 'doctorName' in t ? t.doctorName : (t.doctor?.fullName || "");
+          const title = 'diagnosis' in t ? (t.diagnosis || t.notesSnapshot || "") : (t as ApiQuickTask).title;
+          
+          return (
+            name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            dName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            title.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+        }
       ),
-    [handoffs, searchQuery]
+    [tasks, searchQuery]
   );
 
-  const newCount = useMemo(() => handoffs.filter((h) => h.status === "NEW").length, [handoffs]);
-  const reviewedCount = useMemo(() => handoffs.filter((h) => h.status === "REVIEWED").length, [handoffs]);
+  const newCount = useMemo(() => tasks.filter((t) => (t.status === "NEW" || t.status === "PENDING")).length, [tasks]);
+  const reviewedCount = useMemo(() => tasks.filter((t) => (t.status === "REVIEWED" || t.status === "COMPLETED")).length, [tasks]);
 
   // ── Actions ──────────────────────────────────────────────────
-  const handleMarkAsReviewed = async (handoffId: string) => {
+  const handleMarkAsDone = async (task: ApiReceptionHandoff | ApiQuickTask) => {
     try {
-      await bookingService.markReceptionHandoffReviewed(handoffId);
-      toastSuccess(locale === "ar" ? "تم تحديد المهمة كمكتملة" : "Task marked as reviewed");
-      void fetchHandoffs();
+      if ('patientName' in task) {
+        await bookingService.markReceptionHandoffReviewed(task.id);
+      } else {
+        await tasksService.update(task.id, { status: "COMPLETED" });
+      }
+      toastSuccess(locale === "ar" ? "تم تحديد المهمة كمكتملة" : "Task marked as completed");
+      void fetchTasks();
     } catch {
       toastError(locale === "ar" ? "فشل تحديث الحالة" : "Failed to update status");
     }
@@ -106,24 +129,36 @@ export default function ReceptionTasksPage() {
     });
   };
 
-  const getTaskTitle = (h: ApiReceptionHandoff) => {
-    if (h.diagnosis) return h.diagnosis;
-    if (h.notesSnapshot) return h.notesSnapshot.slice(0, 40) + (h.notesSnapshot.length > 40 ? "…" : "");
-    return locale === "ar" ? "ملاحظات سريرية" : "Clinical Notes";
+  const getTaskTitle = (t: ApiReceptionHandoff | ApiQuickTask) => {
+    if ('diagnosis' in t) {
+      const h = t as ApiReceptionHandoff;
+      if (h.diagnosis) return h.diagnosis;
+      if (h.notesSnapshot) return h.notesSnapshot.slice(0, 40) + (h.notesSnapshot.length > 40 ? "…" : "");
+      return locale === "ar" ? "ملاحظات سريرية" : "Clinical Notes";
+    }
+    return (t as ApiQuickTask).title;
   };
 
-  const getPriority = (h: ApiReceptionHandoff): "High" | "Medium" | "Low" => {
-    if (h.status === "NEW") {
-      const seconds = Math.floor((Date.now() - new Date(h.createdAt).getTime()) / 1000);
+  const getPriority = (t: ApiReceptionHandoff | ApiQuickTask): "High" | "Medium" | "Low" => {
+    if ('priority' in t) {
+      const p = (t as ApiQuickTask).priority;
+      if (p === "HIGH" || p === "URGENT") return "High";
+      if (p === "NORMAL") return "Medium";
+      return "Low";
+    }
+    if (t.status === "NEW") {
+      const seconds = Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000);
       if (seconds > 3600) return "High";
       if (seconds > 1800) return "Medium";
     }
     return "Low";
   };
 
-  const getStatus = (h: ApiReceptionHandoff): "Pending" | "In Progress" | "Done" => {
-    if (h.status === "REVIEWED") return "Done";
-    const seconds = Math.floor((Date.now() - new Date(h.createdAt).getTime()) / 1000);
+  const getStatus = (t: ApiReceptionHandoff | ApiQuickTask): "Pending" | "In Progress" | "Done" => {
+    if (t.status === "REVIEWED" || t.status === "COMPLETED") return "Done";
+    if ('status' in t && t.status === "IN_PROGRESS") return "In Progress";
+    
+    const seconds = Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 1000);
     if (seconds > 1800) return "In Progress";
     return "Pending";
   };
@@ -162,7 +197,7 @@ export default function ReceptionTasksPage() {
               variant="outline"
               onClick={() => {
                 setIsLoading(true);
-                void fetchHandoffs();
+                void fetchTasks();
               }}
               className="border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-5 flex items-center gap-2 font-bold shadow-sm transition-all whitespace-nowrap"
             >
@@ -192,7 +227,7 @@ export default function ReceptionTasksPage() {
         />
         <TaskSummaryCard
           label={locale === "ar" ? "أولوية عالية" : "High priority"}
-          value={String(handoffs.filter((h) => getPriority(h) === "High").length)}
+          value={String(tasks.filter((t) => getPriority(t) === "High").length)}
           icon={ClipboardList}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
@@ -273,7 +308,7 @@ export default function ReceptionTasksPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {isLoading && handoffs.length === 0 ? (
+                {isLoading && tasks.length === 0 ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i}>
                       <td colSpan={7} className="px-6 py-8">
@@ -281,7 +316,7 @@ export default function ReceptionTasksPage() {
                       </td>
                     </tr>
                   ))
-                ) : filteredHandoffs.length === 0 ? (
+                ) : filteredTasks.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center gap-3">
@@ -300,94 +335,102 @@ export default function ReceptionTasksPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredHandoffs.map((handoff) => (
-                    <tr key={handoff.id} className="hover:bg-slate-50/30 transition-colors group">
-                      <td className="px-6 py-5 md:py-6">
-                        <div className="flex items-center gap-3">
-                          <div className={cn("h-2 w-2 rounded-full shrink-0", handoff.status === "NEW" ? "bg-blue-600 animate-pulse" : "bg-slate-300")} />
-                          <span className="text-sm font-bold text-slate-900 truncate max-w-[200px]">
-                            {getTaskTitle(handoff)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 md:py-6 text-sm font-medium text-slate-500 whitespace-nowrap">
-                        {formatDate(handoff.createdAt)}
-                      </td>
-                      <td className="px-6 py-5 md:py-6">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
-                            <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${handoff.patientName}`} />
-                            <AvatarFallback>P</AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-bold text-slate-700 truncate">{handoff.patientName}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 md:py-6">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
-                            <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${handoff.doctorName}`} />
-                            <AvatarFallback>D</AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-bold text-slate-700 truncate">
-                            {locale === "ar" ? "د." : "Dr."} {handoff.doctorName}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 md:py-6">
-                        <PriorityText priority={getPriority(handoff)} />
-                      </td>
-                      <td className="px-6 py-5 md:py-6">
-                        <StatusBadge status={getStatus(handoff)} />
-                      </td>
-                      <td className="px-6 py-5 md:py-6 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-                          {handoff.status === "NEW" && (
-                            <button
-                              onClick={() => handleMarkAsReviewed(handoff.id)}
-                              className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-200"
-                              title={locale === "ar" ? "إنهاء المهمة" : "Mark as done"}
-                            >
-                              <CheckCircle2 className="h-5 w-5" />
-                            </button>
-                          )}
-                          {handoff.status === "REVIEWED" && (
-                            <div className="p-2 rounded-xl text-blue-600 bg-blue-50">
-                              <CheckCircle2 className="h-5 w-5" />
-                            </div>
-                          )}
-                          <button
-                            onClick={() => openPdfPreview(handoff)}
-                            className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                            title={locale === "ar" ? "عرض وتحميل" : "View & PDF"}
-                          >
-                            <Download className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredTasks.map((task) => {
+                    const patientName = 'patientName' in task ? task.patientName : (task.patient?.fullName || "General");
+                    const doctorName = 'doctorName' in task ? task.doctorName : (task.doctor?.fullName || "Unassigned");
+                    const isNew = task.status === "NEW" || task.status === "PENDING";
+                    
+                    return (
+                      <tr key={task.id} className="hover:bg-slate-50/30 transition-colors group">
+                        <td className="px-6 py-5 md:py-6">
+                          <div className="flex items-center gap-3">
+                            <div className={cn("h-2 w-2 rounded-full shrink-0", isNew ? "bg-blue-600 animate-pulse" : "bg-slate-300")} />
+                            <span className="text-sm font-bold text-slate-900 truncate max-w-[200px]">
+                              {getTaskTitle(task)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 md:py-6 text-sm font-medium text-slate-500 whitespace-nowrap">
+                          {formatDate(task.createdAt)}
+                        </td>
+                        <td className="px-6 py-5 md:py-6">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
+                              <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${patientName}`} />
+                              <AvatarFallback>P</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-bold text-slate-700 truncate">{patientName}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 md:py-6">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
+                              <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doctorName}`} />
+                              <AvatarFallback>D</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-bold text-slate-700 truncate">
+                              {locale === "ar" ? "د." : "Dr."} {doctorName}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 md:py-6">
+                          <PriorityText priority={getPriority(task)} />
+                        </td>
+                        <td className="px-6 py-5 md:py-6">
+                          <StatusBadge status={getStatus(task)} />
+                        </td>
+                        <td className="px-6 py-5 md:py-6 text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                            {isNew && (
+                              <button
+                                onClick={() => handleMarkAsDone(task)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-200"
+                                title={locale === "ar" ? "إنهاء المهمة" : "Mark as done"}
+                              >
+                                <CheckCircle2 className="h-5 w-5" />
+                              </button>
+                            )}
+                            {!isNew && (
+                              <div className="p-2 rounded-xl text-blue-600 bg-blue-50">
+                                <CheckCircle2 className="h-5 w-5" />
+                              </div>
+                            )}
+                            {'patientName' in task && (
+                              <button
+                                onClick={() => openPdfPreview(task as ApiReceptionHandoff)}
+                                className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                                title={locale === "ar" ? "عرض وتحميل" : "View & PDF"}
+                              >
+                                <Download className="h-5 w-5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
 
           {/* Pagination Footer */}
-          {filteredHandoffs.length > 0 && (
+          {filteredTasks.length > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
               <p className="text-xs md:text-sm font-medium text-slate-400">
                 {locale === "ar" ? "عرض" : "Showing"}{" "}
                 <span className="text-slate-900">1</span>{" "}
                 {locale === "ar" ? "إلى" : "to"}{" "}
-                <span className="text-slate-900">{Math.min(filteredHandoffs.length, 10)}</span>{" "}
+                <span className="text-slate-900">{Math.min(filteredTasks.length, 10)}</span>{" "}
                 {locale === "ar" ? "من" : "of"}{" "}
-                <span className="text-slate-900">{filteredHandoffs.length}</span>{" "}
+                <span className="text-slate-900">{filteredTasks.length}</span>{" "}
                 {locale === "ar" ? "نتيجة" : "results"}
               </p>
               <div className="flex items-center gap-2">
                 <PaginationButton icon={ChevronLeft} disabled />
                 <PaginationNumber number={1} active />
-                {filteredHandoffs.length > 10 && <PaginationNumber number={2} />}
-                <PaginationButton icon={ChevronRight} disabled={filteredHandoffs.length <= 10} />
+                {filteredTasks.length > 10 && <PaginationNumber number={2} />}
+                <PaginationButton icon={ChevronRight} disabled={filteredTasks.length <= 10} />
               </div>
             </div>
           )}
@@ -415,8 +458,72 @@ export default function ReceptionTasksPage() {
 
 /* ── Sub-components ──────────────────────────────────────────── */
 
-function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose: () => void, locale: string }) {
+function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose: () => void; locale: string }) {
+  const toastSuccess = useToastStore((s) => s.success);
+  const toastError = useToastStore((s) => s.error);
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedPatientId, setSelectedPatientId] = useState("");
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<"Low" | "Medium" | "High">("Low");
+  
+  const [patients, setPatients] = useState<ApiPatient[]>([]);
+  const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const loadData = async () => {
+      setIsLoadingData(true);
+      try {
+        const [pData, dData] = await Promise.all([
+          patientService.getAll(),
+          staffService.getDoctors({ status: "ACTIVE" })
+        ]);
+        setPatients(pData);
+        setDoctors(dData);
+      } catch (err) {
+        console.error("Failed to load task creation data", err);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    void loadData();
+  }, [isOpen]);
+
+  const handleSubmit = async () => {
+    if (!title || !selectedPatientId || !selectedDoctorId) {
+      toastError(locale === "ar" ? "يرجى ملء الحقول المطلوبة واختيار طبيب" : "Please fill required fields and select a doctor");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await tasksService.create({
+        title,
+        description,
+        patientId: selectedPatientId,
+        doctorId: selectedDoctorId,
+        dueDate: dueDate || undefined,
+        priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as any,
+      });
+      toastSuccess(locale === "ar" ? "تم إنشاء المهمة بنجاح" : "Task created successfully");
+      onClose();
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setSelectedPatientId("");
+      setSelectedDoctorId("");
+      setDueDate("");
+    } catch (err) {
+      toastError(locale === "ar" ? "فشل إنشاء المهمة" : "Failed to create task");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -431,9 +538,11 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose
           {/* Task Title */}
           <div className="space-y-1.5">
             <label className="text-xs md:text-sm font-bold text-slate-700">
-              {locale === "ar" ? "عنوان المهمة" : "Task title"}
+              {locale === "ar" ? "عنوان المهمة" : "Task title"} *
             </label>
             <Input 
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Schedule MRI Review" 
               className="h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200 font-medium text-sm md:text-base"
             />
@@ -445,6 +554,8 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose
               {locale === "ar" ? "الوصف" : "Description"}
             </label>
             <Textarea 
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Provide additional context for the clinical staff..."
               className="min-h-[100px] md:min-h-[120px] rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200 font-medium resize-none text-sm md:text-base"
             />
@@ -454,15 +565,18 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose
             {/* Select Patient */}
             <div className="space-y-1.5">
               <label className="text-xs md:text-sm font-bold text-slate-700">
-                {locale === "ar" ? "اختر المريض" : "Select patient"}
+                {locale === "ar" ? "اختر المريض" : "Select patient"} *
               </label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  placeholder="Search name..." 
-                  className="pl-11 h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base"
-                />
-              </div>
+              <select
+                value={selectedPatientId}
+                onChange={(e) => setSelectedPatientId(e.target.value)}
+                className="w-full h-12 md:h-14 px-4 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">{locale === "ar" ? "اختر مريضاً..." : "Select a patient..."}</option>
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>{p.fullName}</option>
+                ))}
+              </select>
             </div>
 
             {/* Due Date */}
@@ -470,31 +584,30 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose
               <label className="text-xs md:text-sm font-bold text-slate-700">
                 {locale === "ar" ? "تاريخ الاستحقاق" : "Due date"}
               </label>
-              <div className="relative">
-                <Input 
-                  placeholder="MM / DD / YYYY" 
-                  className="h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base"
-                />
-                <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              </div>
+              <Input 
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base"
+              />
             </div>
           </div>
 
           {/* Assign to Doctor */}
           <div className="space-y-1.5">
             <label className="text-xs md:text-sm font-bold text-slate-700">
-              {locale === "ar" ? "تعيين للطبيب" : "Assign to doctor"}
+              {locale === "ar" ? "تعيين للطبيب" : "Assign to doctor"} *
             </label>
-            <div className="flex items-center justify-between p-3 h-12 md:h-14 bg-slate-50/30 border border-slate-100 rounded-xl md:rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-7 w-7 md:h-8 md:w-8 shrink-0">
-                  <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=SarahMiller" />
-                  <AvatarFallback>D</AvatarFallback>
-                </Avatar>
-                <span className="text-xs md:text-sm font-bold text-slate-700 truncate">Dr. Sarah Miller</span>
-              </div>
-              <ChevronDown className="h-4 w-4 md:h-5 md:w-5 text-slate-400 shrink-0" />
-            </div>
+            <select
+              value={selectedDoctorId}
+              onChange={(e) => setSelectedDoctorId(e.target.value)}
+              className="w-full h-12 md:h-14 px-4 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="">{locale === "ar" ? "اختر طبيباً..." : "Select a doctor..."}</option>
+              {doctors.map(d => (
+                <option key={d.id} value={d.id}>{d.fullName}</option>
+              ))}
+            </select>
           </div>
 
           {/* Priority */}
@@ -525,8 +638,12 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean, onClose
           <Button variant="ghost" onClick={onClose} className="rounded-xl text-xs md:text-sm font-bold text-slate-500 hover:bg-slate-100 h-10 md:h-12 px-5">
             {locale === "ar" ? "إلغاء" : "Cancel"}
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 md:h-12 px-6 md:px-10 text-xs md:text-sm font-bold shadow-lg shadow-blue-100">
-            {locale === "ar" ? "إرسال المهمة" : "Send Task"}
+          <Button 
+            disabled={isSubmitting}
+            onClick={handleSubmit}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 md:h-12 px-6 md:px-10 text-xs md:text-sm font-bold shadow-lg shadow-blue-100"
+          >
+            {isSubmitting ? (locale === "ar" ? "جاري الإرسال..." : "Sending...") : (locale === "ar" ? "إرسال المهمة" : "Send Task")}
           </Button>
         </div>
       </DialogContent>

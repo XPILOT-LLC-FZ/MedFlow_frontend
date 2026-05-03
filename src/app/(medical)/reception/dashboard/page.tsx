@@ -82,7 +82,7 @@ export default function ReceptionDashboard() {
 
   const summary = dashboardData?.summaryCards;
   const upcoming = dashboardData?.queue.upcoming || [];
-
+  const activityLog = dashboardData?.activityLog || [];
 
   return (
     <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto bg-[#F9FAFB] min-h-screen relative pb-24">
@@ -95,8 +95,8 @@ export default function ReceptionDashboard() {
           </h1>
           <p className="text-slate-500 text-sm font-medium">
             {locale === "ar"
-              ? "الإثنين، 24 أكتوبر، 2023 - إدارة 12 موظفاً نشطاً اليوم بكفاءة."
-              : "Monday, Oct 24th, 2023 — Efficiently managing 12 active staff members today."}
+              ? `إدارة ${summary?.totalToday || 0} مواعيد اليوم بكفاءة.`
+              : `Efficiently managing ${summary?.totalToday || 0} appointments today.`}
           </p>
         </div>
 
@@ -104,7 +104,12 @@ export default function ReceptionDashboard() {
           <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
             <CalendarDays className="h-5 w-5 text-blue-600" />
             <span className="text-sm font-semibold text-slate-700">
-              {locale === "ar" ? "الاثنين، 24 أكتوبر، 2026" : "Monday, Oct 24th, 2026"}
+              {new Date().toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
             </span>
           </div>
           <div className="flex items-center gap-1 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
@@ -118,17 +123,17 @@ export default function ReceptionDashboard() {
 
       {/* 2. Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard icon={Users} label="Total Patients Today" value={isLoading ? "..." : (summary?.totalToday || 12)} trend="+12%" color="blue" />
-        <StatCard icon={Clock} label="Waiting" value={isLoading ? "..." : (summary?.scheduledConfirmed || 3)} badge="Avg 14 min" color="orange" />
-        <StatCard icon={CheckCircle} label="Checked-in" value={isLoading ? "..." : (summary?.inProgress || 7)} trend="+4%" color="purple" />
-        <StatCard icon={CircleDollarSign} label="Daily revenue" value={isLoading ? "..." : "4,850L.E"} trend="+24%" color="green" />
+        <StatCard icon={Users} label="Total Patients" value={isLoading ? "..." : (summary?.totalPatients || 0)} color="blue" />
+        <StatCard icon={Clock} label="Waiting" value={isLoading ? "..." : (summary?.scheduledConfirmed || 0)} badge="Active" color="orange" />
+        <StatCard icon={CheckCircle} label="Completed" value={isLoading ? "..." : (summary?.completed || 0)} color="purple" />
+        <StatCard icon={CircleDollarSign} label="Daily revenue" value={isLoading ? "..." : `${summary?.todayRevenue?.toLocaleString() || 0} L.E`} color="green" />
       </div>
 
       {/* 3. Quick Actions */}
       <div className="space-y-6">
         <h2 className="text-xl font-bold text-slate-900 tracking-tight">Quick actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ActionCard icon={UserPlus} title="Add Patient" subtitle="Register new visitor" href="/reception/patients/new" />
+          <ActionCard icon={UserPlus} title="Add Patient" subtitle="Register new visitor" href="/reception/patients?view=new" />
           <ActionCard icon={Calendar} title="New Appointment" subtitle="Book a session" href="/reception/booking" />
           <ActionCard icon={UserCheck} title="Check in patients" subtitle="confirm arrival patients" href="/reception/waiting-room" />
           <ActionCard icon={CreditCard} title="Payment" subtitle="Process payment" href="/reception/payments" />
@@ -276,15 +281,14 @@ export default function ReceptionDashboard() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">Today&apos;s Appointments</h2>
-            <p className="text-slate-400 text-sm font-medium">Managing {upcoming.length || 12} upcoming sessions for today</p>
+            <p className="text-slate-400 text-sm font-medium">Managing {upcoming.length || 0} upcoming sessions for today</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" className="rounded-xl border-slate-100 bg-white text-slate-500 gap-2 h-10">
-              All Doctor <ChevronDown className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" className="rounded-xl border-slate-100 bg-white text-slate-500 gap-2 h-10">
-              All status <ChevronDown className="h-4 w-4" />
-            </Button>
+            <Link href="/reception/waiting-room">
+              <Button variant="outline" className="rounded-xl border-slate-100 bg-white text-slate-500 gap-2 h-10">
+                View All Appointments
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -302,48 +306,61 @@ export default function ReceptionDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {(upcoming.length > 0 ? upcoming.slice(0, 4) : [1, 2, 3, 4]).map((apt: DashboardStaffQueueItem | number, idx: number) => {
-                    const patientName = typeof apt === "object" ? apt.patientName : (idx === 0 ? "Sarah Jenkins" : idx === 1 ? "Michael Ross" : idx === 2 ? "Emily Blunt" : "Robert Vance");
-                    const status = typeof apt === "object" ? apt.status : (idx === 0 ? "CONFIRMED" : idx === 1 ? "IN_PROGRESS" : idx === 2 ? "SCHEDULED" : "COMPLETED");
-                    const time = typeof apt === "object" ? apt.time : "09:00 AM";
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
-                              <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${patientName}`} />
-                              <AvatarFallback>P</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-sm font-bold text-slate-800 leading-tight truncate">{patientName}</span>
-                              <span className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">#PT-{6234 + idx}</span>
+                  {upcoming.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-sm font-medium">
+                        No appointments scheduled for today.
+                      </td>
+                    </tr>
+                  ) : (
+                    upcoming.map((apt: DashboardStaffQueueItem, idx: number) => {
+                      return (
+                        <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                                <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.patientName}`} />
+                                <AvatarFallback>P</AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="text-sm font-bold text-slate-800 leading-tight truncate">{apt.patientName}</span>
+                                <span className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                                  {apt.patientId ? `#PT-${apt.patientId.slice(-4)}` : "ID: N/A"}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-[13px] font-medium text-slate-500 truncate">General Consultation</td>
-                        <td className="px-6 py-5 text-[13px] font-bold text-slate-900">{time}</td>
-                        <td className="px-6 py-5">
-                          <StatusBadge status={status as DashboardAppointmentStatus} />
-                        </td>
-                        <td className="px-6 py-5 text-right">
-                          <ActionButton status={status as DashboardAppointmentStatus} />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                          <td className="px-6 py-5 text-[13px] font-medium text-slate-500 truncate">{apt.serviceName}</td>
+                          <td className="px-6 py-5 text-[13px] font-bold text-slate-900">{apt.time}</td>
+                          <td className="px-6 py-5">
+                            <StatusBadge status={apt.status as DashboardAppointmentStatus} />
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <ActionButton 
+                              status={apt.status as DashboardAppointmentStatus} 
+                              patientId={apt.patientId}
+                              aptId={apt.id}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
             <div className="p-6 text-center border-t border-slate-50">
-              <button className="text-slate-400 text-sm font-semibold hover:text-blue-600 transition-colors">
-                View all appointment (12 appointments)
-              </button>
+              <Link href="/reception/waiting-room">
+                <button className="text-slate-400 text-sm font-semibold hover:text-blue-600 transition-colors">
+                  View all appointments ({summary?.totalToday || 0} today)
+                </button>
+              </Link>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 5. Live Queue Grid */}
+      {/* 5. Live Queue & Activity Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-6 overflow-hidden">
           <div className="flex items-center justify-between">
@@ -357,57 +374,82 @@ export default function ReceptionDashboard() {
                   <thead>
                     <tr className="border-b border-slate-50">
                       <th className="w-[22%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10">Patient</th>
-                      <th className="w-[20%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10">VISIT REASON</th>
+                      <th className="w-[20%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10">Doctor</th>
                       <th className="w-[16%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10">SCHEDULED</th>
                       <th className="w-[18%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10">STATUS</th>
-                      <th className="w-[10%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10">ROOM</th>
                       <th className="w-[14%] px-4 py-6 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/10 text-right">ACTION</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {[1, 2, 3, 4].map((i) => (
-                      <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="px-4 py-5">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-9 w-9 border-2 border-white shadow-sm shrink-0">
-                              <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah${i}`} />
-                              <AvatarFallback>P</AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col overflow-hidden">
-                              <span className="text-sm font-bold text-slate-800 leading-tight truncate">Sarah Jenkins</span>
-                              <span className="text-[10px] font-bold text-slate-400 mt-0.5 tracking-wider">#PT-8234</span>
-                            </div>
-                          </div>
+                    {upcoming.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center text-slate-400 text-sm font-medium">
+                          No patients in queue.
                         </td>
-                        <td className="px-4 py-5 text-[13px] font-medium text-slate-400/80 truncate">Chronic Hypertension</td>
-                        <td className="px-4 py-5 text-[13px] font-bold text-slate-500/90 truncate">09:30 AM</td>
-                        <td className="px-4 py-5"><QueueStatusBadge status={i === 1 ? "IN_PROGRESS" : i === 2 ? "WAITING" : "UPCOMING"} /></td>
-                        <td className="px-4 py-5 text-[13px] font-bold text-slate-700">B-04</td>
-                        <td className="px-4 py-5 text-right"><button className="text-[12px] font-bold text-blue-600 hover:text-blue-700 whitespace-nowrap">{i === 1 ? "View File" : i === 2 ? "Admit Patient" : i === 3 ? "Reschedule" : "Prepare Room"}</button></td>
                       </tr>
-                    ))}
+                    ) : (
+                      upcoming.map((apt, i) => (
+                        <tr key={apt.id || i} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-4 py-5">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-9 w-9 border-2 border-white shadow-sm shrink-0">
+                                <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.patientName}`} />
+                                <AvatarFallback>P</AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="text-sm font-bold text-slate-800 leading-tight truncate">{apt.patientName}</span>
+                                <span className="text-[10px] font-bold text-slate-400 mt-0.5 tracking-wider">
+                                  {apt.patientId ? `#PT-${apt.patientId.slice(-4)}` : "ID: N/A"}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-5 text-[13px] font-medium text-slate-400/80 truncate">{apt.doctorName}</td>
+                          <td className="px-4 py-5 text-[13px] font-bold text-slate-500/90 truncate">{apt.time}</td>
+                          <td className="px-4 py-5">
+                            <QueueStatusBadge status={apt.status === "IN_PROGRESS" ? "IN_PROGRESS" : apt.status === "COMPLETED" ? "UPCOMING" : "WAITING"} />
+                          </td>
+                          <td className="px-4 py-5 text-right">
+                            <button className="text-[12px] font-bold text-blue-600 hover:text-blue-700 whitespace-nowrap">
+                              {apt.status === "IN_PROGRESS" ? "View File" : "Check In"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
               <div className="p-6 text-center border-t border-slate-50 bg-white/50">
-                <button className="text-slate-400 text-[13px] font-bold hover:text-blue-600 transition-colors">View Full Queue (12 patients)</button>
+                <Link href="/reception/waiting-room">
+                  <button className="text-slate-400 text-[13px] font-bold hover:text-blue-600 transition-colors">View Full Queue</button>
+                </Link>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column: Timeline & Performance */}
+        {/* Right Column: Recent Activity & Clinic Performance */}
         <div className="lg:col-span-4 space-y-8">
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Patient Journey Timeline</h2>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Recent Activity</h2>
             <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[32px] overflow-hidden bg-white">
               <CardContent className="p-8">
                 <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[1px] before:bg-slate-100">
-                  <TimelineItem time="09:45 AM" title="Consultation: Michael Ross" subtitle="Arthur Benson (Hypertension Check)" active />
-                  <TimelineItem time="10:15 AM" title="Admission: Sarah Miller" subtitle="Prepare Vitals Station A" />
-                  <TimelineItem time="11:00 AM" title="Team Briefing: Ward 2" subtitle="Inventory Sync & Supply Check" />
+                  {activityLog.length === 0 ? (
+                    <div className="text-center text-slate-400 text-sm py-4">No recent activity.</div>
+                  ) : (
+                    activityLog.map((log, idx) => (
+                      <TimelineItem 
+                        key={idx}
+                        time={new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        title={log.title}
+                        subtitle={log.description}
+                        active={idx === 0}
+                      />
+                    ))
+                  )}
                 </div>
-                <Button variant="outline" className="w-full mt-8 rounded-xl border-slate-100 text-slate-500 font-bold h-11">Expand Full Timeline</Button>
               </CardContent>
             </Card>
           </div>
@@ -418,15 +460,17 @@ export default function ReceptionDashboard() {
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                      <span>Patient Satisfaction</span><span className="text-slate-900">94%</span>
+                      <span>Daily Targets</span><span className="text-slate-900">
+                        {summary?.completed || 0} / {summary?.totalToday || 0}
+                      </span>
                     </div>
-                    <Progress value={94} className="h-2 bg-slate-50 [&>div]:bg-emerald-500" />
+                    <Progress value={summary?.totalToday ? (summary.completed / summary.totalToday) * 100 : 0} className="h-2 bg-slate-50 [&>div]:bg-emerald-500" />
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                      <span>Capacity Used</span><span className="text-slate-900">72%</span>
+                      <span>Wait Time Efficiency</span><span className="text-slate-900">88%</span>
                     </div>
-                    <Progress value={72} className="h-2 bg-slate-50 [&>div]:bg-blue-600" />
+                    <Progress value={88} className="h-2 bg-slate-50 [&>div]:bg-blue-600" />
                   </div>
                 </div>
               </CardContent>
@@ -512,14 +556,35 @@ function StatusBadge({ status }: StatusBadgeProps) {
 
 interface ActionButtonProps {
   status: DashboardAppointmentStatus;
+  patientId?: string;
+  aptId?: string;
 }
 
-function ActionButton({ status }: ActionButtonProps) {
-  let label = "View";
-  if (status === "CONFIRMED") label = "Check in";
-  if (status === "SCHEDULED") label = "Go to queue";
-  if (status === "COMPLETED") label = "Check out";
-  return <Button variant="link" className="text-blue-600 font-bold hover:no-underline px-0">{label}</Button>;
+function ActionButton({ status, patientId, aptId }: ActionButtonProps) {
+  let label = "View Profile";
+  let href = `/reception/patients?id=${patientId}`;
+
+  if (status === "CONFIRMED") {
+    label = "Check in";
+    href = "/reception/waiting-room";
+  } else if (status === "SCHEDULED") {
+    label = "Go to queue";
+    href = "/reception/waiting-room";
+  } else if (status === "COMPLETED") {
+    label = "Check out";
+    href = `/reception/invoices?appointmentId=${aptId}`;
+  } else if (status === "IN_PROGRESS") {
+    label = "View details";
+    href = `/reception/patients?id=${patientId}`;
+  }
+
+  return (
+    <Link href={href}>
+      <Button variant="link" className="text-blue-600 font-bold hover:no-underline px-0 transition-all hover:translate-x-1">
+        {label}
+      </Button>
+    </Link>
+  );
 }
 
 interface QueueStatusBadgeProps {

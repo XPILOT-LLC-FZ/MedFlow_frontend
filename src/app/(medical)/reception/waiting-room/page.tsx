@@ -21,6 +21,7 @@ import {
   Edit2,
   Activity,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { formatDateKey } from "@/lib/dateUtils";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
+import { useRouter } from "next/navigation";
 import type { Appointment } from "@/types";
 
 const toMinutes = (value: string): number | null => {
@@ -48,7 +50,8 @@ const RESOLVED_STATUSES: Appointment["status"][] = ["completed", "cancelled", "n
 
 export default function QueueManagementPage() {
   const toast = useToastStore();
-  const { appointments, fetchAppointments, updateAppointment } = useBookingStore();
+  const router = useRouter();
+  const { appointments, fetchAppointments, updateAppointment, isLoading } = useBookingStore();
   const [processingKey, setProcessingKey] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
@@ -85,7 +88,7 @@ export default function QueueManagementPage() {
   );
 
   const avgWaitMinutes = useMemo(() => {
-    if (waiting.length === 0) return 18;
+    if (waiting.length === 0) return 0;
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const total = waiting.reduce((sum, a) => {
@@ -108,7 +111,7 @@ export default function QueueManagementPage() {
     }
   };
 
-  const showDemo = appointments.length === 0;
+  const showDemo = false; // Force real data
 
   // ── Early return AFTER all hooks ──
   if (checkInOpen) {
@@ -120,17 +123,16 @@ export default function QueueManagementPage() {
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-900">Queue Management</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Queue Management</h1>
+            {isLoading && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
+          </div>
           <p className="text-slate-400 text-sm font-medium">Real-time tracking of patient status across the clinic.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
             <CalendarDays className="h-4 w-4 text-indigo-500" />
-            <span className="text-[13px] font-bold text-slate-700">Monday, Oct 24th, 2026</span>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          </div>
-          <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-            <span className="text-[13px] font-bold text-slate-700">All department</span>
+            <span className="text-[13px] font-bold text-slate-700">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
           <Button
@@ -145,22 +147,19 @@ export default function QueueManagementPage() {
 
       {/* ── Summary Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard icon={Users} label="Total in Queue" value={String(showDemo ? 24 : waiting.length + inProgress.length)} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard icon={Users} label="Total in Queue" value={String(waiting.length + inProgress.length)} iconBg="bg-blue-50" iconColor="text-blue-600" />
         <StatCard icon={Clock} label="Avg. Wait Time" value={formatWait(avgWaitMinutes)} iconBg="bg-orange-50" iconColor="text-orange-500" />
-        <StatCard icon={UserCheck} label="In Progress" value={String(showDemo ? 7 : inProgress.length)} iconBg="bg-purple-50" iconColor="text-purple-600" />
-        <StatCard icon={CheckCircle2} label="Completed Today" value={String(showDemo ? 42 : completed.length)} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard icon={UserCheck} label="In Progress" value={String(inProgress.length)} iconBg="bg-purple-50" iconColor="text-purple-600" />
+        <StatCard icon={CheckCircle2} label="Completed Today" value={String(completed.length)} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
       </div>
 
       {/* ── Kanban Board ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* WAITING Column */}
-        <KanbanColumn dot="bg-amber-400" title="Waiting" count={showDemo ? 12 : waiting.length} onFilter={() => setFilterOpen(true)}>
-          {showDemo ? (
-            <>
-              <WaitingCard priority="high" name="Emma Thompson" pid="#PT-84729" time="10:30 AM" waitMin={25} doctor="Dr. Aarav Mehta" dept="Cardiology" onAction={() => {}} />
-              <WaitingCard priority="standard" name="Emma Thompson" pid="#PT-84729" time="10:30 AM" waitMin={25} doctor="Dr. Aarav Mehta" dept="General" onAction={() => {}} />
-            </>
+        <KanbanColumn dot="bg-amber-400" title="Waiting" count={waiting.length} onFilter={() => setFilterOpen(true)}>
+          {waiting.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-sm italic">No patients waiting</div>
           ) : (
             waiting.map((appt, i) => {
               const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
@@ -176,8 +175,8 @@ export default function QueueManagementPage() {
                   waitMin={waitMin}
                   doctor={appt.doctorName}
                   dept={appt.type || "General"}
-                  loading={processingKey === `${appt.id}:confirmed`}
-                  onAction={() => void applyTransition(appt, "confirmed")}
+                  loading={processingKey === `${appt.id}:in-progress`}
+                  onAction={() => void applyTransition(appt, "in-progress")}
                 />
               );
             })
@@ -185,12 +184,9 @@ export default function QueueManagementPage() {
         </KanbanColumn>
 
         {/* IN PROGRESS Column */}
-        <KanbanColumn dot="bg-blue-500" title="In Progress" count={showDemo ? 12 : inProgress.length} onFilter={() => setFilterOpen(true)}>
-          {showDemo ? (
-            <>
-              <InProgressCard room="Room 3" name="Emma Thompson" pid="#PT-84729" sessionMin={15} doctor="Dr. Aarav Mehta" dept="Cardiology" onAction={() => {}} />
-              <InProgressCard room="Room 3" name="Emma Thompson" pid="#PT-84729" sessionMin={15} doctor="Dr. Aarav Mehta" dept="Cardiology" onAction={() => {}} />
-            </>
+        <KanbanColumn dot="bg-blue-500" title="In Progress" count={inProgress.length} onFilter={() => setFilterOpen(true)}>
+          {inProgress.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-sm italic">No patients in session</div>
           ) : (
             inProgress.map((appt) => (
               <InProgressCard
@@ -209,20 +205,20 @@ export default function QueueManagementPage() {
         </KanbanColumn>
 
         {/* DONE Column */}
-        <KanbanColumn dot="bg-emerald-500" title="Done" count={showDemo ? 12 : completed.length} onFilter={() => setFilterOpen(true)}>
-          {showDemo ? (
-            <DoneCard name="Emma Thompson" pid="#PT-84729" completedAt="10:15 AM" doctor="Dr. Aarav Mehta" dept="Cardiology" prescription onAction={() => {}} />
+        <KanbanColumn dot="bg-emerald-500" title="Done" count={completed.length} onFilter={() => setFilterOpen(true)}>
+          {completed.length === 0 ? (
+            <div className="py-10 text-center text-slate-400 text-sm italic">No patients completed yet</div>
           ) : (
-            completed.slice(0, 4).map((appt) => (
+            completed.slice(0, 10).map((appt) => (
               <DoneCard
                 key={appt.id}
                 name={appt.patientName}
                 pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
-                completedAt={appt.time}
+                completedAt={appt.endTime || appt.time}
                 doctor={appt.doctorName}
-                dept="Cardiology"
+                dept={appt.type || "General"}
                 prescription
-                onAction={() => {}}
+                onAction={() => router.push(`/reception/payments?appointmentId=${appt.id}`)}
               />
             ))
           )}

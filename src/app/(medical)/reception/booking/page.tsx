@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   CalendarDays,
   Plus,
@@ -13,6 +13,7 @@ import {
   Calendar as CalendarIcon,
   Clock,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -22,10 +23,40 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { staffService } from "@/services/staffService";
+import { bookingService } from "@/services/bookingService";
+import { formatDateKey } from "@/lib/dateUtils";
+import type { ApiDoctor, ApiAppointment } from "@/types";
 
 export default function ReceptionSchedulePage() {
-  const [selectedDate] = useState("Monday, Oct 24th, 2026");
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
+  const [appointments, setAppointments] = useState<ApiAppointment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInitialData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [docs, appts] = await Promise.all([
+        staffService.getDoctors(),
+        bookingService.getAll({ 
+          startDate: formatDateKey(selectedDate), 
+          endDate: formatDateKey(selectedDate) 
+        })
+      ]);
+      setDoctors(docs);
+      setAppointments(appts);
+    } catch (error) {
+      console.error("Failed to fetch schedule data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    void fetchInitialData();
+  }, [fetchInitialData]);
 
   const departments = [
     { id: "all", label: "All Departments", checked: true },
@@ -36,45 +67,75 @@ export default function ReceptionSchedulePage() {
   ];
 
   const appointmentTypes = [
-    { label: "Consultation", color: "bg-[#3B82F6]" },
-    { label: "Follow-up", color: "bg-[#10B981]" },
-    { label: "Procedure", color: "bg-[#F59E0B]" },
-    { label: "Emergency", color: "bg-[#EF4444]" },
-  ];
-
-  const doctors = [
-    { id: "1", name: "Dr. Sarah Smith", dept: "CARDIOLOGY", avatar: "Sarah" },
-    { id: "2", name: "Dr. Michael Chen", dept: "PEDIATRICS", avatar: "Michael" },
-    { id: "3", name: "Dr. Elena Rodriguez", dept: "DERMATOLOGY", avatar: "Elena" },
+    { label: "Consultation", color: "bg-[#3B82F6]", apiType: "CONSULTATION" },
+    { label: "Follow-up", color: "bg-[#10B981]", apiType: "FOLLOW_UP" },
+    { label: "Procedure", color: "bg-[#F59E0B]", apiType: "PROCEDURE" },
+    { label: "Emergency", color: "bg-[#EF4444]", apiType: "EMERGENCY" },
   ];
 
   const timeSlots = [
-    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM"
+    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"
   ];
+
+  const getPositionForTime = (timeStr: string) => {
+    // Expecting "HH:MM" or "HH:MM AM/PM"
+    const [time, modifier] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    
+    const startHour = 8; // Grid starts at 8 AM
+    const totalMinutesFromStart = (hours - startHour) * 60 + minutes;
+    
+    // Each hour is 120px, so each minute is 2px
+    return totalMinutesFromStart * 2;
+  };
+
+  const handlePrevDay = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 1);
+    setSelectedDate(d);
+  };
+
+  const handleNextDay = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 1);
+    setSelectedDate(d);
+  };
 
   return (
     <div className="flex h-screen bg-white overflow-hidden font-sans">
       {/* 1. Left Sidebar */}
       <div className="w-[280px] border-r border-slate-100 flex flex-col p-6 space-y-10 shrink-0 overflow-y-auto no-scrollbar">
-        {/* October 2026 Header */}
+        {/* Calendar Header */}
         <div className="space-y-6">
           <div className="flex items-center justify-between px-2">
-            <h2 className="text-[17px] font-bold text-slate-900">October 2026</h2>
+            <h2 className="text-[17px] font-bold text-slate-900">
+              {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </h2>
             <div className="flex items-center gap-3">
-              <ChevronLeft className="h-4 w-4 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" />
-              <ChevronRight className="h-4 w-4 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" />
+              <ChevronLeft onClick={handlePrevDay} className="h-4 w-4 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" />
+              <ChevronRight onClick={handleNextDay} className="h-4 w-4 text-slate-400 cursor-pointer hover:text-slate-600 transition-colors" />
             </div>
           </div>
+          {/* Simple Calendar Placeholder (Real DatePicker could be used) */}
           <div className="grid grid-cols-7 gap-y-2 text-center">
             {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
               <span key={d} className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{d}</span>
             ))}
-            {[24, 25, 26, 27, 28, 29, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map((day, i) => (
+            {/* Logic for actual days could go here, for now keeping it visually similar but functional for selecting current day */}
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
               <span
-                key={i}
+                key={day}
+                onClick={() => {
+                   const d = new Date(selectedDate);
+                   d.setDate(day);
+                   setSelectedDate(d);
+                }}
                 className={cn(
                   "text-[12px] font-bold h-8 w-8 flex items-center justify-center rounded-full cursor-pointer transition-all",
-                  day === 12 && i > 5 ? "bg-[#3B82F6] text-white shadow-lg shadow-blue-200" : (day < 1 || (day > 20 && i < 6) ? "text-slate-200" : "text-slate-500 hover:bg-slate-50")
+                  selectedDate.getDate() === day ? "bg-[#3B82F6] text-white shadow-lg shadow-blue-200" : "text-slate-500 hover:bg-slate-50"
                 )}
               >
                 {day}
@@ -116,17 +177,22 @@ export default function ReceptionSchedulePage() {
         <header className="h-[90px] border-b border-slate-100 bg-white flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-3 px-4 py-2 bg-white border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
             <CalendarDays className="h-5 w-5 text-[#6366F1]" />
-            <span className="text-[14px] font-bold text-slate-700">{selectedDate}</span>
+            <span className="text-[14px] font-bold text-slate-700">
+              {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
 
-          <Button 
-            onClick={() => setIsNewAppointmentOpen(true)}
-            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-blue-100 flex items-center gap-2 text-sm transition-all"
-          >
-            <Plus className="h-5 w-5" />
-            New Appointment
-          </Button>
+          <div className="flex items-center gap-4">
+            {loading && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
+            <Button 
+              onClick={() => setIsNewAppointmentOpen(true)}
+              className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-blue-100 flex items-center gap-2 text-sm transition-all"
+            >
+              <Plus className="h-5 w-5" />
+              New Appointment
+            </Button>
+          </div>
         </header>
 
         {/* Scheduler Grid */}
@@ -138,22 +204,17 @@ export default function ReceptionSchedulePage() {
                 <span className="text-[11px] font-bold text-slate-300 uppercase tracking-[0.2em]">GMT-5</span>
               </div>
               {doctors.map((doc, idx) => (
-                <div key={doc.id} className={cn("flex-1 flex items-center px-8 border-r border-slate-100 last:border-r-0", idx === 2 && "relative")}>
+                <div key={doc.id} className={cn("flex-1 flex items-center px-8 border-r border-slate-100 last:border-r-0")}>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border-2 border-slate-100 shadow-sm">
-                      <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.avatar}`} />
+                      <AvatarImage src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`} />
                       <AvatarFallback>D</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="text-[14px] font-bold text-slate-900 leading-tight">{doc.name}</span>
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{doc.dept}</span>
+                      <span className="text-[14px] font-bold text-slate-900 leading-tight">{doc.fullName}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{doc.specialization}</span>
                     </div>
                   </div>
-                  {idx === 2 && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors">
-                      <ChevronRight className="h-4 w-4 text-slate-400" />
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -163,96 +224,49 @@ export default function ReceptionSchedulePage() {
               {/* Left Time Column Labels */}
               <div className="w-[100px] shrink-0 border-r border-slate-100">
                 {timeSlots.map((time) => (
-                  <div key={time} className="h-[120px] flex justify-center py-4">
+                  <div key={time} className="h-[120px] flex justify-center py-4 border-b border-slate-50 last:border-none">
                     <span className="text-[11px] font-bold text-slate-400 uppercase">{time}</span>
                   </div>
                 ))}
               </div>
 
-              {/* Grid Content with 3 Doctor Columns */}
+              {/* Grid Content with Doctor Columns */}
               <div className="flex-1 relative flex">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="flex-1 border-r border-slate-100 last:border-r-0 relative">
+                {doctors.map((doc) => (
+                  <div key={doc.id} className="flex-1 border-r border-slate-100 last:border-r-0 relative min-h-full">
                     {/* Horizontal Divider Lines */}
                     {timeSlots.map((_, idx) => (
                       <div key={idx} className="absolute left-0 right-0 h-px bg-slate-50" style={{ top: `${idx * 120}px` }} />
                     ))}
+                    
+                    {/* Real Appointment Overlays for this Doctor */}
+                    {appointments.filter(a => a.doctorId === doc.id).map((appt) => {
+                      const top = getPositionForTime(appt.startTime);
+                      const height = (appt.durationMinutes || 30) * 2; // 1 min = 2px
+                      const typeInfo = appointmentTypes.find(t => t.apiType === appt.type) || appointmentTypes[0];
+                      
+                      return (
+                        <AppointmentBlock
+                          key={appt.id}
+                          top={top}
+                          height={height}
+                          color={`${typeInfo.color.replace('bg-', 'bg-')}/10 border-${typeInfo.color.split('[')[1].split(']')[0]}`} // Rough mapping for now
+                          time={`${appt.startTime} - ${appt.endTime}`}
+                          name={appt.patientName}
+                          reason={appt.serviceName || appt.type}
+                          titleColor={`text-${typeInfo.color.split('[')[1].split(']')[0]}`}
+                        />
+                      );
+                    })}
                   </div>
                 ))}
-
-                {/* Appointment Overlays */}
-                {/* Column 1 - Sarah Smith */}
-                <div className="absolute top-0 left-0 w-[33.33%] h-full pointer-events-none p-2 pt-10">
-                  <AppointmentBlock
-                    top={40}
-                    height={100}
-                    color="bg-[#F0F7FF] border-[#3B82F6]"
-                    time="08:30 - 09:30 AM"
-                    name="Robert Patterson"
-                    reason="New Consultation"
-                    titleColor="text-[#3B82F6]"
-                  />
-                  <AppointmentBlock
-                    top={190}
-                    height={80}
-                    color="bg-[#ECFDF5] border-[#10B981]"
-                    time="10:00 - 10:30 AM"
-                    name="Eliza Thorne"
-                    reason="Follow-Up"
-                    titleColor="text-[#10B981]"
-                  />
-                  <AppointmentBlock
-                    top={320}
-                    height={160}
-                    color="bg-[#FFFBEB] border-[#F59E0B]"
-                    time="11:30 - 01:00 PM"
-                    name="Mark Jenkins"
-                    reason="Echocardiogram"
-                    titleColor="text-[#F59E0B]"
-                  />
-                </div>
-
-                {/* Column 2 - Michael Chen */}
-                <div className="absolute top-0 left-[33.33%] w-[33.33%] h-full pointer-events-none p-2 pt-0">
-                  <AppointmentBlock
-                    top={0}
-                    height={110}
-                    color="bg-[#FEF2F2] border-[#EF4444]"
-                    time="08:00 - 09:00 AM"
-                    name="Lily Evans (Urgent)"
-                    reason="High Fever Review"
-                    titleColor="text-[#EF4444]"
-                  />
-                  <AppointmentBlock
-                    top={160}
-                    height={120}
-                    color="bg-[#F0F7FF] border-[#3B82F6]"
-                    time="09:30 - 10:30 AM"
-                    name="Noah Williams"
-                    reason="New Consultation"
-                    titleColor="text-[#3B82F6]"
-                  />
-                </div>
-
-                {/* Column 3 - Elena Rodriguez */}
-                <div className="absolute top-0 left-[66.66%] w-[33.33%] h-full pointer-events-none p-2 pt-12">
-                  <AppointmentBlock
-                    top={48}
-                    height={200}
-                    color="bg-[#FFFBEB] border-[#F59E0B]"
-                    time="08:30 - 10:30 AM"
-                    name="Samuel Costa"
-                    reason="Surgical Biopsy"
-                    titleColor="text-[#F59E0B]"
-                  />
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <BookAppointmentModal isOpen={isNewAppointmentOpen} onClose={() => setIsNewAppointmentOpen(false)} />
+      <BookAppointmentModal isOpen={isNewAppointmentOpen} onClose={() => setIsNewAppointmentOpen(false)} onBooked={fetchInitialData} />
     </div>
   );
 }
@@ -272,21 +286,100 @@ function AppointmentBlock({ top, height, color, time, name, reason, titleColor }
     <div
       style={{ top: `${top}px`, height: `${height}px` }}
       className={cn(
-        "absolute left-4 right-4 rounded-xl border-l-[3px] p-4 pointer-events-auto cursor-pointer shadow-sm hover:shadow-md transition-all flex flex-col justify-start",
-        color
+        "absolute left-2 right-2 rounded-xl border-l-[3px] p-3 pointer-events-auto cursor-pointer shadow-sm hover:shadow-md transition-all flex flex-col justify-start overflow-hidden",
+        color.includes('bg-') ? color : "bg-blue-50 border-blue-500" // Fallback
       )}
     >
-      <span className={cn("text-[10px] font-black uppercase tracking-wider mb-1", titleColor)}>{time}</span>
-      <h4 className="text-[14px] font-bold text-slate-800 leading-tight">{name}</h4>
-      <p className="text-[11px] font-bold text-slate-400 mt-0.5">{reason}</p>
+      <span className={cn("text-[9px] font-black uppercase tracking-wider mb-0.5", titleColor.startsWith('text-') ? titleColor : "text-blue-600")}>{time}</span>
+      <h4 className="text-[12px] font-bold text-slate-800 leading-tight truncate">{name}</h4>
+      <p className="text-[10px] font-bold text-slate-400 mt-0.5 truncate">{reason}</p>
     </div>
   );
 }
 
 /* ── Book Appointment Modal ───────────────────────────────────── */
 
-function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const [selectedVisitType, setSelectedVisitType] = useState("Follow up visit (30 min)");
+import { patientService } from "@/services/patientService";
+import { useToastStore } from "@/stores/useToastStore";
+import type { ApiPatient } from "@/types";
+
+/* ── Book Appointment Modal ───────────────────────────────────── */
+
+function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; onClose: () => void; onBooked?: () => void }) {
+  const toast = useToastStore();
+  const [loading, setLoading] = useState(false);
+  
+  // Form State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [patients, setPatients] = useState<ApiPatient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<ApiPatient | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<ApiDoctor | null>(null);
+  const [allDoctors, setAllDoctors] = useState<ApiDoctor[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+  const [selectedType, setSelectedType] = useState<"CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY">("CONSULTATION");
+
+  // Fetch doctors on mount
+  useEffect(() => {
+    if (isOpen) {
+      void staffService.getDoctors().then(setAllDoctors);
+    }
+  }, [isOpen]);
+
+  // Search patients
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      const delay = setTimeout(async () => {
+        try {
+          const results = await patientService.getAll({ search: searchQuery });
+          setPatients(results);
+        } catch (e) {
+          console.error(e);
+        }
+      }, 300);
+      return () => clearTimeout(delay);
+    } else {
+      setPatients([]);
+    }
+  }, [searchQuery]);
+
+  // Fetch slots when doctor or date changes
+  useEffect(() => {
+    if (selectedDoctor && selectedDate) {
+      void bookingService.getAvailableSlots(selectedDoctor.id, formatDateKey(selectedDate))
+        .then(setAvailableSlots);
+    }
+  }, [selectedDoctor, selectedDate]);
+
+  const handleBook = async () => {
+    if (!selectedPatient || !selectedDoctor || !selectedTime) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await bookingService.create({
+        patientId: selectedPatient.id,
+        doctorId: selectedDoctor.id,
+        date: formatDateKey(selectedDate),
+        startTime: selectedTime,
+        type: selectedType,
+        notes: notes,
+        amount: selectedDoctor.consultationFee || 0,
+      });
+      toast.success("Appointment booked successfully");
+      onBooked?.();
+      onClose();
+    } catch (e) {
+      toast.error("Failed to book appointment");
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -301,8 +394,12 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold text-slate-400 hover:bg-slate-50 h-11 px-6">
               Cancel
             </Button>
-            <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-100">
-              Save & confirm
+            <Button 
+              onClick={handleBook}
+              disabled={loading}
+              className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-100"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save & confirm"}
             </Button>
           </div>
         </div>
@@ -319,23 +416,51 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 <h3 className="text-[15px] font-bold text-slate-900 uppercase tracking-widest">Select Patient</h3>
               </div>
               <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
-                  <Input placeholder="Search by name , phone or ID..." className="pl-11 h-14 rounded-2xl border-slate-100 bg-white" />
-                </div>
-                <div className="p-4 bg-white border border-slate-100 rounded-[20px] flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12 border-2 border-slate-50">
-                      <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Michael" />
-                      <AvatarFallback>M</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                      <span className="text-[15px] font-bold text-slate-900">Michael R. Harrison</span>
-                      <span className="text-[11px] font-bold text-slate-400 mt-1">ID: #PT-84729 • (585) 123-4567</span>
-                    </div>
+                {!selectedPatient ? (
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                    <Input 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by name, phone or ID..." 
+                      className="pl-11 h-14 rounded-2xl border-slate-100 bg-white" 
+                    />
+                    {patients.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto">
+                        {patients.map(p => (
+                          <div 
+                            key={p.id} 
+                            onClick={() => setSelectedPatient(p)}
+                            className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-none"
+                          >
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={p.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${p.fullName}`} />
+                              <AvatarFallback>{p.fullName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-slate-900">{p.fullName}</span>
+                              <span className="text-[11px] text-slate-500">{p.phone}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <Button variant="outline" className="rounded-xl border-slate-200 text-blue-600 font-bold px-5 h-9">Change</Button>
-                </div>
+                ) : (
+                  <div className="p-4 bg-white border border-slate-100 rounded-[20px] flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-12 w-12 border-2 border-slate-50">
+                        <AvatarImage src={selectedPatient.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${selectedPatient.fullName}`} />
+                        <AvatarFallback>{selectedPatient.fullName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-[15px] font-bold text-slate-900">{selectedPatient.fullName}</span>
+                        <span className="text-[11px] font-bold text-slate-400 mt-1">ID: #{selectedPatient.id.slice(-5).toUpperCase()} • {selectedPatient.phone}</span>
+                      </div>
+                    </div>
+                    <Button variant="outline" onClick={() => setSelectedPatient(null)} className="rounded-xl border-slate-200 text-blue-600 font-bold px-5 h-9">Change</Button>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -350,29 +475,21 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
               
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 ml-1">Department / Specialty</label>
-                  <div className="h-14 px-5 bg-white border border-slate-100 rounded-2xl flex items-center justify-between cursor-pointer">
-                    <span className="text-[14px] font-bold text-slate-700">Cardiology</span>
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
-                  </div>
-                </div>
-                <div className="space-y-2">
                   <label className="text-[13px] font-bold text-slate-500 ml-1">Visit Type</label>
                   <div className="relative group">
                     <div className="h-14 px-5 bg-white border border-slate-100 rounded-2xl flex items-center justify-between cursor-pointer">
-                      <span className="text-[14px] font-bold text-slate-700">{selectedVisitType}</span>
+                      <span className="text-[14px] font-bold text-slate-700 capitalize">{selectedType.replace('_', ' ').toLowerCase()}</span>
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </div>
-                    {/* Dropdown Options */}
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                      {["initial consultation (45 min)", "Follow up visit (30 min)", "Routine checkup (35 min)"].map((type) => (
+                      {["CONSULTATION", "FOLLOW_UP", "PROCEDURE", "EMERGENCY"].map((type) => (
                         <div 
                           key={type}
-                          onClick={() => setSelectedVisitType(type)}
+                          onClick={() => setSelectedType(type as any)}
                           className="px-5 py-4 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
                         >
-                          <span className="text-[13px] font-bold text-slate-700 capitalize">{type}</span>
-                          {selectedVisitType === type && <Check className="h-4 w-4 text-blue-600" />}
+                          <span className="text-[13px] font-bold text-slate-700 capitalize">{type.replace('_', ' ').toLowerCase()}</span>
+                          {selectedType === type && <Check className="h-4 w-4 text-blue-600" />}
                         </div>
                       ))}
                     </div>
@@ -380,42 +497,36 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="p-4 bg-white border-2 border-blue-600 rounded-[24px] flex items-center justify-between shadow-md relative overflow-hidden">
-                  <div className="flex items-center gap-4">
-                    <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-white" />
+              <div className="space-y-4 max-h-[300px] overflow-y-auto no-scrollbar">
+                {allDoctors.map(doc => (
+                  <div 
+                    key={doc.id}
+                    onClick={() => setSelectedDoctor(doc)}
+                    className={cn(
+                      "p-4 bg-white border rounded-[24px] flex items-center justify-between transition-all cursor-pointer",
+                      selectedDoctor?.id === doc.id ? "border-2 border-blue-600 shadow-md" : "border-slate-100 hover:border-blue-200"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      {selectedDoctor?.id === doc.id && (
+                        <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={doc.user?.avatarUrl || ""} />
+                        <AvatarFallback>{doc.fullName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-[15px] font-bold text-slate-900">{doc.fullName}</span>
+                        <span className="text-[11px] font-bold text-slate-400 mt-1">{doc.specialization} • {doc.experienceYears} yrs exp.</span>
+                      </div>
                     </div>
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Aarav" />
-                      <AvatarFallback>AM</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                      <span className="text-[15px] font-bold text-slate-900">Dr. Aarav Mehta</span>
-                      <span className="text-[11px] font-bold text-slate-400 mt-1">Senior Cardiologist • 15 yrs exp.</span>
-                    </div>
+                    <Badge className={cn("border-none rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-wider", doc.status === "ACTIVE" ? "bg-emerald-50 text-emerald-500" : "bg-slate-50 text-slate-400")}>
+                      ● {doc.status === "ACTIVE" ? "Available" : doc.status}
+                    </Badge>
                   </div>
-                  <Badge className="bg-emerald-50 text-emerald-500 border-none rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-wider">
-                    ● Available Today
-                  </Badge>
-                </div>
-
-                <div className="p-4 bg-white border border-slate-100 rounded-[24px] flex items-center justify-between opacity-60">
-                  <div className="flex items-center gap-4">
-                    <div className="h-5 w-5 rounded-full border-2 border-slate-200" />
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Michael" />
-                      <AvatarFallback>MC</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                      <span className="text-[15px] font-bold text-slate-900">Dr. Michael Harrison</span>
-                      <span className="text-[11px] font-bold text-slate-400 mt-1">Senior Cardiologist • 15 yrs exp.</span>
-                    </div>
-                  </div>
-                  <Badge className="bg-orange-50 text-orange-500 border-none rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-wider">
-                    ● Next Available: Tmw
-                  </Badge>
-                </div>
+                ))}
               </div>
             </section>
 
@@ -429,72 +540,40 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
               </div>
 
               <div className="flex gap-10">
-                {/* Calendar */}
+                {/* Simplified Calendar Placeholder */}
                 <div className="w-[300px] space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[15px] font-bold text-slate-900">October 2026</h4>
-                    <div className="flex items-center gap-4">
-                      <ChevronLeft className="h-4 w-4 text-slate-400" />
-                      <ChevronRight className="h-4 w-4 text-slate-400" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-7 gap-y-3 text-center">
-                    {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => (
-                      <span key={d} className="text-[11px] font-bold text-slate-300 uppercase">{d}</span>
-                    ))}
-                    {[25, 26, 27, 28, 29, 30, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].map((day, i) => (
-                      <div key={i} className="relative flex flex-col items-center">
-                        <span className={cn(
-                          "text-[13px] font-bold h-8 w-8 flex items-center justify-center rounded-full cursor-pointer",
-                          day === 24 && i > 25 ? "bg-[#3B82F6] text-white" : "text-slate-500"
-                        )}>
-                          {day}
-                        </span>
-                        <div className="flex gap-0.5 mt-0.5">
-                           {i % 4 === 0 && <div className="h-1 w-1 rounded-full bg-blue-500" />}
-                           {i % 3 === 0 && <div className="h-1 w-1 rounded-full bg-emerald-500" />}
-                           {i % 7 === 0 && <div className="h-1 w-1 rounded-full bg-rose-500" />}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-4 pt-2">
-                    <div className="flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-blue-500" /><span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Working day</span></div>
-                    <div className="flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-emerald-500" /><span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Available</span></div>
-                    <div className="flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-rose-500" /><span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Full</span></div>
-                  </div>
+                   <p className="text-sm font-bold text-slate-700">Selected: {selectedDate.toLocaleDateString()}</p>
+                   <Input 
+                    type="date" 
+                    value={formatDateKey(selectedDate)} 
+                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                    className="h-12 rounded-xl"
+                   />
                 </div>
 
                 {/* Slots */}
                 <div className="flex-1 space-y-8">
                   <div className="space-y-4">
                     <h5 className="text-[11px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                      <Clock className="h-3 w-3" /> Morning
+                      <Clock className="h-3 w-3" /> Available Slots
                     </h5>
                     <div className="grid grid-cols-3 gap-3">
-                      {["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM"].map((time) => (
-                        <button 
-                          key={time} 
-                          className={cn(
-                            "py-3 rounded-xl text-[13px] font-bold border transition-all",
-                            time === "10:30 AM" ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100" : "bg-white border-slate-100 text-slate-500 hover:border-blue-200"
-                          )}
-                        >
-                          {time}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <h5 className="text-[11px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                      <Clock className="h-3 w-3" /> Afternoon
-                    </h5>
-                    <div className="grid grid-cols-3 gap-3">
-                      {["01:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM"].map((time) => (
-                        <button key={time} className="py-3 rounded-xl text-[13px] font-bold border border-slate-100 bg-white text-slate-500 hover:border-blue-200 transition-all">
-                          {time}
-                        </button>
-                      ))}
+                      {availableSlots.length > 0 ? (
+                        availableSlots.map((time) => (
+                          <button 
+                            key={time} 
+                            onClick={() => setSelectedTime(time)}
+                            className={cn(
+                              "py-3 rounded-xl text-[13px] font-bold border transition-all",
+                              selectedTime === time ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100" : "bg-white border-slate-100 text-slate-500 hover:border-blue-200"
+                            )}
+                          >
+                            {time}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="col-span-3 text-xs text-slate-400 text-center py-4 italic">No slots available or select a doctor.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -510,18 +589,20 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             </div>
 
             <div className="space-y-8">
-              <SummaryItem icon={User} label="Patient" value="Michael R. Harrison" />
-              <SummaryItem icon={Stethoscope} label="Provider" value="Dr. Aarav Mehta" subValue="Cardiology" />
-              <SummaryItem icon={CalendarIcon} label="Schedule" value="Tue, Oct 24, 2023" subValue="10:30 AM (30m)" />
+              <SummaryItem icon={User} label="Patient" value={selectedPatient?.fullName || "Not selected"} />
+              <SummaryItem icon={Stethoscope} label="Provider" value={selectedDoctor?.fullName || "Not selected"} subValue={selectedDoctor?.specialization} />
+              <SummaryItem icon={CalendarIcon} label="Schedule" value={selectedDate.toLocaleDateString()} subValue={selectedTime || "Time not selected"} />
               
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Visit type</label>
-                  <p className="text-[15px] font-bold text-slate-900">Follow-up Visit</p>
+                  <p className="text-[15px] font-bold text-slate-900 capitalize">{selectedType.replace('_', ' ').toLowerCase()}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Reason for visit / notes</label>
                   <Textarea 
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                     placeholder="Briefly describe the symptoms or reason for this appointment..." 
                     className="min-h-[100px] rounded-2xl border-slate-100 bg-slate-50/30 text-[13px] font-medium resize-none"
                   />
@@ -530,17 +611,17 @@ function BookAppointmentModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
             </div>
 
             <div className="space-y-3 pt-6">
-              <Button className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl h-14 font-bold shadow-lg shadow-blue-100 flex items-center justify-center gap-2">
-                <Check className="h-5 w-5" />
-                Book Appointment
-              </Button>
-              <Button variant="outline" className="w-full rounded-2xl h-14 border-slate-200 text-slate-700 font-bold bg-white">
-                Save as Draft
+              <Button 
+                onClick={handleBook}
+                disabled={loading}
+                className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl h-14 font-bold shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5" /> Book Appointment</>}
               </Button>
             </div>
 
             <p className="text-[11px] text-slate-400 text-center font-medium leading-relaxed">
-              By booking, you agree to (name of clinic)<br />scheduling and cancellation policies.
+              By booking, you agree to ClinicFlow<br />scheduling and cancellation policies.
             </p>
           </div>
         </div>
