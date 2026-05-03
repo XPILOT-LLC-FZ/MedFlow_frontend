@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   LayoutDashboard, Calendar, User, Users, Stethoscope, ClipboardList,
   Package, BarChart3, Clock, FileText, Settings, MessageSquare, Sparkles, Activity,
-  Moon, Sun, Bell, Search, UsersRound, ChevronRight
+  Moon, Sun, Bell, Search, UsersRound, ChevronRight, ChevronDown, Building2
 } from "lucide-react";
 
 const roleLabels: Record<Role, { en: string; ar: string }> = {
@@ -248,6 +248,154 @@ export function DashboardTopbar() {
   };
 
 
+  // ── RECEPTION CUSTOM NAVBAR ───────────────────────────────────────────
+  if (role === "STAFF") {
+    return (
+      <div className="hidden lg:flex w-full h-[88px] items-center justify-between border-b border-slate-100 bg-white px-10 transition-all duration-300">
+        {/* Left: Location Selector */}
+        <div className="flex items-center gap-4 group cursor-pointer">
+          <div className="h-12 w-12 rounded-[20px] bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shadow-sm">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-bold text-slate-900 tracking-tight">Tanta, Gharbia</span>
+            <ChevronDown className="h-4 w-4 text-slate-300" />
+          </div>
+        </div>
+
+        {/* Center: Search Bar */}
+        <div className="flex-1 max-w-2xl px-12" ref={searchRef}>
+          <div className="relative group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              placeholder="Search patients, doctors or appointments..."
+              className="w-full h-12 pl-12 pr-6 rounded-full border border-slate-100 bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-50/20 transition-all text-[13px] font-medium text-slate-600 outline-none shadow-sm placeholder:text-slate-400"
+            />
+            {isSearchFocused && searchQuery.trim() && (
+               <div className="absolute top-full mt-3 w-full overflow-hidden rounded-[24px] border border-slate-100 bg-white z-[100] shadow-2xl animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                  {searchResults.length > 0 ? (
+                    <div className="flex flex-col">
+                      <span className="px-6 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50">
+                        Results Found
+                      </span>
+                      {searchResults.map((route, i) => (
+                        <button
+                          key={`${route.href}-${i}`}
+                          onClick={() => handleRouteNavigate(route.href)}
+                          className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 text-left transition-colors"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                            <route.icon className="h-5 w-5" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-bold text-slate-900">{route.label}</span>
+                            <span className="text-[11px] font-medium text-slate-400 truncate uppercase tracking-wider mt-0.5">{route.href}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-6 py-12 text-center flex flex-col items-center gap-3">
+                      <div className="h-12 w-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                        <Search className="h-6 w-6" />
+                      </div>
+                      <span className="text-sm font-bold text-slate-400">No results found.</span>
+                    </div>
+                  )}
+               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Actions & Profile */}
+        <div className="flex items-center gap-6">
+          {/* Online Badge */}
+          <div className="flex items-center gap-2.5 px-5 py-2.5 bg-emerald-50/60 border border-emerald-100/50 rounded-full text-emerald-600 font-black text-[11px] tracking-wider shadow-sm">
+             <Activity className="h-4 w-4" />
+             <span>ONLINE</span>
+             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setNotifOpen(!notifOpen)}
+              className="h-11 w-11 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all relative group shadow-sm"
+            >
+              <Bell className="h-5 w-5" />
+              {realNotifications.some(n => !n.readAt) && (
+                <span className="absolute top-[12px] right-[12px] h-2 w-2 rounded-full bg-rose-500 border-2 border-white" />
+              )}
+            </button>
+            <button 
+              onClick={toggleTheme}
+              className="h-11 w-11 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all shadow-sm"
+            >
+              {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </button>
+          </div>
+
+          <Link href="/reception/profile" className="flex items-center gap-4 group ml-2">
+            <div className="flex flex-col justify-center text-right">
+              <p className="text-[15px] font-bold text-slate-900 leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                {firstName || "Mohamed"}
+              </p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                {roleLabel === "Reception" ? "RECEPTION" : roleLabel}
+              </p>
+            </div>
+            <Avatar className="h-11 w-11 transition-all group-hover:scale-105 ring-2 ring-white shadow-md">
+              <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user?.email}`} />
+              <AvatarFallback className="bg-blue-600 text-white font-bold">{firstName.charAt(0)}</AvatarFallback>
+            </Avatar>
+          </Link>
+        </div>
+
+        {/* Existing Dialogs (Still needed for functionality) */}
+        <NotificationsDialog
+          isOpen={isFullNotificationsOpen}
+          onOpenChange={setIsFullNotificationsOpen}
+          notifications={realNotifications}
+          onRefresh={refreshNotifications}
+        />
+        {notifOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-transparent" 
+            onClick={() => setNotifOpen(false)} 
+          />
+        )}
+        {notifOpen && (
+           <div className="absolute top-[72px] right-24 w-80 rounded-2xl border border-slate-100 bg-white shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">Recent Alerts</span>
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5">
+                  {realNotifications.filter(n => !n.readAt).length}
+                </span>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto no-scrollbar">
+                {realNotifications.slice(0, 5).map(n => (
+                  <div key={n.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
+                    <p className="text-[13px] font-bold text-slate-800 mb-1">{n.title}</p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">{n.body}</p>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={() => { setNotifOpen(false); setIsFullNotificationsOpen(true); }}
+                className="w-full py-3 text-[11px] font-bold text-blue-600 hover:bg-blue-50 transition-all uppercase tracking-widest"
+              >
+                View all notifications
+              </button>
+           </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── DEFAULT NAVBAR (FOR OTHER ROLES) ──────────────────────────────────
   return (
     <div className="hidden lg:flex w-full border-b border-slate-100/80 dark:border-slate-800/60 bg-white dark:bg-slate-950 px-7 py-4 flex-col gap-2 transition-all duration-300">
       <div className="flex items-start justify-between w-full">
@@ -382,7 +530,7 @@ export function DashboardTopbar() {
                             n.payload?.role === "ADMIN" ? "bg-purple-50 dark:bg-purple-900/20 text-purple-600" :
                               n.payload?.role === "DOCTOR" ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600" :
                                 n.payload?.role === "PATIENT" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
-                                  n.type === "CRITICAL" ? "bg-rose-50 dark:bg-rose-900/20 text-rose-500" :
+                                  n.type === "CRITICAL" ? "bg-rose-50 dark:rose-900/20 text-rose-500" :
                                     "bg-slate-100 dark:bg-slate-800 text-slate-500"
                           )}>
                             {n.payload?.role === "ADMIN" ? <ShieldCheck className="h-4.5 w-4.5" /> :
@@ -500,7 +648,7 @@ export function DashboardTopbar() {
             {/* Profile Section */}
             {user && (
               <Link
-                href={role === "DOCTOR" ? "/doctor/profile" : (role === "PATIENT" ? "/profile" : (role === "STAFF" ? "/reception/profile" : "#"))}
+                href={role === "DOCTOR" ? "/doctor/profile" : (role === "PATIENT" ? "/profile" : (role === "ADMIN" ? "/admin/profile" : "#"))}
                 className="flex items-center gap-3 pl-3 border-l border-slate-100 dark:border-slate-800 ml-2 group"
               >
                 <Avatar className="h-9 w-9 cursor-pointer border-2 border-white dark:border-slate-900 transition-all group-hover:scale-105">
@@ -520,7 +668,7 @@ export function DashboardTopbar() {
           </div>
 
           {/* Row 2: Availability Toggle */}
-          {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "STAFF" || user.role === "SUPER_ADMIN") && (
+          {user && (user.role === "ADMIN" || user.role === "DOCTOR" || user.role === "SUPER_ADMIN") && (
             <Button
               variant="ghost"
               onClick={(e) => {

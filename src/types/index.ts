@@ -309,6 +309,26 @@ export interface ApiAppointment {
   } | null;
   prescriptions?: ApiPrescription[];
   investigationOrders?: ApiInvestigation[];
+  invoices?: ApiInvoice[];
+}
+
+export interface ApiInvoice {
+  id: string;
+  invoiceNumber?: string | null;
+  appointmentId?: string | null;
+  patientId?: string | null;
+  patientName?: string | null;
+  doctorName?: string | null;
+  items?: any;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  totalAmount: number;
+  paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
+  paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ApiPatientPaymentHistoryItem {
@@ -716,9 +736,11 @@ export interface DashboardAdminSummaryData {
 
 export interface DashboardStaffQueueItem {
   id: string;
+  patientId?: string;
   patientName: string;
   patientNameAr?: string;
   doctorName: string;
+  serviceName: string;
   time: string;
   status: DashboardAppointmentStatus;
 }
@@ -729,6 +751,8 @@ export interface DashboardStaffSummaryData {
     scheduledConfirmed: number;
     inProgress: number;
     completed: number;
+    totalPatients: number;
+    todayRevenue: number;
   };
   queue: {
     upcoming: DashboardStaffQueueItem[];
@@ -740,6 +764,12 @@ export interface DashboardStaffSummaryData {
     specialization: string;
     isAvailable: boolean;
     avatarUrl?: string | null;
+  }>;
+  activityLog: Array<{
+    type: string;
+    title: string;
+    description: string;
+    timestamp: string;
   }>;
 }
 

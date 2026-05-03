@@ -262,7 +262,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     try {
       if (updates.status) {
         const apiStatus = updates.status.toUpperCase().replace("-", "_");
-        await bookingService.updateStatus(id, apiStatus, updates.notes);
+        await bookingService.updateStatus(id, apiStatus, { notes: updates.notes });
       }
       // Update locally
       get().updateAppointmentLocal(id, updates);

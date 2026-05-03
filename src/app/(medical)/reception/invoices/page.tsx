@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search,
   CalendarDays,
@@ -20,28 +20,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-/* ── Mock Data ─────────────────────────────────────────────────── */
-const INVOICES = Array.from({ length: 37 }, (_, i) => ({
-  id: `INV-2023-${String(i + 1).padStart(3, "0")}`,
-  date: "Oct 24, 2024",
-  patient: { name: "Robert Chen", avatar: `https://api.dicebear.com/9.x/avataaars/svg?seed=Robert${i}` },
-  service: "Cardiology Consultation",
-  amount: 150.0,
-  status: (["paid", "pending", "overdue", "paid", "paid", "paid"] as const)[i % 6],
-}));
+import { billingService, type InvoiceStats } from "@/services/billingService";
+import type { ApiInvoice } from "@/types";
+import { useToastStore } from "@/stores/useToastStore";
 
 type Status = "all" | "paid" | "pending" | "overdue";
 const STATUS_LABELS: Record<Status, string> = { all: "All states", paid: "Paid", pending: "Pending", overdue: "Overdue" };
 const PAGE_SIZE = 10;
-interface Invoice {
-  id: string;
-  date: string;
-  patient: { name: string; avatar: string };
-  service: string;
-  amount: number;
-  status: "paid" | "pending" | "overdue";
-}
 
 export default function InvoiceListPage() {
   const [search, setSearch] = useState("");
@@ -50,27 +35,37 @@ export default function InvoiceListPage() {
   const [deptOpen, setDeptOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [invoices, setInvoices] = useState<ApiInvoice[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [stats, setStats] = useState<InvoiceStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const toast = useToastStore();
+
   const statusRef = useRef<HTMLDivElement>(null);
   const deptRef = useRef<HTMLDivElement>(null);
 
-  /* Close dropdowns on outside click */
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [res, s] = await Promise.all([
+        billingService.getAll({ search, status, page, limit: PAGE_SIZE }),
+        billingService.getStats()
+      ]);
+      setInvoices(res.items);
+      setTotalItems(res.total);
+      setStats(s);
+    } catch (err) {
+      toast.error("Failed to load invoices");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [search, status, page, toast]);
+
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false);
-      if (deptRef.current && !deptRef.current.contains(e.target as Node)) setDeptOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+    void fetchData();
+  }, [fetchData]);
 
-  const filtered = INVOICES.filter((inv) => {
-    const matchSearch = inv.patient.name.toLowerCase().includes(search.toLowerCase()) || inv.id.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "all" || inv.status === status;
-    return matchSearch && matchStatus;
-  });
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
 
   const toggleSelect = (id: string) =>
     setSelected((prev) => {
@@ -83,10 +78,10 @@ export default function InvoiceListPage() {
       return next;
     });
 
-  const allSelected = pageItems.length > 0 && pageItems.every((i) => selected.has(i.id));
+  const allSelected = invoices.length > 0 && invoices.every((i) => selected.has(i.id));
   const toggleAll = () => {
-    if (allSelected) setSelected((prev) => { const n = new Set(prev); pageItems.forEach((i) => n.delete(i.id)); return n; });
-    else setSelected((prev) => { const n = new Set(prev); pageItems.forEach((i) => n.add(i.id)); return n; });
+    if (allSelected) setSelected((prev) => { const n = new Set(prev); invoices.forEach((i) => n.delete(i.id)); return n; });
+    else setSelected((prev) => { const n = new Set(prev); invoices.forEach((i) => n.add(i.id)); return n; });
   };
 
   /* Page numbers to display */
@@ -125,7 +120,7 @@ export default function InvoiceListPage() {
           icon={<TrendingUp className="h-6 w-6 text-emerald-600" />}
           iconBg="bg-emerald-50"
           label="Total billed"
-          value="124,500 LE"
+          value={`${(stats?.totalBilled || 0).toLocaleString()} LE`}
           trend="+12% vs last month"
           trendUp
         />
@@ -133,7 +128,7 @@ export default function InvoiceListPage() {
           icon={<AlertCircle className="h-6 w-6 text-red-500" />}
           iconBg="bg-red-50"
           label="Outstanding Balance"
-          value="124,500 LE"
+          value={`${(stats?.outstandingBalance || 0).toLocaleString()} LE`}
           trend="↑ 1% vs last month"
           trendUp={false}
         />
@@ -141,7 +136,7 @@ export default function InvoiceListPage() {
           icon={<BarChart2 className="h-6 w-6 text-blue-600" />}
           iconBg="bg-blue-50"
           label="Collection Rate"
-          value="94.2%"
+          value={`${stats?.collectionRate || 0}%`}
           trend="+12% vs last month"
           trendUp
         />
@@ -249,8 +244,18 @@ export default function InvoiceListPage() {
         </div>
 
         {/* Table Rows */}
-        <div className="divide-y divide-slate-50">
-          {pageItems.map((inv: Invoice) => (
+        <div className="divide-y divide-slate-50 min-h-[400px] relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+              <div className="h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          {invoices.length === 0 && !isLoading && (
+            <div className="py-20 text-center">
+              <p className="text-slate-400 font-bold">No invoices found</p>
+            </div>
+          )}
+          {invoices.map((inv) => (
             <div
               key={inv.id}
               className={cn(
@@ -273,38 +278,40 @@ export default function InvoiceListPage() {
 
               {/* Invoice ID */}
               <div className="col-span-2">
-                <span className="text-[13px] font-bold text-slate-700">{inv.id}</span>
+                <span className="text-[13px] font-bold text-slate-700">INV-{inv.invoiceNumber || inv.id.slice(-6).toUpperCase()}</span>
               </div>
 
               {/* Date */}
               <div className="col-span-1">
-                <span className="text-[12px] font-bold text-slate-400">{inv.date}</span>
+                <span className="text-[12px] font-bold text-slate-400">
+                  {new Date(inv.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                </span>
               </div>
 
               {/* Patient */}
               <div className="col-span-2 flex items-center gap-2.5">
                 <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={inv.patient.avatar} />
-                  <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">RC</AvatarFallback>
+                  <AvatarImage src={(inv as any).appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${(inv as any).appointment?.patientName || "Guest"}`} />
+                  <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">PT</AvatarFallback>
                 </Avatar>
-                <span className="text-[13px] font-bold text-slate-800 truncate">{inv.patient.name}</span>
+                <span className="text-[13px] font-bold text-slate-800 truncate">{(inv as any).appointment?.patientName || "Walk-in"}</span>
               </div>
 
               {/* Service */}
               <div className="col-span-2">
-                <span className="text-[12px] font-bold text-slate-500 leading-tight">{inv.service}</span>
+                <span className="text-[12px] font-bold text-slate-500 leading-tight">{(inv as any).appointment?.serviceName || "Consultation"}</span>
               </div>
 
               {/* Amount */}
               <div className="col-span-2">
                 <span className="text-[15px] font-black text-slate-900">
-                  {inv.amount.toFixed(2)} <span className="text-[12px] font-bold text-slate-400">LE</span>
+                  {inv.totalAmount.toFixed(2)} <span className="text-[12px] font-bold text-slate-400">LE</span>
                 </span>
               </div>
 
               {/* Status */}
               <div className="col-span-1">
-                <StatusBadge status={inv.status} />
+                <StatusBadge status={inv.paymentStatus.toLowerCase() as any} />
               </div>
 
               {/* Actions */}
@@ -326,7 +333,7 @@ export default function InvoiceListPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between px-6 py-5 border-t border-slate-50">
           <p className="text-[12px] font-bold text-slate-400">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} results
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalItems)} of {totalItems} results
           </p>
           <div className="flex items-center gap-1.5">
             <button

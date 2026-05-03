@@ -36,8 +36,17 @@ export const bookingService = {
     return apiClient.post("/appointments", data);
   },
 
-  async updateStatus(id: string, status: string, notes?: string): Promise<ApiAppointment> {
-    return apiClient.patch(`/appointments/${id}/status`, { status, notes });
+  async updateStatus(
+    id: string, 
+    status: string, 
+    options?: { notes?: string; paymentMethod?: string; amount?: number }
+  ): Promise<ApiAppointment> {
+    return apiClient.patch(`/appointments/${id}/status`, { 
+      status, 
+      notes: options?.notes,
+      paymentMethod: options?.paymentMethod,
+      amount: options?.amount
+    });
   },
 
   async notifyPatientOnWhatsApp(
