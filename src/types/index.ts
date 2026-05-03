@@ -145,6 +145,7 @@ export interface ApiPublicDoctor {
   credentialSummary: DoctorCredentialSummary;
   qualification?: string | null;
   patientCount?: number;
+  shifts?: DoctorShift[];
 }
 
 export interface CreateDoctorCredentialPayload {

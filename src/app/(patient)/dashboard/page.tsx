@@ -75,6 +75,23 @@ export default function PatientDashboard() {
 
   const { favoriteDoctorIds, toggleFavorite, fetchFavorites } = usePatientStore();
 
+  const getDoctorShiftsTime = (doc: ApiPublicDoctor) => {
+    if (doc.shifts && doc.shifts.length > 0) {
+      const currentDay = new Date().getDay();
+      const todayShift = doc.shifts.find(s => s.dayOfWeek === currentDay) || doc.shifts[0];
+      if (todayShift.shiftStart && todayShift.shiftEnd) {
+        const formatTime = (timeStr: string) => {
+          const [h, m] = timeStr.split(":").map(Number);
+          const ampm = h >= 12 ? "PM" : "AM";
+          const hour = h % 12 || 12;
+          return `${hour}:${m.toString().padStart(2, "0")} ${ampm}`;
+        };
+        return `${formatTime(todayShift.shiftStart)} - ${formatTime(todayShift.shiftEnd)}`;
+      }
+    }
+    return "09:00 AM - 05:00 PM";
+  };
+
   const refreshNotifications = React.useCallback(async () => {
     try {
       const data = await notificationsService.getInAppNotifications();
@@ -334,7 +351,7 @@ export default function PatientDashboard() {
                   <div
                     key={doc.id}
                     onClick={() => handleDoctorClick(doc)}
-                    className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
+                    className="bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 relative group cursor-pointer"
                   >
 
                     <div className="h-20 w-20 rounded-md overflow-hidden shrink-0">
@@ -348,16 +365,16 @@ export default function PatientDashboard() {
                     </div>
                     <div className="flex-1 flex flex-col gap-1">
                       <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                        Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                        {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                       </h3>
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
                         <span>{doc.specialization}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>Medica Hospital</span>
+                        <span>{doc.branch?.name || "Medica Hospital"}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-blue-600 mt-1">
                         <Clock className="h-3.5 w-3.5" />
-                        <span className="text-[12px] font-black uppercase tracking-tight">4.30 PM - 7.30 PM</span>
+                        <span className="text-[12px] font-black uppercase tracking-tight">{getDoctorShiftsTime(doc)}</span>
                       </div>
                     </div>
                     <button
@@ -366,13 +383,13 @@ export default function PatientDashboard() {
                         toggleFavorite(doc.id);
                       }}
                       className={cn(
-                        "h-10 w-10 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all",
+                        "h-8 w-8 rounded-full border border-slate-100 dark:border-slate-800 flex items-center justify-center transition-all",
                         favoriteDoctorIds.includes(doc.id)
                           ? "text-rose-500 bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30"
                           : "text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20"
                       )}
                     >
-                      <Heart className={cn("h-5 w-5", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
+                      <Heart className={cn("h-4 w-4", favoriteDoctorIds.includes(doc.id) && "fill-current")} />
                     </button>
                   </div>
                 ))
@@ -558,16 +575,16 @@ export default function PatientDashboard() {
                     </div>
                     <div className="flex-1 flex flex-col gap-1">
                       <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
-                        Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                        {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                       </h3>
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
                         <span>{doc.specialization}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>Medica Hospital</span>
+                        <span>{doc.branch?.name || "Medica Hospital"}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-blue-600 mt-1">
                         <Clock className="h-3.5 w-3.5" />
-                        <span className="text-[12px] font-black uppercase tracking-tight">4.30 PM - 7.30 PM</span>
+                        <span className="text-[12px] font-black uppercase tracking-tight">{getDoctorShiftsTime(doc)}</span>
                       </div>
                     </div>
                     <button
@@ -648,7 +665,7 @@ export default function PatientDashboard() {
                       </div>
 
                       <div className="absolute bottom-0 left-0 right-0 h-12 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-4">
-                        <span className="text-[13px] font-black text-white">Madelyn Hospital</span>
+                        <span className="text-[13px] font-black text-white">{doc.branch?.name || "Medica Hospital"}</span>
                         <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
                           <Plus className="h-4 w-4 text-white" />
                         </div>
@@ -658,7 +675,7 @@ export default function PatientDashboard() {
                     <div className="p-4 flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-                          Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                          {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                         </h3>
                         <div className="flex items-center gap-1.5">
                           <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -775,7 +792,7 @@ export default function PatientDashboard() {
                         <div className="p-8 flex flex-col gap-1">
                           <div className="flex items-center justify-between">
                             <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                              Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                              {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                             </h3>
                             <div className="flex items-center gap-1.5">
                               <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -893,7 +910,7 @@ export default function PatientDashboard() {
                           </button>
 
                           <div className="absolute bottom-0 left-0 right-0 h-16 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-8">
-                            <span className="text-[14px] font-black text-white">Madelyn Hospital</span>
+                            <span className="text-[14px] font-black text-white">{doc.branch?.name || "Medica Hospital"}</span>
                             <div className="h-9 w-9 bg-white/20 rounded-xl flex items-center justify-center">
                               <Plus className="h-5 w-5 text-white" />
                             </div>
@@ -903,7 +920,7 @@ export default function PatientDashboard() {
                         <div className="p-8 flex flex-col gap-1">
                           <div className="flex items-center justify-between">
                             <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
-                              Dr. {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                              {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
                             </h3>
                             <div className="flex items-center gap-1.5">
                               <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
@@ -1053,10 +1070,12 @@ export default function PatientDashboard() {
                       </h3>
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
                         <span>{doc.specialization}</span>
+                        <span className="h-1 w-1 rounded-full bg-slate-300" />
+                        <span>{doc.branch?.name || "Medica Hospital"}</span>
                       </div>
                       <div className="flex items-center gap-2 text-blue-600 mt-1">
                         <Clock className="h-4 w-4" />
-                        <span className="text-[12px] font-black uppercase tracking-widest">4.30 - 7.30 PM</span>
+                        <span className="text-[12px] font-black uppercase tracking-widest">{getDoctorShiftsTime(doc)}</span>
                       </div>
                     </div>
                     <button

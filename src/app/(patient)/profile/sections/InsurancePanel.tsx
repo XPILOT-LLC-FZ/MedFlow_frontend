@@ -322,7 +322,7 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
 
         {/* Verified Status Banner & Discount Highlight */}
         {verificationStatus === 'verified' && discountPercent > 0 && (
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-400/5 to-transparent border border-emerald-500/20 flex items-center justify-between shadow-sm dark:border-emerald-800/40">
+          <div className="px-4 py-3 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-400/5 to-transparent border border-emerald-500/20 flex items-center justify-between shadow-sm dark:border-emerald-800/40">
             <div className="space-y-1">
               <span className="text-[13px] uppercase font-black text-emerald-600 dark:text-emerald-400 tracking-wider">
                 {locale === 'ar' ? 'ميزة الخصم النشطة' : 'Active Discount Benefit'}
@@ -333,14 +333,13 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
                   : 'Discount approved and active for your visits.'}
               </p>
               {discountNote && (
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-sm text-slate-600 dark:text-slate-300 font-medium mt-1">
                   {discountNote}
                 </p>
               )}
             </div>
-            <div className="flex flex-col items-center justify-center shrink-0 h-14 w-14 rounded-2xl bg-emerald-500 text-white font-black shadow-lg shadow-emerald-500/20">
+            <div className="flex flex-col items-center justify-center shrink-0 h-10 w-10 rounded-full bg-emerald-500 text-white font-black shadow-md shadow-emerald-500/20">
               <span className="text-md leading-none">{discountPercent}%</span>
-              <span className="text-[10px] uppercase tracking-wider mt-0.5">{locale === 'ar' ? 'خصم' : 'OFF'}</span>
             </div>
           </div>
         )}

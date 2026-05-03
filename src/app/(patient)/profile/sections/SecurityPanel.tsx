@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 type ViewState = 'menu' | 'password';
 
 export default function SecurityPanel() {
-  const { locale } = useTranslation();
+  const { locale, isRTL } = useTranslation();
   const { setLocale, theme, toggleTheme } = useStore();
   const toast = useToastStore();
   const setDeepFlow = useProfileUiStore((state) => state.setDeepFlow);
@@ -81,7 +81,7 @@ export default function SecurityPanel() {
     setIsProcessing(true);
     try {
       const resp = await authService.deleteAccount();
-      
+
       if (resp.success) {
         toast.success(locale === 'ar' ? 'تم حذف الحساب' : 'Account deleted');
         window.location.href = '/login';
@@ -109,7 +109,7 @@ export default function SecurityPanel() {
 
             {/* Menu Items */}
             <div className="space-y-3">
-              {/* Change Password */}
+                          {/* Change Password */}
               <button
                 onClick={() => navigateTo('password')}
                 className="w-full h-18 bg-white dark:bg-slate-900 rounded-[18px] border border-slate-100 dark:border-slate-800 px-4 flex items-center justify-between hover:bg-slate-50 transition-all group"
@@ -120,7 +120,11 @@ export default function SecurityPanel() {
                     {locale === 'ar' ? 'تغيير كلمة المرور' : 'Change password'}
                   </span>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                {isRTL ? (
+                  <ChevronLeft className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                )}
               </button>
 
               {/* Language */}
@@ -136,7 +140,11 @@ export default function SecurityPanel() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-blue-500 font-bold text-sm uppercase">{locale}</span>
-                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                  {isRTL ? (
+                    <ChevronLeft className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                  )}
                 </div>
               </button>
 
@@ -161,7 +169,11 @@ export default function SecurityPanel() {
                       ? (theme === 'light' ? 'إيقاف' : 'تشغيل') 
                       : (theme === 'light' ? 'Off' : 'On')}
                   </span>
-                  <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                  {isRTL ? (
+                    <ChevronLeft className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                  )}
                 </div>
               </button>
 
@@ -189,8 +201,11 @@ export default function SecurityPanel() {
           >
             {/* Header with Back */}
             <div className="flex items-center justify-center relative pb-6">
-              <button onClick={handleBack} className="absolute left-0 p-2 text-slate-500 hover:text-slate-700 transition-colors">
-                <ChevronLeft className="h-6 w-6" />
+              <button
+                onClick={handleBack}
+                className={`absolute p-2 text-slate-500 hover:text-slate-700 transition-colors ${isRTL ? "right-0" : "left-0"}`}
+              >
+                {isRTL ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
               </button>
               <h1 className="text-xl font-bold text-slate-900 dark:text-white">
                 {locale === 'ar' ? 'تغيير كلمة المرور' : 'Change password'}

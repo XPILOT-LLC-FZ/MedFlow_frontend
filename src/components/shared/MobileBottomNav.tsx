@@ -39,7 +39,7 @@ const NAV_ITEMS = [
   },
   {
     label: "Profile",
-    labelAr: "الملف الشخصي",
+    labelAr: "حسابي",
     href: "/profile",
     icon: User,
   },
