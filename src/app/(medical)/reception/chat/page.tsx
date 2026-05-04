@@ -350,7 +350,7 @@ function ReceptionChatPageContent() {
         setMessages((prev) =>
           applyStatusToMessages(prev, result.messageIds, "seen", result.seenAt)
         );
-      } catch (err: any) {
+      } catch (err) {
         console.error("Failed to fetch messages", err);
         if (!cancelled) {
           if (err.status === 403) {

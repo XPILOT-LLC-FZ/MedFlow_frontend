@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   CalendarDays,
   Printer,
@@ -16,7 +16,6 @@ import {
   TrendingUp,
   ArrowLeft,
   Users,
-  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +53,7 @@ interface ChartHistoryItem {
 
 export default function CheckoutPaymentPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const toast = useToastStore();
   const { locale } = useTranslation();
   const appointmentId = searchParams.get("appointmentId");
@@ -171,7 +171,7 @@ export default function CheckoutPaymentPage() {
 
   const subtotal = services.filter((s) => s.checked).reduce((sum, s) => sum + s.amount * s.qty, 0);
 
-  const discountPercent = (patient?.medicalHistory?.insuranceDetails as any)?.discountPercent || 0;
+  const discountPercent = (patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.discountPercent as number || 0;
   const insuranceCoverage = Math.round(subtotal * (discountPercent / 100));
   const totalDue = subtotal - insuranceCoverage;
 

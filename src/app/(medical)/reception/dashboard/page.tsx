@@ -86,7 +86,7 @@ export default function ReceptionDashboard() {
       await updateAppointment(apptId, { status });
       toast.success(`Status updated to ${nextStatus}`);
       void refreshDashboard();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update status");
     } finally {
       setProcessingId(null);

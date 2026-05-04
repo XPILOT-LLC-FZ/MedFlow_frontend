@@ -137,7 +137,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                       : "text-slate-400 hover:text-slate-600"
                   )}
                 >
-                  {t(tab as any)}
+                  {t(tab as TranslationKey)}
                 </button>
               ))}
             </div>
@@ -162,7 +162,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                             <item.icon size={18} />
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as any)}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as TranslationKey)}</p>
                             <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[160px]">{item.value}</p>
                           </div>
                         </div>
@@ -180,7 +180,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                         { label: "Blood Type", labelKey: "bloodType", value: user.bloodType || "O+" },
                       ].map((item) => (
                         <div key={item.label} className="p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as any)}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as TranslationKey)}</p>
                           <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{item.value}</p>
                         </div>
                       ))}
