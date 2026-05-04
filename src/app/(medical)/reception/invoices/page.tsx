@@ -54,7 +54,7 @@ export default function InvoiceListPage() {
       setInvoices(res.items);
       setTotalItems(res.total);
       setStats(s);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load invoices");
     } finally {
       setIsLoading(false);
@@ -254,7 +254,15 @@ export default function InvoiceListPage() {
               <p className="text-slate-400 font-bold">No invoices found</p>
             </div>
           )}
-          {invoices.map((inv) => (
+          {invoices.map((inv) => {
+            const invExtra = inv as unknown as {
+              appointment?: {
+                patient?: { user?: { avatarUrl?: string } };
+                patientName?: string;
+                serviceName?: string;
+              };
+            };
+            return (
             <div
               key={inv.id}
               className={cn(
@@ -274,7 +282,7 @@ export default function InvoiceListPage() {
                   {selected.has(inv.id) && <Check className="h-3 w-3 text-white" />}
                 </button>
                 <div className="md:hidden">
-                   <StatusBadge status={inv.paymentStatus.toLowerCase() as any} />
+                   <StatusBadge status={inv.paymentStatus.toLowerCase()} />
                 </div>
               </div>
 
@@ -294,19 +302,19 @@ export default function InvoiceListPage() {
               {/* Patient */}
               <div className="col-span-2 flex items-center gap-3 w-full">
                 <Avatar className="h-9 w-9 md:h-8 md:w-8 shrink-0">
-                  <AvatarImage src={(inv as any).appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${(inv as any).appointment?.patientName || "Guest"}`} />
+                  <AvatarImage src={invExtra.appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${invExtra.appointment?.patientName || "Guest"}`} />
                   <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">PT</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col min-w-0">
                    <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Patient</span>
-                   <span className="text-[14px] md:text-[13px] font-bold text-slate-800 truncate">{(inv as any).appointment?.patientName || "Walk-in"}</span>
+                   <span className="text-[14px] md:text-[13px] font-bold text-slate-800 truncate">{invExtra.appointment?.patientName || "Walk-in"}</span>
                 </div>
               </div>
 
               {/* Service - Hidden on Small Mobile */}
               <div className="col-span-2 hidden sm:flex flex-col md:block">
                 <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Service</span>
-                <span className="text-[12px] font-bold text-slate-500 leading-tight">{(inv as any).appointment?.serviceName || "Consultation"}</span>
+                <span className="text-[12px] font-bold text-slate-500 leading-tight">{invExtra.appointment?.serviceName || "Consultation"}</span>
               </div>
 
               {/* Amount */}
@@ -319,7 +327,7 @@ export default function InvoiceListPage() {
 
               {/* Status - Desktop only (Mobile shows at top) */}
               <div className="hidden md:block col-span-1">
-                <StatusBadge status={inv.paymentStatus.toLowerCase() as any} />
+                <StatusBadge status={inv.paymentStatus.toLowerCase()} />
               </div>
 
               {/* Actions */}
@@ -337,7 +345,8 @@ export default function InvoiceListPage() {
                 </button>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
 
         {/* Pagination */}
@@ -417,15 +426,18 @@ function StatCard({ icon, iconBg, label, value, trend, trendUp }: StatCardProps)
   );
 }
 
-function StatusBadge({ status }: { status: "paid" | "pending" | "overdue" }) {
-  const styles = {
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
     paid: "bg-emerald-50 text-emerald-600 border-emerald-100",
     pending: "bg-amber-50 text-amber-600 border-amber-100",
     overdue: "bg-red-50 text-red-500 border-red-100",
+    partial: "bg-blue-50 text-blue-600 border-blue-100",
+    refunded: "bg-slate-50 text-slate-400 border-slate-100",
   };
+  const normalizedStatus = status.toLowerCase();
   return (
-    <span className={cn("inline-flex px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wide", styles[status])}>
-      {status}
+    <span className={cn("inline-flex px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wide", styles[normalizedStatus] || "bg-slate-50 text-slate-500 border-slate-100")}>
+      {normalizedStatus}
     </span>
   );
 }

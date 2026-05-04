@@ -14,15 +14,12 @@ import {
   Clock,
   Check,
   Loader2,
-  AlertCircle,
-  Trash2,
   UserCheck,
   CheckCircle2,
   Play,
   X,
   XCircle,
   MessageSquare,
-  MoreVertical,
   Activity,
   CreditCard
 } from "lucide-react";
@@ -43,7 +40,7 @@ import { useRouter } from "next/navigation";
 const getPositionForTime = (timeStr: string) => {
   // Expecting "HH:MM" or "HH:MM AM/PM"
   const [time, modifier] = timeStr.split(' ');
-  let [hours, minutes] = time.split(':').map(Number);
+  const [hours, minutes] = time.split(':').map(Number);
   
   if (modifier === 'PM' && hours < 12) hours += 12;
   if (modifier === 'AM' && hours === 12) hours = 0;
@@ -126,6 +123,7 @@ export default function ReceptionSchedulePage() {
   const timeSlots = [
     "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"
   ];
+
 
 
   const handlePrevDay = () => {
@@ -359,14 +357,14 @@ export default function ReceptionSchedulePage() {
                       .map((appt) => {
                       const top = getPositionForTime(appt.startTime);
                       const height = Math.max((appt.durationMinutes || 30) * 2, 60); // Min height 60px
-                      const typeInfo = appointmentTypes.find(t => t.apiType === appt.type) || appointmentTypes[0];
+
                       
                       return (
                         <AppointmentBlock
                           key={appt.id}
                           top={top}
                           height={height}
-                          color={typeInfo.color}
+
                           time={`${appt.startTime}`}
                           name={appt.patientName}
                           phone={appt.patientPhone}
@@ -414,7 +412,7 @@ export default function ReceptionSchedulePage() {
 interface AppointmentBlockProps {
   top: number;
   height: number;
-  color: string;
+
   time: string;
   name: string;
   phone?: string;
@@ -424,7 +422,7 @@ interface AppointmentBlockProps {
   onClick?: () => void;
 }
 
-function AppointmentBlock({ top, height, color, time, name, phone, avatarUrl, reason, status, onClick }: AppointmentBlockProps) {
+function AppointmentBlock({ top, height, time, name, phone, avatarUrl, reason, status, onClick }: AppointmentBlockProps) {
   const isInProgress = status === "IN_PROGRESS";
   const isCompleted = status === "COMPLETED";
   const isConfirmed = status === "CONFIRMED";
@@ -585,7 +583,8 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
       let formattedTime = selectedTime;
       const [timePart, modifier] = selectedTime.split(' ');
       if (modifier) {
-        let [hours, minutes] = timePart.split(':').map(Number);
+        const [h, minutes] = timePart.split(':').map(Number);
+        let hours = h;
         if (modifier === 'PM' && hours < 12) hours += 12;
         if (modifier === 'AM' && hours === 12) hours = 0;
         formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -721,7 +720,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                       {["CONSULTATION", "FOLLOW_UP", "PROCEDURE", "EMERGENCY"].map((type) => (
                         <div 
                           key={type}
-                          onClick={() => setSelectedType(type as any)}
+                          onClick={() => setSelectedType(type as "CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY")}
                           className="px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-none"
                         >
                           <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{type.replace('_', ' ').toLowerCase()}</span>
@@ -939,12 +938,13 @@ function ManageAppointmentModal({
   const toast = useToastStore();
   const [loading, setLoading] = useState(false);
 
+  const router = useRouter();
   if (!appointment) return null;
 
   const handleUpdateStatus = async (status: string) => {
     setLoading(true);
     try {
-      await bookingService.updateStatus(appointment.id, status as any);
+      await bookingService.updateStatus(appointment.id, status as "SCHEDULED" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED");
       toast.success(`Appointment marked as ${status.toLowerCase().replace('_', ' ')}`);
       onUpdate();
       onClose();
@@ -961,7 +961,7 @@ function ManageAppointmentModal({
     handleUpdateStatus("CANCELLED");
   };
 
-  const router = useRouter(); // Use the router to navigate
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1024,7 +1024,7 @@ function ManageAppointmentModal({
                 <div className="flex items-center gap-2 text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-[0.2em]">
                   <MessageSquare className="h-3 w-3" /> Clinical Notes
                 </div>
-                <p className="text-[14px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">"{appointment.notes}"</p>
+                <p className="text-[14px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">&quot;{appointment.notes}&quot;</p>
               </div>
             )}
           </div>

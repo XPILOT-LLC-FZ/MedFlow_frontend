@@ -128,10 +128,7 @@ export default function QueueManagementPage() {
     }
   };
 
-
-
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-
   // ── Early return AFTER all hooks ──
   if (checkInOpen) {
     return (

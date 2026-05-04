@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   Printer,
@@ -37,21 +37,35 @@ const BILLING_HISTORY = [
   { month: "Jun", value: 200 },
 ];
 
+interface CheckedService {
+  id: string;
+  name: string;
+  dept: string;
+  code: string;
+  qty: number;
+  amount: number;
+  checked: boolean;
+}
+
+interface ChartHistoryItem {
+  month: string;
+  value: number;
+}
+
 export default function CheckoutPaymentPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const toast = useToastStore();
   const { locale } = useTranslation();
   const appointmentId = searchParams.get("appointmentId");
 
   const [appointment, setAppointment] = useState<ApiAppointment | null>(null);
   const [patient, setPatient] = useState<ApiPatient | null>(null);
-  const [services, setServices] = useState<any[]>([]);
+  const [services, setServices] = useState<CheckedService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "insurance" | "cash">("card");
   const [processing, setProcessing] = useState(false);
   const [paid, setPaid] = useState(false);
-  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  const [billingHistory, setBillingHistory] = useState<ChartHistoryItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<ApiInvoice | null>(null);
   const [pendingCheckouts, setPendingCheckouts] = useState<ApiAppointment[]>([]);
 
@@ -64,7 +78,7 @@ export default function CheckoutPaymentPage() {
     try {
       const appt = await bookingService.getById(appointmentId);
       setAppointment(appt);
-      
+
       if (appt.invoices && appt.invoices.length > 0) {
         setActiveInvoice(appt.invoices[0]);
       }
@@ -87,16 +101,16 @@ export default function CheckoutPaymentPage() {
 
       if (appt.invoices && appt.invoices.length > 0) {
         const inv = appt.invoices[0]; // Take the latest/primary invoice
-        const items = (inv.items as any[]) || [];
-        
+        const items = (inv.items as Record<string, unknown>[]) || [];
+
         if (items.length > 0) {
           setServices(items.map((item, idx) => ({
             id: `inv-item-${idx}`,
-            name: item.description || "Medical Service",
+            name: (item.description as string) || "Medical Service",
             dept: appt.type || "Clinic Service",
-            code: item.code || "99204",
-            qty: item.quantity || 1,
-            amount: item.amount || 0,
+            code: (item.code as string) || "99204",
+            qty: (item.quantity as number) || 1,
+            amount: (item.amount as number) || 0,
             checked: true
           })));
         } else {
@@ -110,7 +124,7 @@ export default function CheckoutPaymentPage() {
             checked: true
           }]);
         }
-        
+
         if (inv.paymentStatus === "PAID") {
           setPaid(true);
         }
@@ -156,9 +170,8 @@ export default function CheckoutPaymentPage() {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s)));
 
   const subtotal = services.filter((s) => s.checked).reduce((sum, s) => sum + s.amount * s.qty, 0);
-  
-  const insuranceDetails = patient?.medicalHistory?.insuranceDetails as { discountPercent?: number } | undefined;
-  const discountPercent = insuranceDetails?.discountPercent || 0;
+
+  const discountPercent = (patient?.medicalHistory?.insuranceDetails as any)?.discountPercent || 0;
   const insuranceCoverage = Math.round(subtotal * (discountPercent / 100));
   const totalDue = subtotal - insuranceCoverage;
 
@@ -232,7 +245,7 @@ export default function CheckoutPaymentPage() {
             </div>
           ) : (
             pendingCheckouts.map(appt => (
-              <div 
+              <div
                 key={appt.id}
                 onClick={() => router.push(`/reception/payments?appointmentId=${appt.id}`)}
                 className="bg-white p-6 rounded-[28px] shadow-sm border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group"
@@ -240,7 +253,7 @@ export default function CheckoutPaymentPage() {
                 <div className="flex items-center gap-4 mb-4">
                   <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
                     <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${appt.patientName || "Unknown"}`} />
-                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">{(appt.patientName || "UN").substring(0,2)}</AvatarFallback>
+                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">{(appt.patientName || "UN").substring(0, 2)}</AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{appt.patientName || "Unknown Patient"}</h3>
@@ -275,37 +288,37 @@ export default function CheckoutPaymentPage() {
   return (
     <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-7">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.back()}
-              className="h-10 w-10 rounded-xl hover:bg-white/50 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 text-slate-500" />
-            </Button>
-            <div className="space-y-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-slate-900">Checkout &amp; Payment</h1>
-                {activeInvoice?.invoiceNumber && (
-                  <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-none font-bold">
-                    INV-{activeInvoice.invoiceNumber}
-                  </Badge>
-                )}
-                {appointmentId && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => router.push('/reception/payments')}
-                    className="text-blue-600 hover:text-blue-700 font-bold text-[11px] h-7 px-2 bg-blue-50 hover:bg-blue-100 rounded-lg ml-2"
-                  >
-                    Switch Patient
-                  </Button>
-                )}
-              </div>
-              <p className="text-slate-400 text-sm font-medium">Process visit fees, additional services, and payment methods.</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            className="h-10 w-10 rounded-xl hover:bg-white/50 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-slate-500" />
+          </Button>
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-900">Checkout &amp; Payment</h1>
+              {activeInvoice?.invoiceNumber && (
+                <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-none font-bold">
+                  INV-{activeInvoice.invoiceNumber}
+                </Badge>
+              )}
+              {appointmentId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push('/reception/payments')}
+                  className="text-blue-600 hover:text-blue-700 font-bold text-[11px] h-7 px-2 bg-blue-50 hover:bg-blue-100 rounded-lg ml-2"
+                >
+                  Switch Patient
+                </Button>
+              )}
             </div>
+            <p className="text-slate-400 text-sm font-medium">Process visit fees, additional services, and payment methods.</p>
           </div>
+        </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
             <CalendarDays className="h-4 w-4 text-indigo-500" />
@@ -319,8 +332,8 @@ export default function CheckoutPaymentPage() {
             </span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => window.print()}
             className="h-11 px-6 rounded-2xl border-slate-200 bg-white font-bold text-slate-600 text-[13px] shadow-sm flex items-center gap-2"
           >
@@ -354,8 +367,8 @@ export default function CheckoutPaymentPage() {
               </div>
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl">
                 <span className="text-[12px] font-bold text-slate-500">INSURANCE</span>
-                <span className="text-[12px] font-bold text-slate-900 ml-1">{(patient?.medicalHistory?.insuranceDetails as any)?.provider || "No Insurance"}</span>
-                {(patient?.medicalHistory?.insuranceDetails as any)?.verificationStatus === "verified" ? (
+                <span className="text-[12px] font-bold text-slate-900 ml-1">{(patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.provider as string || "No Insurance"}</span>
+                {(patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.verificationStatus === "verified" ? (
                   <span className="text-[11px] font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-lg ml-2">✓ Verified</span>
                 ) : (
                   <span className="text-[11px] font-black text-amber-600 bg-amber-100 px-2 py-0.5 rounded-lg ml-2">Pending</span>
@@ -437,7 +450,7 @@ export default function CheckoutPaymentPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-bold text-emerald-600">
-                  {patient?.medicalHistory?.insuranceDetails ? (patient.medicalHistory.insuranceDetails as any).provider : "Insurance"} Coverage ({discountPercent}%):
+                  {patient?.medicalHistory?.insuranceDetails ? ((patient.medicalHistory.insuranceDetails as Record<string, unknown>).provider as string) : "Insurance"} Coverage ({discountPercent}%):
                 </span>
                 <span className="text-[14px] font-bold text-emerald-600">-${insuranceCoverage.toFixed(2)}</span>
               </div>

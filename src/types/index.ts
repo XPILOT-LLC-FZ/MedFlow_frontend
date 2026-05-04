@@ -145,6 +145,7 @@ export interface ApiPublicDoctor {
   credentialSummary: DoctorCredentialSummary;
   qualification?: string | null;
   patientCount?: number;
+  shifts?: DoctorShift[];
 }
 
 export interface CreateDoctorCredentialPayload {
@@ -271,6 +272,7 @@ export interface Appointment {
   duration?: string;
   status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress" | "no-show" | "rescheduled";
   type: string;
+  mode?: "ONSITE" | "ONLINE" | "PHONE_CALL";
   notes?: string;
   redeemPoints?: boolean;
   amount?: number;
