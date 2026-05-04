@@ -278,43 +278,100 @@ html {
   box-shadow: 0 18px 45px -34px rgba(2, 6, 23, 0.82);
 }
 
-/* Doctor dashboard dark-mode bridge for figma-style slate palette classes */
-.dark .doctor-dashboard [class*="border-slate-200"] {
-  border-color: rgba(71, 85, 105, 0.75);
+/* Medical Dashboard dark-mode bridge for figma-style slate palette classes (Applies to Doctor, Reception, Admin) */
+.dark .medical-dashboard [class*="bg-white"],
+.dark .medical-dashboard [class*="bg-slate-50"] {
+  background-color: rgba(15, 23, 42, 0.82) !important;
 }
 
-.dark .doctor-dashboard [class*="border-slate-100"] {
-  border-color: rgba(71, 85, 105, 0.5);
+.dark .medical-dashboard [class*="border-slate-100"],
+.dark .medical-dashboard [class*="border-slate-200"],
+.dark .medical-dashboard [class*="ring-slate-100"],
+.dark .medical-dashboard [class*="ring-slate-200"] {
+  border-color: rgba(71, 85, 105, 0.4) !important;
+  --tw-ring-color: rgba(71, 85, 105, 0.4) !important;
 }
 
-.dark .doctor-dashboard [class*="bg-white"] {
-  background-color: rgba(15, 23, 42, 0.82);
+.dark .medical-dashboard [class*="shadow-"] {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3) !important;
 }
 
-.dark .doctor-dashboard [class*="bg-slate-50"] {
-  background-color: rgba(30, 41, 59, 0.55);
+.dark .medical-dashboard [class*="text-slate-900"] {
+  color: rgb(241, 245, 249) !important;
 }
 
-.dark .doctor-dashboard [class*="text-slate-900"] {
-  color: rgb(241, 245, 249);
+.dark .medical-dashboard [class*="text-slate-800"] {
+  color: rgb(226, 232, 240) !important;
 }
 
-.dark .doctor-dashboard [class*="text-slate-800"] {
-  color: rgb(226, 232, 240);
+.dark .medical-dashboard [class*="text-slate-700"] {
+  color: rgb(203, 213, 225) !important;
 }
 
-.dark .doctor-dashboard [class*="text-slate-700"] {
-  color: rgb(203, 213, 225);
+.dark .medical-dashboard [class*="text-slate-600"],
+.dark .medical-dashboard [class*="text-slate-500"] {
+  color: rgb(148, 163, 184) !important;
 }
 
-.dark .doctor-dashboard [class*="text-slate-600"] {
-  color: rgb(148, 163, 184);
+.dark .medical-dashboard [class*="text-slate-400"] {
+  color: rgb(100, 116, 139) !important;
 }
 
-.dark .doctor-dashboard [class*="text-slate-500"] {
-  color: rgb(148, 163, 184);
+/* Hover States for dark mode */
+.dark .medical-dashboard [class*="hover:bg-slate-50"]:hover,
+.dark .medical-dashboard [class*="hover:bg-slate-100"]:hover,
+.dark .medical-dashboard [class*="hover:bg-white"]:hover {
+  background-color: rgba(30, 41, 59, 0.8) !important;
 }
 
-.dark .doctor-dashboard [class*="text-slate-400"] {
-  color: rgb(100, 116, 139);
+.dark .medical-dashboard [class*="hover:text-slate-900"]:hover,
+.dark .medical-dashboard [class*="hover:text-slate-800"]:hover {
+  color: rgb(241, 245, 249) !important;
+}
+
+/* Specific component overrides for dark mode */
+.dark .medical-dashboard .bg-blue-50,
+.dark .medical-dashboard [class*="bg-blue-50"],
+.dark .medical-dashboard [class*="bg-blue-100"] {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+  color: rgb(96, 165, 250) !important;
+}
+
+.dark .medical-dashboard [class*="text-blue-600"],
+.dark .medical-dashboard [class*="text-blue-700"] {
+  color: rgb(96, 165, 250) !important;
+}
+
+.dark .medical-dashboard .bg-emerald-50,
+.dark .medical-dashboard [class*="bg-emerald-50"],
+.dark .medical-dashboard [class*="bg-emerald-100"] {
+  background-color: rgba(6, 78, 59, 0.3) !important;
+  color: rgb(52, 211, 153) !important;
+}
+
+.dark .medical-dashboard [class*="text-emerald-600"] {
+  color: rgb(52, 211, 153) !important;
+}
+
+.dark .medical-dashboard .bg-rose-50,
+.dark .medical-dashboard [class*="bg-rose-50"],
+.dark .medical-dashboard [class*="bg-rose-100"] {
+  background-color: rgba(159, 18, 57, 0.2) !important;
+  color: rgb(251, 113, 133) !important;
+}
+
+.dark .medical-dashboard .bg-amber-50,
+.dark .medical-dashboard [class*="bg-amber-50"],
+.dark .medical-dashboard [class*="bg-amber-100"] {
+  background-color: rgba(120, 53, 15, 0.2) !important;
+  color: rgb(251, 191, 36) !important;
+}
+
+.dark .medical-dashboard [class*="text-amber-600"],
+.dark .medical-dashboard [class*="text-amber-700"] {
+  color: rgb(251, 191, 36) !important;
+}
+
+.dark .medical-dashboard input::placeholder {
+  color: rgb(71, 85, 105) !important;
 }

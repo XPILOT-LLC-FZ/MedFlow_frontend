@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   CalendarDays,
   Printer,
@@ -14,6 +14,8 @@ import {
   ChevronDown,
   Lock,
   TrendingUp,
+  ArrowLeft,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,7 @@ interface ChartHistoryItem {
 
 export default function CheckoutPaymentPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const toast = useToastStore();
   const { locale } = useTranslation();
   const appointmentId = searchParams.get("appointmentId");
@@ -64,6 +67,7 @@ export default function CheckoutPaymentPage() {
   const [paid, setPaid] = useState(false);
   const [billingHistory, setBillingHistory] = useState<ChartHistoryItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<ApiInvoice | null>(null);
+  const [pendingCheckouts, setPendingCheckouts] = useState<ApiAppointment[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!appointmentId) {
@@ -74,7 +78,7 @@ export default function CheckoutPaymentPage() {
     try {
       const appt = await bookingService.getById(appointmentId);
       setAppointment(appt);
-      
+
       if (appt.invoices && appt.invoices.length > 0) {
         setActiveInvoice(appt.invoices[0]);
       }
@@ -98,7 +102,7 @@ export default function CheckoutPaymentPage() {
       if (appt.invoices && appt.invoices.length > 0) {
         const inv = appt.invoices[0]; // Take the latest/primary invoice
         const items = (inv.items as Record<string, unknown>[]) || [];
-        
+
         if (items.length > 0) {
           setServices(items.map((item, idx) => ({
             id: `inv-item-${idx}`,
@@ -120,7 +124,7 @@ export default function CheckoutPaymentPage() {
             checked: true
           }]);
         }
-        
+
         if (inv.paymentStatus === "PAID") {
           setPaid(true);
         }
@@ -143,17 +147,31 @@ export default function CheckoutPaymentPage() {
     }
   }, [appointmentId, toast]);
 
+  const fetchPending = useCallback(async () => {
+    try {
+      const all = await bookingService.getAll({ status: "COMPLETED" });
+      // Filter those who don't have a PAID invoice
+      const unpaid = all.filter(a => {
+        if (!a.invoices || a.invoices.length === 0) return true;
+        return a.invoices.some(inv => inv.paymentStatus !== "PAID");
+      });
+      setPendingCheckouts(unpaid);
+    } catch (e) {
+      console.warn("Could not load pending checkouts", e);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchData();
-  }, [fetchData]);
+    void fetchPending();
+  }, [fetchData, fetchPending]);
 
   const toggleService = (id: string) =>
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s)));
 
   const subtotal = services.filter((s) => s.checked).reduce((sum, s) => sum + s.amount * s.qty, 0);
-  
-  const insuranceDetails = patient?.medicalHistory?.insuranceDetails as Record<string, unknown> | undefined;
-  const discountPercent = (insuranceDetails?.discountPercent as number) || 0;
+
+  const discountPercent = (patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.discountPercent as number || 0;
   const insuranceCoverage = Math.round(subtotal * (discountPercent / 100));
   const totalDue = subtotal - insuranceCoverage;
 
@@ -196,7 +214,7 @@ export default function CheckoutPaymentPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F3F4F8]">
+      <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
           <p className="font-bold text-slate-500">Loading checkout details...</p>
@@ -205,19 +223,101 @@ export default function CheckoutPaymentPage() {
     );
   }
 
-  return (
-    <div className="p-4 lg:p-8 bg-[#F3F4F8] min-h-screen pb-20 font-sans space-y-7">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">Checkout &amp; Payment</h1>
-            {activeInvoice?.invoiceNumber && (
-              <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-none font-bold">
-                INV-{activeInvoice.invoiceNumber}
-              </Badge>
-            )}
+  if (!appointmentId) {
+    return (
+      <div className="p-4 lg:p-8 bg-slate-50 min-h-screen font-sans space-y-7">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-slate-900">Select Patient for Checkout</h1>
+            <p className="text-slate-400 text-sm font-medium">Choose a patient from the completed visits list to process their payment.</p>
           </div>
-          <p className="text-slate-400 text-sm font-medium">Process visit fees, additional services, and payment methods.</p>
+          <Button variant="outline" onClick={() => router.push('/reception/waiting-room')} className="rounded-2xl border-slate-200">
+            Back to Queue
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {pendingCheckouts.length === 0 ? (
+            <div className="col-span-full py-20 bg-white rounded-[28px] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
+              <Users className="h-12 w-12 mb-4 opacity-20" />
+              <p className="font-bold">No pending checkouts found</p>
+              <p className="text-sm">All completed visits have been settled.</p>
+            </div>
+          ) : (
+            pendingCheckouts.map(appt => (
+              <div
+                key={appt.id}
+                onClick={() => router.push(`/reception/payments?appointmentId=${appt.id}`)}
+                className="bg-white p-6 rounded-[28px] shadow-sm border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                    <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${appt.patientName || "Unknown"}`} />
+                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold">{(appt.patientName || "UN").substring(0, 2)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{appt.patientName || "Unknown Patient"}</h3>
+                    <p className="text-[12px] text-slate-400 font-medium">Appt: {appt.startTime} • {appt.date}</p>
+                  </div>
+                </div>
+                <div className="space-y-2 border-t border-slate-50 pt-4">
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-slate-400">Doctor</span>
+                    <span className="font-bold text-slate-700">{appt.doctorName || "Unassigned"}</span>
+                  </div>
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-slate-400">Service</span>
+                    <span className="font-bold text-slate-700">{appt.serviceName || "Consultation"}</span>
+                  </div>
+                  <div className="flex justify-between text-[13px] pt-1">
+                    <span className="text-slate-400">Total Due</span>
+                    <span className="font-black text-blue-600">${(appt.amount ?? 0).toFixed(2)}</span>
+                  </div>
+                </div>
+                <Button className="w-full mt-5 rounded-xl bg-slate-50 hover:bg-blue-600 hover:text-white text-slate-600 border-none shadow-none font-bold text-[13px]">
+                  Process Checkout
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-7">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            className="h-10 w-10 rounded-xl hover:bg-white/50 transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5 text-slate-500" />
+          </Button>
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-900">Checkout &amp; Payment</h1>
+              {activeInvoice?.invoiceNumber && (
+                <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 border-none font-bold">
+                  INV-{activeInvoice.invoiceNumber}
+                </Badge>
+              )}
+              {appointmentId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push('/reception/payments')}
+                  className="text-blue-600 hover:text-blue-700 font-bold text-[11px] h-7 px-2 bg-blue-50 hover:bg-blue-100 rounded-lg ml-2"
+                >
+                  Switch Patient
+                </Button>
+              )}
+            </div>
+            <p className="text-slate-400 text-sm font-medium">Process visit fees, additional services, and payment methods.</p>
+          </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
@@ -232,14 +332,14 @@ export default function CheckoutPaymentPage() {
             </span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => window.print()}
             className="h-11 px-6 rounded-2xl border-slate-200 bg-white font-bold text-slate-600 text-[13px] shadow-sm flex items-center gap-2"
           >
             <Printer className="h-4 w-4" /> Print Invoice
           </Button>
-          <Button className="h-11 px-6 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold text-[13px] shadow-lg shadow-blue-100 flex items-center gap-2">
+          <Button className="h-11 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[13px] shadow-lg shadow-blue-500/10 flex items-center gap-2">
             <Send className="h-4 w-4" /> Send Receipt
           </Button>
         </div>
@@ -309,26 +409,34 @@ export default function CheckoutPaymentPage() {
               {services.map((service) => (
                 <div
                   key={service.id}
-                  className="grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-50 last:border-none"
+                  className="flex flex-col sm:grid sm:grid-cols-12 gap-4 sm:gap-2 items-start sm:items-center py-4 border-b border-slate-50 last:border-none"
                 >
-                  <div className="col-span-6 flex items-center gap-3">
+                  <div className="sm:col-span-6 flex items-center gap-3 w-full">
                     <button onClick={() => toggleService(service.id)} className="shrink-0">
                       {service.checked
                         ? <CheckSquare className="h-5 w-5 text-[#3B82F6]" />
                         : <Square className="h-5 w-5 text-slate-300" />
                       }
                     </button>
-                    <div>
-                      <p className={cn("text-[13px] font-bold", service.checked ? "text-slate-900" : "text-slate-400 line-through")}>
+                    <div className="min-w-0">
+                      <p className={cn("text-[13px] font-bold truncate", service.checked ? "text-slate-900" : "text-slate-400 line-through")}>
                         {service.name}
                       </p>
                       <p className="text-[11px] font-bold text-slate-400">{service.dept}</p>
                     </div>
                   </div>
-                  <div className="col-span-2 text-center text-[13px] font-bold text-slate-500">{service.code}</div>
-                  <div className="col-span-2 text-center text-[13px] font-bold text-slate-500">{service.qty}</div>
-                  <div className={cn("col-span-2 text-right text-[14px] font-bold", service.checked ? "text-slate-900" : "text-slate-300")}>
-                    ${service.amount.toFixed(2)}
+                  <div className="flex sm:contents items-center justify-between w-full sm:w-auto">
+                    <div className="sm:col-span-2 sm:text-center text-[13px] font-bold text-slate-500">
+                      <span className="sm:hidden text-slate-400 mr-2 uppercase text-[10px]">Code:</span>
+                      {service.code}
+                    </div>
+                    <div className="sm:col-span-2 sm:text-center text-[13px] font-bold text-slate-500">
+                      <span className="sm:hidden text-slate-400 mr-2 uppercase text-[10px]">Qty:</span>
+                      {service.qty}
+                    </div>
+                    <div className={cn("sm:col-span-2 sm:text-right text-[14px] font-bold", service.checked ? "text-slate-900" : "text-slate-300")}>
+                      ${service.amount.toFixed(2)}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -428,7 +536,7 @@ export default function CheckoutPaymentPage() {
                 </svg>
                 {/* X-axis labels */}
                 <div className="flex justify-between text-[10px] font-bold text-slate-300 px-0">
-                  {chartHistory.map((d) => <span key={d.month}>{d.month}</span>)}
+                  {chartHistory.map((d, index) => <span key={`${d.month}-${index}`}>{d.month}</span>)}
                 </div>
               </div>
             </div>
@@ -482,7 +590,7 @@ export default function CheckoutPaymentPage() {
           </div>
 
           {/* Total + Process Payment */}
-          <div className="bg-[#1E3A5F] rounded-[28px] p-6 space-y-5 relative overflow-hidden">
+          <div className="bg-slate-900 rounded-[28px] p-6 space-y-5 relative overflow-hidden">
             {/* Paid overlay */}
             {paid && (
               <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
@@ -510,6 +618,16 @@ export default function CheckoutPaymentPage() {
             >
               {paid ? "Payment Complete ✓" : processing ? "Processing..." : "Process Payment"}
             </Button>
+
+            {paid && (
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/reception/waiting-room")}
+                className="w-full text-blue-300 hover:text-white hover:bg-white/10 font-bold text-[13px]"
+              >
+                Return to Waiting Room
+              </Button>
+            )}
 
             <div className="flex items-center justify-center gap-2 text-[11px] font-bold text-blue-300">
               <Lock className="h-3.5 w-3.5" />
@@ -567,7 +685,7 @@ function CardField({ label, value, type }: { label: string; value: string; type:
   return (
     <div className="space-y-1.5">
       <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
-      <div className="h-12 px-4 bg-[#F9FAFB] border border-slate-100 rounded-xl flex items-center">
+      <div className="h-12 px-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center">
         <input
           type={type}
           defaultValue={value}
@@ -577,3 +695,5 @@ function CardField({ label, value, type }: { label: string; value: string; type:
     </div>
   );
 }
+
+

@@ -89,7 +89,7 @@ export default function ReceptionProfilePage() {
   };
 
   return (
-    <div className="p-4 lg:p-8 bg-[#F3F4F8] min-h-screen pb-20 font-sans">
+    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans">
       {/* Page Header */}
       <div className="mb-8 space-y-1">
         <h1 className="text-2xl font-bold text-slate-900">Profile Settings</h1>
@@ -143,12 +143,12 @@ export default function ReceptionProfilePage() {
                       <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah" />
                       <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-2xl">SJ</AvatarFallback>
                     </Avatar>
-                    <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-[#3B82F6] flex items-center justify-center shadow-md border-2 border-white hover:bg-blue-700 transition-colors">
+                    <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md border-2 border-white hover:bg-blue-700 transition-colors">
                       <Camera className="h-4 w-4 text-white" />
                     </button>
                   </div>
                   <div className="space-y-2">
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-[#F9FAFB] border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+                    <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">
                       <Upload className="h-4 w-4 text-slate-400" />
                       Upload Photo
                     </button>
@@ -198,7 +198,7 @@ export default function ReceptionProfilePage() {
                   <Button
                     onClick={() => void saveProfile()}
                     disabled={isSaving}
-                    className="h-11 px-8 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[13px]"
+                    className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
                   >
                     {isSaving ? "Saving..." : "Save Changes"}
                   </Button>
@@ -218,14 +218,14 @@ export default function ReceptionProfilePage() {
                 {/* Password Status */}
                 <div className="space-y-3">
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Password Status</p>
-                  <div className="flex items-center justify-between p-4 bg-[#F9FAFB] border border-slate-100 rounded-2xl">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
                     <div className="flex items-center gap-3">
                       <Key className="h-4.5 w-4.5 text-slate-400" size={18} />
                       <span className="text-[13px] font-bold text-slate-600">Last changed 4 months ago</span>
                     </div>
                     <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
                   </div>
-                  <button className="w-full flex items-center justify-between p-4 bg-[#F9FAFB] border border-slate-100 rounded-2xl hover:bg-slate-50 transition-colors group">
+                  <button className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-colors group">
                     <span className="text-[13px] font-bold text-slate-700">Change Password</span>
                     <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
                   </button>
@@ -245,7 +245,7 @@ export default function ReceptionProfilePage() {
                       onClick={() => setTwoFAEnabled(!twoFAEnabled)}
                       className={cn(
                         "relative h-7 w-14 rounded-full transition-all duration-300 shrink-0 ml-4",
-                        twoFAEnabled ? "bg-[#3B82F6]" : "bg-slate-200"
+                        twoFAEnabled ? "bg-blue-600" : "bg-slate-200"
                       )}
                     >
                       <span
@@ -323,7 +323,7 @@ function FormField({
   return (
     <div className="space-y-2">
       <label className="text-[12px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
-      <div className="relative flex items-center h-12 bg-[#F9FAFB] border border-slate-100 rounded-xl px-4 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-50 transition-all">
+      <div className="relative flex items-center h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-50 transition-all">
         {icon && <span className="mr-2.5 shrink-0">{icon}</span>}
         <input
           value={value}
@@ -362,7 +362,7 @@ function BillingTab() {
 
           <div className="space-y-2">
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Default consultation fee</label>
-            <div className="flex items-center h-14 bg-[#F9FAFB] border border-slate-100 rounded-2xl px-4 gap-2">
+            <div className="flex items-center h-14 bg-slate-50 border border-slate-100 rounded-2xl px-4 gap-2">
               <span className="text-[18px] font-bold text-slate-400">$</span>
               <input
                 value={consultFee}
@@ -374,7 +374,7 @@ function BillingTab() {
 
           <div className="space-y-2">
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Currency selected</label>
-            <div className="flex items-center justify-between h-12 bg-[#F9FAFB] border border-slate-100 rounded-2xl px-4 cursor-pointer hover:border-slate-200 transition-all">
+            <div className="flex items-center justify-between h-12 bg-slate-50 border border-slate-100 rounded-2xl px-4 cursor-pointer hover:border-slate-200 transition-all">
               <span className="text-[13px] font-bold text-slate-700">USD – United States Dollar</span>
               <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
             </div>
@@ -433,7 +433,7 @@ function BillingTab() {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <div className="h-10 bg-[#F9FAFB] border border-slate-100 rounded-xl px-3 flex items-center">
+              <div className="h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center">
                 <input
                   value={supplement}
                   onChange={(e) => setSupplement(e.target.value)}
@@ -443,7 +443,7 @@ function BillingTab() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <div className="h-10 bg-[#F9FAFB] border border-slate-100 rounded-xl px-3 flex items-center">
+              <div className="h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center">
                 <input
                   value={hoursVisit}
                   onChange={(e) => setHoursVisit(e.target.value)}
@@ -473,7 +473,7 @@ function BillingTab() {
         </div>
 
         {/* Info Box */}
-        <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
+        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl p-4">
           <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
           <p className="text-[11px] font-bold text-blue-600 leading-relaxed">
             Automation settings will apply to all 3 of your clinics across the facility area code.
@@ -506,7 +506,7 @@ function ToggleRow({ icon, title, subtitle, enabled, onToggle }: ToggleRowProps)
         onClick={onToggle}
         className={cn(
           "relative h-6 w-12 rounded-full transition-all duration-300 shrink-0",
-          enabled ? "bg-[#3B82F6]" : "bg-slate-200"
+          enabled ? "bg-blue-600" : "bg-slate-200"
         )}
       >
         <span
@@ -594,7 +594,7 @@ function NotificationsTab() {
                 onClick={() => setSoundNotify(!soundNotify)}
                 className={cn(
                   "relative h-6 w-12 rounded-full transition-all duration-300 shrink-0",
-                  soundNotify ? "bg-[#3B82F6]" : "bg-slate-200"
+                  soundNotify ? "bg-blue-600" : "bg-slate-200"
                 )}
               >
                 <span
@@ -610,7 +610,7 @@ function NotificationsTab() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button className="h-11 px-8 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[13px]">
+        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
           Save Changes
         </Button>
       </div>
@@ -777,7 +777,7 @@ function QueueManagementTab() {
 
       {/* Save Changes */}
       <div className="flex justify-end pt-2">
-        <Button className="h-11 px-8 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[13px]">
+        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
           Save Changes
         </Button>
       </div>
@@ -805,7 +805,7 @@ function PatientPreferencesTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Full Name - LOCKED */}
-          <div className="flex items-center gap-4 p-4 bg-[#F9FAFB] border border-slate-100 rounded-2xl">
+          <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
             <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shrink-0">
               <UserCircle2 className="h-5 w-5 text-slate-400" />
             </div>
@@ -820,7 +820,7 @@ function PatientPreferencesTab() {
           </div>
 
           {/* Phone Number - LOCKED */}
-          <div className="flex items-center gap-4 p-4 bg-[#F9FAFB] border border-slate-100 rounded-2xl">
+          <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
             <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shrink-0">
               <Phone className="h-5 w-5 text-slate-400" />
             </div>
@@ -847,7 +847,7 @@ function PatientPreferencesTab() {
               onClick={() => setAgeRequired(!ageRequired)}
               className={cn(
                 "relative h-6 w-12 rounded-full transition-all duration-300 shrink-0",
-                ageRequired ? "bg-[#3B82F6]" : "bg-slate-200"
+                ageRequired ? "bg-blue-600" : "bg-slate-200"
               )}
             >
               <span
@@ -872,7 +872,7 @@ function PatientPreferencesTab() {
               onClick={() => setNotesRequired(!notesRequired)}
               className={cn(
                 "relative h-6 w-12 rounded-full transition-all duration-300 shrink-0",
-                notesRequired ? "bg-[#3B82F6]" : "bg-slate-200"
+                notesRequired ? "bg-blue-600" : "bg-slate-200"
               )}
             >
               <span
@@ -915,7 +915,7 @@ function PatientPreferencesTab() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button className="h-11 px-8 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[13px]">
+        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
           Save Changes
         </Button>
       </div>
@@ -976,7 +976,7 @@ function PermissionsTab() {
 
         {/* Visibility Matrix Column */}
         <div className="lg:col-span-5 h-full">
-          <div className="bg-[#F0F7FF] border border-blue-100 rounded-[28px] p-7 flex flex-col gap-6 h-full min-h-[440px]">
+          <div className="bg-blue-50 border border-blue-200 rounded-[28px] p-7 flex flex-col gap-6 h-full min-h-[440px]">
             <div className="flex items-center gap-3">
               <Eye className="h-5 w-5 text-blue-600" />
               <h3 className="text-[16px] font-bold text-slate-900">Visibility Matrix</h3>
@@ -1013,7 +1013,7 @@ function PermissionsTab() {
             </div>
 
             {/* Administrative Note */}
-            <div className="bg-[#FFF8E7] border border-amber-100 rounded-2xl p-5 flex items-start gap-4 mt-auto">
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 flex items-start gap-4 mt-auto">
               <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
                 <Info className="h-4 w-4 text-amber-600" />
               </div>
@@ -1050,7 +1050,7 @@ function PermissionsTab() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button className="h-11 px-8 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[13px]">
+        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
           Save Changes
         </Button>
       </div>
@@ -1074,3 +1074,5 @@ function TimelineItem({ title, subtitle, active }: { title: string; subtitle: st
     </div>
   );
 }
+
+

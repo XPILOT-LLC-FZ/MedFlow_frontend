@@ -127,24 +127,24 @@ export default function ReceptionPatientsPage() {
   const totalRooms = dashboardData?.doctorsStatus.length || 8;
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 bg-[#F9FAFB] min-h-screen pb-20">
+    <div className="p-4 lg:p-8 space-y-6 md:space-y-8 bg-slate-50 min-h-screen pb-20">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Patients Directory</h1>
-          <p className="text-slate-400 text-sm font-medium">Manage and track medical operations across departments.</p>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Patients Directory</h1>
+          <p className="text-slate-400 text-[13px] md:text-sm font-medium">Manage and track medical operations across departments.</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors shrink-0">
             <CalendarDays className="h-5 w-5 text-indigo-600" />
-            <span className="text-[14px] font-bold text-slate-700">
-              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+            <span className="text-[13px] md:text-[14px] font-bold text-slate-700 whitespace-nowrap">
+              {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
             </span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
-          <Button onClick={() => setView("new")} className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl h-12 px-8 font-bold shadow-lg shadow-blue-100">
-            + Add New Patient
+          <Button onClick={() => setView("new")} className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl h-11 md:h-12 px-6 md:px-8 font-bold shadow-lg shadow-blue-500/10">
+            <Plus className="h-4 w-4 mr-2" /> Add New Patient
           </Button>
         </div>
       </div>
@@ -248,7 +248,7 @@ export default function ReceptionPatientsPage() {
                         <div className="flex items-center justify-end gap-3">
                           <Button
                             size="sm"
-                            className="rounded-xl px-6 font-bold text-[11px] h-9 bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100 uppercase tracking-widest"
+                            className="rounded-xl px-6 font-bold text-[11px] h-9 bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/10 uppercase tracking-widest"
                             onClick={() => handleSelectPatient(item.id)}
                           >
                             Details
@@ -308,7 +308,7 @@ export default function ReceptionPatientsPage() {
               <Sparkles className="h-5 w-5 text-indigo-400" />
             </div>
             <div className="flex-1 flex flex-col justify-center">
-              <div className="p-6 bg-[#F9FAFB] rounded-[24px] border border-slate-50 space-y-6">
+              <div className="p-6 bg-slate-50 rounded-[24px] border border-slate-50 space-y-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-14 w-14 border-2 border-white shadow-md">
@@ -348,7 +348,7 @@ export default function ReceptionPatientsPage() {
           <div className="grid grid-cols-2 gap-4">
              <div className="grid grid-cols-1 gap-4">
                 {dashboardData?.doctorsStatus.slice(0, Math.ceil(totalRooms / 2)).map((doc) => (
-                  <div key={doc.doctorId} className="p-5 bg-[#F9FAFB] border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
+                  <div key={doc.doctorId} className="p-5 bg-slate-50 border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={doc.avatarUrl || ""} />
@@ -362,7 +362,7 @@ export default function ReceptionPatientsPage() {
              </div>
              <div className="grid grid-cols-1 gap-4">
                 {dashboardData?.doctorsStatus.slice(Math.ceil(totalRooms / 2)).map((doc) => (
-                  <div key={doc.doctorId} className="p-5 bg-[#F9FAFB] border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
+                  <div key={doc.doctorId} className="p-5 bg-slate-50 border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={doc.avatarUrl || ""} />
@@ -456,7 +456,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="p-4 lg:p-8 space-y-10 bg-[#F9FAFB] min-h-screen pb-20 font-sans">
+    <div className="p-4 lg:p-8 space-y-10 bg-slate-50 min-h-screen pb-20 font-sans">
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div className="space-y-1">
@@ -475,7 +475,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
           <Button 
             onClick={handleSave} 
             disabled={isSaving}
-            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-100"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10"
           >
             {isSaving ? "Saving..." : "Save Patient"}
           </Button>
@@ -487,7 +487,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
         <div className="xl:col-span-7 space-y-8">
           {/* 1. Patient Details */}
           <FormSection title="Patient Details" icon={UserIcon}>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <InputField 
                  label="First name" 
                  placeholder="John" 
@@ -512,7 +512,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                  <select
                    value={formData.gender}
                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                   className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-[#F9FAFB]/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
+                   className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
                  >
                    <option value="">Select Gender</option>
                    <option value="male">Male</option>
@@ -544,7 +544,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                 value={formData.address} 
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
               />
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <InputField 
                   label="CITY" 
                   placeholder="cairo" 
@@ -569,14 +569,14 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                  <select
                    value={formData.insuranceProvider}
                    onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })}
-                   className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-[#F9FAFB]/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
+                   className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
                  >
                    <option value="blue">Blue Shield</option>
                    <option value="aetna">Aetna</option>
                    <option value="cigna">Cigna</option>
                  </select>
               </div>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <InputField 
                   label="MEMBER ID" 
                   placeholder="MEMBER-123" 
@@ -595,7 +595,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
 
           {/* 4. Emergency Contact */}
           <FormSection title="Emergency Contact" icon={UserIcon}>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <InputField 
                 label="CONTACT NAME" 
                 placeholder="Jane Doe" 
@@ -607,7 +607,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                 <select
                   value={formData.emergencyRelationship}
                   onChange={(e) => setFormData({ ...formData, emergencyRelationship: e.target.value })}
-                  className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-[#F9FAFB]/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
+                  className="flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all"
                 >
                   <option value="spouse">Spouse</option>
                   <option value="parent">Parent</option>
@@ -633,12 +633,12 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
               rows={5}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full rounded-xl border border-slate-100 bg-[#F9FAFB]/50 px-4 py-4 text-[14px] font-medium text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-blue-50 focus:border-blue-200 transition-all"
+              className="w-full rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-4 text-[14px] font-medium text-slate-700 placeholder:text-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-blue-50 focus:border-blue-200 transition-all"
             />
           </FormSection>
 
           {/* Patient Consent */}
-          <div className="flex items-start gap-4 p-6 bg-[#F9FAFB] border border-slate-100 rounded-2xl">
+          <div className="flex items-start gap-4 p-6 bg-slate-50 border border-slate-100 rounded-2xl">
             <input type="checkbox" id="consent" className="mt-1 h-4 w-4 rounded border-slate-200 accent-blue-600 cursor-pointer shrink-0" />
             <label htmlFor="consent" className="text-[13px] font-bold text-slate-700 cursor-pointer leading-relaxed">
               <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest block mb-1">Patient Consent & Privacy Policy</span>
@@ -658,7 +658,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
             <Button 
               onClick={handleSave}
               disabled={isSaving}
-              className="h-12 px-8 rounded-xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[13px]"
+              className="h-12 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
             >
               {isSaving ? "Creating..." : "Save Patient"}
             </Button>
@@ -691,9 +691,9 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
              </div>
              
              <div className="space-y-3">
-                <div className="p-4 bg-[#FFF9F0] border-2 border-[#FFD39A] rounded-[20px] flex items-center justify-between cursor-pointer hover:shadow-md transition-all">
+                <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-[20px] flex items-center justify-between cursor-pointer hover:shadow-md transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-[#3B82F6] flex items-center justify-center text-white text-[12px] font-bold">JD</div>
+                    <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white text-[12px] font-bold">JD</div>
                     <div className="flex flex-col">
                       <span className="text-[13px] font-bold text-slate-900 leading-tight">Johnathan Doe</span>
                       <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase">DOB: 08/17/1988</span>
@@ -702,7 +702,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                   <span className="text-[11px] font-black text-[#D97706]">85% match</span>
                 </div>
 
-                <div className="p-4 bg-[#F9FAFB] border border-slate-100 rounded-[20px] flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-all">
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-[20px] flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-all">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-[12px] font-bold">JD</div>
                     <div className="flex flex-col">
@@ -771,7 +771,7 @@ function InputField({ label, placeholder, icon: Icon, value, onChange }: InputFi
           placeholder={placeholder} 
           value={value}
           onChange={onChange}
-          className="h-12 rounded-xl border-slate-100 bg-[#F9FAFB]/50 focus:ring-blue-600/5 transition-all text-sm font-medium" 
+          className="h-12 rounded-xl border-slate-100 bg-slate-50/50 focus:ring-blue-600/5 transition-all text-sm font-medium" 
         />
         {Icon && <Icon className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />}
       </div>
@@ -791,7 +791,7 @@ function ProgressItem({ label, number, active, completed }: ProgressItemProps) {
     <div className="flex items-center gap-4 group">
        <div className={cn(
          "h-8 w-8 rounded-full flex items-center justify-center text-[13px] font-black transition-all",
-         completed ? "bg-[#10B981] text-white" : (active ? "bg-[#3B82F6] text-white shadow-lg shadow-blue-100" : "bg-slate-50 text-slate-300")
+         completed ? "bg-emerald-500 text-white" : (active ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" : "bg-slate-50 text-slate-300")
        )}>
          {completed ? <CheckCircle2 className="h-5 w-5" /> : number}
        </div>
@@ -848,6 +848,7 @@ function TableFilter({ label }: { label: string }) {
   );
 }
 
+
 interface PaginationButtonProps {
   icon: React.ElementType;
   disabled?: boolean;
@@ -872,7 +873,7 @@ function PaginationNumber({ number, active }: { number: number; active?: boolean
     <button
       className={cn(
         "h-10 w-10 flex items-center justify-center rounded-xl font-bold text-[14px] transition-all",
-        active ? "bg-[#3B82F6] text-white shadow-lg shadow-blue-100" : "text-slate-500 hover:bg-slate-100"
+        active ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" : "text-slate-500 hover:bg-slate-100"
       )}
     >
       {number}
@@ -939,7 +940,7 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
   const vitals = (mh.vitals as Record<string, string>) || {};
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 bg-[#F9FAFB] min-h-screen pb-20 font-sans">
+    <div className="p-4 lg:p-8 space-y-8 bg-slate-50 min-h-screen pb-20 font-sans">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
@@ -950,7 +951,7 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
           <Button variant="outline" onClick={onBack} className="rounded-xl border-slate-100 bg-white font-bold text-slate-400 hover:bg-slate-50 h-11 px-8 text-[13px]">
             Back to Directory
           </Button>
-          <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-100 text-[13px]">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10 text-[13px]">
             Edit Profile
           </Button>
         </div>
@@ -961,34 +962,34 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
         <div className="xl:col-span-7 space-y-8">
           {/* Patient Hero Card */}
           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.02)] rounded-[28px] bg-white overflow-hidden">
-            <CardContent className="p-8 flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20 border-4 border-white shadow-lg">
+            <CardContent className="p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 text-center sm:text-left">
+                <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-white shadow-lg">
                   <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${patient.fullName}`} />
                   <AvatarFallback className="text-xl font-bold bg-blue-50 text-blue-600">{patient.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="space-y-2">
-                  <h2 className="text-[20px] font-bold text-slate-900">{patient.fullName}</h2>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span className="text-[12px] font-bold text-slate-400 uppercase tracking-tighter">ID: #PT-{patient.id.slice(-6).toUpperCase()}</span>
+                <div className="space-y-1.5 md:space-y-2">
+                  <h2 className="text-[18px] md:text-[20px] font-bold text-slate-900">{patient.fullName}</h2>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1">
+                    <span className="text-[11px] md:text-[12px] font-bold text-slate-400 uppercase tracking-tighter">ID: #PT-{patient.id.slice(-6).toUpperCase()}</span>
                     {patient.dateOfBirth && (
-                      <span className="text-[12px] font-bold text-slate-400">
+                      <span className="text-[11px] md:text-[12px] font-bold text-slate-400">
                         DOB: {new Date(patient.dateOfBirth).toLocaleDateString()} ({new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()}y)
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[12px] font-bold text-slate-500">Blood type: {patient.bloodType || "N/A"}</span>
-                    <span className="text-[12px] font-bold text-slate-500">Gender: {patient.gender || "N/A"}</span>
+                  <div className="flex items-center justify-center sm:justify-start gap-4">
+                    <span className="text-[11px] md:text-[12px] font-bold text-slate-500">Blood type: {patient.bloodType || "N/A"}</span>
+                    <span className="text-[11px] md:text-[12px] font-bold text-slate-500">Gender: {patient.gender || "N/A"}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors">
-                  <span className="text-blue-600 text-xl">📞</span>
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-blue-50 flex items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors shadow-sm">
+                  <span className="text-blue-600 text-lg md:text-xl">📞</span>
                 </div>
-                <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors">
-                  <span className="text-blue-600 text-xl">✉️</span>
+                <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-blue-50 flex items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors shadow-sm">
+                  <span className="text-blue-600 text-lg md:text-xl">✉️</span>
                 </div>
               </div>
             </CardContent>
@@ -1191,7 +1192,7 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.02)] rounded-[28px] bg-white overflow-hidden">
             <CardContent className="p-8 space-y-6">
               <h3 className="text-[16px] font-bold text-slate-900">Emergency Contact</h3>
-              <div className="p-5 bg-[#F9FAFB] border border-slate-100 rounded-[20px] space-y-4">
+              <div className="p-5 bg-slate-50 border border-slate-100 rounded-[20px] space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-[15px] font-bold text-slate-900">{String(emergency.name || "N/A")}</h4>
                   <button className="h-8 w-8 rounded-lg bg-white border border-slate-100 flex items-center justify-center hover:bg-slate-50 transition-colors">
@@ -1315,7 +1316,7 @@ function AddEmergencyContactModal({ onClose }: { onClose: () => void }) {
           <Button variant="outline" onClick={onClose} className="flex-1 h-12 rounded-2xl border-slate-200 text-slate-500 font-bold bg-white hover:bg-slate-50 text-[14px]">
             Cancel
           </Button>
-          <Button className="flex-1 h-12 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[14px]">
+          <Button className="flex-1 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[14px]">
             Add Contact
           </Button>
         </div>
@@ -1323,4 +1324,6 @@ function AddEmergencyContactModal({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+
+
 

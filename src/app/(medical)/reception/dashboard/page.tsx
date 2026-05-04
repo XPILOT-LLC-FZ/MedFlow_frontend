@@ -24,15 +24,18 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
 import { patientService } from "@/services/patientService";
 import { useToastStore } from "@/stores/useToastStore";
+import { useBookingStore } from "@/stores/useBookingStore";
 import { cn } from "@/lib/utils";
-import type { DashboardStaffSummaryData, DashboardAppointmentStatus, ApiPatient, DashboardStaffQueueItem } from "@/types";
-import { Check, X, Eye } from "lucide-react";
+import type { DashboardStaffSummaryData, DashboardAppointmentStatus, ApiPatient, DashboardStaffQueueItem, Appointment } from "@/types";
+import { Check, X, Eye, Loader2 } from "lucide-react";
 
 export default function ReceptionDashboard() {
   const { locale } = useTranslation();
   const toast = useToastStore();
+  const { updateAppointment } = useBookingStore();
   const [dashboardData, setDashboardData] = React.useState<DashboardStaffSummaryData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [processingId, setProcessingId] = React.useState<string | null>(null);
   const [pendingPatients, setPendingPatients] = React.useState<ApiPatient[]>([]);
   const [discountInputs, setDiscountInputs] = React.useState<Record<string, number>>({});
   const [discountNotes, setDiscountNotes] = React.useState<Record<string, string>>({});
@@ -73,6 +76,23 @@ export default function ReceptionDashboard() {
     }
   };
 
+  const handleStatusUpdate = async (apptId: string, nextStatus: string) => {
+    setProcessingId(apptId);
+    try {
+      // Map backend status to frontend expected status if needed
+      // Our updateAppointment in store expects lower-case hyphenated status but backend uses upper-case underscore.
+      // The store handles the conversion.
+      const status = nextStatus.toLowerCase().replace("_", "-") as Appointment["status"];
+      await updateAppointment(apptId, { status });
+      toast.success(`Status updated to ${nextStatus}`);
+      void refreshDashboard();
+    } catch {
+      toast.error("Failed to update status");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   useEffect(() => {
     void refreshDashboard();
     const interval = setInterval(() => void refreshDashboard(), 30000);
@@ -84,7 +104,7 @@ export default function ReceptionDashboard() {
   const activityLog = dashboardData?.activityLog || [];
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto bg-[#F9FAFB] min-h-screen relative pb-24">
+    <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto bg-slate-50 min-h-screen relative pb-24">
 
       {/* 1. Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -294,14 +314,14 @@ export default function ReceptionDashboard() {
         <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[32px] overflow-hidden bg-white">
           <CardContent className="p-0">
             <div className="overflow-x-auto no-scrollbar">
-              <table className="w-full text-left table-fixed">
+              <table className="w-full text-left min-w-[900px]">
                 <thead>
                   <tr className="border-b border-slate-50">
-                    <th className="w-[25%] px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Patient</th>
-                    <th className="w-[25%] px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Service</th>
-                    <th className="w-[15%] px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Time</th>
-                    <th className="w-[15%] px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Status</th>
-                    <th className="w-[20%] px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30 text-right">Actions</th>
+                    <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Patient</th>
+                    <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Service</th>
+                    <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Time</th>
+                    <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30">Status</th>
+                    <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/30 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -339,6 +359,8 @@ export default function ReceptionDashboard() {
                               status={apt.status as DashboardAppointmentStatus} 
                               patientId={apt.patientId}
                               aptId={apt.id}
+                              onUpdate={(s) => handleStatusUpdate(apt.id, s)}
+                              loading={processingId === apt.id}
                             />
                           </td>
                         </tr>
@@ -406,12 +428,32 @@ export default function ReceptionDashboard() {
                           <td className="px-4 py-5 text-[13px] font-medium text-slate-400/80 truncate">{apt.doctorName}</td>
                           <td className="px-4 py-5 text-[13px] font-bold text-slate-500/90 truncate">{apt.time}</td>
                           <td className="px-4 py-5">
-                            <QueueStatusBadge status={apt.status === "IN_PROGRESS" ? "IN_PROGRESS" : apt.status === "COMPLETED" ? "UPCOMING" : "WAITING"} />
+                            <QueueStatusBadge status={apt.status === "IN_PROGRESS" ? "IN_PROGRESS" : apt.status === "CONFIRMED" ? "WAITING" : "UPCOMING"} />
                           </td>
                           <td className="px-4 py-5 text-right">
-                            <button className="text-[12px] font-bold text-blue-600 hover:text-blue-700 whitespace-nowrap">
-                              {apt.status === "IN_PROGRESS" ? "View File" : "Check In"}
-                            </button>
+                            {apt.status === "SCHEDULED" ? (
+                              <button 
+                                onClick={() => handleStatusUpdate(apt.id, "CONFIRMED")}
+                                disabled={processingId === apt.id}
+                                className="text-[12px] font-bold text-blue-600 hover:text-blue-700 whitespace-nowrap flex items-center gap-1 justify-end ml-auto"
+                              >
+                                {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                Check In
+                              </button>
+                            ) : apt.status === "CONFIRMED" ? (
+                              <button 
+                                onClick={() => handleStatusUpdate(apt.id, "IN_PROGRESS")}
+                                disabled={processingId === apt.id}
+                                className="text-[12px] font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap flex items-center gap-1 justify-end ml-auto"
+                              >
+                                {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                Start Session
+                              </button>
+                            ) : (
+                              <button className="text-[12px] font-bold text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                                View File
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))
@@ -544,10 +586,12 @@ interface StatusBadgeProps {
 
 function StatusBadge({ status }: StatusBadgeProps) {
   const configs: Record<string, { label: string; color: string }> = { 
-    CONFIRMED: { label: "Confirmed", color: "bg-blue-50 text-blue-600" }, 
-    IN_PROGRESS: { label: "In Progress", color: "bg-orange-50 text-orange-600" }, 
-    SCHEDULED: { label: "Waiting", color: "bg-slate-100 text-slate-500" }, 
-    COMPLETED: { label: "Completed", color: "bg-emerald-50 text-emerald-600" } 
+    CONFIRMED: { label: "Checked-in", color: "bg-amber-50 text-amber-600" }, 
+    IN_PROGRESS: { label: "In Progress", color: "bg-blue-50 text-blue-600" }, 
+    SCHEDULED: { label: "Booked", color: "bg-slate-100 text-slate-500" }, 
+    COMPLETED: { label: "Completed", color: "bg-emerald-50 text-emerald-600" },
+    CANCELLED: { label: "Cancelled", color: "bg-red-50 text-red-600" },
+    NO_SHOW: { label: "No Show", color: "bg-red-50 text-red-600" }
   };
   const config = configs[status] || configs.SCHEDULED;
   return <Badge className={cn("rounded-full px-4 py-1 border-none font-bold text-[11px]", config.color)}>{config.label}</Badge>;
@@ -557,30 +601,51 @@ interface ActionButtonProps {
   status: DashboardAppointmentStatus;
   patientId?: string;
   aptId?: string;
+  onUpdate?: (status: string) => void;
+  loading?: boolean;
 }
 
-function ActionButton({ status, patientId, aptId }: ActionButtonProps) {
-  let label = "View Profile";
-  let href = `/reception/patients?id=${patientId}`;
+function ActionButton({ status, patientId, aptId, onUpdate, loading }: ActionButtonProps) {
+  if (loading) return <Loader2 className="h-4 w-4 animate-spin text-blue-600 ml-auto" />;
+
+  if (status === "SCHEDULED") {
+    return (
+      <Button 
+        variant="link" 
+        onClick={() => onUpdate?.("CONFIRMED")}
+        className="text-blue-600 font-bold hover:no-underline px-0 transition-all hover:translate-x-1"
+      >
+        Check in
+      </Button>
+    );
+  }
 
   if (status === "CONFIRMED") {
-    label = "Check in";
-    href = "/reception/waiting-room";
-  } else if (status === "SCHEDULED") {
-    label = "Go to queue";
-    href = "/reception/waiting-room";
-  } else if (status === "COMPLETED") {
-    label = "Check out";
-    href = `/reception/invoices?appointmentId=${aptId}`;
-  } else if (status === "IN_PROGRESS") {
-    label = "View details";
-    href = `/reception/patients?id=${patientId}`;
+    return (
+      <Button 
+        variant="link" 
+        onClick={() => onUpdate?.("IN_PROGRESS")}
+        className="text-emerald-600 font-bold hover:no-underline px-0 transition-all hover:translate-x-1"
+      >
+        Start Session
+      </Button>
+    );
+  }
+
+  if (status === "COMPLETED") {
+    return (
+      <Link href={`/reception/payments?appointmentId=${aptId}`}>
+        <Button variant="link" className="text-blue-600 font-bold hover:no-underline px-0 transition-all hover:translate-x-1">
+          Check out
+        </Button>
+      </Link>
+    );
   }
 
   return (
-    <Link href={href}>
-      <Button variant="link" className="text-blue-600 font-bold hover:no-underline px-0 transition-all hover:translate-x-1">
-        {label}
+    <Link href={`/reception/patients?id=${patientId}`}>
+      <Button variant="link" className="text-slate-400 font-bold hover:no-underline px-0 transition-all hover:translate-x-1 text-xs">
+        View File
       </Button>
     </Link>
   );
@@ -592,9 +657,9 @@ interface QueueStatusBadgeProps {
 
 function QueueStatusBadge({ status }: QueueStatusBadgeProps) {
   const configs: Record<string, { label: string; color: string }> = { 
-    IN_PROGRESS: { label: "IN-PROGRESS", color: "bg-emerald-50/60 text-emerald-600" }, 
-    WAITING: { label: "WAITING", color: "bg-orange-50 text-orange-400" }, 
-    UPCOMING: { label: "UPCOMING", color: "bg-blue-50/50 text-slate-400" } 
+    IN_PROGRESS: { label: "IN-SESSION", color: "bg-blue-50 text-blue-600" }, 
+    WAITING: { label: "LIVE-QUEUE", color: "bg-amber-50 text-amber-600" }, 
+    UPCOMING: { label: "BOOKED", color: "bg-slate-50 text-slate-400" } 
   };
   const config = configs[status] || configs.UPCOMING;
   return <Badge className={cn("rounded-full px-3 py-1 border-none font-bold text-[10px] tracking-tight", config.color)}>{config.label}</Badge>;
@@ -618,3 +683,5 @@ function TimelineItem({ time, title, subtitle, active }: TimelineItemProps) {
     </div>
   );
 }
+
+
