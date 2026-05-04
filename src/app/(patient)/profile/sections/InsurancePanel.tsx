@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { patientService } from '@/services/patientService';
 import { useToastStore } from '@/stores/useToastStore';
 import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
-import { Camera, Image as ImageIcon, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Camera, Image as ImageIcon, CheckCircle2, XCircle, Clock, ChevronRight } from 'lucide-react';
 
 interface InsurancePanelProps {
   patient?: ApiPatient;
@@ -42,9 +42,47 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
   const discountPercent = (currentInsurance["discountPercent"] as number) || 0;
   const discountNote = (currentInsurance["discountNote"] as string) || '';
 
+  const initialPhoneData = React.useMemo(() => {
+    const fullPhone = (currentInsurance["providerContact"] as string) || '';
+    let code = '+971';
+    let phone = fullPhone;
+    const commonCountryCodes = [
+      "+20", "+966", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212",
+      "+213", "+216", "+1", "+44"
+    ];
+    if (fullPhone.startsWith("+")) {
+      const matchedCode = commonCountryCodes.find(c => fullPhone.startsWith(c));
+      if (matchedCode) {
+        code = matchedCode;
+        phone = fullPhone.substring(matchedCode.length);
+      }
+    }
+    return { code, phone };
+  }, [currentInsurance]);
+
+  const [countryCode, setCountryCode] = useState(initialPhoneData.code);
+  const [typedPhone, setTypedPhone] = useState(initialPhoneData.phone);
+
   useEffect(() => {
     setFormData(getFormData());
     setVerificationStatus((currentInsurance["verificationStatus"] as string) || 'unverified');
+
+    const fullPhone = (currentInsurance["providerContact"] as string) || '';
+    let code = '+971';
+    let phone = fullPhone;
+    const commonCountryCodes = [
+      "+20", "+966", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212",
+      "+213", "+216", "+1", "+44"
+    ];
+    if (fullPhone.startsWith("+")) {
+      const matchedCode = commonCountryCodes.find(c => fullPhone.startsWith(c));
+      if (matchedCode) {
+        code = matchedCode;
+        phone = fullPhone.substring(matchedCode.length);
+      }
+    }
+    setCountryCode(code);
+    setTypedPhone(phone);
   }, [getFormData, currentInsurance]);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -64,12 +102,22 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
   const handleSave = async () => {
     if (!patient?.id) return;
     
+    let finalPhone = typedPhone.trim();
+    if (finalPhone.startsWith("+")) {
+      finalPhone = finalPhone.replace(/^\+\d+/, "");
+    }
+    if (finalPhone.startsWith("0")) {
+      finalPhone = finalPhone.substring(1);
+    }
+    finalPhone = `${countryCode}${finalPhone}`;
+
     setIsSaving(true);
     try {
       const updatedHistory = {
         ...medicalHistory,
         insuranceDetails: {
           ...formData,
+          providerContact: finalPhone,
           verificationStatus: verificationStatus,
           discountPercent,
           discountNote,
@@ -247,16 +295,23 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
             <label className="text-[15px] font-bold text-slate-700 dark:text-slate-300">
               {locale === 'ar' ? 'الفئة' : 'Category'}
             </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-              className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm focus:border-blue-500 w-full outline-none text-slate-800 dark:text-slate-200"
-            >
-              <option value="Individual">{locale === 'ar' ? 'فردي' : 'Individual'}</option>
-              <option value="Family">{locale === 'ar' ? 'عائلي' : 'Family'}</option>
-              <option value="Corporate">{locale === 'ar' ? 'شركات' : 'Corporate'}</option>
-              <option value="Government">{locale === 'ar' ? 'حكومي' : 'Government'}</option>
-            </select>
+            <div className="relative">
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                className="w-full h-14 rounded-[20px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-6 pr-12 text-base shadow-sm focus:ring-2 focus:ring-blue-500/20 text-slate-700 dark:text-slate-300 outline-none cursor-pointer appearance-none"
+              >
+                <option value="Individual">{locale === 'ar' ? 'فردي' : 'Individual'}</option>
+                <option value="Family">{locale === 'ar' ? 'عائلي' : 'Family'}</option>
+                <option value="Corporate">{locale === 'ar' ? 'شركات' : 'Corporate'}</option>
+                <option value="Government">{locale === 'ar' ? 'حكومي' : 'Government'}</option>
+              </select>
+              <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
+                <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -269,7 +324,7 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
             <Input 
               value={formData.policyNumber}
               onChange={(e) => setFormData(prev => ({ ...prev, policyNumber: e.target.value }))}
-              placeholder="000000000"
+              placeholder={locale === 'ar' ? '٠٠٠٠٠٠٠٠٠' : '000000000'}
               className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm focus:border-blue-500"
             />
           </div>
@@ -282,7 +337,7 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
             <Input 
               value={formData.memberId}
               onChange={(e) => setFormData(prev => ({ ...prev, memberId: e.target.value }))}
-              placeholder="MEM-12345"
+              placeholder={locale === 'ar' ? 'مثال: MEM-12345' : 'MEM-12345'}
               className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm focus:border-blue-500"
             />
           </div>
@@ -309,12 +364,36 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
             <label className="text-[15px] font-bold text-slate-700 dark:text-slate-300">
               {locale === 'ar' ? 'اتصال المزود' : 'Provider contact'}
             </label>
-            <div className="relative group">
+            <div className="flex gap-2">
+              <div className="relative h-14 rounded-[20px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center px-4 gap-2 min-w-[85px]">
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                >
+                  <option value="+20">+20</option>
+                  <option value="+966">+966</option>
+                  <option value="+971">+971</option>
+                  <option value="+965">+965</option>
+                  <option value="+974">+974</option>
+                  <option value="+968">+968</option>
+                  <option value="+973">+973</option>
+                  <option value="+962">+962</option>
+                  <option value="+961">+961</option>
+                  <option value="+212">+212</option>
+                  <option value="+213">+213</option>
+                  <option value="+216">+216</option>
+                  <option value="+1">+1</option>
+                  <option value="+44">+44</option>
+                </select>
+                <span className="font-bold text-slate-700 dark:text-slate-200">{countryCode}</span>
+                <ChevronRight className="h-4 w-4 text-slate-400 rotate-90 shrink-0" />
+              </div>
               <Input 
-                value={formData.providerContact}
-                onChange={(e) => setFormData(prev => ({ ...prev, providerContact: e.target.value }))}
-                placeholder="+20 102 333 4444"
-                className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm focus:border-blue-500"
+                value={typedPhone}
+                onChange={(e) => setTypedPhone(e.target.value)}
+                placeholder="000 000 0000"
+                className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm flex-1"
               />
             </div>
           </div>

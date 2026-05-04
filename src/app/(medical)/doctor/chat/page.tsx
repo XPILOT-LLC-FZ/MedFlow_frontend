@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { TranslationKey } from "@/lib/i18n";
@@ -51,7 +51,7 @@ function DoctorChatPageContent() {
   const legacyConversationIdParam = searchParams.get("id");
   const selectedConversationId = conversationIdParam ?? legacyConversationIdParam ?? "";
 
-  const { user, accessToken, refreshAccessToken } = useAuthStore();
+  const { user } = useAuthStore();
   const { t, locale } = useTranslation();
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -66,6 +66,9 @@ function DoctorChatPageContent() {
 
   // Conversation metadata (favorites, archived, muted)
   const [convMeta, setConvMeta] = useState<Record<string, { isFavorite?: boolean; isArchived?: boolean; isMuted?: boolean }>>({});
+
+  const hasAutoSelectedRef = useRef(false);
+  const lastHydratedConvIdRef = useRef<string | null>(null);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -265,15 +268,10 @@ function DoctorChatPageContent() {
     void syncFromAppointment();
   }, [appointmentIdParam, handleSelectConversation, locale, selectedConversationId]);
 
-  useEffect(() => {
-    if (!selectedConversationId || accessToken || !user) return;
-    void refreshAccessToken().catch(() => {
-      setError(locale === "ar" ? "انتهت الجلسة" : "Session expired");
-    });
-  }, [selectedConversationId, accessToken, user, refreshAccessToken, locale]);
 
   useEffect(() => {
-    if (selectedConversationId || conversations.length === 0) return;
+    if (selectedConversationId || conversations.length === 0 || hasAutoSelectedRef.current) return;
+    hasAutoSelectedRef.current = true;
     handleSelectConversation(conversations[0].id);
   }, [selectedConversationId, conversations, handleSelectConversation]);
 
@@ -361,8 +359,14 @@ function DoctorChatPageContent() {
       setPatientDetails(null);
       setPatientActivity(prev => prev.length === 0 ? prev : []);
       setPatientFiles(prev => prev.length === 0 ? prev : []);
+      lastHydratedConvIdRef.current = null;
       return;
     }
+
+    if (lastHydratedConvIdRef.current === selectedConversation.id) {
+      return;
+    }
+    lastHydratedConvIdRef.current = selectedConversation.id;
 
     const roleLabel =
       selectedConversation.otherParticipantRole === "PATIENT"

@@ -1,12 +1,32 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, MapPin, Calendar, Clock, ClipboardList, Target, Pill, CheckCircle2, Award } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Calendar, Clock, ClipboardList, Pill, CheckCircle2, Award, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { patientDocumentService } from "@/services/patientDocumentService";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { cn } from "@/lib/utils";
-import type { ApiAppointment } from "@/types";
+import type { ApiAppointment, ApiPatientDocument } from "@/types";
+
+const isClinicalPdfDocument = (
+  document: ApiPatientDocument,
+  appointmentId?: string,
+) => {
+  const normalizedName = document.name.toLowerCase();
+  const isPdf =
+    document.fileType === "application/pdf" || normalizedName.endsWith(".pdf");
+
+  return Boolean(
+    isPdf &&
+      (!appointmentId || document.appointmentId === appointmentId) &&
+      (normalizedName.includes("diagnostic") ||
+        normalizedName.includes("clinical") ||
+        normalizedName.includes("report")),
+  );
+};
 
 interface AppointmentDetailsDialogProps {
   isOpen: boolean;
@@ -22,6 +42,41 @@ export function AppointmentDetailsDialog({
   onBookAgain,
 }: AppointmentDetailsDialogProps) {
   const { t, locale, isRTL } = useTranslation();
+  const [appointmentDocuments, setAppointmentDocuments] = useState<ApiPatientDocument[]>([]);
+  const [isLoadingDocument, setIsLoadingDocument] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !appointment) {
+      setAppointmentDocuments([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadDocuments = async () => {
+      setIsLoadingDocument(true);
+      try {
+        const documents = await patientDocumentService.getCurrentPatientDocuments();
+        if (!isCancelled) {
+          setAppointmentDocuments(documents);
+        }
+      } catch {
+        if (!isCancelled) {
+          setAppointmentDocuments([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingDocument(false);
+        }
+      }
+    };
+
+    void loadDocuments();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [appointment, isOpen]);
 
   if (!appointment) return null;
 
@@ -29,6 +84,9 @@ export function AppointmentDetailsDialog({
   const prescriptions = appointment.prescriptions || [];
   const investigations = appointment.investigationOrders || [];
   const visitReason = appointment.notes || "Routine medical checkup";
+  const clinicalReportDocument =
+    appointmentDocuments.find((document) => isClinicalPdfDocument(document, appointment.id)) ||
+    appointmentDocuments.find((document) => isClinicalPdfDocument(document));
 
   // Parse symptoms string into tags
   const symptomTags = visitReason
@@ -37,6 +95,178 @@ export function AppointmentDetailsDialog({
 
   // Fallback branch / location name
   const locationName = (appointment as unknown as { doctor?: { branch?: { name?: string } } }).doctor?.branch?.name || "Mercy Heart Institute";
+
+  const handlePrintPrescription = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const firstPrescription = prescriptions[0];
+    const meds = firstPrescription?.medications || appointment.consultationSession?.medications || [];
+    const docName = appointment.doctorName || (appointment.doctor as { fullName?: string })?.fullName || (locale === "ar" ? "طبيب متخصص" : "Specialist Doctor");
+    const patName = appointment.patientName || "Patient";
+    const dateStr = new Date(appointment.date).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { dateStyle: "long" });
+
+    const medsListHtml = meds.map((med: { name?: string; dosage?: string; frequency?: string; duration?: string; instructions?: string }) => `
+      <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <strong style="font-size: 16px; color: #0f172a;">${med.name || "Medication"}</strong>
+          <span style="font-size: 12px; background-color: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-weight: 600;">${med.dosage || "As prescribed"}</span>
+        </div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+          Freq: ${med.frequency || "Daily"} ${med.duration ? `• Dur: ${med.duration}` : ""}
+        </div>
+        ${med.instructions ? `<div style="font-size: 12px; color: #475569; font-style: italic; margin-top: 4px;">SIG: ${med.instructions}</div>` : ""}
+      </div>
+    `).join("");
+
+    const html = `
+      <html>
+        <head>
+          <title>Prescription - ${patName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+            body { 
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+              color: #111827;
+              line-height: 1.5;
+              margin: 0;
+              padding: 0;
+            }
+            .page { padding: 40px; max-width: 800px; margin: 0 auto; }
+            .header { 
+              border-bottom: 2px solid #2563eb; 
+              padding-bottom: 20px; 
+              margin-bottom: 30px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+            }
+            .logo-area h1 { margin: 0; color: #2563eb; font-size: 24px; font-weight: 800; }
+            .logo-area p { margin: 4px 0 0; color: #6b7280; font-size: 12px; }
+            .report-title { text-align: right; }
+            .report-title h2 { margin: 0; font-size: 18px; font-weight: 700; color: #111827; }
+            .report-title p { margin: 4px 0 0; color: #6b7280; font-size: 12px; }
+            
+            .meta-grid { 
+              display: grid; 
+              grid-template-columns: 1fr 1fr; 
+              gap: 20px; 
+              margin-bottom: 30px;
+              background: #f8fafc;
+              padding: 20px;
+              border-radius: 12px;
+            }
+            .meta-item { display: flex; flex-direction: column; }
+            .meta-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+            .meta-value { font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 4px; }
+            
+            .section { margin-bottom: 30px; }
+            .section-header { 
+              display: flex; 
+              align-items: center; 
+              gap: 8px; 
+              margin-bottom: 12px;
+              border-left: 4px solid #2563eb;
+              padding-left: 12px;
+            }
+            .section-title { font-size: 14px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.025em; }
+            
+            .footer { 
+              margin-top: 50px; 
+              padding-top: 20px; 
+              border-top: 1px solid #e2e8f0;
+              display: flex;
+              justify-content: space-between;
+              font-size: 11px;
+              color: #94a3b8;
+            }
+            
+            @media print {
+              .no-print { display: none; }
+              body { padding: 0; }
+              .page { padding: 20px; }
+            }
+          </style>
+        </head>
+        <body dir="${locale === "ar" ? "rtl" : "ltr"}">
+          <div class="page">
+            <div class="header">
+              <div class="logo-area">
+                <h1>MedFlow</h1>
+                <p>Clinical Intelligence Platform</p>
+              </div>
+              <div class="report-title">
+                <h2>${locale === "ar" ? "الروشتة الطبية" : "Medical Prescription"}</h2>
+                <p>${dateStr}</p>
+              </div>
+            </div>
+
+            <div class="meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">${locale === "ar" ? "المريض" : "PATIENT"}</span>
+                <span class="meta-value">${patName}</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">${locale === "ar" ? "الطبيب المعالج" : "PHYSICIAN"}</span>
+                <span class="meta-value">Dr. ${docName}</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-header">
+                <span class="section-title">Rx</span>
+              </div>
+              <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-top: 15px;">
+                ${medsListHtml || `<p style="color: #64748b; font-style: italic;">${locale === "ar" ? "لا توجد أدوية مسجلة في هذا الموعد" : "No medications listed for this appointment."}</p>`}
+              </div>
+            </div>
+
+            <div style="margin-top: 60px; display: flex; justify-content: flex-end;">
+              <div style="text-align: center; width: 220px;">
+                <div style="border-bottom: 1px solid #475569; height: 50px; margin-bottom: 8px;"></div>
+                <span style="font-size: 11px; font-weight: 600; color: #475569;">Authorized Signature</span>
+              </div>
+            </div>
+
+            <div class="footer">
+              <span>MedFlow Medical Management System</span>
+              <span>Official Patient Record</span>
+            </div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() { window.close(); };
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const handleOpenClinicalPdf = async () => {
+    if (!clinicalReportDocument) {
+      handlePrintPrescription();
+      return;
+    }
+
+    try {
+      const response = await patientDocumentService.getDocumentDownloadUrl(
+        clinicalReportDocument.id,
+      );
+
+      if (!response.downloadUrl) {
+        throw new Error("No download URL returned");
+      }
+
+      window.open(response.downloadUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      handlePrintPrescription();
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -55,7 +285,11 @@ export function AppointmentDetailsDialog({
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
           >
-            <ChevronLeft className={cn("h-6 w-6", isRTL && "rotate-180")} />
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </button>
           <DialogTitle className="flex-1 text-center text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight">
             {t("details") || "Details"}
@@ -122,8 +356,10 @@ export function AppointmentDetailsDialog({
               </div>
               <div className="bg-[#f8fafd] dark:bg-slate-800/40 border border-slate-100/40 dark:border-slate-800/40 rounded-xl p-3.5 space-y-1">
                 <Clock className="h-4 w-4 text-blue-500" />
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 pt-0.5 leading-snug">
-                  {appointment.startTime} - {appointment.endTime || "30 min"}
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 pt-0.5 leading-snug flex items-center gap-1" dir="ltr">
+                  <span>{appointment.startTime}</span>
+                  <span>-</span>
+                  <span>{appointment.endTime || "30 min"}</span>
                 </p>
                 <p className="text-[10px] font-medium text-blue-400">
                   {locale === "ar" ? "وقت الموعد" : "Appointments Time"}
@@ -173,18 +409,64 @@ export function AppointmentDetailsDialog({
               </div>
             )}
 
-            {/* Diagnosis */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-blue-500" />
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {locale === "ar" ? "التشخيص" : "Diagnosis"}
-                </span>
+            {/* Clinical PDF */}
+            {(() => {
+              const firstPrescription = prescriptions[0];
+              const meds = firstPrescription?.medications || appointment.consultationSession?.medications || [];
+              const hasPrescription = Boolean(clinicalReportDocument) || meds.length > 0;
+              return (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {locale === "ar" ? "الملف السريري PDF" : "Clinical PDF"}
+                      </span>
+                    </div>
+                    {hasPrescription ? (
+                      <Button
+                        variant="link"
+                        onClick={() => void handleOpenClinicalPdf()}
+                        className="p-0 h-auto text-blue-500 hover:text-blue-600 font-bold text-xs"
+                        disabled={isLoadingDocument}
+                      >
+                        {locale === "ar" ? "عرض / تحميل" : "View / Download"}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-slate-400 font-medium cursor-not-allowed">
+                        {locale === "ar" ? "غير متوفر" : "Not available"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-normal">
+                    {clinicalReportDocument
+                      ? (locale === "ar"
+                          ? "الملف السريري المعتمد من الطبيب متاح للمشاهدة أو التحميل"
+                          : "The signed clinical PDF is available for viewing/downloading")
+                      : hasPrescription
+                      ? (locale === "ar"
+                          ? "لا توجد نسخة PDF محفوظة بعد، وسيتم عرض النسخة المطبوعة كبديل"
+                          : "No saved PDF is available yet, so the printed preview will be used")
+                      : (locale === "ar"
+                          ? "لا يوجد ملف سريري متاح لهذا الموعد بعد"
+                          : "No clinical PDF is available for this session yet.")}
+                  </p>
+                </div>
+              );
+            })()}
+            {/* Created by info (after Visit Reason) */}
+            {appointment.createdByName || appointment.createdByRole ? (
+              <div className="pt-2">
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{locale === "ar" ? "تم الحجز بواسطة" : "Booked by"}</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-100">
+                    {appointment.createdByRole === "PATIENT" && useAuthStore.getState().user?.id === appointment.patientId
+                      ? (locale === "ar" ? "أنت" : "You")
+                      : (appointment.createdByName || appointment.createdByRole)}
+                  </span>
+                </div>
               </div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-normal">
-                {appointment.serviceName || (locale === "ar" ? "استشارة طبية" : "Standard clinical consultation")}
-              </p>
-            </div>
+            ) : null}
           </div>
 
           {/* Card 3: Prescriptions */}
@@ -268,7 +550,6 @@ export function AppointmentDetailsDialog({
             </div>
           )}
 
-          {/* Price Summary */}
           <div className="border-t border-slate-100/50 dark:border-slate-800/60 pt-4 space-y-2 text-xs font-bold">
             <div className="flex justify-between text-slate-500 dark:text-slate-400">
               <span>{locale === "ar" ? "المبلغ الإجمالي" : "Total Amount"}</span>

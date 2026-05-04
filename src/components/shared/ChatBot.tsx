@@ -602,10 +602,10 @@ export function ChatBot({
                 <p className="mt-2 text-sm text-muted-foreground">{copy.helper}</p>
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <Button onClick={() => onSelectLanguage("ar")} className="h-11 rounded-2xl">
-                    Arabic 🇪🇬
+                    Arabic
                   </Button>
                   <Button onClick={() => onSelectLanguage("en")} variant="outline" className="h-11 rounded-2xl">
-                    English 🇺🇸
+                    English
                   </Button>
                 </div>
               </div>

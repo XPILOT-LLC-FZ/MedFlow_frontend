@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import {
   ChevronLeft,
+  ChevronRight,
   Calendar,
   Clock,
   MapPin,
@@ -117,7 +118,11 @@ export function CheckoutDialog({
             onClick={() => onBack ? onBack() : onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition-all"
           >
-            <ChevronLeft className={cn("h-6 w-6", isRTL && "rotate-180")} />
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </button>
           <DialogTitle className="flex-1 text-center text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight">
             {t("appointmentCheckout") || "Appointment Checkout"}
@@ -163,7 +168,7 @@ export function CheckoutDialog({
                 <span>
                   {bookingData.mode === "ONLINE"
                     ? (t("onlineConsultation") || "Online Consultation")
-                    : (doctor.clinicId || t("onClinic") || "On-Clinic Visit")}
+                    : (doctor.branch?.address || doctor.branch?.name || doctor.clinicId || t("onClinic") || "On-Clinic Visit")}
                 </span>
               </div>
             </div>

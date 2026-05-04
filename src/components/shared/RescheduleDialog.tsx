@@ -27,6 +27,8 @@ export function RescheduleDialog({
   const { locale, isRTL } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTime, setSelectedTime] = useState<string>("");
+  const [userHasSelectedDate, setUserHasSelectedDate] = useState<boolean>(false);
+  const [userHasSelectedTime, setUserHasSelectedTime] = useState<boolean>(false);
   const [timePeriod, setTimePeriod] = useState<"AM" | "PM">("AM");
   const [dayStatus, setDayStatus] = useState<Record<string, "available" | "full" | "off">>({});
   const [shifts, setShifts] = useState<DoctorShift[]>([]);
@@ -49,10 +51,14 @@ export function RescheduleDialog({
         setViewMonth(now.getMonth() + 1);
         setSelectedDate(now.toISOString().split("T")[0]);
       }
+      setUserHasSelectedDate(false);
+      setUserHasSelectedTime(false);
     } else if (isOpen) {
       setViewYear(now.getFullYear());
       setViewMonth(now.getMonth() + 1);
       setSelectedDate(now.toISOString().split("T")[0]);
+      setUserHasSelectedDate(false);
+      setUserHasSelectedTime(false);
     }
   }, [appointment?.date, isOpen, now]);
 
@@ -221,7 +227,11 @@ export function RescheduleDialog({
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
           >
-            <ChevronLeft className={cn("h-6 w-6", isRTL && "rotate-180")} />
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </button>
           <DialogTitle className="flex-1 text-center text-base font-bold text-slate-800 dark:text-slate-100 tracking-tight">
             {locale === "ar" ? "خيارات إعادة الجدولة" : "Reschedule options"}
@@ -300,13 +310,13 @@ export function RescheduleDialog({
                   onClick={prevMonth}
                   className="h-6 w-6 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
                 <button
                   onClick={nextMonth}
                   className="h-6 w-6 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -337,6 +347,7 @@ export function RescheduleDialog({
                     onClick={() => {
                       if (isClickable) {
                         setSelectedDate(dateStr);
+                        setUserHasSelectedDate(true);
                       }
                     }}
                     className={cn(
@@ -426,7 +437,10 @@ export function RescheduleDialog({
                 return (
                   <button
                     key={slot}
-                    onClick={() => setSelectedTime(slot)}
+                    onClick={() => {
+                      setSelectedTime(slot);
+                      setUserHasSelectedTime(true);
+                    }}
                     className={cn(
                       "h-11 font-bold text-xs rounded-xl border transition-all flex items-center justify-center",
                       isSelected
@@ -447,7 +461,7 @@ export function RescheduleDialog({
           </div>
 
           {/* Section 4: Summary You Reschedule to */}
-          {selectedDate && selectedTime && (
+          {userHasSelectedDate && userHasSelectedTime && selectedDate && selectedTime && (
             <div className="bg-slate-100/60 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/60 space-y-2 text-center">
               <h4 className="text-xs font-bold text-slate-600 dark:text-slate-400">
                 {locale === "ar" ? "تمت إعادة الجدولة إلى" : "You reschedule to"}

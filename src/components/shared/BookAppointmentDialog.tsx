@@ -8,7 +8,6 @@ import {
   MapPin,
   Globe,
   Star,
-  Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -66,7 +65,6 @@ export function BookAppointmentDialog({
   onOpenChange,
   onBack,
   doctor,
-  loyaltyPoints,
   onConfirm,
 }: BookAppointmentDialogProps) {
   const { t, locale, isRTL } = useTranslation();
@@ -198,7 +196,11 @@ export function BookAppointmentDialog({
             onClick={() => onBack ? onBack() : onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition-all"
           >
-            <ChevronLeft className={cn("h-6 w-6", isRTL && "rotate-180")} />
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </button>
           <DialogTitle className="flex-1 text-center text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight">
             {t("appointmentScheduler") || "Appointment Scheduler"}
@@ -268,7 +270,7 @@ export function BookAppointmentDialog({
                 onClick={prevMonth}
                 className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronRight className="h-5 w-5" />
               </button>
               <span className="text-base font-black text-slate-900 dark:text-slate-50">
                 {monthNames[viewMonth]} {viewYear}
@@ -277,7 +279,7 @@ export function BookAppointmentDialog({
                 onClick={nextMonth}
                 className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5" />
               </button>
             </div>
 
@@ -321,7 +323,7 @@ export function BookAppointmentDialog({
                     className={cn(
                       "h-11 w-11 mx-auto rounded-xl text-sm font-bold transition-all flex flex-col items-center justify-center gap-0.5 relative",
                       isSelected && "bg-blue-600 text-white shadow-md shadow-blue-500/30",
-                      !isSelected && isToday && "text-blue-600 ring-2 ring-blue-600",
+                      !isSelected && isToday && "text-blue-600",
                       !isSelected && !isToday && !past && !isOffDay && "hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200",
                       !isSelected && isOffDay && "opacity-40 cursor-not-allowed",
                       past && "text-slate-200 dark:text-slate-700 cursor-not-allowed"
@@ -417,48 +419,30 @@ export function BookAppointmentDialog({
           )}
 
           {selectedDay && selectedTime && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 space-y-2">
-              <h4 className="text-sm font-black text-slate-700 dark:text-slate-200">
-                {t("overview") || "Your visit will be"}
+            <div className="bg-blue-50/30 dark:bg-slate-800/40 rounded-[24px] p-5 space-y-3.5 border border-blue-50/50 dark:border-slate-800/60 shadow-sm relative overflow-hidden group transition-all duration-300 mt-2 mx-1">
+              <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-tight">
+                {locale === "ar" ? "نظرة عامة" : (t("overview") || "Your visit will be")}
               </h4>
+              
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                  {selectedDay} {monthNames[viewMonth]}, {viewYear}
+                <span className="text-[15px] font-bold text-slate-600 dark:text-slate-300">
+                  {locale === "ar"
+                    ? `${selectedDay} ${monthNames[viewMonth]}، ${viewYear}`
+                    : `${selectedDay} ${monthNames[viewMonth]}, ${viewYear}`}
                 </span>
-                <span className="text-sm font-bold text-blue-600">
+                <span className="text-[15px] font-black text-blue-600 dark:text-blue-400">
                   {selectedTime}
                 </span>
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-blue-100 dark:border-blue-900/40">
-                <span className="text-xl font-black text-blue-600">
-                  {consultFee} L.E
+              
+              <div className="flex items-center justify-between pt-3 border-t border-blue-100/40 dark:border-slate-800/60">
+                <span className="text-xl font-black text-blue-600 dark:text-blue-400">
+                  {locale === "ar" ? `${consultFee} درهم ` : `${consultFee} L.E`}
                 </span>
-                <span className="text-sm font-bold text-slate-400">
-                  {sessionMin} min
+                <span className="text-[13px] font-bold text-slate-400 dark:text-slate-500">
+                  {locale === "ar" ? ` ${sessionMin}` : `${sessionMin} min`}
                 </span>
               </div>
-            </div>
-          )}
-
-          {selectedDay && selectedTime && loyaltyPoints > 0 && (
-            <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-100 dark:border-emerald-800/40">
-              <div className="flex items-center gap-2">
-                <Gift className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                <div>
-                  <h5 className="text-xs font-black text-slate-800 dark:text-slate-100">
-                    {t("redeemLoyaltyPoints") || "Redeem Your Loyalty Points"}
-                  </h5>
-                  <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                    {loyaltyPoints} {t("pts") || "pts"} {t("available") || "available"}
-                  </p>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={redeemPoints}
-                onChange={() => setRedeemPoints(!redeemPoints)}
-                className="h-4 w-4 rounded border-emerald-300 focus:ring-emerald-500"
-              />
             </div>
           )}
         </div>

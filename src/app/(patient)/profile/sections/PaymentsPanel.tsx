@@ -273,7 +273,7 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. John Doe"
+                      placeholder={locale === 'ar' ? 'مثال: جون دو' : 'e.g. John Doe'}
                       value={cardForm.cardholderName}
                       onChange={(e) => setCardForm({ ...cardForm, cardholderName: e.target.value })}
                       className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
@@ -286,7 +286,7 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
                     </label>
                     <input
                       type="text"
-                      placeholder="0000 0000 0000 0000"
+                      placeholder={locale === 'ar' ? '٠٠٠٠ ٠٠٠٠ ٠٠٠٠ ٠٠٠٠' : '0000 0000 0000 0000'}
                       value={cardForm.cardNumber}
                       onChange={(e) => setCardForm({ ...cardForm, cardNumber: e.target.value })}
                       className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
@@ -300,7 +300,7 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
                       </label>
                       <input
                         type="text"
-                        placeholder="MM/YY"
+                        placeholder={locale === 'ar' ? 'شهر/سنة' : 'MM/YY'}
                         value={cardForm.expiryDate}
                         onChange={(e) => setCardForm({ ...cardForm, expiryDate: e.target.value })}
                         className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
@@ -313,7 +313,7 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
                       </label>
                       <input
                         type="text"
-                        placeholder="***"
+                        placeholder={locale === 'ar' ? '***' : '***'}
                         value={cardForm.cvv}
                         onChange={(e) => setCardForm({ ...cardForm, cvv: e.target.value })}
                         className="w-full h-11 px-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"

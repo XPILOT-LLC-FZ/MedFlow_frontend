@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Beaker,
   FileText,
-  ChevronLeft,
   Plus,
   Upload,
   ChevronDown,
   CheckCircle2,
   Loader2,
   Eye,
+  X,
 } from 'lucide-react';
 import {
   Dialog as DialogRoot,
@@ -20,10 +20,10 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { patientDocumentService } from '@/services/patientDocumentService';
 import { useToastStore } from '@/stores/useToastStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-type ViewState = 'list' | 'upload';
 type TabState = 'lab' | 'radiology';
 
 interface MedicalReport {
@@ -39,16 +39,17 @@ interface MedicalReport {
 }
 
 export default function LabRadiologyPanel() {
-  const { locale } = useTranslation();
+  const { locale, isRTL } = useTranslation();
   const toast = useToastStore();
+  const { user } = useAuthStore();
 
-  const [view, setView] = useState<ViewState>('list');
   const [activeTab, setActiveTab] = useState<TabState>('lab');
   const [isLoading, setIsLoading] = useState(true);
   const [reports, setReports] = useState<MedicalReport[]>([]);
   const [selectedReport, setSelectedReport] = useState<MedicalReport | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isOpeningFile, setIsOpeningFile] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   // Form State
   const [uploadType, setUploadType] = useState<'lab' | 'radiology'>('lab');
@@ -69,6 +70,9 @@ export default function LabRadiologyPanel() {
         const anyDoc = doc as unknown as any;
         const realDoctorName = anyDoc.appointment?.doctor?.fullName || anyDoc.appointment?.doctorName || (doc.name.split('|')[3]) || (locale === 'ar' ? 'طبيب' : 'Doctor');
         const parts = doc.name.split('|');
+        const isSelfUploaded = doc.uploadedByPatient === true ||
+          (anyDoc.uploadedBy ? anyDoc.uploadedBy === user?.id : !doc.appointmentId);
+
         if (parts.length >= 4) {
           return {
             id: doc.id,
@@ -84,7 +88,7 @@ export default function LabRadiologyPanel() {
             }),
             status: 'completed',
             fileUrl: doc.fileUrl,
-            uploadedByPatient: doc.uploadedByPatient === true || !doc.appointmentId
+            uploadedByPatient: isSelfUploaded
           };
         }
 
@@ -102,7 +106,7 @@ export default function LabRadiologyPanel() {
           type: doc.name.toLowerCase().includes('radiology') ? 'radiology' : 'lab',
           status: 'completed',
           fileUrl: doc.fileUrl,
-          uploadedByPatient: doc.uploadedByPatient === true || !doc.appointmentId
+          uploadedByPatient: isSelfUploaded
         };
       });
 
@@ -112,7 +116,7 @@ export default function LabRadiologyPanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [locale, toast]);
+  }, [locale, toast, user?.id]);
 
   useEffect(() => {
     loadData();
@@ -169,7 +173,7 @@ export default function LabRadiologyPanel() {
       await patientDocumentService.createForCurrentPatient(payload);
 
       toast.success(locale === 'ar' ? 'تم حفظ البيانات بنجاح' : 'Data saved successfully');
-      setView('list');
+      setIsUploadOpen(false);
       loadData();
 
       setFileName(''); setDoctorName(''); setSpecialization(''); setSelectedFile(null);
@@ -190,255 +194,275 @@ export default function LabRadiologyPanel() {
 
   return (
     <div className="w-full max-w-md mx-auto relative min-h-[600px] pb-4">
-      <AnimatePresence mode="wait">
-        {view === 'list' ? (
-          <motion.div
-            key="list"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="flex flex-col space-y-3"
+      <div className="flex flex-col space-y-3">
+        {/* Tabs Control */}
+        <div className="bg-white dark:bg-slate-900 p-1 rounded-md border border-slate-100 dark:border-slate-800 flex gap-8">
+          <button
+            onClick={() => setActiveTab('lab')}
+            className={cn(
+              "flex-1 py-4 px-3 rounded-md text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1",
+              activeTab === 'lab'
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
+                : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+            )}
           >
+            {locale === 'ar' ? 'نتائج المختبر' : 'Lab results'}
+          </button>
+          <button
+            onClick={() => setActiveTab('radiology')}
+            className={cn(
+              "flex-1 py-4 px-3 rounded-md text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1",
+              activeTab === 'radiology'
+                ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
+                : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
+            )}
+          >
+            {locale === 'ar' ? 'تقرير الأشعة' : 'Radiology report'}
+          </button>
+        </div>
 
-            {/* Tabs Control */}
-            <div className="bg-white dark:bg-slate-900 p-1 rounded-md border border-slate-100 dark:border-slate-800 flex gap-8">
-              <button
-                onClick={() => setActiveTab('lab')}
-                className={cn(
-                  "flex-1 py-4 px-3 rounded-md text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1",
-                  activeTab === 'lab'
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
-                    : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
-                )}
-              >
-                {locale === 'ar' ? 'نتائج المختبر' : 'Lab results'}
-              </button>
-              <button
-                onClick={() => setActiveTab('radiology')}
-                className={cn(
-                  "flex-1 py-4 px-3 rounded-md text-sm font-bold transition-all duration-300 flex items-center justify-center gap-1",
-                  activeTab === 'radiology'
-                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30"
-                    : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800"
-                )}
-              >
-                {locale === 'ar' ? 'تقرير الأشعة' : 'Radiology report'}
-              </button>
-            </div>
-
-            {/* List */}
+        {/* List */}
+        <div className="space-y-4">
+          {isLoading ? (
             <div className="space-y-4">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-28 bg-white dark:bg-slate-900 rounded-[28px] animate-pulse border border-slate-100 dark:border-slate-800" />
-                  ))}
-                </div>
-              ) : filteredReports.length > 0 ? (
-                filteredReports.map((report) => (
-                  <motion.div
-                    key={report.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    onClick={() => handleCardClick(report)}
-                    className="bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all relative group cursor-pointer flex flex-col justify-between gap-4"
-                  >
-                    {/* Top row: Title and sender */}
-                    <div className="flex flex-col gap-1">
-                      <h3 className="font-extrabold text-[15px] md:text-[16px] text-emerald-600 dark:text-emerald-400 uppercase leading-snug break-words flex-1">
-                        {report.name}
-                      </h3>
-                      <p className="text-[12px] md:text-[13px] text-slate-500 font-medium">
-                        {report.uploadedByPatient
-                          ? (locale === 'ar' ? 'تم الرفع بواسطتك' : 'Uploaded by you')
-                          : (locale === 'ar' ? `تم الإرسال بواسطة: ${report.doctorName}` : `Sent by: ${report.doctorName}`)}
-                      </p>
-                    </div>
-
-                    {/* Bottom row: Date and View report button */}
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
-                        {locale === 'ar' ? 'التاريخ : ' : 'Date : '}
-                        {report.date}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenDocument(report.id);
-                        }}
-                        className="bg-[#008AE6] hover:bg-blue-600 active:scale-95 text-white text-[14px] font-bold px-5 py-2 rounded-full transition-all shadow-sm flex items-center gap-1"
-                      >
-                        {locale === 'ar' ? 'عرض التقرير' : 'View report'}
-                      </button>
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="text-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-[32px] border border-dashed border-slate-100 dark:border-slate-800">
-                  <div className="h-16 w-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Beaker className="h-8 w-8 text-slate-300" />
-                  </div>
-                  <h3 className="font-bold text-slate-800 dark:text-white">
-                    {locale === 'ar' ? 'لا توجد تقارير' : 'No reports yet'}
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-28 bg-white dark:bg-slate-900 rounded-[28px] animate-pulse border border-slate-100 dark:border-slate-800" />
+              ))}
+            </div>
+          ) : filteredReports.length > 0 ? (
+            filteredReports.map((report) => (
+              <motion.div
+                key={report.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onClick={() => handleCardClick(report)}
+                className="bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all relative group cursor-pointer flex flex-col justify-between gap-4"
+              >
+                {/* Top row: Title and sender */}
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-extrabold text-[15px] md:text-[16px] text-emerald-600 dark:text-emerald-400 uppercase leading-snug break-words flex-1">
+                    {report.name}
                   </h3>
-                  <p className="text-slate-400 text-sm">
-                    {locale === 'ar' ? 'ابدأ بإضافة تقاريرك الطبية' : 'Start adding your medical reports'}
+                  <p className="text-[12px] md:text-[13px] text-slate-500 font-medium">
+                    {report.uploadedByPatient
+                      ? (locale === 'ar' ? 'تم الرفع بواسطتك' : 'Uploaded by you')
+                      : (locale === 'ar' ? `تم الإرسال بواسطة: ${report.doctorName}` : `Sent by: ${report.doctorName}`)}
                   </p>
                 </div>
-              )}
-            </div>
 
-            <button
+                {/* Bottom row: Date and View report button */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                    {locale === 'ar' ? 'التاريخ : ' : 'Date : '}
+                    {report.date}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDocument(report.id);
+                    }}
+                    className="bg-[#008AE6] hover:bg-blue-600 active:scale-95 text-white text-[14px] font-bold px-5 py-2 rounded-full transition-all shadow-sm flex items-center gap-1"
+                  >
+                    {locale === 'ar' ? 'عرض التقرير' : 'View report'}
+                  </button>
+                </div>
+              </motion.div>
+            ))
+          ) : (
+            <div className="text-center py-20 bg-white/50 dark:bg-slate-900/50 rounded-[32px] border border-dashed border-slate-100 dark:border-slate-800">
+              <div className="h-16 w-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Beaker className="h-8 w-8 text-slate-300" />
+              </div>
+              <h3 className="font-bold text-slate-800 dark:text-white">
+                {locale === 'ar' ? 'لا توجد تقارير' : 'No reports yet'}
+              </h3>
+              <p className="text-slate-400 text-sm">
+                {locale === 'ar' ? 'ابدأ بإضافة تقاريرك الطبية' : 'Start adding your medical reports'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => {
+            setUploadType(activeTab);
+            setIsUploadOpen(true);
+          }}
+          className="fixed bottom-40 md:bottom-40 right-6 h-15 w-15 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-blue-600/40 active:scale-90 transition-all z-40"
+        >
+          <Plus className="h-8 w-8" />
+        </button>
+      </div>
+
+      {/* Upload files Bottom Sheet */}
+      <AnimatePresence>
+        {isUploadOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => {
-                setUploadType(activeTab);
-                setView('upload');
+                setIsUploadOpen(false);
+                setFileName('');
+                setDoctorName('');
+                setSpecialization('');
+                setSelectedFile(null);
               }}
-              className="fixed bottom-40 md:bottom-40 right-6 h-15 w-15 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-blue-600/40 active:scale-90 transition-all z-40"
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex flex-col justify-end"
+            />
+
+            {/* Bottom Sheet / Drawer */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 max-h-[85vh] bg-white dark:bg-slate-950 rounded-t-[32px] border-t border-slate-200 dark:border-slate-800 shadow-2xl z-[101] flex flex-col"
             >
-              <Plus className="h-8 w-8" />
-            </button>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="upload"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 50 }}
-            className="flex flex-col space-y-6"
-          >
-            {/* Header with Back */}
-            <div className="flex items-center justify-center relative py-2 mb-4">
-              <button 
-                onClick={() => {
-                  setView('list');
-                  setFileName('');
-                  setDoctorName('');
-                  setSpecialization('');
-                  setSelectedFile(null);
-                }} 
-                className="absolute left-0 p-2 text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <h1 className="text-[20px] font-bold text-slate-900 dark:text-white">
-                {locale === 'ar' ? 'رفع الملفات' : 'Upload files'}
-              </h1>
-            </div>
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-800" />
+              </div>
 
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
-                  {locale === 'ar' ? 'النوع' : 'Type'}
-                </label>
-                <div className="relative group">
-                  <select
-                    value={uploadType}
-                    onChange={(e) => setUploadType(e.target.value as 'lab' | 'radiology')}
-                    className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 appearance-none outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium"
-                  >
-                    <option value="lab">{locale === 'ar' ? 'مختبر' : 'Laboratory'}</option>
-                    <option value="radiology">{locale === 'ar' ? 'أشعة' : 'Radiology'}</option>
-                  </select>
-                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors" />
+              {/* Title Header with close button */}
+              <div className="px-6 pb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-900/50">
+                <div className="flex flex-col">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                    {locale === 'ar' ? 'رفع الملفات' : 'Upload files'}
+                  </h2>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
-                  {locale === 'ar' ? 'اسم الملف' : 'File name'}
-                </label>
-                <input
-                  type="text"
-                  value={fileName}
-                  onChange={(e) => setFileName(e.target.value)}
-                  placeholder={locale === 'ar' ? 'أدخل الاسم' : 'Enter the name'}
-                  className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium placeholder:text-slate-300"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
-                  {locale === 'ar' ? 'التخصص' : 'Specialization'}
-                </label>
-                <div className="relative group">
-                  <select
-                    value={specialization}
-                    onChange={(e) => setSpecialization(e.target.value)}
-                    className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 appearance-none outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium"
-                  >
-                    <option value="">{locale === 'ar' ? 'اختر التخصص' : 'Select specialization'}</option>
-                    <option value="Internal Medicine">{locale === 'ar' ? 'باطنة' : 'Internal Medicine'}</option>
-                    <option value="Cardiology">{locale === 'ar' ? 'قلب' : 'Cardiology'}</option>
-                    <option value="Neurology">{locale === 'ar' ? 'أعصاب' : 'Neurology'}</option>
-                    <option value="Orthopedics">{locale === 'ar' ? 'عظام' : 'Orthopedics'}</option>
-                    <option value="Radiology">{locale === 'ar' ? 'أشعة' : 'Radiology'}</option>
-                  </select>
-                  <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
-                  {locale === 'ar' ? 'اسم الدكتور' : 'DR. name'}
-                </label>
-                <input
-                  type="text"
-                  value={doctorName}
-                  onChange={(e) => setDoctorName(e.target.value)}
-                  placeholder={locale === 'ar' ? 'أدخل الاسم' : 'Enter the name'}
-                  className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium placeholder:text-slate-300"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
-                  {locale === 'ar' ? 'رفع الملف' : 'Upload file'}
-                </label>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    "w-full h-40 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group",
-                    selectedFile
-                      ? "border-emerald-500 bg-emerald-50/30"
-                      : "border-slate-200 hover:border-blue-400 bg-slate-50/50 dark:border-slate-800 dark:hover:border-blue-500"
-                  )}
-                >
-                  <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="application/pdf,image/*" />
-
-                  <div className={cn(
-                    "h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
-                    selectedFile ? "bg-emerald-500 text-white" : "bg-white dark:bg-slate-900 text-slate-400 group-hover:text-blue-500 group-hover:scale-110 shadow-sm"
-                  )}>
-                    {selectedFile ? <CheckCircle2 className="h-6 w-6" /> : <Upload className="h-6 w-6" />}
-                  </div>
-
-                  <div className="text-center">
-                    <p className="font-bold text-[15px] text-slate-700 dark:text-slate-300">
-                      {selectedFile ? selectedFile.name : (locale === 'ar' ? 'اضغط للرفع أو سحب الملف' : 'Click to upload or drag and drop')}
-                    </p>
-                    <p className="text-[12px] text-slate-400 font-medium">
-                      PNG, JPG up to 10MB
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-6 pb-10">
                 <button
-                  onClick={handleSave}
-                  disabled={isUploading}
-                  className="w-full h-16 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-[18px] rounded-[28px] shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                  onClick={() => {
+                    setIsUploadOpen(false);
+                    setFileName('');
+                    setDoctorName('');
+                    setSpecialization('');
+                    setSelectedFile(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full bg-slate-50 dark:bg-slate-900 transition-all"
                 >
-                  {isUploading ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  ) : (
-                    locale === 'ar' ? 'حفظ البيانات' : 'Save data'
-                  )}
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-            </div>
-          </motion.div>
+
+              {/* Form Content with scrolling */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
+                    {locale === 'ar' ? 'النوع' : 'Type'}
+                  </label>
+                  <div className="relative group">
+                    <select
+                      value={uploadType}
+                      onChange={(e) => setUploadType(e.target.value as 'lab' | 'radiology')}
+                      className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 appearance-none outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium"
+                    >
+                      <option value="lab">{locale === 'ar' ? 'مختبر' : 'Laboratory'}</option>
+                      <option value="radiology">{locale === 'ar' ? 'أشعة' : 'Radiology'}</option>
+                    </select>
+                    <ChevronDown className={cn("absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors", isRTL ? "left-6" : "right-6")} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
+                    {locale === 'ar' ? 'اسم الملف' : 'File name'}
+                  </label>
+                  <input
+                    type="text"
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    placeholder={locale === 'ar' ? 'أدخل الاسم' : 'Enter the name'}
+                    className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium placeholder:text-slate-300"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
+                    {locale === 'ar' ? 'التخصص' : 'Specialization'}
+                  </label>
+                  <div className="relative group">
+                    <select
+                      value={specialization}
+                      onChange={(e) => setSpecialization(e.target.value)}
+                      className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 appearance-none outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium"
+                    >
+                      <option value="">{locale === 'ar' ? 'اختر التخصص' : 'Select specialization'}</option>
+                      <option value="Internal Medicine">{locale === 'ar' ? 'باطنة' : 'Internal Medicine'}</option>
+                      <option value="Cardiology">{locale === 'ar' ? 'قلب' : 'Cardiology'}</option>
+                      <option value="Neurology">{locale === 'ar' ? 'أعصاب' : 'Neurology'}</option>
+                      <option value="Orthopedics">{locale === 'ar' ? 'عظام' : 'Orthopedics'}</option>
+                      <option value="Radiology">{locale === 'ar' ? 'أشعة' : 'Radiology'}</option>
+                    </select>
+                    <ChevronDown className={cn("absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors", isRTL ? "left-6" : "right-6")} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
+                    {locale === 'ar' ? 'اسم الدكتور' : 'DR. name'}
+                  </label>
+                  <input
+                    type="text"
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    placeholder={locale === 'ar' ? 'أدخل الاسم' : 'Enter the name'}
+                    className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium placeholder:text-slate-300"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
+                    {locale === 'ar' ? 'رفع الملف' : 'Upload file'}
+                  </label>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "w-full h-40 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group",
+                      selectedFile
+                        ? "border-emerald-500 bg-emerald-50/30"
+                        : "border-slate-200 hover:border-blue-400 bg-slate-50/50 dark:border-slate-800 dark:hover:border-blue-500"
+                    )}
+                  >
+                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="application/pdf,image/*" />
+
+                    <div className={cn(
+                      "h-12 w-12 rounded-2xl flex items-center justify-center transition-all",
+                      selectedFile ? "bg-emerald-500 text-white" : "bg-white dark:bg-slate-900 text-slate-400 group-hover:text-blue-500 group-hover:scale-110 shadow-sm"
+                    )}>
+                      {selectedFile ? <CheckCircle2 className="h-6 w-6" /> : <Upload className="h-6 w-6" />}
+                    </div>
+
+                    <div className="text-center">
+                      <p className="font-bold text-[15px] text-slate-700 dark:text-slate-300">
+                        {selectedFile ? selectedFile.name : (locale === 'ar' ? 'اضغط للرفع أو سحب الملف' : 'Click to upload or drag and drop')}
+                      </p>
+                      <p className="text-[12px] text-slate-400 font-medium">
+                        PNG, JPG up to 10MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 pb-6">
+                  <button
+                    onClick={handleSave}
+                    disabled={isUploading}
+                    className="w-full h-16 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-[18px] rounded-[28px] shadow-xl shadow-blue-600/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      locale === 'ar' ? 'حفظ البيانات' : 'Save data'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

@@ -241,8 +241,8 @@ export default function DocLabRadiologyPanel({
                   </h3>
                   <p className="text-[12px] md:text-[13px] text-slate-500 font-medium">
                     {report.uploadedByPatient
-                      ? (locale === 'ar' ? 'تم الرفع بواسطة المريض' : 'Uploaded by patient')
-                      : (locale === 'ar' ? `تم الرفع بواسطتك: د. ${report.doctorName}` : `Uploaded by you: Dr. ${report.doctorName}`)}
+                      ? (locale === 'ar' ? 'تم الرفع بواسطة المريض' : 'Uploaded by the patient')
+                      : (locale === 'ar' ? 'تم الرفع بواسطتك: أنت' : 'Uploaded by you: You')}
                   </p>
                 </div>
 

@@ -109,6 +109,8 @@ export const mapToLocal = (api: ApiAppointment): Appointment => {
     amount: api.amount,
     doctor: api.doctor,
     paymentMethodType: api.paymentMethodType,
+    createdByName: api.createdByName,
+    createdByRole: (api.createdByRole as unknown as Appointment["createdByRole"]) || undefined,
   };
 };
 
@@ -243,6 +245,20 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       console.log("[useBookingStore] Sending payload:", JSON.stringify(apiData, null, 2));
       const created = await bookingService.create(apiData);
       const localCreated = mapToLocal(created);
+
+      // Ensure we have creator info locally. Prefer API-provided, fallback to current user.
+      try {
+        const authState = useAuthStore.getState();
+        if (!localCreated.createdByName) {
+          localCreated.createdByName = created.createdByName || authState.user?.name || authState.user?.email || undefined;
+        }
+        if (!localCreated.createdByRole) {
+          localCreated.createdByRole = created.createdByRole || (authState.user?.role as unknown as Appointment["createdByRole"]) || undefined;
+        }
+      } catch {
+        // ignore
+      }
+
       set((s) => ({
         appointments: [localCreated, ...s.appointments],
         isLoading: false,

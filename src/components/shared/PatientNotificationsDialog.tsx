@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Coins,
   ChevronLeft,
+  ChevronRight,
   X
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -43,7 +44,7 @@ export function PatientNotificationsDialog({
   notifications,
   onRefresh,
 }: PatientNotificationsDialogProps) {
-  const { t, locale } = useTranslation();
+  const { t, locale, isRTL } = useTranslation();
   const [filter, setFilter] = React.useState<"all" | "unread" | "appointments" | "medical" | "important">("all");
 
   const translateNotificationTitle = (title: string) => {
@@ -130,7 +131,11 @@ export function PatientNotificationsDialog({
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
           >
-            <ChevronLeft className="h-6 w-6" />
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </button>
           <DialogTitle className="flex-1 text-center text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight pr-8">
             {t("notifications")}

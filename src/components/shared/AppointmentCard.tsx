@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Clock, Phone, User, MessageSquare, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
 import type { Appointment } from "@/types";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useTranslation } from "@/hooks/useTranslation";
+import { RescheduleDialog } from "@/components/shared/RescheduleDialog";
+import { bookingService } from "@/services/bookingService";
+import { useBookingStore } from "@/stores/useBookingStore";
+import { useToastStore } from "@/stores/useToastStore";
 
 const statusStyles: Record<string, string> = {
   scheduled: "bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/50",
@@ -38,10 +44,32 @@ export function AppointmentCard({
   const { toggleFavorite, isFavorite } = useFavorites();
   const { locale } = useTranslation();
   const isFav = isFavorite(appointment.doctorId);
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const { fetchAppointments } = useBookingStore();
+  const toast = useToastStore();
 
   const displayName = isPatientView ? appointment.doctorName : appointment.patientName;
-  // Actually, Appointment type has doctorId and doctorName. It might not have doctorAvatar.
-  // Let's assume patientAvatar is what we have for now or fallback.
+  const { user } = useAuthStore();
+
+  const handleReschedule = async (newDate: string, newTime: string) => {
+    try {
+      await bookingService.rescheduleAppointment(appointment.id, {
+        date: newDate,
+        startTime: newTime,
+      });
+      await fetchAppointments();
+      toast.success(
+        locale === "ar"
+          ? `تم إعادة جدولة الموعد إلى ${newDate} في ${newTime}`
+          : `Appointment rescheduled to ${newDate} at ${newTime}`
+      );
+    } catch{
+      toast.error(
+        locale === "ar" ? "فشل إعادة جدولة الموعد" : "Failed to reschedule appointment"
+      );
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -144,6 +172,20 @@ export function AppointmentCard({
             {appointment.notes || (locale === "ar" ? "فحص عام" : "General checkup")}
           </p>
 
+          {appointment.createdByName || appointment.createdByRole ? (
+            <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium">
+              {appointment.createdByRole === "PATIENT" && user?.id === appointment.patientId
+                ? (locale === "ar" ? "تم الحجز بواسطة: أنت" : "Booked by: You")
+                : (locale === "ar" 
+                    ? `تم الحجز بواسطة: ${appointment.createdByName || (appointment.createdByRole === "PATIENT" ? "المريض" : appointment.createdByRole)}` 
+                    : `Booked by: ${appointment.createdByName || (appointment.createdByRole === "PATIENT" ? "Patient" : appointment.createdByRole)}`)}
+            </p>
+          ) : (
+            <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium">
+              {locale === "ar" ? "تم الحجز بواسطة: المريض" : "Booked by: Patient"}
+            </p>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-2 items-center">
             {/* Reschedule for Upcoming, Detail + Book Again for Past */}
@@ -175,17 +217,15 @@ export function AppointmentCard({
               </>
             ) : (
               <>
-                {onDetailClick && (
-                  <Button
-                    className="flex-1 h-10 text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDetailClick();
-                    }}
-                  >
-                    {locale === "ar" ? "إعادة جدولة" : "Reschedule"}
-                  </Button>
-                )}
+                <Button
+                  className="flex-1 h-10 text-sm font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsRescheduleDialogOpen(true);
+                  }}
+                >
+                  {locale === "ar" ? "إعادة جدولة" : "Reschedule"}
+                </Button>
               </>
             )}
             {/* Delete Button */}
@@ -199,6 +239,13 @@ export function AppointmentCard({
           </div>
         </div>
       </Card>
+
+      <RescheduleDialog
+        isOpen={isRescheduleDialogOpen}
+        onOpenChange={setIsRescheduleDialogOpen}
+        appointment={appointment}
+        onConfirm={handleReschedule}
+      />
     </motion.div>
   );
 }

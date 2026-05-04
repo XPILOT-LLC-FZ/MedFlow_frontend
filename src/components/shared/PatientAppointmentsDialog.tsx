@@ -7,6 +7,7 @@ import {
   Calendar,
   Clock,
   ChevronLeft,
+  ChevronRight,
   X,
   Search,
   MessageSquare as MessageIcon
@@ -71,7 +72,11 @@ export function PatientAppointmentsDialog({
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
           >
-            <ChevronLeft className="h-6 w-6" />
+            {isRTL ? (
+              <ChevronRight className="h-6 w-6" />
+            ) : (
+              <ChevronLeft className="h-6 w-6" />
+            )}
           </button>
           <DialogTitle className="flex-1 text-center text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">
             {t("upcomingAppointments")}
@@ -104,13 +109,13 @@ export function PatientAppointmentsDialog({
           </div>
 
           <div className="relative group">
-            <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 transition-colors group-focus-within:text-blue-600 start-5" />
+            <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-600 start-5" />
             <input
               type="text"
               placeholder={t("searchAnything")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full h-14 rounded-[20px] border-none bg-slate-50 dark:bg-slate-900 text-sm font-medium focus:ring-2 focus:ring-blue-600/10 transition-all ps-14 pe-6 text-start"
+              className="w-full h-14 rounded-[20px] border-2 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-slate-50 dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all ps-14 pe-6 text-start"
             />
           </div>
         </DialogHeader>

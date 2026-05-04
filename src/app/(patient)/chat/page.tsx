@@ -8,6 +8,8 @@ import {
   type ChatConversation,
   type ChatMessage,
 } from "@/services/doctorChatService";
+import { staffService } from "@/services/staffService";
+import type { ApiPublicDoctor } from "@/types";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ChatLayout } from "./components/ChatLayout";
@@ -77,17 +79,42 @@ function PatientChatPageContent() {
   const appointmentIdParam = searchParams.get("appointmentId");
   const doctorIdParam = searchParams.get("doctorId");
   const selectedConversationId = searchParams.get("conversationId");
-  const { user, accessToken, refreshAccessToken } = useAuthStore();
+  const { user } = useAuthStore();
   const { locale } = useTranslation();
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [unreadByConversation, setUnreadByConversation] = useState<Record<string, number>>({});
+  const [doctorAvatars, setDoctorAvatars] = useState<Record<string, string>>({});
+  const hasAutoSelectedRef = useRef(false);
+
+  useEffect(() => {
+    const loadDoctorAvatars = async () => {
+      try {
+        const publicDocs = await staffService.getPublicDoctors();
+        const map: Record<string, string> = {};
+        publicDocs.forEach((doc: ApiPublicDoctor) => {
+          if (doc.user?.avatarUrl) {
+            map[doc.id] = doc.user.avatarUrl;
+            if (doc.user.id) map[doc.user.id] = doc.user.avatarUrl;
+            map[doc.fullName] = doc.user.avatarUrl;
+          }
+        });
+        setDoctorAvatars(map);
+      } catch (err) {
+        console.error("Failed to fetch public doctors for avatars", err);
+      }
+    };
+    if (user?.id) {
+      void loadDoctorAvatars();
+    }
+  }, [user?.id]);
   const [lastActivityByConversation, setLastActivityByConversation] = useState<
     Record<string, string>
   >({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isConversationsLoading, setIsConversationsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
@@ -159,6 +186,8 @@ function PatientChatPageContent() {
     } catch {
       setConnectionStatus("disconnected");
       setConversations([]);
+    } finally {
+      setIsConversationsLoading(false);
     }
   }, [selectedConversationId, user?.id]);
 
@@ -218,22 +247,19 @@ function PatientChatPageContent() {
     void syncFromDoctor();
   }, [doctorIdParam, selectedConversationId, user, handleSelectConversation]);
 
-  useEffect(() => {
-    if (!selectedConversationId || accessToken || !user) return;
-    void refreshAccessToken().catch(() => {
-      setConnectionStatus("disconnected");
-    });
-  }, [selectedConversationId, accessToken, user, refreshAccessToken]);
 
   useEffect(() => {
     // Only auto-select on desktop. On mobile, we want to show the list first.
     if (typeof window === "undefined") return;
     const isMobile = window.innerWidth < 768;
-    if (selectedConversationId || conversations.length === 0 || isMobile) return;
+    if (selectedConversationId || conversations.length === 0 || isMobile || hasAutoSelectedRef.current) return;
+    hasAutoSelectedRef.current = true;
     handleSelectConversation(conversations[0].id);
   }, [selectedConversationId, conversations, handleSelectConversation]);
 
   useEffect(() => {
+    if (isConversationsLoading) return;
+
     if (!selectedConversationId) {
       setIsLoading(false);
       setError(
@@ -272,7 +298,7 @@ function PatientChatPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [selectedConversationId, scrollToBottom, locale]);
+  }, [selectedConversationId, scrollToBottom, locale, isConversationsLoading]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -422,9 +448,13 @@ function PatientChatPageContent() {
         lastMessageTime: item.latestMessage ? formatTime(item.latestMessage.createdAt) : undefined,
         lastMessageStatus: (item.latestMessage && item.latestMessage.senderId === user?.id) ? item.latestMessage.status : undefined,
         online: true, // Placeholder for online status
+        avatarUrl:
+          item.otherParticipantId ? doctorAvatars[item.otherParticipantId] :
+          item.otherParticipantName ? doctorAvatars[item.otherParticipantName] :
+          undefined,
       }));
     },
-    [conversations, locale, unreadByConversation, lastActivityByConversation, user?.id]
+    [conversations, locale, unreadByConversation, lastActivityByConversation, user?.id, doctorAvatars]
   );
 
   return (
@@ -436,18 +466,29 @@ function PatientChatPageContent() {
           selectedId={selectedConversationId ?? undefined}
           onSelect={handleSelectConversation}
           isDoctor={isDoctor}
+          isLoading={isConversationsLoading}
         />
       }
       header={
-        <ChatHeader
-          title={locale === "ar" ? "د. هيلينا فوكس" : (conversations.find(c => c.id === selectedConversationId)?.otherParticipantName ?? "Doctor Chat")}
-          isDoctor={isDoctor}
-          connectionStatus={connectionStatus}
-        />
+        (() => {
+          const selectedConv = conversations.find(c => c.id === selectedConversationId);
+          return (
+            <ChatHeader
+              title={selectedConv?.otherParticipantName ?? (locale === "ar" ? "محادثة طبية" : "Doctor Chat")}
+              avatarUrl={
+                selectedConv?.otherParticipantId ? doctorAvatars[selectedConv.otherParticipantId] :
+                selectedConv?.otherParticipantName ? doctorAvatars[selectedConv.otherParticipantName] :
+                (selectedConv as { otherParticipantAvatarUrl?: string })?.otherParticipantAvatarUrl
+              }
+              isDoctor={isDoctor}
+              connectionStatus={connectionStatus}
+            />
+          );
+        })()
       }
       messages={
         <div className="h-full overflow-y-auto bg-background px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {isLoading && (
+          {(isConversationsLoading || isLoading) && (
             <div className="flex h-full items-center justify-center">
               <div className="flex flex-col items-center gap-3 text-muted-foreground">
                 <Loader2 size={30} className="animate-spin text-primary" />
@@ -458,7 +499,7 @@ function PatientChatPageContent() {
             </div>
           )}
 
-          {!isLoading && error && (
+          {!isConversationsLoading && !isLoading && error && (
             <div className="flex h-full items-center justify-center">
               <div className="flex max-w-xs flex-col items-center gap-3 px-6 text-center">
                 <div className="rounded-full bg-destructive/10 p-3 text-destructive">
@@ -469,7 +510,7 @@ function PatientChatPageContent() {
             </div>
           )}
 
-          {!isLoading && !error && messages.length === 0 && (
+          {!isConversationsLoading && !isLoading && !error && messages.length === 0 && (
             <div className="flex h-full items-center justify-center">
               <div className="flex flex-col items-center gap-3 text-center">
                 <div className="rounded-full bg-primary/10 p-3 text-primary">
@@ -485,7 +526,8 @@ function PatientChatPageContent() {
             </div>
           )}
 
-          {!isLoading &&
+          {!isConversationsLoading &&
+            !isLoading &&
             !error &&
             groupByDay(messages).map(([day, dayMessages]) => (
               <div key={day}>

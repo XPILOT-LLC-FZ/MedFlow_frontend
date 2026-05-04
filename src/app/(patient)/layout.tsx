@@ -93,7 +93,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     isSpecOpen, isDocsOpen, isBookOpen, isCheckoutOpen,
     selectedSpecialization, selectedDoctor, pendingBooking,
     setSpecOpen, setDocsOpen, setBookOpen, setCheckoutOpen,
-    openSpec, openDocs, openBook, openCheckout, closeAll
+    openDocs, openBook, openCheckout, closeAll, goBack
   } = useBookingFlowStore();
 
   const { addAppointment } = useBookingStore();
@@ -105,7 +105,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
       const data = await notificationsService.getInAppNotifications();
       setNotifications(data);
     } catch (err) {
-      console.error("Failed to fetch notifications in Layout", err);
+      if (err instanceof Error && err.message.includes("Session expired")) {
+        console.warn("Session expired while refreshing notifications");
+      } else {
+        console.error("Failed to fetch notifications in Layout", err);
+      }
     }
   }, []);
 
@@ -243,7 +247,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <PatientDoctorsDialog
             isOpen={isDocsOpen}
             onOpenChange={setDocsOpen}
-            onBack={() => openSpec()}
+            onBack={() => goBack()}
             doctors={doctors}
             specializationFilter={selectedSpecialization}
             onBookAppointment={(doc) => openBook(doc)}
@@ -252,7 +256,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <BookAppointmentDialog
             isOpen={isBookOpen}
             onOpenChange={setBookOpen}
-            onBack={() => openDocs(selectedSpecialization)}
+            onBack={() => goBack()}
             doctor={selectedDoctor}
             loyaltyPoints={currentPatient?.loyaltyPoints || user?.loyaltyPoints || 0}
             onConfirm={(booking) => openCheckout(booking)}
@@ -261,7 +265,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
           <CheckoutDialog
             isOpen={isCheckoutOpen}
             onOpenChange={setCheckoutOpen}
-            onBack={() => selectedDoctor && openBook(selectedDoctor)}
+            onBack={() => goBack()}
             doctor={selectedDoctor}
             bookingData={pendingBooking}
             loyaltyPoints={currentPatient?.loyaltyPoints || user?.loyaltyPoints || 0}

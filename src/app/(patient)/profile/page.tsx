@@ -19,7 +19,6 @@ import {
   Coins,
   Bell,
   CreditCard,
-  Mail,
   Lock,
   LogOut as LogOutIcon,
   Heart,
@@ -31,7 +30,8 @@ import {
   Beaker,
   Contact2,
   HeartPulse,
-  LucideIcon
+  LucideIcon,
+  Moon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,10 +63,10 @@ import {
 import FavoriteDoctorsPanel from "./sections/FavoriteDoctorsPanel";
 import EmergencyContactPanel from "./sections/EmergencyContactPanel";
 import InsurancePanel from "./sections/InsurancePanel";
+import AppearancePanel from "./sections/AppearancePanel";
 import PointsPanel from "./sections/PointsPanel";
 import NotificationsPanel from "./sections/NotificationsPanel";
 import PaymentsPanel from "./sections/PaymentsPanel";
-import EmailPanel from "./sections/EmailPanel";
 import SecurityPanel from "./sections/SecurityPanel";
 import LabRadiologyPanel from "./sections/LabRadiologyPanel";
 import { toast } from "sonner";
@@ -80,7 +80,7 @@ const CHRONIC_DISEASES = [
 ];
 
 function ProfilePageContent() {
-  const { t, locale } = useTranslation();
+  const { t, locale, isRTL } = useTranslation();
   const { user } = useAuthStore();
   const toastSuccess = useToastStore(state => state.success);
   const toastError = useToastStore(state => state.error);
@@ -89,7 +89,7 @@ function ProfilePageContent() {
   const searchParams = useSearchParams();
 
   // Section navigation state
-  type SectionId = "profile" | "lab-radiology" | "favorite-doctors" | "emergency-contact" | "insurance" | "points" | "notifications" | "payments" | "email" | "security" | "logout";
+  type SectionId = "profile" | "lab-radiology" | "favorite-doctors" | "emergency-contact" | "insurance" | "appearance" | "points" | "notifications" | "payments" | "security" | "logout";
 
   const SECTION_METADATA: Record<SectionId, { label: string; labelAr: string; icon: LucideIcon; color: string }> = {
     profile: { label: "Profile", labelAr: "الملف الشخصي", icon: User, color: "text-slate-400" },
@@ -97,10 +97,10 @@ function ProfilePageContent() {
     "favorite-doctors": { label: "Favorite doctors", labelAr: "الأطباء المفضلون", icon: Heart, color: "text-[#4659ff]" },
     "emergency-contact": { label: "Emergency contact", labelAr: "جهة اتصال الطوارئ", icon: Contact2, color: "text-[#4659ff]" },
     insurance: { label: "Insurance information", labelAr: "معلومات التأمين", icon: HeartPulse, color: "text-[#4659ff]" },
+    appearance: { label: "Appearance & Language", labelAr: "المظهر واللغة", icon: Moon, color: "text-[#4659ff]" },
     points: { label: "Points", labelAr: "النقاط", icon: Coins, color: "text-[#4659ff]" },
     notifications: { label: "Notification settings", labelAr: "إعدادات التنبيهات", icon: Bell, color: "text-[#4659ff]" },
     payments: { label: "Your Payments", labelAr: "مدفوعاتك", icon: CreditCard, color: "text-[#4659ff]" },
-    email: { label: "Change email", labelAr: "تغيير البريد الإلكتروني", icon: Mail, color: "text-[#4659ff]" },
     security: { label: "Security settings", labelAr: "إعدادات الأمان", icon: Lock, color: "text-[#4659ff]" },
     logout: { label: "Log out", labelAr: "تسجيل الخروج", icon: LogOutIcon, color: "text-rose-500" },
   };
@@ -140,6 +140,7 @@ function ProfilePageContent() {
   }, [searchParams]);
 
   const [patient, setPatient] = useState<ApiPatient | null>(null);
+  const [countryCode, setCountryCode] = useState("+20");
   const [isLoadingPatient, setIsLoadingPatient] = useState(true);
   const isInitialLoad = useRef(true);
   const [documents, setDocuments] = useState<ApiPatientDocument[]>([]);
@@ -162,7 +163,6 @@ function ProfilePageContent() {
     chronicDiseases: [] as string[],
     emergencyContact: "",
     address: "",
-    gender: "",
   });
 
   const loadPatientData = useCallback(async () => {
@@ -185,10 +185,33 @@ function ProfilePageContent() {
         }
       }
 
+      let phoneNum = data.phone || "";
+      let cCode = "+20";
+
+      if (phoneNum.startsWith("+")) {
+        const commonCountryCodes = [
+          "+20", "+966", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212",
+          "+213", "+216", "+218", "+249", "+1", "+44", "+33", "+49", "+39", "+34", "+90"
+        ];
+        const matchedCode = commonCountryCodes.find(code => phoneNum.startsWith(code));
+        if (matchedCode) {
+          cCode = matchedCode;
+          phoneNum = phoneNum.substring(matchedCode.length);
+        } else {
+          const match = phoneNum.match(/^(\+\d{1,4})/);
+          if (match) {
+            cCode = match[1];
+            phoneNum = phoneNum.substring(match[1].length);
+          }
+        }
+      }
+
+      setCountryCode(cCode);
+
       setEditForm({
         fullName: data.fullName || "",
         fullNameAr: data.fullNameAr || "",
-        phone: data.phone || "",
+        phone: phoneNum,
         email: data.email || "",
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().split("T")[0] : "",
         bloodType: data.bloodType || "",
@@ -196,7 +219,6 @@ function ProfilePageContent() {
         chronicDiseases: (history["chronicDiseases"] as string[]) || [],
         emergencyContact: (history["emergencyContact"] as string) || "",
         address: data.address || (data.medicalHistory as Record<string, unknown>)?.["address"] as string || "",
-        gender: gender,
       });
     } catch (error) {
       console.error("Failed to load patient data", error);
@@ -242,21 +264,30 @@ function ProfilePageContent() {
         address: editForm.address,
       };
 
+      let finalPhone = editForm.phone.trim();
+      if (finalPhone.startsWith("+")) {
+        finalPhone = finalPhone.replace(/^\+\d+/, "");
+      }
+      if (finalPhone.startsWith("0")) {
+        finalPhone = finalPhone.substring(1);
+      }
+      finalPhone = `${countryCode}${finalPhone}`;
+
       await patientService.update(patient.id, {
         fullName: editForm.fullName,
         fullNameAr: editForm.fullNameAr,
-        phone: editForm.phone,
+        phone: finalPhone,
         email: editForm.email,
         dateOfBirth: editForm.dateOfBirth || undefined,
         bloodType: editForm.bloodType,
         address: editForm.address,
         allergies: editForm.allergies,
-        gender: editForm.gender,
         medicalHistory: updatedMedicalHistory,
       });
 
       toastSuccess(locale === "ar" ? "تم تحديث الملف الشخصي بنجاح" : "Profile updated successfully");
       closeEditModal();
+      closeMobilePersonalInfo();
       await loadPatientData();
 
       // Update global user session so the navbar catches the new name
@@ -302,14 +333,14 @@ function ProfilePageContent() {
         return <EmergencyContactPanel patient={patient || undefined} onBack={() => setActiveSection("profile")} onRefresh={loadPatientData} />;
       case "insurance":
         return <InsurancePanel patient={patient || undefined} onBack={() => setActiveSection("profile")} onRefresh={loadPatientData} />;
+      case "appearance":
+        return <AppearancePanel />;
       case "points":
         return <PointsPanel patient={patient || undefined} onBack={() => setActiveSection("profile")} />;
       case "notifications":
         return <NotificationsPanel />;
       case "payments":
         return <PaymentsPanel patient={patient || undefined} onBack={() => setActiveSection("profile")} onRefresh={loadPatientData} />;
-      case "email":
-        return <EmailPanel patient={patient || undefined} userEmail={user?.email} onBack={() => setActiveSection("profile")} onRefresh={loadPatientData} />;
       case "security":
         return <SecurityPanel />;
       default:
@@ -431,8 +462,7 @@ function ProfilePageContent() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50 truncate leading-tight">{patientName}</h3>
                   <p className="text-xs font-medium text-slate-400">
-                    {patient?.dateOfBirth ? `${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} y.o.` : "Age not set"}
-                    {patient?.dateOfBirth && ` (${new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(patient.dateOfBirth))})`}
+                    {patient?.dateOfBirth && ` (${new Date(patient.dateOfBirth).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { day: 'numeric', month: 'long', year: 'numeric' })})`}
                   </p>
                 </div>
                 <ChevronRight className={cn("h-5 w-5 text-slate-300 transition-all", locale === "ar" && "rotate-180")} />
@@ -464,7 +494,9 @@ function ProfilePageContent() {
                     >
                       <ItemIcon className={cn("h-6 w-6", SECTION_METADATA[item.id as SectionId].color)} strokeWidth={1.5} />
                       <span className={cn("flex-1 text-left rtl:text-right font-medium text-[15px]", item.isLogout ? "text-rose-500" : "text-slate-700 dark:text-slate-200")}>{locale === "ar" ? item.labelAr : item.label}</span>
-                      <ChevronRight className={cn("h-5 w-5 text-slate-300 transition-all", locale === "ar" && "rotate-180")} />
+                      {!item.isLogout && (
+                        <ChevronRight className={cn("h-5 w-5 text-slate-300 transition-all", locale === "ar" && "rotate-180")} />
+                      )}
                     </button>
                   );
                 })}
@@ -480,14 +512,21 @@ function ProfilePageContent() {
               className="fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-950 flex flex-col"
             >
               {/* Header */}
-              <div className="flex items-center p-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-center p-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 relative">
                 <button
                   onClick={() => setActiveSectionWithUrl("profile")}
-                  className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  className={cn(
+                    "absolute h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
+                    locale === "ar" ? "right-4" : "left-4"
+                  )}
                 >
-                  <ChevronLeft className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                  {locale === "ar" ? (
+                    <ChevronRight className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                  ) : (
+                    <ChevronLeft className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                  )}
                 </button>
-                <h2 className="flex-1 text-center text-lg font-bold text-slate-800 dark:text-slate-100 mr-10">
+                <h2 className="text-center text-lg font-bold text-slate-800 dark:text-slate-100">
                   {locale === "ar" ? SECTION_METADATA[activeSection].labelAr : SECTION_METADATA[activeSection].label}
                 </h2>
               </div>
@@ -511,14 +550,21 @@ function ProfilePageContent() {
             className="lg:hidden fixed inset-0 z-[100] bg-slate-50 dark:bg-slate-950 flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center p-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-center p-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 relative">
               <button
                 onClick={closeMobilePersonalInfo}
-                className="h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className={cn(
+                  "absolute h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
+                  locale === "ar" ? "right-4" : "left-4"
+                )}
               >
-                <ChevronLeft className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                {locale === "ar" ? (
+                  <ChevronRight className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                ) : (
+                  <ChevronLeft className="h-6 w-6 text-slate-600 dark:text-slate-300" />
+                )}
               </button>
-              <h2 className="flex-1 text-center text-lg font-bold text-slate-800 dark:text-slate-100 mr-10">
+              <h2 className="text-center text-lg font-bold text-slate-800 dark:text-slate-100">
                 {locale === "ar" ? "المعلومات الشخصية" : "Personal information"}
               </h2>
             </div>
@@ -585,7 +631,8 @@ function ProfilePageContent() {
                       type="date"
                       value={editForm.dateOfBirth}
                       onChange={e => setEditForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                      className="h-14 rounded-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 px-6 font-medium focus:ring-4 focus:ring-blue-500/10"
+                      dir={isRTL ? "rtl" : "ltr"}
+                      className={cn("h-14 rounded-full bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 px-6 font-medium focus:ring-4 focus:ring-blue-500/10", isRTL ? "text-right" : "text-left")}
                     />
                   </div>
                 </div>
@@ -595,10 +642,29 @@ function ProfilePageContent() {
                     {t("phone")}
                   </label>
                   <div className="flex gap-2">
-                    <div className="h-14 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center px-4 gap-2 min-w-[100px]">
-                      <span className="text-lg">🇪🇬</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-200">+20</span>
-                      <ChevronRight className="h-4 w-4 text-slate-400 rotate-90" />
+                    <div className="relative h-14 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center px-4 gap-2 min-w-[85px]">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                      >
+                        <option value="+20">+20</option>
+                        <option value="+966">+966</option>
+                        <option value="+971">+971</option>
+                        <option value="+965">+965</option>
+                        <option value="+974">+974</option>
+                        <option value="+968">+968</option>
+                        <option value="+973">+973</option>
+                        <option value="+962">+962</option>
+                        <option value="+961">+961</option>
+                        <option value="+212">+212</option>
+                        <option value="+213">+213</option>
+                        <option value="+216">+216</option>
+                        <option value="+1">+1</option>
+                        <option value="+44">+44</option>
+                      </select>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{countryCode}</span>
+                      <ChevronRight className="h-4 w-4 text-slate-400 rotate-90 shrink-0" />
                     </div>
                     <Input
                       value={editForm.phone}
@@ -619,24 +685,6 @@ function ProfilePageContent() {
                     placeholder="youremail@example.com"
                     className="h-14 rounded-full bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 px-6 font-medium text-slate-500 cursor-not-allowed"
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-600 dark:text-slate-400 ml-1">
-                    {locale === "ar" ? "الجنس" : "Gender"}
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={editForm.gender}
-                      onChange={e => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
-                      className="w-full h-14 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-6 font-medium appearance-none focus:outline-none focus:ring-4 focus:ring-blue-500/10"
-                    >
-                      <option value="">{locale === "ar" ? "اختر الجنس" : "Enter or choose your gender"}</option>
-                      <option value="male">{locale === "ar" ? "ذكر" : "Male"}</option>
-                      <option value="female">{locale === "ar" ? "أنثى" : "Female"}</option>
-                    </select>
-                    <ChevronRight className="absolute right-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 rotate-90" />
-                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -850,20 +898,6 @@ function ProfilePageContent() {
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em]">
-                            {locale === "ar" ? "الجنس" : "Gender"}
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <div className={cn(
-                              "h-2 w-2 rounded-full",
-                              editForm.gender === "male" ? "bg-blue-500" : editForm.gender === "female" ? "bg-rose-500" : "bg-slate-300"
-                            )} />
-                            <p className="font-black text-slate-800 dark:text-slate-100 text-[15px] capitalize">
-                              {editForm.gender || (locale === "ar" ? "غير محدد" : "Not specified")}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em]">
                             {t("dateOfBirth")}
                           </label>
                           <p className="font-black text-slate-800 dark:text-slate-100 text-[15px]">
@@ -875,7 +909,23 @@ function ProfilePageContent() {
                             {t("phone")}
                           </label>
                           <p className="font-black text-slate-800 dark:text-slate-100 text-[15px] flex items-center gap-2">
-                            <span className="text-xs opacity-50 font-normal">🇪🇬 +20</span> {editForm.phone}
+                            <span className="text-xs opacity-50 font-normal">
+                              {countryCode === "+20" && "🇪🇬"}
+                              {countryCode === "+966" && "🇸🇦"}
+                              {countryCode === "+971" && "🇦🇪"}
+                              {countryCode === "+965" && "🇰🇼"}
+                              {countryCode === "+974" && "🇶🇦"}
+                              {countryCode === "+968" && "🇴🇲"}
+                              {countryCode === "+973" && "🇧🇭"}
+                              {countryCode === "+962" && "🇯🇴"}
+                              {countryCode === "+961" && "🇱🇧"}
+                              {countryCode === "+212" && "🇲🇦"}
+                              {countryCode === "+213" && "🇩🇿"}
+                              {countryCode === "+216" && "🇹🇳"}
+                              {countryCode === "+1" && "🇺🇸"}
+                              {countryCode === "+44" && "🇬🇧"}
+                              {!["+20", "+966", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212", "+213", "+216", "+1", "+44"].includes(countryCode) && "🌐"} {countryCode}
+                            </span> {editForm.phone}
                           </p>
                         </div>
                         <div className="space-y-1.5">
@@ -1088,11 +1138,37 @@ function ProfilePageContent() {
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("phone")}</label>
-                <Input
-                  value={editForm.phone}
-                  onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
-                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold"
-                />
+                <div className="flex gap-2">
+                  <div className="relative h-12 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center px-3 gap-1.5 min-w-[75px]">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                    >
+                      <option value="+20">+20</option>
+                      <option value="+966">+966</option>
+                      <option value="+971">+971</option>
+                      <option value="+965">+965</option>
+                      <option value="+974">+974</option>
+                      <option value="+968">+968</option>
+                      <option value="+973">+973</option>
+                      <option value="+962">+962</option>
+                      <option value="+961">+961</option>
+                      <option value="+212">+212</option>
+                      <option value="+213">+213</option>
+                      <option value="+216">+216</option>
+                      <option value="+1">+1</option>
+                      <option value="+44">+44</option>
+                    </select>
+                    <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">{countryCode}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-400 rotate-90 shrink-0" />
+                  </div>
+                  <Input
+                    value={editForm.phone}
+                    onChange={e => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold flex-1"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{t("dateOfBirth")}</label>
@@ -1100,7 +1176,8 @@ function ProfilePageContent() {
                   type="date"
                   value={editForm.dateOfBirth}
                   onChange={e => setEditForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                  className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold"
+                  dir={isRTL ? "rtl" : "ltr"}
+                  className={cn("h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold", isRTL ? "text-right" : "text-left")}
                 />
               </div>
               <div className="space-y-2">
@@ -1109,7 +1186,7 @@ function ProfilePageContent() {
                   value={editForm.bloodType}
                   onChange={e => setEditForm(prev => ({ ...prev, bloodType: e.target.value }))}
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold placeholder:font-normal"
-                  placeholder="e.g. O+"
+                  placeholder={locale === "ar" ? "مثال: O+" : "e.g. O+"}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -1120,18 +1197,6 @@ function ProfilePageContent() {
                   className="h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold"
                   placeholder={locale === "ar" ? "افصل بين الحساسية بفاصلة" : "Separate allergies with commas"}
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{locale === "ar" ? "الجنس" : "Gender"}</label>
-                <select
-                  value={editForm.gender}
-                  onChange={e => setEditForm(prev => ({ ...prev, gender: e.target.value }))}
-                  className="w-full h-12 rounded-xl border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-4 font-bold focus:ring-4 focus:ring-blue-500/10 appearance-none"
-                >
-                  <option value="">{locale === "ar" ? "اختر الجنس" : "Choose gender"}</option>
-                  <option value="male">{locale === "ar" ? "ذكر" : "Male"}</option>
-                  <option value="female">{locale === "ar" ? "أنثى" : "Female"}</option>
-                </select>
               </div>
             </div>
 
@@ -1195,7 +1260,7 @@ function ProfilePageContent() {
             <Button
               onClick={handleUpdateProfile}
               disabled={isSaving}
-              className="flex-1 h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[15px] shadow-xl shadow-blue-500/20 transition-all"
+              className="flex-1 h-14 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-[15px] shadow-md shadow-blue-500/20 transition-all"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
               {locale === "ar" ? "حفظ التغييرات" : "Save Profile"}

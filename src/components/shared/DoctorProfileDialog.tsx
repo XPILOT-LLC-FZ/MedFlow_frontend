@@ -4,6 +4,7 @@ import React from "react";
 import Image from "next/image";
 import { 
   ChevronLeft, 
+  ChevronRight,
   ChevronDown,
   Heart, 
   Share2, 
@@ -146,7 +147,11 @@ export function DoctorProfileDialog({
               onClick={() => onOpenChange(false)}
               className="h-10 w-10 flex items-center justify-center text-slate-700 dark:text-white"
             >
-              <ChevronLeft className={cn("h-6 w-6", isRTL && "rotate-180")} />
+              {isRTL ? (
+                <ChevronRight className="h-6 w-6" />
+              ) : (
+                <ChevronLeft className="h-6 w-6" />
+              )}
             </button>
             <DialogTitle className="text-slate-800 dark:text-white font-black text-sm uppercase tracking-wider">
               {t("doctorProfile") || "Doctor's Profile"}

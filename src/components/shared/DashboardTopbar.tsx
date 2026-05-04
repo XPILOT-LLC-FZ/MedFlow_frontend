@@ -427,7 +427,7 @@ export function DashboardTopbar() {
                   ? "ابحث في صفحات لوحة التحكم، المرضى، أو المواعيد..."
                   : "Search patients, appointments, or medical records..."
               }
-              className="h-10 w-full rounded-sm border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-5 text-[13px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all group-hover:bg-white dark:group-hover:bg-slate-900"
+              className="h-10 w-full rounded-sm border-2 border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-900/50 pl-11 pr-5 text-[13px] font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all group-hover:bg-white dark:group-hover:bg-slate-900"
             />
 
             {/* Search Results Dropdown */}

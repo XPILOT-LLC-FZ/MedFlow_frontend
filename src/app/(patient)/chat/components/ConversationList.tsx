@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Search, X, UserRound, Stethoscope, Paperclip, Check, CheckCheck, MessagesSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ interface ConversationListProps {
   selectedId?: string;
   onSelect: (id: string) => void;
   isDoctor: boolean;
+  isLoading?: boolean;
 }
 
 export function ConversationList({
@@ -33,6 +34,7 @@ export function ConversationList({
   selectedId,
   onSelect,
   isDoctor,
+  isLoading = false,
 }: ConversationListProps) {
   const { locale } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,7 +62,7 @@ export function ConversationList({
             placeholder="Search by name"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-14 pl-12 pr-12 rounded-2xl border-slate-100 bg-slate-50/50 dark:bg-slate-800/50 dark:border-slate-800 transition-all focus-visible:ring-primary focus-visible:bg-background"
+            className="h-14 pl-12 pr-12 rounded-2xl border-2 border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50 transition-all focus-visible:border-primary focus-visible:ring-primary focus-visible:bg-background"
           />
           {searchQuery && (
             <button
@@ -75,7 +77,14 @@ export function ConversationList({
 
       {/* List */}
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-24 md:pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {filteredItems.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 px-10 text-center animate-in fade-in duration-300">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>
+            <p className="text-sm text-slate-500">
+              {locale === "ar" ? "جاري تحميل المحادثات..." : "Loading messages..."}
+            </p>
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 px-10 text-center animate-in fade-in zoom-in duration-500">
             <div className="mb-8">
               <MessagesSquare className="h-20 w-20 text-blue-500" strokeWidth={1} />

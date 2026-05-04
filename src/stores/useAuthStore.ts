@@ -197,7 +197,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const payload: Record<string, unknown> = { token };
           if (role) payload["role"] = role;
-          
+
           const response = await apiClient.post<Record<string, unknown>>(
             "/auth/oauth/google",
             payload,
@@ -375,7 +375,7 @@ export const useAuthStore = create<AuthState>()(
       verifyChangeEmailOtp: async (newEmail, otpCode) => {
         try {
           await apiClient.post("/auth/me/email/verify-otp", { newEmail, otpCode });
-          
+
           // Update local user state
           const currentUser = get().user;
           if (currentUser) {
@@ -383,7 +383,7 @@ export const useAuthStore = create<AuthState>()(
               user: { ...currentUser, email: newEmail }
             });
           }
-          
+
           return { success: true };
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Email verification failed";
@@ -396,7 +396,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { refreshToken } = get();
           const payload = refreshToken ? { refreshToken } : {};
-          await apiClient.post("/auth/logout", payload).catch(() => {});
+          await apiClient.post("/auth/logout", payload).catch(() => { });
         } finally {
           syncOnboardingHintCookie(null);
           set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });

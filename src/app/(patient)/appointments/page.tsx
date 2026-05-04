@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AppointmentDetailsDialog } from "@/components/shared/AppointmentDetailsDialog";
 import { RescheduleDialog } from "@/components/shared/RescheduleDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { CancelAppointmentDialog } from "@/components/shared/CancelAppointmentDialog";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useBookingStore, mapToLocal } from "@/stores/useBookingStore";
@@ -19,6 +20,7 @@ import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
 import { staffService } from "@/services/staffService";
 import { bookingService } from "@/services/bookingService";
 import type { Appointment, ApiPublicDoctor } from "@/types";
+import { cn } from "@/lib/utils";
 
 interface MobilePatientCardProps {
   appointment: Appointment;
@@ -29,6 +31,7 @@ interface MobilePatientCardProps {
   onCancel?: () => void;
   doctorAvatar?: string;
   locale: string;
+  userId?: string;
 }
 
 function MobilePatientAppointmentCard({
@@ -39,7 +42,8 @@ function MobilePatientAppointmentCard({
   onBookAgain,
   onCancel,
   doctorAvatar,
-  locale
+  locale,
+  userId
 }: MobilePatientCardProps) {
   const dateObj = new Date(appointment.date);
   const formattedDate = dateObj.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
@@ -51,14 +55,14 @@ function MobilePatientAppointmentCard({
   const timeStr = `${appointment.startTime} - ${appointment.endTime || "30 min"}`;
 
   return (
-    <Card className="p-5 bg-white dark:bg-slate-900 border border-slate-100/80 dark:border-slate-800/80 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300">
+    <Card className={cn("p-5 bg-white dark:bg-slate-900 border border-slate-100/80 dark:border-slate-800/80 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300", locale === "ar" && "text-right")}>
       {/* Date and Cancel */}
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
+      <div className={cn("flex items-start justify-between", locale === "ar" && "flex-row-reverse")}>
+        <div className={cn("space-y-1", locale === "ar" && "flex flex-col items-end")}>
           <span className="text-xs text-slate-400 font-normal">
             {locale === "ar" ? "تاريخ الموعد" : "Appointment date"}
           </span>
-          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+          <div className={cn("flex items-center gap-2 text-slate-700 dark:text-slate-300", locale === "ar" && "flex-row-reverse")}>
             <Clock className="h-4 w-4 text-slate-400" />
             <span className="text-sm md:text-base font-semibold">
               {formattedDate} • {timeStr}
@@ -82,7 +86,7 @@ function MobilePatientAppointmentCard({
       </div>
 
       {/* Doctor Info */}
-      <div className="mt-5 flex items-center gap-3">
+      <div className={cn("mt-5 flex items-center gap-3", locale === "ar" && "flex-row-reverse")}>
         <div className="relative">
           <Avatar className="h-14 w-14 rounded-full border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden bg-slate-50">
             <AvatarImage src={doctorAvatar || appointment.patientAvatar} alt={appointment.doctorName} className="object-cover" />
@@ -91,18 +95,38 @@ function MobilePatientAppointmentCard({
             </AvatarFallback>
           </Avatar>
           {/* Circular check overlay exactly like the image */}
-          <div className="absolute bottom-0 right-0 h-5 w-5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
+          <div className={cn("absolute bottom-0 h-5 w-5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center", locale === "ar" ? "left-0" : "right-0")}>
             <Video className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
           </div>
         </div>
 
-        <div className="flex flex-col">
+        <div className={cn("flex flex-col", locale === "ar" && "items-end")}>
           <h4 className="text-base font-bold text-slate-800 dark:text-slate-100 leading-tight">
             {appointment.doctorName}
           </h4>
           <span className="text-xs md:text-sm font-medium text-slate-400 mt-0.5">
             {appointment.specialty || (locale === "ar" ? "طبيب متخصص" : "Specialist")}
           </span>
+          {/* Booked-by info: if the current user is the patient, show 'You' */}
+          {userId && appointment.patientId === userId ? (
+            <div className="mt-2">
+              <span className="text-[12px] text-slate-600 dark:text-slate-400 font-medium">{locale === "ar" ? "تم الحجز بواسطة: أنت" : "Booked by: You"}</span>
+            </div>
+          ) : appointment.createdByName || appointment.createdByRole ? (
+            <div className="mt-2">
+              <span className="text-[12px] text-slate-600 dark:text-slate-400 font-medium">
+                {locale === "ar" 
+                  ? `تم الحجز بواسطة: ${appointment.createdByName || (appointment.createdByRole === "PATIENT" ? "المريض" : appointment.createdByRole)}` 
+                  : `Booked by: ${appointment.createdByName || (appointment.createdByRole === "PATIENT" ? "Patient" : appointment.createdByRole)}`}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-2">
+              <span className="text-[12px] text-slate-600 dark:text-slate-400 font-medium">
+                {locale === "ar" ? "تم الحجز بواسطتك" : "Booked by: You"}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -158,10 +182,13 @@ function AppointmentsPageContent() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [selectedAppointmentForCancel, setSelectedAppointmentForCancel] = useState<Appointment | null>(null);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("upcoming");
   const [doctorAvatars, setDoctorAvatars] = useState<Record<string, string>>({});
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [pastAppointments, setPastAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch patient, appointments, and doctors on mount
   useEffect(() => {
@@ -187,8 +214,8 @@ function AppointmentsPageContent() {
       const now = Date.now();
       
       const strictUpcoming = uniqueApts.filter(apt => {
-        // Only include non-final statuses
-        const isNotCompleted = ["scheduled", "confirmed", "in-progress"].includes(apt.status);
+        // Only include non-final statuses — treat "rescheduled" as upcoming since it has new date/time
+        const isNotCompleted = ["scheduled", "confirmed", "in-progress", "rescheduled"].includes(apt.status);
         if (!isNotCompleted) return false;
         
         // Check if it's in the future (including today's future hours)
@@ -205,7 +232,7 @@ function AppointmentsPageContent() {
       
       const strictPast = uniqueApts.filter(apt => {
         const aptTime = new Date(`${apt.date}T${apt.startTime || '00:00'}:00`).getTime();
-        const isCompleted = ["completed", "cancelled", "no-show", "rescheduled"].includes(apt.status);
+        const isCompleted = ["completed", "cancelled", "no-show"].includes(apt.status);
         return isCompleted || aptTime <= now;
       }).sort((a, b) => new Date(`${b.date}T${b.startTime}`).getTime() - new Date(`${a.date}T${a.startTime}`).getTime());
 
@@ -213,6 +240,8 @@ function AppointmentsPageContent() {
       setPastAppointments(strictPast);
     } catch (err) {
       console.error("Failed to fetch appointments", err);
+    } finally {
+      setIsLoading(false);
     }
   }, [currentPatient]);
 
@@ -221,6 +250,11 @@ function AppointmentsPageContent() {
       const timer = setTimeout(() => {
         fetchAndDistribute();
       }, 0);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [currentPatient?.id, fetchAndDistribute]);
@@ -245,6 +279,11 @@ function AppointmentsPageContent() {
     }
   }, [user?.id]);
 
+  const handleRescheduleClick = (appointment: Appointment) => {
+    setSelectedAppointmentForReschedule(appointment);
+    setIsRescheduleDialogOpen(true);
+  };
+
   // Handle detail click - branches on status
   const handleDetailClick = (appointment: Appointment, forceDetails = false) => {
     const normalizedStatus = String(appointment.status || "").toUpperCase();
@@ -259,9 +298,15 @@ function AppointmentsPageContent() {
   };
 
   // Handle cancel click
-  const handleCancelClick = async (appointment: Appointment) => {
+  const handleCancelClick = (appointment: Appointment) => {
+    setSelectedAppointmentForCancel(appointment);
+    setIsCancelDialogOpen(true);
+  };
+
+  const confirmCancel = async () => {
+    if (!selectedAppointmentForCancel) return;
     try {
-      await updateAppointment(appointment.id, { status: "cancelled" });
+      await updateAppointment(selectedAppointmentForCancel.id, { status: "cancelled" });
       void fetchAndDistribute();
       toast.success(
         locale === "ar" ? "تم إلغاء الموعد بنجاح" : "Appointment cancelled successfully"
@@ -319,8 +364,20 @@ function AppointmentsPageContent() {
         description={locale === "ar" ? "إدارة مواعيدك الطبية" : "Manage your appointments"}
       />
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex h-[30vh] items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#2b66ff] border-t-transparent"></div>
+            <span className="text-sm font-medium text-slate-500">
+              {locale === "ar" ? "جاري تحميل المواعيد..." : "Loading appointments..."}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Empty State */}
-      {upcomingAppointments.length === 0 && pastAppointments.length === 0 && (
+      {!isLoading && upcomingAppointments.length === 0 && pastAppointments.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -343,10 +400,10 @@ function AppointmentsPageContent() {
       {/* Appointments Tabs */}
       {(upcomingAppointments.length > 0 || pastAppointments.length > 0) && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full h-14 backdrop-blur-md">
+          <TabsList className={cn("flex w-full bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full h-14 backdrop-blur-md", locale === "ar" && "flex-row-reverse")}>
             <TabsTrigger
               value="upcoming"
-              className="rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
+              className="flex-1 rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
             >
               {locale === "ar" ? "قادمة" : "Upcoming"}
               {upcomingAppointments.length > 0 && (
@@ -357,7 +414,7 @@ function AppointmentsPageContent() {
             </TabsTrigger>
             <TabsTrigger
               value="history"
-              className="rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
+              className="flex-1 rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
             >
               {locale === "ar" ? "السجل" : "History"}
               {pastAppointments.length > 0 && (
@@ -389,8 +446,9 @@ function AppointmentsPageContent() {
                     appointment={apt}
                     isPast={false}
                     locale={locale}
+                    userId={user?.id}
                     doctorAvatar={doctorAvatars[apt.doctorId]}
-                    onReschedule={() => handleDetailClick(apt)}
+                    onReschedule={() => handleRescheduleClick(apt)}
                     onCancel={() => handleCancelClick(apt)}
                   />
                 </motion.div>
@@ -419,10 +477,10 @@ function AppointmentsPageContent() {
                     appointment={apt}
                     isPast={true}
                     locale={locale}
+                    userId={user?.id}
                     doctorAvatar={doctorAvatars[apt.doctorId]}
                     onDetail={() => handleDetailClick(apt, true)}
                     onBookAgain={() => handleBookAgain(apt)}
-                    onCancel={() => handleCancelClick(apt)}
                   />
                 </motion.div>
               ))
@@ -454,6 +512,14 @@ function AppointmentsPageContent() {
             handleReschedule(selectedAppointmentForReschedule, newDate, newTime);
           }
         }}
+      />
+
+      {/* Cancel Confirmation Dialog */}
+      <CancelAppointmentDialog
+        isOpen={isCancelDialogOpen}
+        onOpenChange={setIsCancelDialogOpen}
+        appointment={selectedAppointmentForCancel}
+        onConfirm={confirmCancel}
       />
     </div>
   );

@@ -139,6 +139,7 @@ export interface ApiPublicDoctor {
   } | null;
   isAvailableNow?: boolean;
   user?: {
+    id: string;
     avatarUrl?: string | null;
     gender?: string | null;
   } | null;
@@ -277,6 +278,8 @@ export interface Appointment {
   redeemPoints?: boolean;
   amount?: number;
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
+  createdByName?: string;
+  createdByRole?: "PATIENT" | "RECEPTION" | "STAFF" | "ADMIN";
 }
 
 export interface ApiAppointment {
@@ -314,6 +317,9 @@ export interface ApiAppointment {
   investigationOrders?: ApiInvestigation[];
   invoices?: ApiInvoice[];
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
+  createdById?: string;
+  createdByName?: string;
+  createdByRole?: "PATIENT" | "RECEPTION" | "STAFF" | "ADMIN";
 }
 
 export interface ApiInvoice {
@@ -1203,6 +1209,7 @@ export interface SendWhatsAppResponse {
 }
 
 export interface CreateDiagnosticReportPayload {
+  appointmentId?: string;
   hospitalName?: string;
   hospitalNameAr?: string;
   specialty?: string;

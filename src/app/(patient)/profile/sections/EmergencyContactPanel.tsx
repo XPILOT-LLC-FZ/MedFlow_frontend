@@ -5,9 +5,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import type { ApiPatient } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-} from "@/components/ui/select";
+import { ChevronRight } from 'lucide-react';
 import { patientService } from '@/services/patientService';
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -28,23 +26,53 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
     firstName: (currentContact["firstName"] as string) || '',
     lastName: (currentContact["lastName"] as string) || '',
     relationship: (currentContact["relationship"] as string) || '',
-    phone: (currentContact["phone"] as string) || '',
     email: (currentContact["email"] as string) || '',
     address: (currentContact["address"] as string) || '',
   });
 
+  let currentPhone = (currentContact["phone"] as string) || '';
+  let initialCountryCode = '+20';
+  
+  const commonCountryCodes = [
+    "+20", "+966", "+971", "+965", "+974", "+968", "+973", "+962", "+961", "+212",
+    "+213", "+216", "+1", "+44"
+  ];
+
+  if (currentPhone.startsWith("+")) {
+    const matchedCode = commonCountryCodes.find(code => currentPhone.startsWith(code));
+    if (matchedCode) {
+      initialCountryCode = matchedCode;
+      currentPhone = currentPhone.substring(matchedCode.length);
+    }
+  }
+
+  const [countryCode, setCountryCode] = useState(initialCountryCode);
+  const [typedPhone, setTypedPhone] = useState(currentPhone);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     if (!patient?.id) return;
     
+    let finalPhone = typedPhone.trim();
+    if (finalPhone.startsWith("+")) {
+      finalPhone = finalPhone.replace(/^\+\d+/, "");
+    }
+    if (finalPhone.startsWith("0")) {
+      finalPhone = finalPhone.substring(1);
+    }
+    finalPhone = `${countryCode}${finalPhone}`;
+
     setIsSaving(true);
     try {
+      const updatedFormData = {
+        ...formData,
+        phone: finalPhone,
+      };
+
       const updatedHistory = {
         ...medicalHistory,
-        emergencyContactDetails: formData,
-        // For backwards compatibility with other parts of the system
-        emergencyContact: `${formData.firstName} ${formData.lastName} (${formData.relationship}) - ${formData.phone}`,
+        emergencyContactDetails: updatedFormData,
+        emergencyContact: `${formData.firstName} ${formData.lastName} (${formData.relationship}) - ${finalPhone}`,
       };
 
       await patientService.update(patient.id, {
@@ -78,7 +106,6 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
 
   return (
     <div className="flex flex-col min-h-screen pb-14">
-
       <div className="flex-1 overflow-y-auto px-2 py-4 space-y-4">
         {/* First Name */}
         <div className="space-y-2">
@@ -96,7 +123,7 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
         {/* Last Name */}
         <div className="space-y-2">
           <label className="text-[15px] font-bold text-slate-700 dark:text-slate-300">
-            {locale === 'ar' ? 'اسم العائلة' : 'Last name'}
+            {locale === 'ar' ? 'اسم العائلة' : 'اسم العائلة'}
           </label>
           <Input 
             value={formData.lastName}
@@ -111,13 +138,23 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
           <label className="text-[15px] font-bold text-slate-700 dark:text-slate-300">
             {locale === 'ar' ? 'العلاقة' : 'Relationship'}
           </label>
-          <Select 
-            value={formData.relationship}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, relationship: e.target.value }))}
-            options={RELATIONSHIPS}
-            placeholder={locale === 'ar' ? 'اختر العلاقة' : 'Select your relationship'}
-            className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm focus:ring-2 focus:ring-blue-500/20"
-          />
+          <div className="relative">
+            <select 
+              value={formData.relationship}
+              onChange={(e) => setFormData(prev => ({ ...prev, relationship: e.target.value }))}
+              className="w-full h-14 rounded-[20px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-6 pr-12 text-base shadow-sm focus:ring-2 focus:ring-blue-500/20 text-slate-700 dark:text-slate-300 outline-none cursor-pointer appearance-none"
+            >
+              <option value="" disabled>{locale === 'ar' ? 'اختر العلاقة' : 'Select your relationship'}</option>
+              {RELATIONSHIPS.map((rel) => (
+                <option key={rel.value} value={rel.value}>{rel.label}</option>
+              ))}
+            </select>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center">
+              <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         {/* Phone Number */}
@@ -125,12 +162,36 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
           <label className="text-[15px] font-bold text-slate-700 dark:text-slate-300">
             {locale === 'ar' ? 'رقم الهاتف' : 'Phone number'}
           </label>
-          <div className="relative group">
+          <div className="flex gap-2">
+            <div className="relative h-14 rounded-[20px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center px-4 gap-2 min-w-[85px]">
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+              >
+                <option value="+20">+20</option>
+                <option value="+966">+966</option>
+                <option value="+971">+971</option>
+                <option value="+965">+965</option>
+                <option value="+974">+974</option>
+                <option value="+968">+968</option>
+                <option value="+973">+973</option>
+                <option value="+962">+962</option>
+                <option value="+961">+961</option>
+                <option value="+212">+212</option>
+                <option value="+213">+213</option>
+                <option value="+216">+216</option>
+                <option value="+1">+1</option>
+                <option value="+44">+44</option>
+              </select>
+              <span className="font-bold text-slate-700 dark:text-slate-200">{countryCode}</span>
+              <ChevronRight className="h-4 w-4 text-slate-400 rotate-90 shrink-0" />
+            </div>
             <Input 
-              value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              placeholder="+20 102 333 4444"
-              className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm"
+              value={typedPhone}
+              onChange={(e) => setTypedPhone(e.target.value)}
+              placeholder="000 000 0000"
+              className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm flex-1"
             />
           </div>
         </div>
@@ -143,7 +204,7 @@ export default function EmergencyContactPanel({ patient, onBack, onRefresh }: Em
           <Input 
             value={formData.email}
             onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-            placeholder="youremail@example.com"
+            placeholder={locale === 'ar' ? 'مثال: mail@example.com' : 'e.g. mail@example.com'}
             className="h-14 rounded-[20px] bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 px-6 text-base shadow-sm"
           />
         </div>

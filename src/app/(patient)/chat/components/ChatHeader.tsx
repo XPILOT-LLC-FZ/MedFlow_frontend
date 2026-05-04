@@ -1,24 +1,35 @@
 "use client";
 
-import { ChevronLeft, Stethoscope, UserRound, Phone, Video } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ChevronLeft, ChevronRight, Stethoscope, UserRound, Phone, Video } from "lucide-react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface ChatHeaderProps {
   title: string;
   isDoctor: boolean;
   connectionStatus: "connecting" | "connected" | "disconnected";
+  avatarUrl?: string;
 }
 
 export function ChatHeader({
   title,
   isDoctor,
+  avatarUrl,
 }: ChatHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const handleBack = () => {
-    router.push("/chat");
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("conversationId");
+    params.delete("appointmentId");
+    params.delete("doctorId");
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
   };
+  const { isRTL } = useTranslation();
 
   return (
     <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 dark:bg-slate-900/95 px-4 py-4 backdrop-blur-xl transition-all duration-300">
@@ -29,13 +40,14 @@ export function ChatHeader({
             onClick={handleBack}
             className="flex h-10 w-10 items-center justify-center rounded-xl transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
           >
-            <ChevronLeft className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+            {isRTL ? <ChevronRight className="h-6 w-6 text-slate-600 dark:text-slate-400" /> : <ChevronLeft className="h-6 w-6 text-slate-600 dark:text-slate-400" />}
           </button>
 
           {/* Avatar & Name */}
           <div className="flex items-center gap-3">
             <div className="relative">
               <Avatar className="h-11 w-11 border-2 border-background shadow-sm">
+                <AvatarImage src={avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(title || "doctor")}`} className="object-cover" />
                 <AvatarFallback className="bg-slate-100 dark:bg-slate-800">
                   {isDoctor ? <UserRound size={22} className="text-slate-400" /> : <Stethoscope size={22} className="text-slate-400" />}
                 </AvatarFallback>

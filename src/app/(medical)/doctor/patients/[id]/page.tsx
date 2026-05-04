@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -25,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { FilePreviewDialog } from "@/components/shared/FilePreviewDialog";
 import { patientService } from "@/services/patientService";
 import { bookingService } from "@/services/bookingService";
 import { labResultService } from "@/services/labResultService";
@@ -48,6 +48,29 @@ import type {
   ApiPrescription,
   PrescriptionMedicationItem,
 } from "@/types";
+
+type PreviewFile = {
+  name: string;
+  fileUrl: string;
+  fileType: string;
+};
+
+const isClinicalPdfDocument = (
+  document: ApiPatientDocument,
+  appointmentId?: string,
+) => {
+  const normalizedName = document.name.toLowerCase();
+  const isPdf =
+    document.fileType === "application/pdf" || normalizedName.endsWith(".pdf");
+
+  return Boolean(
+    isPdf &&
+      (!appointmentId || document.appointmentId === appointmentId) &&
+      (normalizedName.includes("diagnostic") ||
+        normalizedName.includes("clinical") ||
+        normalizedName.includes("report")),
+  );
+};
 
 const formatDate = (date?: string, locale = "en") => {
   if (!date) return "-";
@@ -145,9 +168,8 @@ export default function DoctorPatientDetailsPage() {
   const [selectedInvestigations, setSelectedInvestigations] = useState<Record<string, boolean>>({});
   const [isSavingPrescription, setIsSavingPrescription] = useState(false);
   const [isSendingDiagnosticReport, setIsSendingDiagnosticReport] = useState(false);
-  const [previewFile, setPreviewFile] = useState<ApiPatientDocument | null>(
-    null,
-  );
+  const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
+  const [selectedReportAppointmentId, setSelectedReportAppointmentId] = useState<string>("");
 
   const [lastPrescriptionId, setLastPrescriptionId] = useState<string | null>(null);
 
@@ -281,6 +303,16 @@ export default function DoctorPatientDetailsPage() {
 
         setPatient(patientResult.value);
         setAppointments(sortedAppointments);
+        setSelectedReportAppointmentId((current) => {
+          if (
+            current &&
+            sortedAppointments.some((appointment) => appointment.id === current)
+          ) {
+            return current;
+          }
+
+          return sortedAppointments[0]?.id || "";
+        });
         setLabResults(labData);
         setPrescriptions(prescriptionData);
         setInvestigations(investigationData);
@@ -506,6 +538,15 @@ export default function DoctorPatientDetailsPage() {
   const sendDiagnosticReportToPatient = async () => {
     if (!patientId || !patient) return;
 
+    if (!selectedReportAppointmentId) {
+      toastError(
+        locale === "ar"
+          ? "اختر جلسة قبل إرسال التقرير"
+          : "Please select a session before sending the report",
+      );
+      return;
+    }
+
     const findings = prescriptionNotesDraft.trim() || notesDraft.trim();
     const impression = diagnosisDraft.trim() || findings;
     const studyReason = notesDraft.trim() || diagnosisDraft.trim();
@@ -533,6 +574,7 @@ export default function DoctorPatientDetailsPage() {
     setIsSendingDiagnosticReport(true);
     try {
       const result = await patientReportService.generateAndSendDiagnosticReport(patientId, {
+        appointmentId: selectedReportAppointmentId,
         specialty: "Diagnostic Imaging",
         serviceRequested,
         studyReason,
@@ -637,6 +679,87 @@ export default function DoctorPatientDetailsPage() {
   const chronicConditions = deriveChronicConditions(patient);
   const allergies = Array.isArray(patient.allergies) ? patient.allergies : [];
   const latestVisit = appointments[0];
+  const selectedReportAppointment =
+    appointments.find((appointment) => appointment.id === selectedReportAppointmentId) || null;
+  const latestClinicalDocument =
+    documents.find((document) => isClinicalPdfDocument(document, selectedReportAppointmentId)) ||
+    documents.find((document) => isClinicalPdfDocument(document, latestVisit?.id)) ||
+    documents.find((document) => isClinicalPdfDocument(document));
+
+  const handleOpenClinicalPdf = async () => {
+    if (!patientId || !latestClinicalDocument) {
+      return;
+    }
+
+    try {
+      const response = await patientDocumentService.getDocumentDownloadUrlForPatient(
+        patientId,
+        latestClinicalDocument.id,
+      );
+
+      if (!response.downloadUrl) {
+        throw new Error("No download URL returned");
+      }
+
+      setPreviewFile({
+        name: latestClinicalDocument.name,
+        fileUrl: response.downloadUrl,
+        fileType: latestClinicalDocument.fileType || "application/pdf",
+      });
+    } catch (error) {
+      toastError(
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "تعذر فتح ملف PDF حالياً"
+            : "Unable to open the PDF right now",
+      );
+    }
+  };
+
+  const handleOpenVisitClinicalPdf = async (appointmentId: string) => {
+    if (!patientId) {
+      return;
+    }
+
+    const visitDocument =
+      documents.find((document) => isClinicalPdfDocument(document, appointmentId)) ||
+      null;
+
+    if (!visitDocument) {
+      toastInfo(
+        locale === "ar"
+          ? "لا يوجد ملف سريري لهذا الموعد"
+          : "No clinical document found for this visit",
+      );
+      return;
+    }
+
+    try {
+      const response = await patientDocumentService.getDocumentDownloadUrlForPatient(
+        patientId,
+        visitDocument.id,
+      );
+
+      if (!response.downloadUrl) {
+        throw new Error("No download URL returned");
+      }
+
+      setPreviewFile({
+        name: visitDocument.name,
+        fileUrl: response.downloadUrl,
+        fileType: visitDocument.fileType || "application/pdf",
+      });
+    } catch (error) {
+      toastError(
+        error instanceof Error
+          ? error.message
+          : locale === "ar"
+            ? "تعذر فتح ملف PDF حالياً"
+            : "Unable to open the PDF right now",
+      );
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -787,25 +910,34 @@ export default function DoctorPatientDetailsPage() {
             ) : (
               <div className="space-y-4">
                 {appointments.map((visit) => (
-                  <article key={visit.id} className="relative rounded-[20px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-100 dark:hover:border-blue-900/50 group">
-                    <div className="flex items-start gap-4">
-                      {/* Status Indicator */}
-                      <div className="h-3 w-3 rounded-full bg-[#1D61F2] shrink-0 mt-1.5 shadow-sm shadow-blue-500/20" />
+                  <article key={visit.id} className="relative rounded-[20px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 transition-all hover:border-blue-100 dark:hover:border-blue-900/50 group duration-300">
+                    <div className="space-y-4">
+                      {/* Row 1: Title */}
+                      <h4 className="text-[16px] font-medium text-slate-800 dark:text-slate-100">
+                        {visit.serviceName ? (t(visit.serviceName.toLowerCase().replace(/\s+/g, "") as Parameters<typeof t>[0]) || visit.serviceName) : t("routineCheckup")}
+                      </h4>
 
-                      <div className="flex-1 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1">
-                            <h4 className="text-[15px] font-bold text-slate-700 dark:text-slate-100">
-                              {visit.serviceName ? (t(visit.serviceName.toLowerCase().replace(/\s+/g, "") as Parameters<typeof t>[0]) || visit.serviceName) : t("routineCheckup")}
-                            </h4>
-                            <p className="text-[12px] font-bold text-slate-400 dark:text-slate-500">
-                              {formatDate(visit.date, locale)}
-                            </p>
-                          </div>
-                          <span className="text-[11px] font-bold text-slate-400">
-                            {t("dr")} {visit.doctorName || "Mitchell"}
-                          </span>
-                        </div>
+                      {/* Row 2: Date & Doctor Name */}
+                      <div className="flex items-center justify-between text-[13px] text-slate-400 dark:text-slate-500 font-bold">
+                        <span>
+                          {formatDate(visit.date, locale)}
+                        </span>
+                        <span>
+                          {t("dr")} {visit.doctorName || "Mitchell"}
+                        </span>
+                      </div>
+
+                      {/* Row 3: PDF Button */}
+                      <div className="pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-9 px-4 rounded-xl border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20 text-[12px] font-bold transition-all gap-2"
+                          onClick={() => void handleOpenVisitClinicalPdf(visit.id)}
+                        >
+                          <FileText className="h-4 w-4" />
+                          {locale === "ar" ? "عرض المستند" : "View PDF"}
+                        </Button>
                       </div>
                     </div>
                   </article>
@@ -867,6 +999,32 @@ export default function DoctorPatientDetailsPage() {
                   </h3>
                 </div>
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/60 px-3 py-1.5">
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                      {locale === "ar" ? "الجلسة" : "Session"}
+                    </span>
+                    <select
+                      value={selectedReportAppointmentId}
+                      onChange={(event) => setSelectedReportAppointmentId(event.target.value)}
+                      className="bg-transparent text-[12px] font-bold text-slate-700 dark:text-slate-200 outline-none"
+                    >
+                      {appointments.map((appointment) => (
+                        <option key={appointment.id} value={appointment.id}>
+                          {formatDate(appointment.date, locale)} - {appointment.serviceName || "Session"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 px-4 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20 rounded-xl text-[12px] font-bold transition-all gap-2"
+                    onClick={() => void handleOpenClinicalPdf()}
+                    disabled={!latestClinicalDocument}
+                  >
+                    <FileText className="h-4 w-4" />
+                    {locale === "ar" ? "عرض PDF" : "View PDF"}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -880,10 +1038,10 @@ export default function DoctorPatientDetailsPage() {
                           mode: "NORMAL",
                           sendToPatient: true,
                         });
-                          toastSuccess(t("itemUpdated"));
-                        } catch {
-                          toastError(t("failedToSaveNotes"));
-                        }
+                        toastSuccess(t("itemUpdated"));
+                      } catch {
+                        toastError(t("failedToSaveNotes"));
+                      }
                     }}
                   >
                     <Save className="h-4 w-4" />
@@ -898,6 +1056,11 @@ export default function DoctorPatientDetailsPage() {
                   </Button>
                 </div>
               </div>
+              {selectedReportAppointment && (
+                <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400">
+                  {locale === "ar" ? "الجلسة المحددة:" : "Selected session:"} {formatDate(selectedReportAppointment.date, locale)}
+                </p>
+              )}
               <textarea
                 value={notesDraft}
                 onChange={(e) => setNotesDraft(e.target.value)}
@@ -1115,45 +1278,15 @@ export default function DoctorPatientDetailsPage() {
         </TabsContent>
       </Tabs>
 
-      {previewFile && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          onClick={() => setPreviewFile(null)}
-        >
-          <div
-            className="max-h-[80vh] w-full max-w-3xl overflow-auto rounded-xl bg-background p-4"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-semibold">{previewFile.name}</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPreviewFile(null)}
-                >
-                {t("close")}
-              </Button>
-            </div>
-
-            {previewFile.fileType?.startsWith("image/") ? (
-              <Image
-                src={previewFile.fileUrl}
-                alt={previewFile.name}
-                width={1200}
-                height={900}
-                className="w-full rounded-lg"
-                unoptimized
-              />
-            ) : (
-              <iframe
-                src={previewFile.fileUrl}
-                className="h-[60vh] w-full rounded-lg border"
-                title={previewFile.name}
-              />
-            )}
-          </div>
-        </div>
-      )}
+      <FilePreviewDialog
+        open={Boolean(previewFile)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewFile(null);
+          }
+        }}
+        file={previewFile}
+      />
     </div>
   );
 }

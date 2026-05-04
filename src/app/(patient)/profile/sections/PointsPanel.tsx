@@ -8,6 +8,7 @@ import type { ApiPatient, ApiLoyaltyTransaction } from '@/types';
 import { patientService } from '@/services/patientService';
 import { format } from 'date-fns';
 import { arSA } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface PointsPanelProps {
   patient?: ApiPatient;
@@ -15,7 +16,7 @@ interface PointsPanelProps {
 }
 
 export default function PointsPanel({ patient }: PointsPanelProps) {
-  const { locale } = useTranslation();
+  const { locale, isRTL } = useTranslation();
   const router = useRouter();
   const loyaltyPoints = patient?.loyaltyPoints ?? 0;
   
@@ -65,7 +66,7 @@ export default function PointsPanel({ patient }: PointsPanelProps) {
           </div>
 
           {/* Illustration */}
-          <div className="absolute top-4 right-[-10px] w-[140px] h-[140px] pointer-events-none drop-shadow-2xl">
+          <div className={cn("absolute top-4 w-[140px] h-[140px] pointer-events-none drop-shadow-2xl", isRTL ? "left-6" : "right-6")}>
             <GiftBoxSVG />
           </div>
           

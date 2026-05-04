@@ -31,7 +31,7 @@ class ApiClient {
   private refreshSubscribers: ((token: string) => void)[] = [];
   private lastKnownClinicId: string | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   private normalizeEndpointPath(endpoint: string): string {
     const trimmed = endpoint.trim();
@@ -60,7 +60,7 @@ class ApiClient {
     }
     return ApiClient.instance;
   }
-  
+
   /** 
    * Simple JWT decoder to extract claims without heavy dependencies.
    */
@@ -72,11 +72,11 @@ class ApiClient {
         typeof window === "undefined"
           ? Buffer.from(base64, "base64").toString()
           : decodeURIComponent(
-              atob(base64)
-                .split("")
-                .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-                .join("")
-            );
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join("")
+          );
       return JSON.parse(jsonPayload);
     } catch {
       return null;
@@ -112,7 +112,7 @@ class ApiClient {
         url += (url.includes("?") ? "&" : "?") + queryString;
       }
     }
-    
+
     // Get access token from Zustand store
     const state = useAuthStore.getState();
     const token = state.accessToken;
@@ -125,7 +125,7 @@ class ApiClient {
 
     // Inject clinic context if available
     let clinicId = state.user?.clinicId || this.lastKnownClinicId;
-    
+
     // Fallback: Try to extract from JWT if state.user is not yet hydrated or missing the ID
     if (!clinicId && token) {
       const decoded = this.decodeToken(token);
@@ -169,12 +169,11 @@ class ApiClient {
 
       if (response.status === 401 && !this.isAuthEndpoint(normalizedEndpoint)) {
         // Handle 401 Unauthorized - attempt to refresh token
-        return this.handleUnauthorized<T>(url, method, options);
+        return await this.handleUnauthorized<T>(url, method, options);
       }
 
       if (!response.ok) {
         const textData = await response.text();
-        console.error(`[ApiClient] Error response (status ${response.status}): ${textData}`);
 
         let errorDataRecord: Record<string, unknown> = {};
         try {
@@ -238,7 +237,7 @@ class ApiClient {
       if (response.status === 204) return null as T;
 
       const rawJson = await response.json();
-      
+
       // Sniff for clinic context in the response to unblock future requests
       if (!this.lastKnownClinicId) {
         const sniffedId = this.findClinicId(rawJson);
@@ -255,7 +254,7 @@ class ApiClient {
         }
         return rawJsonRecord["data"] as T;
       }
-      
+
       return rawJson as T;
     } catch (error) {
       const typedError = error as ApiClientError;
@@ -278,9 +277,14 @@ class ApiClient {
         code === "EMAIL_ALREADY_IN_USE" ||
         (error instanceof Error && /email already in use/i.test(error.message));
 
-      if (normalizedEndpoint === "/auth/refresh" || normalizedEndpoint === "/auth/me") {
-        // Silently log boot session failures to reduce console noise
-        console.warn(`Session check skipped [${method} ${url}]`);
+      const isSessionExpired =
+        error instanceof Error &&
+        typeof error.message === "string" &&
+        error.message.toLowerCase().includes("session expired");
+
+      if (normalizedEndpoint === "/auth/refresh" || normalizedEndpoint === "/auth/me" || isSessionExpired) {
+        // Silently log boot session failures or expired sessions to reduce console noise
+        console.warn(`Session check skipped or expired [${method} ${url}]`);
       } else if (isClinicContextError) {
         // This can happen transiently before clinic assignment/onboarding is complete.
         console.warn(`Clinic context not ready [${method} ${url}]`);
@@ -299,7 +303,7 @@ class ApiClient {
   private async handleUnauthorized<T>(url: string, method: HttpMethod, options: RequestOptions): Promise<T> {
     if (!this.isRefreshing) {
       this.isRefreshing = true;
-      
+
       try {
         const state = useAuthStore.getState();
         const currentRefreshToken = state.refreshToken;
@@ -321,7 +325,7 @@ class ApiClient {
           const dataRecord = rawData as Record<string, unknown>;
           const token = (dataRecord["access_token"] as string) || (dataRecord["accessToken"] as string);
           const newRefreshToken = (dataRecord["refresh_token"] as string) || (dataRecord["refreshToken"] as string);
-          
+
           if (!token) throw new Error("No token in refresh response");
 
           // Update the Zustand store
@@ -333,7 +337,7 @@ class ApiClient {
 
           this.isRefreshing = false;
           this.onTokenRefreshed(token);
-          
+
           // Retry the original request
           return this.request<T>(url, method, options);
         } else {
@@ -423,7 +427,7 @@ class ApiClient {
     if (!obj || typeof obj !== "object") return null;
 
     const record = obj as Record<string, unknown>;
-    
+
     // Check common fields
     const id = (record["clinicId"] as string) || (record["clinic_id"] as string) || (record["tenantId"] as string) || (record["tenant_id"] as string) || (record["cid"] as string);
     if (id && typeof id === "string") return id;
@@ -436,7 +440,7 @@ class ApiClient {
     if (Array.isArray(obj) && obj.length > 0) {
       return this.findClinicId(obj[0]);
     }
-    
+
     // Check data property for wrapped responses
     if (record["data"]) return this.findClinicId(record["data"]);
 

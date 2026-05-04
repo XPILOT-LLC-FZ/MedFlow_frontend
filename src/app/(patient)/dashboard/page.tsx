@@ -24,10 +24,11 @@ import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { staffService } from "@/services/staffService";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
-import type { ApiPublicDoctor, ApiDoctorCredential, ApiService, ApiLoyaltyTransaction, Appointment } from "@/types";
+import type { ApiPublicDoctor, ApiDoctorCredential, ApiService, ApiLoyaltyTransaction, Appointment, ApiAppointment } from "@/types";
 import { PatientNotificationsDialog } from "@/components/shared/PatientNotificationsDialog";
 import { PatientDoctorsDialog } from "@/components/shared/PatientDoctorsDialog";
 import { PatientAppointmentsDialog } from "@/components/shared/PatientAppointmentsDialog";
+import { AppointmentDetailsDialog } from "@/components/shared/AppointmentDetailsDialog";
 import { notificationsService } from "@/services/notificationsService";
 import type { InAppNotification } from "@/types";
 import { cn } from "@/lib/utils";
@@ -66,7 +67,7 @@ export default function PatientDashboard() {
   const [, setSpecOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [aptsOpen, setAptsOpen] = useState(false);
-  const [, setSelectedDetailApt] = useState<Appointment | null>(null);
+  const [selectedDetailApt, setSelectedDetailApt] = useState<Appointment | null>(null);
   const [activeTab, setActiveTab] = useState("latest");
   const [loyaltyHistory, setLoyaltyHistory] = useState<ApiLoyaltyTransaction[]>([]);
   const [isLoyaltyLoading, setIsLoyaltyLoading] = useState(false);
@@ -319,13 +320,13 @@ export default function PatientDashboard() {
 
         {/* Search Bar */}
         <div className="relative group">
-          <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 transition-colors group-focus-within:text-blue-600 start-4" />
+          <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-600 start-4" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("searchAnything" as never)}
-            className="w-full h-14 rounded-2xl border-none bg-white dark:bg-slate-900 shadow-sm shadow-slate-200/50 dark:shadow-none text-sm font-medium transition-all ps-12 pe-6 text-start focus:ring-2 focus:ring-blue-600/10"
+            className="w-full h-14 rounded-2xl border-2 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-900 shadow-sm shadow-slate-200/50 dark:shadow-none text-sm font-medium transition-all ps-12 pe-6 text-start focus:outline-none focus:ring-2 focus:ring-blue-500/10"
           />
           {searchQuery && (
             <button
@@ -493,6 +494,13 @@ export default function PatientDashboard() {
                         )}
                       </div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{upcomingApt.specialty || t("internistSpecialistDoctor")}</span>
+                      {upcomingApt.createdByName || upcomingApt.createdByRole ? (
+                        <span className="text-[11px] text-slate-600 mt-1 truncate">
+                          {upcomingApt.createdByRole === "PATIENT" && user?.id === upcomingApt.patientId
+                            ? (locale === "ar" ? "تم الحجز بواسطة: أنت" : "Booked by: You")
+                            : (locale === "ar" ? `تم الحجز بواسطة: ${upcomingApt.createdByName || upcomingApt.createdByRole}` : `Booked by: ${upcomingApt.createdByName || upcomingApt.createdByRole}`)}
+                        </span>
+                      ) : null}
                     </div>
                     <button
                       onClick={(e) => {
@@ -728,13 +736,13 @@ export default function PatientDashboard() {
           <div className="col-span-8 space-y-8">
             {/* Search Bar */}
             <div className="relative group">
-              <Search className="absolute top-1/2 -translate-y-1/2 h-6 w-6 text-slate-300 transition-colors group-focus-within:text-blue-600 start-5" />
+              <Search className="absolute top-1/2 -translate-y-1/2 h-6 w-6 text-slate-400 transition-colors group-focus-within:text-blue-600 start-5" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("searchAnything" as never)}
-                className="w-full h-16 rounded-[24px] border-none bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/40 dark:shadow-none text-base font-medium focus:ring-4 focus:ring-blue-600/5 transition-all outline-none ps-14 pe-8 text-start"
+                className="w-full h-16 rounded-[24px] border-2 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/40 dark:shadow-none text-base font-medium focus:ring-4 focus:ring-blue-600/5 transition-all outline-none ps-14 pe-8 text-start"
               />
               {searchQuery && (
                 <button
@@ -1127,7 +1135,11 @@ export default function PatientDashboard() {
         >
           <div className="md:hidden flex items-center px-6 py-5 shrink-0">
             <button onClick={() => setRedeemOpen(false)} className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400">
-              <ChevronLeft className="h-6 w-6" />
+              {locale === "ar" ? (
+                <ChevronRight className="h-6 w-6" />
+              ) : (
+                <ChevronLeft className="h-6 w-6" />
+              )}
             </button>
           </div>
 
@@ -1356,6 +1368,26 @@ export default function PatientDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {selectedDetailApt && (
+        <AppointmentDetailsDialog
+          isOpen={!!selectedDetailApt}
+          onOpenChange={(open) => !open && setSelectedDetailApt(null)}
+          appointment={selectedDetailApt as unknown as ApiAppointment}
+          onBookAgain={() => {
+            setSelectedDetailApt(null);
+            if (selectedDetailApt.doctor) {
+              handleDoctorClick(selectedDetailApt.doctor as unknown as ApiPublicDoctor);
+            } else if (selectedDetailApt.doctorId) {
+              handleDoctorClick({
+                id: selectedDetailApt.doctorId,
+                fullName: selectedDetailApt.doctorName || "Doctor",
+                specialization: selectedDetailApt.specialty || "Generalist",
+              } as unknown as ApiPublicDoctor);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

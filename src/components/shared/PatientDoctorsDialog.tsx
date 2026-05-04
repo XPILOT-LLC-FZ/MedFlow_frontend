@@ -5,6 +5,7 @@ import Image from "next/image";
 import { 
   Users,
   ChevronLeft,
+  ChevronRight,
   X,
   Star,
   Heart,
@@ -158,7 +159,11 @@ export function PatientDoctorsDialog({
                 onClick={() => onBack ? onBack() : onOpenChange(false)}
                 className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
               >
-                <ChevronLeft className="h-6 w-6" />
+                {isRTL ? (
+                  <ChevronRight className="h-6 w-6" />
+                ) : (
+                  <ChevronLeft className="h-6 w-6" />
+                )}
               </button>
               <DialogTitle className="flex-1 text-center text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight">
                 {t("allDoctors") || "All Doctor"}
@@ -169,15 +174,15 @@ export function PatientDoctorsDialog({
             <div className="px-6 pb-2">
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 group">
-                  <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 transition-colors group-focus-within:text-blue-500 start-4" />
+                  <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-500 start-4" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder={t("searchAnything") || "Search anything here"}
                     className={cn(
-                      "w-full h-12 rounded-lg border-none bg-white dark:bg-slate-900 shadow-sm shadow-slate-200/40 dark:shadow-none text-sm font-medium transition-all",
-                      "ps-12 pe-4 text-start outline-none ring-2 ring-transparent focus:ring-blue-500/10"
+                      "w-full h-12 rounded-lg border-2 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-900 shadow-sm shadow-slate-200/40 dark:shadow-none text-sm font-medium transition-all",
+                      "ps-12 pe-4 text-start outline-none focus:ring-2 focus:ring-blue-500/10"
                     )}
                   />
                   {search && (

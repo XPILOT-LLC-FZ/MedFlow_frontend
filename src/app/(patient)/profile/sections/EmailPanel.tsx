@@ -178,7 +178,7 @@ export default function EmailPanel({ patient, userEmail, onBack, onRefresh }: Em
                 <input 
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="alex.johnson78@examplemail.com"
+                  placeholder={locale === 'ar' ? 'مثال: mail@example.com' : 'e.g. mail@example.com'}
                   autoComplete="off"
                   name="medflow-new-email"
                   onKeyDown={(e) => {
