@@ -60,7 +60,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Prescriptions", labelAr: "الوصفات الطبية", href: "/reception/prescriptions", icon: Package },
     { label: "Checkout & payment", labelAr: "الدفع والسداد", href: "/reception/payments", icon: CreditCard },
     { label: "Invoice List", labelAr: "قائمة الفواتير", href: "/reception/invoices", icon: FileText },
-    { label: "Chats", labelAr: "المحادثات", href: "/doctor/chat", icon: MessageSquare },
+    { label: "Chats", labelAr: "المحادثات", href: "/reception/chat", icon: MessageSquare },
     { label: "Settings", labelAr: "الإعدادات", href: "/reception/profile", icon: Settings },
   ],
   SUPER_ADMIN: [

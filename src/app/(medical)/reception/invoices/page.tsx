@@ -93,7 +93,7 @@ export default function InvoiceListPage() {
   };
 
   return (
-    <div className="p-4 lg:p-8 bg-[#F3F4F8] min-h-screen pb-20 font-sans space-y-7">
+    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-7">
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="space-y-1">
@@ -108,7 +108,7 @@ export default function InvoiceListPage() {
           <Button variant="outline" className="h-11 px-6 rounded-2xl border-slate-200 bg-white font-bold text-slate-600 text-[13px] shadow-sm flex items-center gap-2">
             <Upload className="h-4 w-4" /> Export
           </Button>
-          <Button className="h-11 px-6 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold text-[13px] shadow-lg shadow-blue-100 flex items-center gap-2">
+          <Button className="h-11 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[13px] shadow-lg shadow-blue-500/10 flex items-center gap-2">
             <Plus className="h-4 w-4" /> New Invoice
           </Button>
         </div>
@@ -147,7 +147,7 @@ export default function InvoiceListPage() {
         {/* Filter Bar */}
         <div className="flex flex-wrap items-center gap-3 p-5 border-b border-slate-50">
           {/* Search */}
-          <div className="flex items-center gap-2 flex-1 min-w-[220px] h-11 px-4 bg-[#F9FAFB] border border-slate-100 rounded-2xl">
+          <div className="flex items-center gap-2 flex-1 min-w-[220px] h-11 px-4 bg-slate-50 border border-slate-100 rounded-2xl">
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
             <input
               value={search}
@@ -161,7 +161,7 @@ export default function InvoiceListPage() {
           <div ref={statusRef} className="relative">
             <button
               onClick={() => setStatusOpen(!statusOpen)}
-              className="flex items-center gap-2 h-11 px-5 bg-[#F9FAFB] border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
             >
               {STATUS_LABELS[status]}
               <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", statusOpen && "rotate-180")} />
@@ -187,7 +187,7 @@ export default function InvoiceListPage() {
           <div ref={deptRef} className="relative">
             <button
               onClick={() => setDeptOpen(!deptOpen)}
-              className="flex items-center gap-2 h-11 px-5 bg-[#F9FAFB] border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
             >
               All department
               <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", deptOpen && "rotate-180")} />
@@ -206,14 +206,14 @@ export default function InvoiceListPage() {
           </div>
 
           {/* Date Picker */}
-          <div className="flex items-center gap-2 h-11 px-5 bg-[#F9FAFB] border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
             <CalendarDays className="h-4 w-4 text-indigo-500" />
             Monday, Oct 24th, 2026
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
 
           {/* Bulk Actions */}
-          <button className="flex items-center gap-2 h-11 px-5 bg-[#F9FAFB] border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-500 hover:bg-slate-50 transition-colors ml-auto">
+          <button className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-500 hover:bg-slate-50 transition-colors ml-auto">
             Bulk Actions
             <span className="h-5 w-5 rounded-full bg-slate-200 text-[10px] font-black text-slate-500 flex items-center justify-center">
               {selected.size}
@@ -221,29 +221,28 @@ export default function InvoiceListPage() {
           </button>
         </div>
 
-        {/* Table Header */}
-        <div className="grid grid-cols-12 gap-3 px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+        {/* Table Header - Hidden on Mobile */}
+        <div className="hidden md:grid grid-cols-12 gap-3 px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
           <div className="col-span-1 flex items-center">
             <button
               onClick={toggleAll}
               className={cn(
                 "h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all",
-                allSelected ? "bg-[#3B82F6] border-[#3B82F6]" : "border-slate-200 hover:border-blue-300"
+                allSelected ? "bg-blue-600 border-[#3B82F6]" : "border-slate-200 hover:border-blue-300"
               )}
             >
               {allSelected && <Check className="h-3 w-3 text-white" />}
             </button>
           </div>
           <div className="col-span-2">Invoice ID</div>
-          <div className="col-span-1">Date</div>
+          <div className="col-span-2">Date</div>
           <div className="col-span-2">Patient Name</div>
           <div className="col-span-2">Service Type</div>
           <div className="col-span-2">Amount</div>
-          <div className="col-span-1">Status</div>
           <div className="col-span-1 text-right">Actions</div>
         </div>
 
-        {/* Table Rows */}
+        {/* Table Rows / Cards */}
         <div className="divide-y divide-slate-50 min-h-[400px] relative">
           {isLoading && (
             <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
@@ -259,70 +258,81 @@ export default function InvoiceListPage() {
             <div
               key={inv.id}
               className={cn(
-                "grid grid-cols-12 gap-3 px-6 py-4 items-center hover:bg-slate-50/60 transition-colors",
+                "flex flex-col md:grid md:grid-cols-12 gap-4 md:gap-3 px-6 py-5 md:py-4 items-start md:items-center hover:bg-slate-50/60 transition-colors",
                 selected.has(inv.id) && "bg-blue-50/40"
               )}
             >
-              {/* Checkbox */}
-              <div className="col-span-1">
+              {/* Desktop Checkbox & Mobile ID Header */}
+              <div className="col-span-1 flex items-center justify-between w-full md:w-auto">
                 <button
                   onClick={() => toggleSelect(inv.id)}
                   className={cn(
                     "h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all",
-                    selected.has(inv.id) ? "bg-[#3B82F6] border-[#3B82F6]" : "border-slate-200 hover:border-blue-300"
+                    selected.has(inv.id) ? "bg-blue-600 border-[#3B82F6]" : "border-slate-200 hover:border-blue-300"
                   )}
                 >
                   {selected.has(inv.id) && <Check className="h-3 w-3 text-white" />}
                 </button>
+                <div className="md:hidden">
+                   <StatusBadge status={inv.paymentStatus.toLowerCase() as any} />
+                </div>
               </div>
 
               {/* Invoice ID */}
-              <div className="col-span-2">
-                <span className="text-[13px] font-bold text-slate-700">INV-{inv.invoiceNumber || inv.id.slice(-6).toUpperCase()}</span>
+              <div className="col-span-2 flex flex-col md:block">
+                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Invoice ID</span>
+                <span className="text-[14px] md:text-[13px] font-bold text-slate-700">INV-{inv.invoiceNumber || inv.id.slice(-6).toUpperCase()}</span>
               </div>
 
               {/* Date */}
-              <div className="col-span-1">
+              <div className="col-span-2 hidden md:block">
                 <span className="text-[12px] font-bold text-slate-400">
                   {new Date(inv.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
                 </span>
               </div>
 
               {/* Patient */}
-              <div className="col-span-2 flex items-center gap-2.5">
-                <Avatar className="h-8 w-8 shrink-0">
+              <div className="col-span-2 flex items-center gap-3 w-full">
+                <Avatar className="h-9 w-9 md:h-8 md:w-8 shrink-0">
                   <AvatarImage src={(inv as any).appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${(inv as any).appointment?.patientName || "Guest"}`} />
                   <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">PT</AvatarFallback>
                 </Avatar>
-                <span className="text-[13px] font-bold text-slate-800 truncate">{(inv as any).appointment?.patientName || "Walk-in"}</span>
+                <div className="flex flex-col min-w-0">
+                   <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Patient</span>
+                   <span className="text-[14px] md:text-[13px] font-bold text-slate-800 truncate">{(inv as any).appointment?.patientName || "Walk-in"}</span>
+                </div>
               </div>
 
-              {/* Service */}
-              <div className="col-span-2">
+              {/* Service - Hidden on Small Mobile */}
+              <div className="col-span-2 hidden sm:flex flex-col md:block">
+                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Service</span>
                 <span className="text-[12px] font-bold text-slate-500 leading-tight">{(inv as any).appointment?.serviceName || "Consultation"}</span>
               </div>
 
               {/* Amount */}
-              <div className="col-span-2">
-                <span className="text-[15px] font-black text-slate-900">
+              <div className="col-span-2 flex flex-col md:block w-full md:w-auto">
+                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Amount</span>
+                <span className="text-[18px] md:text-[15px] font-black text-slate-900">
                   {inv.totalAmount.toFixed(2)} <span className="text-[12px] font-bold text-slate-400">LE</span>
                 </span>
               </div>
 
-              {/* Status */}
-              <div className="col-span-1">
+              {/* Status - Desktop only (Mobile shows at top) */}
+              <div className="hidden md:block col-span-1">
                 <StatusBadge status={inv.paymentStatus.toLowerCase() as any} />
               </div>
 
               {/* Actions */}
-              <div className="col-span-1 flex items-center justify-end gap-1.5">
-                <button className="h-8 w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors">
+              <div className="col-span-1 flex items-center justify-end gap-2 md:gap-1.5 w-full md:w-auto pt-4 md:pt-0 border-t md:border-none border-slate-50 mt-1 md:mt-0">
+                <button className="flex-1 md:flex-none h-10 md:h-8 px-4 md:px-0 rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 md:gap-0 transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
                   <Eye className="h-4 w-4 text-slate-400" />
+                  <span className="md:hidden text-[12px] font-bold text-slate-500">View</span>
                 </button>
-                <button className="h-8 w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors">
+                <button className="flex-1 md:flex-none h-10 md:h-8 px-4 md:px-0 rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 md:gap-0 transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
                   <Printer className="h-4 w-4 text-slate-400" />
+                  <span className="md:hidden text-[12px] font-bold text-slate-500">Print</span>
                 </button>
-                <button className="h-8 w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors">
+                <button className="h-10 md:h-8 w-10 md:w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
                   <MoreVertical className="h-4 w-4 text-slate-400" />
                 </button>
               </div>
@@ -356,7 +366,7 @@ export default function InvoiceListPage() {
                   className={cn(
                     "h-9 w-9 rounded-xl text-[13px] font-bold transition-all",
                     page === num
-                      ? "bg-[#3B82F6] text-white shadow-md shadow-blue-100"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
                       : "border border-slate-100 bg-white text-slate-600 hover:bg-slate-50"
                   )}
                 >
@@ -419,3 +429,5 @@ function StatusBadge({ status }: { status: "paid" | "pending" | "overdue" }) {
     </span>
   );
 }
+
+

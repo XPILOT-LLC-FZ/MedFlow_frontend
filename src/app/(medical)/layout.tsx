@@ -8,7 +8,7 @@ import { RoleGuard } from "@/components/shared/RoleGuard";
 export default function MedicalLayout({ children }: { children: React.ReactNode }) {
   return (
     <RoleGuard allowedRoles={["ADMIN", "DOCTOR", "STAFF"]}>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden medical-dashboard">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <DashboardTopbar />

@@ -109,6 +109,8 @@ export const mapToLocal = (api: ApiAppointment): Appointment => {
     amount: api.amount,
     doctor: api.doctor,
     paymentMethodType: api.paymentMethodType,
+    paymentStatus: api.invoices && api.invoices.length > 0 ? api.invoices[0].paymentStatus : "PENDING",
+    invoiceNumber: api.invoices && api.invoices.length > 0 ? api.invoices[0].invoiceNumber : null,
   };
 };
 

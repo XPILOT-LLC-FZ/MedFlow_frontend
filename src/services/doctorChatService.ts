@@ -71,6 +71,9 @@ export const doctorChatService = {
       `/chat/messages/${conversationId}/seen`
     );
   },
+  createDirectConversation(targetUserId: string): Promise<ChatConversation> {
+    return apiClient.post<ChatConversation>("/chat/direct", { targetUserId });
+  },
   deleteConversation(conversationId: string): Promise<void> {
     return apiClient.delete(`/chat/conversations/${conversationId}`);
   },

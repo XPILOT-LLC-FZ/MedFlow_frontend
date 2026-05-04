@@ -275,15 +275,18 @@ export interface Appointment {
   redeemPoints?: boolean;
   amount?: number;
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
+  paymentStatus?: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
+  invoiceNumber?: string | null;
 }
 
 export interface ApiAppointment {
-  endTime: ReactNode;
+  endTime?: string;
   time: string;
-  createdAt: string | number | Date;
+  createdAt: string;
   id: string;
   patientId?: string;
   patientName: string;
+  patientPhone?: string;
   patient?: ApiPatient;
   doctorId?: string;
   doctorName?: string;
@@ -311,6 +314,7 @@ export interface ApiAppointment {
   prescriptions?: ApiPrescription[];
   investigationOrders?: ApiInvestigation[];
   invoices?: ApiInvoice[];
+  source?: string;
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
 }
 
@@ -321,7 +325,7 @@ export interface ApiInvoice {
   patientId?: string | null;
   patientName?: string | null;
   doctorName?: string | null;
-  items?: any;
+  items?: Record<string, unknown>[];
   subtotal: number;
   discount: number;
   tax: number;

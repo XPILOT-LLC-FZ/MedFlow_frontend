@@ -24,6 +24,7 @@ import {
   Package, BarChart3, Clock, FileText, Settings, MessageSquare, Sparkles, Activity,
   Moon, Sun, Bell, Search, UsersRound, ChevronRight, ChevronDown, Building2
 } from "lucide-react";
+import { apiClient } from "@/lib/apiClient";
 
 const roleLabels: Record<Role, { en: string; ar: string }> = {
   PATIENT: { en: "Patient", ar: "مريض" },
@@ -313,12 +314,32 @@ export function DashboardTopbar() {
 
         {/* Right: Actions & Profile */}
         <div className="flex items-center gap-6">
-          {/* Online Badge */}
-          <div className="flex items-center gap-2.5 px-5 py-2.5 bg-emerald-50/60 border border-emerald-100/50 rounded-full text-emerald-600 font-black text-[11px] tracking-wider shadow-sm">
-             <Activity className="h-4 w-4" />
-             <span>ONLINE</span>
-             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-          </div>
+          {/* Online Toggle Button */}
+          <button 
+            onClick={async () => {
+              const { toggleAvailability } = useAuthStore.getState();
+              const newStatus = !user?.isAvailable ? "ONLINE" : "OFFLINE";
+              await toggleAvailability();
+              try {
+                await apiClient.post("/notifications/staff-status", { status: newStatus });
+              } catch (err) {
+                console.error("Failed to notify status change", err);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2.5 px-5 py-2.5 rounded-full font-black text-[11px] tracking-wider shadow-sm transition-all duration-300",
+              user?.isAvailable 
+                ? "bg-emerald-50/60 border border-emerald-100/50 text-emerald-600 hover:bg-emerald-100" 
+                : "bg-slate-50/60 border border-slate-100/50 text-slate-400 hover:bg-slate-100"
+            )}
+          >
+             <Activity className={cn("h-4 w-4", user?.isAvailable && "animate-pulse")} />
+             <span>{user?.isAvailable ? "ONLINE" : "OFFLINE"}</span>
+             <div className={cn(
+               "h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all",
+               user?.isAvailable ? "bg-emerald-500" : "bg-slate-300"
+             )} />
+          </button>
 
           <div className="flex items-center gap-3">
             <button 
@@ -336,21 +357,32 @@ export function DashboardTopbar() {
             >
               {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </button>
+
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLocale(locale === "en" ? "ar" : "en")}
+              className="h-11 w-11 rounded-xl bg-blue-50/50 flex items-center justify-center text-blue-600 font-black text-[12px] hover:bg-blue-100 transition-all shadow-sm"
+            >
+              {locale.toUpperCase()}
+            </button>
           </div>
 
           <Link href="/reception/profile" className="flex items-center gap-4 group ml-2">
-            <div className="flex flex-col justify-center text-right">
-              <p className="text-[15px] font-bold text-slate-900 leading-none mb-1 group-hover:text-blue-600 transition-colors">
-                {firstName || "Mohamed"}
-              </p>
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                {roleLabel === "Reception" ? "RECEPTION" : roleLabel}
-              </p>
-            </div>
-            <Avatar className="h-11 w-11 transition-all group-hover:scale-105 ring-2 ring-white shadow-md">
+            <Avatar className={cn(
+              "h-11 w-11 transition-all group-hover:scale-105 ring-2 shadow-md",
+              user?.isAvailable ? "ring-blue-500" : "ring-slate-200"
+            )}>
               <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user?.email}`} />
               <AvatarFallback className="bg-blue-600 text-white font-bold">{firstName.charAt(0)}</AvatarFallback>
             </Avatar>
+            <div className="flex flex-col justify-center text-left">
+              <p className="text-[15px] font-bold text-slate-900 leading-none mb-1 group-hover:text-blue-600 transition-colors">
+                {user?.name || "Sarah Jenkins"}
+              </p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                {roleLabel === "Reception" ? "LEAD RECEPTIONIST" : roleLabel}
+              </p>
+            </div>
           </Link>
         </div>
 
@@ -636,14 +668,9 @@ export function DashboardTopbar() {
             </Button>
 
             {/* Language Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setLocale(locale === "en" ? "ar" : "en")}
-              className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 font-bold text-[10px]"
-            >
-              {locale === "en" ? "AR" : "EN"}
-            </Button>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold text-xs shadow-sm cursor-pointer" onClick={() => setLocale(locale === "en" ? "ar" : "en")}>
+              {locale.toUpperCase()}
+            </div>
 
             {/* Profile Section */}
             {user && (

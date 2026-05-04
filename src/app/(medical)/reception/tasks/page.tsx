@@ -164,7 +164,7 @@ export default function ReceptionTasksPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-8 md:space-y-10 max-w-[1600px] mx-auto bg-[#F9FAFB] min-h-screen pb-24">
+    <div className="p-4 md:p-8 space-y-8 md:space-y-10 max-w-[1600px] mx-auto bg-slate-50 min-h-screen pb-24">
       {/* 1. Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
@@ -207,7 +207,7 @@ export default function ReceptionTasksPage() {
 
             <Button
               onClick={() => setIsCreateModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-6 flex items-center gap-2 font-bold shadow-lg shadow-blue-100 whitespace-nowrap"
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-6 flex items-center gap-2 font-bold shadow-lg shadow-blue-500/10 whitespace-nowrap"
             >
               <Plus className="h-4 w-4 md:h-5 md:w-5" />
               <span className="text-xs md:text-sm">{locale === "ar" ? "إنشاء مهمة" : "Create Task"}</span>
@@ -641,7 +641,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
           <Button 
             disabled={isSubmitting}
             onClick={handleSubmit}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 md:h-12 px-6 md:px-10 text-xs md:text-sm font-bold shadow-lg shadow-blue-100"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 md:h-12 px-6 md:px-10 text-xs md:text-sm font-bold shadow-lg shadow-blue-500/10"
           >
             {isSubmitting ? (locale === "ar" ? "جاري الإرسال..." : "Sending...") : (locale === "ar" ? "إرسال المهمة" : "Send Task")}
           </Button>
@@ -738,10 +738,12 @@ function PaginationNumber({ number, active }: { number: number; active?: boolean
     <button
       className={cn(
         "h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-lg md:rounded-xl font-bold text-xs md:text-sm transition-all",
-        active ? "bg-blue-600 text-white shadow-lg shadow-blue-100" : "text-slate-500 hover:bg-slate-100"
+        active ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" : "text-slate-500 hover:bg-slate-100"
       )}
     >
       {number}
     </button>
   );
 }
+
+

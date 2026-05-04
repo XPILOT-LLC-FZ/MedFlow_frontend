@@ -88,7 +88,7 @@ export default function ReceptionPrescriptionsPage() {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-6 lg:space-y-8 w-full mx-auto bg-[#F9FAFB] min-h-screen pb-24 overflow-x-hidden">
+    <div className="p-4 lg:p-6 space-y-6 lg:space-y-8 w-full mx-auto bg-slate-50 min-h-screen pb-24 overflow-x-hidden">
       {/* 1. Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
@@ -307,7 +307,7 @@ export default function ReceptionPrescriptionsPage() {
                             "rounded-[10px] md:rounded-[14px] px-4 md:px-7 font-black text-[9px] md:text-[11px] h-8 md:h-11 uppercase tracking-widest shadow-sm transition-all whitespace-nowrap",
                             item.status === "SENT" 
                               ? "bg-slate-50 text-slate-400 hover:bg-slate-100" 
-                              : "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-100"
+                              : "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/10"
                           )}
                         >
                           {item.status === "SENT" ? (locale === "ar" ? "إعادة إرسال" : "Resend") : (locale === "ar" ? "إرسال" : "Send")}
@@ -398,3 +398,5 @@ function PaginationNumber({ number, active }: { number: number; active?: boolean
     </button>
   );
 }
+
+

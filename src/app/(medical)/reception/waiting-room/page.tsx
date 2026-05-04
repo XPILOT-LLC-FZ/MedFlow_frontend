@@ -22,8 +22,10 @@ import {
   Activity,
   CreditCard,
   Loader2,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -31,7 +33,10 @@ import { formatDateKey } from "@/lib/dateUtils";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { useRouter } from "next/navigation";
-import type { Appointment } from "@/types";
+import type { Appointment, ApiPatient, ApiDoctor } from "@/types";
+import { patientService } from "@/services/patientService";
+import { staffService } from "@/services/staffService";
+import { bookingService } from "@/services/bookingService";
 
 const toMinutes = (value: string): number | null => {
   const [hours, minutes] = value.split(":").map(Number);
@@ -46,7 +51,6 @@ const formatWait = (minutes: number) => {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 };
 
-const RESOLVED_STATUSES: Appointment["status"][] = ["completed", "cancelled", "no-show"];
 
 export default function QueueManagementPage() {
   const toast = useToastStore();
@@ -69,10 +73,18 @@ export default function QueueManagementPage() {
     return () => clearInterval(interval);
   }, [loadQueue]);
 
+  const booked = useMemo(
+    () =>
+      appointments
+        .filter((a) => a.status === "scheduled")
+        .sort((a, b) => (toMinutes(a.time) ?? 9999) - (toMinutes(b.time) ?? 9999)),
+    [appointments]
+  );
+
   const waiting = useMemo(
     () =>
       appointments
-        .filter((a) => a.status === "scheduled" || a.status === "confirmed")
+        .filter((a) => a.status === "confirmed")
         .sort((a, b) => (toMinutes(a.time) ?? 9999) - (toMinutes(b.time) ?? 9999)),
     [appointments]
   );
@@ -83,7 +95,12 @@ export default function QueueManagementPage() {
   );
 
   const completed = useMemo(
-    () => appointments.filter((a) => RESOLVED_STATUSES.includes(a.status)),
+    () => appointments.filter((a) => a.status === "completed"),
+    [appointments]
+  );
+
+  const cancelled = useMemo(
+    () => appointments.filter((a) => a.status === "cancelled" || a.status === "no-show"),
     [appointments]
   );
 
@@ -103,7 +120,7 @@ export default function QueueManagementPage() {
     setProcessingKey(key);
     try {
       await updateAppointment(appt.id, { status: nextStatus });
-      toast.success("Appointment status updated");
+      toast.success(`Appointment marked as ${nextStatus.replace("-", " ")}`);
     } catch {
       toast.error("Failed to update status");
     } finally {
@@ -111,15 +128,25 @@ export default function QueueManagementPage() {
     }
   };
 
-  const showDemo = false; // Force real data
+
+
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   // ── Early return AFTER all hooks ──
   if (checkInOpen) {
-    return <AddToQueueView onBack={() => setCheckInOpen(false)} />;
+    return (
+      <AddToQueueView 
+        appointment={selectedAppointment}
+        onBack={() => {
+          setCheckInOpen(false);
+          setSelectedAppointment(null);
+        }} 
+      />
+    );
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 bg-[#F3F4F8] min-h-screen pb-20 font-sans">
+    <div className="p-4 lg:p-8 space-y-8 bg-slate-50 min-h-screen pb-20 font-sans">
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
@@ -137,7 +164,7 @@ export default function QueueManagementPage() {
           </div>
           <Button
             onClick={() => setCheckInOpen(true)}
-            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-2xl h-11 px-7 font-bold shadow-lg shadow-blue-100 flex items-center gap-2 text-[13px]"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl h-11 px-7 font-bold shadow-lg shadow-blue-500/10 flex items-center gap-2 text-[13px]"
           >
             <Plus className="h-5 w-5" />
             Add to Queue
@@ -154,75 +181,131 @@ export default function QueueManagementPage() {
       </div>
 
       {/* ── Kanban Board ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-
-        {/* WAITING Column */}
-        <KanbanColumn dot="bg-amber-400" title="Waiting" count={waiting.length} onFilter={() => setFilterOpen(true)}>
-          {waiting.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 text-sm italic">No patients waiting</div>
-          ) : (
-            waiting.map((appt, i) => {
-              const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-              const apptMin = toMinutes(appt.time) ?? nowMin;
-              const waitMin = Math.max(0, nowMin - apptMin);
-              return (
+      {/* ── Kanban Board ── */}
+      <div className="space-y-8">
+        {/* Active Columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+          {/* BOOKED Column */}
+          <KanbanColumn dot="bg-slate-300" title="Booked" count={booked.length} onFilter={() => setFilterOpen(true)}>
+            {booked.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm italic">No appointments booked</div>
+            ) : (
+              booked.map((appt) => (
                 <WaitingCard
                   key={appt.id}
-                  priority={i === 0 ? "high" : "standard"}
+                  priority="standard"
                   name={appt.patientName}
                   pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
                   time={appt.time}
-                  waitMin={waitMin}
+                  waitMin={0}
                   doctor={appt.doctorName}
                   dept={appt.type || "General"}
-                  loading={processingKey === `${appt.id}:in-progress`}
-                  onAction={() => void applyTransition(appt, "in-progress")}
+                  loading={processingKey === `${appt.id}:confirmed`}
+                  actionLabel="Check-in"
+                  onAction={() => {
+                    setSelectedAppointment(appt);
+                    setCheckInOpen(true);
+                  }}
+                  onCancel={() => void applyTransition(appt, "cancelled")}
                 />
-              );
-            })
-          )}
-        </KanbanColumn>
+              ))
+            )}
+          </KanbanColumn>
 
-        {/* IN PROGRESS Column */}
-        <KanbanColumn dot="bg-blue-500" title="In Progress" count={inProgress.length} onFilter={() => setFilterOpen(true)}>
-          {inProgress.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 text-sm italic">No patients in session</div>
-          ) : (
-            inProgress.map((appt) => (
-              <InProgressCard
-                key={appt.id}
-                room="Room 3"
-                name={appt.patientName}
-                pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
-                sessionMin={15}
-                doctor={appt.doctorName}
-                dept="Cardiology"
-                loading={processingKey === `${appt.id}:completed`}
-                onAction={() => void applyTransition(appt, "completed")}
-              />
-            ))
-          )}
-        </KanbanColumn>
+          {/* WAITING Column */}
+          <KanbanColumn dot="bg-amber-400" title="Live Queue" count={waiting.length} onFilter={() => setFilterOpen(true)}>
+            {waiting.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm italic">No patients in live queue</div>
+            ) : (
+              waiting.map((appt, i) => {
+                const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+                const apptMin = toMinutes(appt.time) ?? nowMin;
+                const waitMin = Math.max(0, nowMin - apptMin);
+                return (
+                  <WaitingCard
+                    key={appt.id}
+                    priority={i === 0 ? "high" : "standard"}
+                    name={appt.patientName}
+                    pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
+                    time={appt.time}
+                    waitMin={waitMin}
+                    doctor={appt.doctorName}
+                    dept={appt.type || "General"}
+                    loading={processingKey === `${appt.id}:in-progress`}
+                    actionLabel="Start Session"
+                    onAction={() => void applyTransition(appt, "in-progress")}
+                    onCancel={() => void applyTransition(appt, "cancelled")}
+                  />
+                );
+              })
+            )}
+          </KanbanColumn>
 
-        {/* DONE Column */}
-        <KanbanColumn dot="bg-emerald-500" title="Done" count={completed.length} onFilter={() => setFilterOpen(true)}>
-          {completed.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 text-sm italic">No patients completed yet</div>
-          ) : (
-            completed.slice(0, 10).map((appt) => (
-              <DoneCard
-                key={appt.id}
-                name={appt.patientName}
-                pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
-                completedAt={appt.endTime || appt.time}
-                doctor={appt.doctorName}
-                dept={appt.type || "General"}
-                prescription
-                onAction={() => router.push(`/reception/payments?appointmentId=${appt.id}`)}
-              />
-            ))
-          )}
-        </KanbanColumn>
+          {/* IN PROGRESS Column */}
+          <KanbanColumn dot="bg-blue-500" title="In Progress" count={inProgress.length} onFilter={() => setFilterOpen(true)}>
+            {inProgress.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm italic">No patients in session</div>
+            ) : (
+              inProgress.map((appt) => (
+                <InProgressCard
+                  key={appt.id}
+                  room="Room 3"
+                  name={appt.patientName}
+                  pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
+                  sessionMin={15}
+                  doctor={appt.doctorName}
+                  dept={appt.type || "General"}
+                  loading={processingKey === `${appt.id}:completed`}
+                  onAction={() => void applyTransition(appt, "completed")}
+                />
+              ))
+            )}
+          </KanbanColumn>
+
+          {/* DONE Column */}
+          <KanbanColumn dot="bg-emerald-500" title="Done" count={completed.length} onFilter={() => setFilterOpen(true)}>
+            {completed.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm italic">No patients completed yet</div>
+            ) : (
+              completed.slice(0, 10).map((appt) => (
+                <DoneCard
+                  key={appt.id}
+                  name={appt.patientName}
+                  pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
+                  completedAt={appt.endTime || appt.time}
+                  doctor={appt.doctorName}
+                  dept={appt.type || "General"}
+                  prescription
+                  isPaid={appt.paymentStatus === "PAID"}
+                  onAction={() => router.push(`/reception/payments?appointmentId=${appt.id}`)}
+                />
+              ))
+            )}
+          </KanbanColumn>
+        </div>
+
+        {/* Separated Columns (Cancelled) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+          <KanbanColumn dot="bg-red-400" title="Cancelled" count={cancelled.length} onFilter={() => setFilterOpen(true)}>
+            {cancelled.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-sm italic">No cancelled appointments</div>
+            ) : (
+              cancelled.slice(0, 10).map((appt) => (
+                <DoneCard
+                  key={appt.id}
+                  name={appt.patientName}
+                  pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
+                  completedAt={appt.time}
+                  doctor={appt.doctorName}
+                  dept={appt.type || "General"}
+                  statusLabel={appt.status === "no-show" ? "No Show" : "Cancelled"}
+                  isCancelled
+                  onAction={() => void applyTransition(appt, "scheduled")}
+                />
+              ))
+            )}
+          </KanbanColumn>
+        </div>
       </div>
 
       {/* ── Filter Modal ── */}
@@ -316,20 +399,33 @@ function DoctorAvatar({ name }: { name: string }) {
 /* ── Quick Action Row ──────────────────────────────────────────── */
 interface QuickActionRowProps {
   onAction: () => void;
+  onCancel?: () => void;
   loading?: boolean;
   doctorName: string;
+  actionLabel?: string;
 }
 
-function QuickActionRow({ onAction, loading, doctorName }: QuickActionRowProps) {
+function QuickActionRow({ onAction, onCancel, loading, doctorName, actionLabel = "Quick action" }: QuickActionRowProps) {
   return (
     <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-100">
-      <DoctorAvatar name={doctorName} />
+      <div className="flex items-center gap-2">
+        <DoctorAvatar name={doctorName} />
+        {onCancel && (
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="text-[11px] font-bold text-red-400 hover:text-red-500 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
       <button
         onClick={onAction}
         disabled={loading}
         className="flex items-center gap-1 text-[12px] font-black text-[#3B82F6] hover:text-blue-700 transition-colors"
       >
-        {loading ? "Updating..." : "Quick action"}
+        {loading ? "Updating..." : actionLabel}
         <ChevronRight className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -346,10 +442,12 @@ interface WaitingCardProps {
   doctor: string;
   dept: string;
   onAction: () => void;
+  onCancel?: () => void;
   loading?: boolean;
+  actionLabel?: string;
 }
 
-function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onAction, loading }: WaitingCardProps) {
+function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onAction, onCancel, loading, actionLabel }: WaitingCardProps) {
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Priority */}
@@ -374,7 +472,7 @@ function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onActio
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500">
           <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          Appt: {time} (Waiting {waitMin}m)
+          Appt: {time} {waitMin > 0 && `(Waiting ${waitMin}m)`}
         </div>
         <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500">
           <Stethoscope className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -382,7 +480,13 @@ function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onActio
         </div>
       </div>
 
-      <QuickActionRow onAction={onAction} loading={loading} doctorName={doctor} />
+      <QuickActionRow
+        onAction={onAction}
+        onCancel={onCancel}
+        loading={loading}
+        doctorName={doctor}
+        actionLabel={actionLabel}
+      />
     </div>
   );
 }
@@ -403,7 +507,7 @@ function InProgressCard({ room, name, pid, sessionMin, doctor, dept, onAction, l
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Room Badge */}
-      <span className="inline-flex px-3 py-1 rounded-lg bg-blue-50 border border-blue-100 text-[11px] font-bold text-blue-600">
+      <span className="inline-flex px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-[11px] font-bold text-blue-600">
         {room}
       </span>
 
@@ -442,14 +546,26 @@ interface DoneCardProps {
   dept: string;
   prescription?: boolean;
   onAction: () => void;
+  statusLabel?: string;
+  isCancelled?: boolean;
+  isPaid?: boolean;
 }
 
-function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction }: DoneCardProps) {
+function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction, statusLabel, isCancelled, isPaid }: DoneCardProps) {
+  const displayLabel = statusLabel || (isPaid ? "Paid" : "Checkout Req.");
+  
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
-      {/* Checkout Badge */}
-      <span className="inline-flex px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-[11px] font-bold text-emerald-600">
-        Checkout Req.
+      {/* Badge */}
+      <span className={cn(
+        "inline-flex px-3 py-1 rounded-lg border text-[11px] font-bold",
+        isCancelled
+          ? "bg-red-50 border-red-100 text-red-600"
+          : isPaid 
+            ? "bg-emerald-50 border-emerald-100 text-emerald-600"
+            : "bg-amber-50 border-amber-100 text-amber-600"
+      )}>
+        {displayLabel}
       </span>
 
       {/* Patient */}
@@ -465,13 +581,13 @@ function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
           <Clock className="h-3.5 w-3.5 text-slate-300 shrink-0" />
-          Completed at {completedAt}
+          {isCancelled ? `Cancelled at ${completedAt}` : `Completed at ${completedAt}`}
         </div>
         <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
           <Stethoscope className="h-3.5 w-3.5 text-slate-300 shrink-0" />
           {doctor} • {dept}
         </div>
-        {prescription && (
+        {prescription && !isCancelled && (
           <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
             <FileText className="h-3.5 w-3.5 text-slate-300 shrink-0" />
             E-Prescription Sent
@@ -479,7 +595,12 @@ function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction
         )}
       </div>
 
-      <QuickActionRow onAction={onAction} loading={false} doctorName={doctor} />
+      <QuickActionRow
+        onAction={onAction}
+        loading={false}
+        doctorName={doctor}
+        actionLabel={isCancelled ? "Reschedule" : isPaid ? "View Receipt" : "Checkout"}
+      />
     </div>
   );
 }
@@ -536,7 +657,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
                     className={cn(
                       "h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0",
                       checked[spec]
-                        ? "bg-[#3B82F6] border-[#3B82F6]"
+                        ? "bg-blue-600 border-[#3B82F6]"
                         : "border-slate-200 bg-white group-hover:border-blue-300"
                     )}
                   >
@@ -572,7 +693,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
                   className={cn(
                     "h-11 rounded-xl text-[12px] font-bold transition-all",
                     selectedPriority === p
-                      ? "bg-[#3B82F6] text-white shadow-lg shadow-blue-100"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10"
                       : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                   )}
                 >
@@ -594,7 +715,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
           </Button>
           <Button
             onClick={onClose}
-            className="flex-1 h-12 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold shadow-lg shadow-blue-100 text-[14px]"
+            className="flex-1 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[14px]"
           >
             Save
           </Button>
@@ -603,27 +724,114 @@ function FilterModal({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
-/* ── Add To Queue / Patient Check-in View ──────────────────────── */
-function AddToQueueView({ onBack }: { onBack: () => void }) {
+function AddToQueueView({ appointment, onBack }: { appointment: Appointment | null; onBack: () => void }) {
+  const router = useRouter();
+  const toast = useToastStore();
+  const { updateAppointment, fetchAppointments } = useBookingStore();
+  const [loading, setLoading] = useState(false);
   const [paid, setPaid] = useState(false);
   const [priority, setPriority] = useState<"routine" | "standard" | "urgent">("standard");
   const [consentSigned, setConsentSigned] = useState(false);
 
+  // Walk-in State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [patients, setPatients] = useState<ApiPatient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<ApiPatient | null>(null);
+  const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<ApiDoctor | null>(null);
+  const [searchingPatients, setSearchingPatients] = useState(false);
+
+  useEffect(() => {
+    if (!appointment) {
+      void staffService.getDoctors().then(setDoctors);
+    }
+  }, [appointment]);
+
+  useEffect(() => {
+    if (!appointment && searchQuery.length > 2) {
+      setSearchingPatients(true);
+      const delay = setTimeout(async () => {
+        try {
+          const results = await patientService.getAll({ search: searchQuery });
+          setPatients(results);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setSearchingPatients(false);
+        }
+      }, 300);
+      return () => clearTimeout(delay);
+    } else {
+      setPatients([]);
+    }
+  }, [searchQuery, appointment]);
+
+  const handleConfirmCheckIn = async () => {
+    setLoading(true);
+    try {
+      if (appointment) {
+        await updateAppointment(appointment.id, { 
+          status: "confirmed",
+          notes: "Patient checked-in at reception"
+        });
+      } else {
+        if (!selectedPatient || !selectedDoctor) {
+          toast.error("Please select both a patient and a doctor");
+          return;
+        }
+        const now = new Date();
+        const startTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        
+        await bookingService.create({
+          patientId: selectedPatient.id,
+          patientName: selectedPatient.fullName,
+          doctorId: selectedDoctor.id,
+          doctorName: selectedDoctor.fullName,
+          date: formatDateKey(now),
+          startTime: startTime,
+          type: "CONSULTATION",
+          notes: `Walk-in patient check-in (${priority} priority)`,
+          amount: selectedDoctor.consultationFee || 0,
+          status: "CONFIRMED"
+        });
+      }
+      toast.success("Patient added to queue successfully");
+      await fetchAppointments({ date: formatDateKey(new Date()) });
+      onBack();
+    } catch (error) {
+      toast.error("Failed to add patient to queue");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentPatientName = appointment?.patientName || selectedPatient?.fullName || "";
+  const currentPatientPhone = appointment?.patientPhone || selectedPatient?.phone || "";
+  const currentPatientId = appointment?.id || selectedPatient?.id || "";
+  const currentDoctorName = appointment?.doctorName || selectedDoctor?.fullName || "";
+  const currentSpecialty = appointment?.specialty || selectedDoctor?.specialization || "";
+  const currentAmount = appointment?.amount || selectedDoctor?.consultationFee || 0;
+
   return (
-    <div className="p-4 lg:p-8 bg-[#F3F4F8] min-h-screen pb-20 font-sans space-y-8">
+    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-2 text-[13px] font-bold text-slate-400">
           <span className="cursor-pointer hover:text-slate-600 transition-colors" onClick={onBack}>Patient Queue</span>
           <ChevronRight className="h-3.5 w-3.5" />
           <span className="text-slate-900">Patient Check-in</span>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onBack} className="rounded-xl border-slate-200 font-bold text-slate-500 hover:bg-slate-50 h-11 px-8 text-[13px] bg-white">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <Button variant="outline" onClick={onBack} className="rounded-xl border-slate-200 font-bold text-slate-500 hover:bg-slate-50 h-11 px-8 text-[13px] bg-white order-2 sm:order-1">
             Cancel
           </Button>
-          <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-100 text-[13px]">
+          <Button 
+            disabled={loading || (!appointment && (!selectedPatient || !selectedDoctor))}
+            onClick={handleConfirmCheckIn}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10 text-[13px] order-1 sm:order-2"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Confirm check in
           </Button>
         </div>
@@ -632,47 +840,107 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
       <div className="grid grid-cols-1 xl:grid-cols-10 gap-8">
         {/* Left Column */}
         <div className="xl:col-span-7 space-y-6">
-          {/* Patient Hero */}
-          <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-5">
-                <Avatar className="h-16 w-16 border-4 border-white shadow-md">
-                  <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Michael" />
-                  <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-lg">MR</AvatarFallback>
-                </Avatar>
-                <div className="space-y-1">
-                  <h2 className="text-[19px] font-bold text-slate-900">Michael R. Harrison</h2>
-                  <div className="flex items-center gap-4 text-[12px] font-bold text-slate-400">
-                    <span>Ex: APT-84729</span>
-                    <span>DOB: 14 Aug 1983 (43y)</span>
+          
+          {/* Patient Selection (Walk-in only) */}
+          {!appointment && !selectedPatient && (
+            <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-5">
+              <h3 className="text-[16px] font-bold text-slate-900">Select Patient</h3>
+              <div className="relative">
+                {searchingPatients ? (
+                  <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
+                ) : (
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                )}
+                <Input 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, phone or ID..." 
+                  className="pl-11 h-14 rounded-2xl border-slate-100 bg-slate-50" 
+                />
+                {patients.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto no-scrollbar">
+                    {patients.map(p => (
+                      <div 
+                        key={p.id} 
+                        onClick={() => setSelectedPatient(p)}
+                        className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-none"
+                      >
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${p.fullName}`} />
+                          <AvatarFallback>{p.fullName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-900">{p.fullName}</span>
+                          <span className="text-[11px] text-slate-500">{p.phone}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-500 mt-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    Scheduled: 10:30 AM
+                )}
+              </div>
+              <div className="flex items-center justify-center py-4">
+                 <Button 
+                   variant="ghost" 
+                   onClick={() => router.push("/reception/patients")}
+                   className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl"
+                 >
+                   <Plus className="h-4 w-4 mr-2" /> Register New Patient
+                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Patient Hero */}
+          {(appointment || selectedPatient) && (
+            <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 md:p-7 space-y-5">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 text-center sm:text-left">
+                <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-5">
+                  <Avatar className="h-16 w-16 border-4 border-white shadow-md">
+                    <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${currentPatientName}`} />
+                    <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-lg">{currentPatientName.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+                      <h2 className="text-[18px] md:text-[19px] font-bold text-slate-900">{currentPatientName}</h2>
+                      {!appointment && (
+                        <button onClick={() => setSelectedPatient(null)} className="text-[11px] font-bold text-blue-600 hover:underline">Change</button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-[11px] md:text-[12px] font-bold text-slate-400">
+                      <span>ID: #PT-{currentPatientId.toString().slice(-5).toUpperCase()}</span>
+                      <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-slate-300" />
+                      <span>{currentPatientPhone || "No phone recorded"}</span>
+                    </div>
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-[11px] md:text-[12px] font-bold text-slate-500 mt-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {appointment ? `Scheduled: ${appointment.time}` : "Walk-in Check-in"}
+                    </div>
                   </div>
                 </div>
+                <div className="flex flex-col items-center sm:items-end gap-1.5 shrink-0">
+                  <span className="inline-flex px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-[10px] md:text-[11px] font-black rounded-xl uppercase tracking-wide">
+                    {appointment ? appointment.status.toUpperCase() : "WALK-IN"} · Pending Check-in
+                  </span>
+                  <p className="text-[10px] md:text-[11px] font-bold text-slate-400">Date: {appointment ? new Date(appointment.date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+                </div>
               </div>
-              <div className="text-right space-y-1.5">
-                <span className="inline-flex px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-[11px] font-black rounded-xl uppercase tracking-wide">
-                  Arrived · Pending Check-in
-                </span>
-                <p className="text-[11px] font-bold text-slate-400">Wait time 5 mins</p>
+              <div className="flex items-center gap-6 pt-3 border-t border-slate-50">
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
+                  <ClipboardList className="h-4 w-4 text-slate-400" />
+                  <span className="text-[12px] font-bold text-slate-600">{appointment?.type || "General Visit"}</span>
+                </div>
+                {currentDoctorName && (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${currentDoctorName}`} />
+                      <AvatarFallback className="text-[10px]">{currentDoctorName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[12px] font-bold text-slate-600">Dr. {currentDoctorName}</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-6 pt-3 border-t border-slate-50">
-              <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
-                <ClipboardList className="h-4 w-4 text-slate-400" />
-                <span className="text-[12px] font-bold text-slate-600">Follow-up Visit</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Avatar className="h-7 w-7">
-                  <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Aarav" />
-                  <AvatarFallback className="text-[10px]">AA</AvatarFallback>
-                </Avatar>
-                <span className="text-[12px] font-bold text-slate-600">Dr. Aarav Mehta</span>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Check-in Requirements */}
           <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-6">
@@ -698,7 +966,7 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
                   </div>
                   <div>
                     <p className="text-[14px] font-bold text-slate-900">Verify Patient Identity</p>
-                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">Driver&apos;s License or ID scanned and confirmed</p>
+                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">ID and details confirmed</p>
                   </div>
                 </div>
                 <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg whitespace-nowrap">Verified</span>
@@ -737,7 +1005,7 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
                   </div>
                   <div>
                     <p className="text-[14px] font-bold text-slate-900">Update Contact Information</p>
-                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">Confirm phone number and email address are current</p>
+                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">Confirm phone number and email address</p>
                   </div>
                 </div>
                 <button className="text-[11px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap flex items-center gap-1">
@@ -754,42 +1022,64 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
                 <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
                   <Activity className="h-5 w-5 text-indigo-600" />
                 </div>
-                <h3 className="text-[16px] font-bold text-slate-900">Initial Vitals <span className="text-slate-300 font-normal">(Optional at Desk)</span></h3>
+                <h3 className="text-[16px] font-bold text-slate-900">Initial Vitals <span className="text-slate-300 font-normal">(Optional)</span></h3>
               </div>
-              <button className="text-[12px] font-bold text-blue-600 hover:text-blue-700 transition-colors">Skip to Triage</button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-              <VitalInput label="Blood Pressure" value="120/80" unit="mmhg" />
-              <VitalInput label="Heart Rate" value="72" unit="bpm" />
-              <VitalInput label="Temperature" value="98.6" unit="°F" />
-              <VitalInput label="Weight" value="185" unit="kg" />
+              <VitalInput label="Blood Pressure" value="--" unit="mmhg" />
+              <VitalInput label="Heart Rate" value="--" unit="bpm" />
+              <VitalInput label="Temperature" value="--" unit="°F" />
+              <VitalInput label="Weight" value="--" unit="kg" />
             </div>
           </div>
         </div>
 
         {/* Right Column */}
         <div className="xl:col-span-3 space-y-6">
-          {/* Queue Assignment */}
+          {/* Queue Assignment (Dynamic for Walk-in) */}
           <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
             <h3 className="text-[16px] font-bold text-slate-900">Queue Assignment</h3>
 
             {/* Assigned Doctor */}
             <div className="space-y-2">
               <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Assigned Doctor</label>
-              <div className="flex items-center justify-between px-4 py-3 bg-[#F9FAFB] border border-slate-100 rounded-xl cursor-pointer hover:border-slate-200 transition-all">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Aarav" />
-                    <AvatarFallback>AA</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-[13px] font-bold text-slate-900">Dr. Aarav Mehta</p>
-                    <p className="text-[11px] font-bold text-slate-400">Cardiology Dept.</p>
+              {!appointment ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-40 overflow-y-auto no-scrollbar">
+                  {doctors.map(doc => (
+                    <div 
+                      key={doc.id}
+                      onClick={() => setSelectedDoctor(doc)}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                        selectedDoctor?.id === doc.id ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                      )}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`} />
+                        <AvatarFallback>{doc.fullName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-slate-900 truncate">{doc.fullName}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{doc.specialization}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${currentDoctorName}`} />
+                      <AvatarFallback>{currentDoctorName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-[13px] font-bold text-slate-900">Dr. {currentDoctorName}</p>
+                      <p className="text-[11px] font-bold text-slate-400">{currentSpecialty}</p>
+                    </div>
                   </div>
                 </div>
-                <ChevronDown className="h-4 w-4 text-slate-400" />
-              </div>
+              )}
             </div>
 
             {/* Priority Level */}
@@ -801,31 +1091,21 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
                     key={p}
                     onClick={() => setPriority(p)}
                     className={cn(
-                      "h-10 rounded-xl text-[11px] font-bold capitalize transition-all",
-                      priority === p
-                        ? "bg-[#3B82F6] text-white shadow-md shadow-blue-100"
-                        : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                       "h-10 rounded-xl text-[11px] font-bold capitalize transition-all",
+                       priority === p
+                         ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
+                         : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                     )}
                   >
-                    {p === "routine" ? "Routine" : p === "standard" ? "Standard" : "Urgent"}
+                    {p}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            {/* Room / Zone */}
-            <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Room / Zone</label>
-              <div className="flex items-center justify-between px-4 py-3 bg-[#F9FAFB] border border-slate-100 rounded-xl cursor-pointer hover:border-slate-200 transition-all">
-                <span className="text-[13px] font-bold text-slate-700">Waiting Area A</span>
-                <ChevronDown className="h-4 w-4 text-slate-400" />
               </div>
             </div>
           </div>
 
           {/* Copay Summary */}
-          <div className={cn("rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-5 relative overflow-hidden", paid ? "bg-[#1E3A5F]" : "bg-[#1E3A5F]")}>
-            {/* Paid watermark */}
+          <div className="rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-5 relative overflow-hidden bg-slate-900">
             {paid && (
               <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                 <div className="border-4 border-emerald-400 text-emerald-400 text-[40px] font-black px-6 py-2 rounded-xl opacity-60 rotate-[-15deg] tracking-widest">
@@ -837,41 +1117,41 @@ function AddToQueueView({ onBack }: { onBack: () => void }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-blue-300" />
-                <span className="text-[13px] font-bold text-white">Copay Summary</span>
+                <span className="text-[13px] font-bold text-white">Payment Summary</span>
               </div>
-              <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/20 px-2.5 py-1 rounded-lg">Verified</span>
+              <span className={cn("text-[10px] font-black px-2.5 py-1 rounded-lg", paid ? "bg-emerald-400/20 text-emerald-400" : "bg-amber-400/20 text-amber-400")}>
+                {paid ? "PAID" : "PENDING"}
+              </span>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-blue-300">Insurance</span>
-                <span className="text-[12px] font-bold text-white">BlueCross PPO</span>
+                <span className="text-[12px] font-bold text-blue-300">Amount Due</span>
+                <span className="text-[12px] font-bold text-white">{currentAmount} LE</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[12px] font-bold text-blue-300">Visit Type</span>
-                <span className="text-[12px] font-bold text-white">Specialist Follow-up</span>
+                <span className="text-[12px] font-bold text-white capitalize">{appointment?.type || "Walk-in Consultation"}</span>
               </div>
             </div>
 
-            <div className="space-y-1 pt-2 border-t border-white/10">
-              <p className="text-[12px] font-bold text-blue-300">Copay Due</p>
-              <p className="text-[36px] font-black text-white tracking-tight leading-none">40.00 <span className="text-[20px]">LE</span></p>
-            </div>
-
             {!paid && (
-              <>
-                <Button
-                  onClick={() => setPaid(true)}
-                  className="w-full h-12 rounded-2xl bg-[#3B82F6] hover:bg-[#2563EB] text-white font-bold text-[14px] shadow-lg shadow-blue-900/30"
-                >
-                  <CreditCard className="h-4 w-4 mr-2" /> Collect Payment Now
-                </Button>
-                <button className="w-full text-[12px] font-bold text-blue-300 hover:text-white transition-colors text-center py-1">
-                  Defer to checkout
-                </button>
-              </>
+              <Button
+                onClick={() => setPaid(true)}
+                className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[14px] shadow-lg shadow-blue-900/30"
+              >
+                <CreditCard className="h-4 w-4 mr-2" /> Collect Payment Now
+              </Button>
             )}
           </div>
+
+          <Button 
+            onClick={handleConfirmCheckIn}
+            disabled={loading}
+            className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
+          >
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm check in"}
+          </Button>
         </div>
       </div>
     </div>
@@ -882,7 +1162,7 @@ function VitalInput({ label, value, unit }: { label: string; value: string; unit
   return (
     <div className="space-y-2">
       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{label}</label>
-      <div className="flex items-center gap-2 h-12 px-4 bg-[#F9FAFB] border border-slate-100 rounded-xl">
+      <div className="flex items-center gap-2 h-12 px-4 bg-slate-50 border border-slate-100 rounded-xl">
         <input
           defaultValue={value}
           className="flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none w-full"
@@ -892,3 +1172,5 @@ function VitalInput({ label, value, unit }: { label: string; value: string; unit
     </div>
   );
 }
+
+
