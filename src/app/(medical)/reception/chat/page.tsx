@@ -353,7 +353,8 @@ function ReceptionChatPageContent() {
       } catch (err) {
         console.error("Failed to fetch messages", err);
         if (!cancelled) {
-          if (err.status === 403) {
+          const errorStatus = (err as any)?.status;
+          if (errorStatus === 403) {
             setError(locale === "ar" ? "ليس لديك صلاحية للوصول لهذه المحادثة" : "You are not authorized to view this chat");
             // Clear selection after a delay if it's a forbidden chat from URL
             setTimeout(() => {
