@@ -92,8 +92,8 @@ export function MobileNavbar({ showSidebarToggle = false }: { showSidebarToggle?
               toggleAvailability();
             }}
             className={`relative transition-all duration-300 ${user.isAvailable
-                ? "text-primary bg-primary/5 ring-1 ring-primary/20"
-                : "text-muted-foreground opacity-70"
+              ? "text-primary bg-primary/5 ring-1 ring-primary/20"
+              : "text-muted-foreground opacity-70"
               }`}
             title={
               locale === "ar"

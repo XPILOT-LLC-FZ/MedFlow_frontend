@@ -35,7 +35,7 @@ import type { ApiReceptionHandoff, ApiQuickTask, ApiPatient, ApiDoctor } from "@
 type StatusFilter = "ALL" | "NEW" | "REVIEWED";
 
 export default function ReceptionTasksPage() {
-  const { locale } = useTranslation();
+  const { t, isRTL, locale } = useTranslation();
   const toastSuccess = useToastStore((s) => s.success);
   const toastError = useToastStore((s) => s.error);
 
@@ -107,10 +107,10 @@ export default function ReceptionTasksPage() {
       } else {
         await tasksService.update(task.id, { status: "COMPLETED" });
       }
-      toastSuccess(locale === "ar" ? "تم تحديد المهمة كمكتملة" : "Task marked as completed");
+      toastSuccess(t("statusUpdatedSuccessfully"));
       void fetchTasks();
     } catch {
-      toastError(locale === "ar" ? "فشل تحديث الحالة" : "Failed to update status");
+      toastError(t("error"));
     }
   };
 
@@ -121,7 +121,7 @@ export default function ReceptionTasksPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+    return date.toLocaleDateString(isRTL ? "ar-EG" : "en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -133,7 +133,7 @@ export default function ReceptionTasksPage() {
       const h = t as ApiReceptionHandoff;
       if (h.diagnosis) return h.diagnosis;
       if (h.notesSnapshot) return h.notesSnapshot.slice(0, 40) + (h.notesSnapshot.length > 40 ? "…" : "");
-      return locale === "ar" ? "ملاحظات سريرية" : "Clinical Notes";
+      return isRTL ? "ملاحظات سريرية" : "Clinical Notes";
     }
     return (t as ApiQuickTask).title;
   };
@@ -163,25 +163,25 @@ export default function ReceptionTasksPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 space-y-8 md:space-y-10 max-w-[1600px] mx-auto bg-slate-50 min-h-screen pb-24">
+    <div dir={isRTL ? "rtl" : "ltr"} className="p-4 md:p-8 space-y-8 md:space-y-10 max-w-[1600px] mx-auto bg-slate-50 min-h-screen pb-24 relative -m-4 md:-m-8">
       {/* 1. Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
+      <div className={cn("flex flex-col md:flex-row md:items-end justify-between gap-6", isRTL ? "md:flex-row-reverse" : "md:flex-row")}>
+        <div className={cn("space-y-1", isRTL ? "text-right" : "text-left")}>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-            {locale === "ar" ? "المهام" : "Tasks"}
+            {t("tasks") || (isRTL ? "المهام" : "Tasks")}
           </h1>
           <p className="text-slate-500 text-xs md:text-sm font-medium">
-            {locale === "ar"
+            {isRTL
               ? "إدارة ومتابعة العمليات الطبية عبر الأقسام."
               : "Manage and track medical operations across departments."}
           </p>
         </div>
 
-        <div className="flex items-center gap-3 md:gap-4 overflow-x-auto no-scrollbar pb-2 md:pb-0">
-          <div className="hidden lg:flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors whitespace-nowrap">
+        <div className={cn("flex items-center gap-3 md:gap-4 overflow-x-auto no-scrollbar pb-2 md:pb-0", isRTL ? "flex-row-reverse" : "flex-row")}>
+          <div className={cn("hidden lg:flex items-center gap-3 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors whitespace-nowrap", isRTL ? "flex-row-reverse" : "flex-row")}>
             <CalendarDays className="h-5 w-5 text-blue-600" />
             <span className="text-sm font-semibold text-slate-700">
-              {new Date().toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+              {new Date().toLocaleDateString(isRTL ? "ar-EG" : "en-US", {
                 weekday: "long",
                 month: "short",
                 day: "numeric",
@@ -191,49 +191,49 @@ export default function ReceptionTasksPage() {
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
           
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className={cn("flex items-center gap-2 md:gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
             <Button
               variant="outline"
               onClick={() => {
                 setIsLoading(true);
                 void fetchTasks();
               }}
-              className="border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-5 flex items-center gap-2 font-bold shadow-sm transition-all whitespace-nowrap"
+              className={cn("border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-5 flex items-center gap-2 font-bold shadow-sm transition-all whitespace-nowrap", isRTL ? "flex-row-reverse" : "flex-row")}
             >
               <RefreshCw className={cn("h-4 w-4 md:h-5 md:w-5", isLoading && "animate-spin")} />
-              <span className="text-xs md:text-sm">{locale === "ar" ? "تحديث" : "Refresh"}</span>
+              <span className="text-xs md:text-sm">{t("refresh") || (isRTL ? "تحديث" : "Refresh")}</span>
             </Button>
 
             <Button
               onClick={() => setIsCreateModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-6 flex items-center gap-2 font-bold shadow-lg shadow-blue-500/10 whitespace-nowrap"
+              className={cn("bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-6 flex items-center gap-2 font-bold shadow-lg shadow-blue-500/10 whitespace-nowrap", isRTL ? "flex-row-reverse" : "flex-row")}
             >
               <Plus className="h-4 w-4 md:h-5 md:w-5" />
-              <span className="text-xs md:text-sm">{locale === "ar" ? "إنشاء مهمة" : "Create Task"}</span>
+              <span className="text-xs md:text-sm">{t("createTask") || (isRTL ? "إنشاء مهمة" : "Create Task")}</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* 2. Summary Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+      <div className={cn("grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6", isRTL ? "direction-rtl" : "direction-ltr")}>
         <TaskSummaryCard
-          label={locale === "ar" ? "مهام معلقة" : "Overdue tasks"}
-          value={String(newCount)}
+          label={t("overdueTasks") || (isRTL ? "مهام معلقة" : "Overdue tasks")}
+          value={newCount.toLocaleString(isRTL ? "ar-EG" : "en-US")}
           icon={Clock}
           iconBg="bg-rose-50"
           iconColor="text-rose-500"
         />
         <TaskSummaryCard
-          label={locale === "ar" ? "أولوية عالية" : "High priority"}
-          value={String(tasks.filter((t) => getPriority(t) === "High").length)}
+          label={t("highPriority") || (isRTL ? "أولوية عالية" : "High priority")}
+          value={tasks.filter((t) => getPriority(t) === "High").length.toLocaleString(isRTL ? "ar-EG" : "en-US")}
           icon={ClipboardList}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
         />
         <TaskSummaryCard
-          label={locale === "ar" ? "مكتملة اليوم" : "Completed today"}
-          value={String(reviewedCount)}
+          label={t("completedToday") || (isRTL ? "مكتملة اليوم" : "Completed today")}
+          value={reviewedCount.toLocaleString(isRTL ? "ar-EG" : "en-US")}
           icon={CheckSquare}
           iconBg="bg-purple-50"
           iconColor="text-purple-600"
@@ -245,27 +245,25 @@ export default function ReceptionTasksPage() {
       <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[24px] md:rounded-[40px] overflow-hidden bg-white p-1 md:p-2">
         <CardContent className="p-4 md:p-6 space-y-6 md:space-y-8">
           {/* Filters Bar */}
-          <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+          <div className={cn("flex flex-col xl:flex-row xl:items-center gap-4", isRTL ? "xl:flex-row-reverse" : "xl:flex-row")}>
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400", isRTL ? "right-4" : "left-4")} />
               <Input
-                placeholder={
-                  locale === "ar" ? "بحث في المهام أو المرضى..." : "Search tasks or patients..."
-                }
-                className="pl-11 h-11 md:h-12 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200"
+                placeholder={isRTL ? "بحث في المهام أو المرضى..." : "Search tasks or patients..."}
+                className={cn("h-11 md:h-12 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200", isRTL ? "pr-11 text-right" : "pl-11 text-left")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar pb-1">
+            <div className={cn("flex items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar pb-1", isRTL ? "flex-row-reverse" : "flex-row")}>
               <TableFilter
                 label={
                   statusFilter === "ALL"
-                    ? (locale === "ar" ? "كل الحالات" : "All states")
+                    ? (isRTL ? "كل الحالات" : "All states")
                     : statusFilter === "NEW"
-                      ? (locale === "ar" ? "جديد" : "New")
-                      : (locale === "ar" ? "تمت المراجعة" : "Reviewed")
+                      ? (isRTL ? "جديد" : "New")
+                      : (isRTL ? "تمت المراجعة" : "Reviewed")
                 }
                 onClick={() =>
                   setStatusFilter((prev) =>
@@ -273,8 +271,8 @@ export default function ReceptionTasksPage() {
                   )
                 }
               />
-              <TableFilter label={locale === "ar" ? "كل الأطباء" : "All Doctors"} />
-              <TableFilter label={locale === "ar" ? "كل الأولويات" : "All Priority"} />
+              <TableFilter label={t("allDoctors")} />
+              <TableFilter label={t("allPriority") || (isRTL ? "كل الأولويات" : "All Priority")} />
             </div>
           </div>
 
@@ -283,26 +281,26 @@ export default function ReceptionTasksPage() {
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest first:rounded-tl-2xl">
-                    {locale === "ar" ? "عنوان المهمة" : "Task Title"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right last:rounded-tl-2xl" : "text-left first:rounded-tl-2xl")}>
+                    {t("taskTitle") || (isRTL ? "عنوان المهمة" : "Task Title")}
                   </th>
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    {locale === "ar" ? "التاريخ" : "Due Date"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                    {t("dueDate") || (isRTL ? "تاريخ الاستحقاق" : "Due Date")}
                   </th>
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    {locale === "ar" ? "اسم المريض" : "Patient Name"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                    {t("patientName")}
                   </th>
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    {locale === "ar" ? "الطبيب المعين" : "Assigned Doctor"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                    {t("assignedDoctor") || (isRTL ? "الطبيب المعين" : "Assigned Doctor")}
                   </th>
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    {locale === "ar" ? "الأولوية" : "Priority"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                    {isRTL ? "الأولوية" : "Priority"}
                   </th>
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                    {locale === "ar" ? "الحالة" : "Status"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                    {isRTL ? "الحالة" : "Status"}
                   </th>
-                  <th className="px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right last:rounded-tr-2xl">
-                    {locale === "ar" ? "الإجراءات" : "Actions"}
+                  <th className={cn("px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right", isRTL ? "text-left first:rounded-tr-2xl" : "text-right last:rounded-tr-2xl")}>
+                    {isRTL ? "الإجراءات" : "Actions"}
                   </th>
                 </tr>
               </thead>
@@ -323,10 +321,10 @@ export default function ReceptionTasksPage() {
                           <ClipboardList className="h-6 w-6 md:h-7 md:w-7 text-slate-300" />
                         </div>
                         <p className="text-base md:text-lg font-bold text-slate-900">
-                          {locale === "ar" ? "لا توجد مهام" : "No tasks found"}
+                          {isRTL ? "لا توجد مهام" : "No tasks found"}
                         </p>
                         <p className="text-xs md:text-sm text-slate-400 max-w-xs">
-                          {locale === "ar"
+                          {isRTL
                             ? "سيظهر هنا أي تقارير أو ملاحظات يتم إرسالها من الأطباء."
                             : "Reports and notes sent by doctors will appear here for processing."}
                         </p>
@@ -335,56 +333,56 @@ export default function ReceptionTasksPage() {
                   </tr>
                 ) : (
                   filteredTasks.map((task) => {
-                    const patientName = 'patientName' in task ? task.patientName : (task.patient?.fullName || "General");
-                    const doctorName = 'doctorName' in task ? task.doctorName : (task.doctor?.fullName || "Unassigned");
+                    const patientName = 'patientName' in task ? task.patientName : (task.patient?.fullName || (isRTL ? "عام" : "General"));
+                    const doctorName = 'doctorName' in task ? task.doctorName : (task.doctor?.fullName || (isRTL ? "غير محدد" : "Unassigned"));
                     const isNew = task.status === "NEW" || task.status === "PENDING";
                     
                     return (
                       <tr key={task.id} className="hover:bg-slate-50/30 transition-colors group">
                         <td className="px-6 py-5 md:py-6">
-                          <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                             <div className={cn("h-2 w-2 rounded-full shrink-0", isNew ? "bg-blue-600 animate-pulse" : "bg-slate-300")} />
-                            <span className="text-sm font-bold text-slate-900 truncate max-w-[200px]">
+                            <span className={cn("text-sm font-bold text-slate-900 truncate max-w-[200px]", isRTL ? "text-right" : "text-left")}>
                               {getTaskTitle(task)}
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-5 md:py-6 text-sm font-medium text-slate-500 whitespace-nowrap">
+                        <td className={cn("px-6 py-5 md:py-6 text-sm font-medium text-slate-500 whitespace-nowrap", isRTL ? "text-right" : "text-left")}>
                           {formatDate(task.createdAt)}
                         </td>
                         <td className="px-6 py-5 md:py-6">
-                          <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                             <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
                               <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${patientName}`} />
                               <AvatarFallback>P</AvatarFallback>
                             </Avatar>
-                            <span className="text-sm font-bold text-slate-700 truncate">{patientName}</span>
+                            <span className={cn("text-sm font-bold text-slate-700 truncate", isRTL ? "text-right" : "text-left")}>{patientName}</span>
                           </div>
                         </td>
                         <td className="px-6 py-5 md:py-6">
-                          <div className="flex items-center gap-3">
+                          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                             <Avatar className="h-8 w-8 border-2 border-white shadow-sm shrink-0">
                               <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${doctorName}`} />
                               <AvatarFallback>D</AvatarFallback>
                             </Avatar>
-                            <span className="text-sm font-bold text-slate-700 truncate">
-                              {locale === "ar" ? "د." : "Dr."} {doctorName}
+                            <span className={cn("text-sm font-bold text-slate-700 truncate", isRTL ? "text-right" : "text-left")}>
+                              {isRTL ? "د." : "Dr."} {doctorName}
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-5 md:py-6">
+                        <td className={cn("px-6 py-5 md:py-6", isRTL ? "text-right" : "text-left")}>
                           <PriorityText priority={getPriority(task)} />
                         </td>
-                        <td className="px-6 py-5 md:py-6">
+                        <td className={cn("px-6 py-5 md:py-6", isRTL ? "text-right" : "text-left")}>
                           <StatusBadge status={getStatus(task)} />
                         </td>
-                        <td className="px-6 py-5 md:py-6 text-right">
-                          <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                        <td className={cn("px-6 py-5 md:py-6", isRTL ? "text-left" : "text-right")}>
+                          <div className={cn("flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity", isRTL ? "justify-start flex-row-reverse" : "justify-end flex-row")}>
                             {isNew && (
                               <button
                                 onClick={() => handleMarkAsDone(task)}
                                 className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-200"
-                                title={locale === "ar" ? "إنهاء المهمة" : "Mark as done"}
+                                title={t("markAsDone") || (isRTL ? "إنهاء المهمة" : "Mark as done")}
                               >
                                 <CheckCircle2 className="h-5 w-5" />
                               </button>
@@ -398,7 +396,7 @@ export default function ReceptionTasksPage() {
                               <button
                                 onClick={() => openPdfPreview(task as ApiReceptionHandoff)}
                                 className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                                title={locale === "ar" ? "عرض وتحميل" : "View & PDF"}
+                                title={isRTL ? "عرض وتحميل" : "View & PDF"}
                               >
                                 <Download className="h-5 w-5" />
                               </button>
@@ -415,21 +413,21 @@ export default function ReceptionTasksPage() {
 
           {/* Pagination Footer */}
           {filteredTasks.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+            <div className={cn("flex flex-col sm:flex-row items-center justify-between gap-4 pt-4", isRTL ? "sm:flex-row-reverse" : "sm:flex-row")}>
               <p className="text-xs md:text-sm font-medium text-slate-400">
-                {locale === "ar" ? "عرض" : "Showing"}{" "}
-                <span className="text-slate-900">1</span>{" "}
-                {locale === "ar" ? "إلى" : "to"}{" "}
-                <span className="text-slate-900">{Math.min(filteredTasks.length, 10)}</span>{" "}
-                {locale === "ar" ? "من" : "of"}{" "}
-                <span className="text-slate-900">{filteredTasks.length}</span>{" "}
-                {locale === "ar" ? "نتيجة" : "results"}
+                {isRTL ? "عرض" : "Showing"}{" "}
+                <span className="text-slate-900">{ (1).toLocaleString(isRTL ? "ar-EG" : "en-US") }</span>{" "}
+                {isRTL ? "إلى" : "to"}{" "}
+                <span className="text-slate-900">{Math.min(filteredTasks.length, 10).toLocaleString(isRTL ? "ar-EG" : "en-US")}</span>{" "}
+                {isRTL ? "من" : "of"}{" "}
+                <span className="text-slate-900">{filteredTasks.length.toLocaleString(isRTL ? "ar-EG" : "en-US")}</span>{" "}
+                {isRTL ? "نتيجة" : "results"}
               </p>
-              <div className="flex items-center gap-2">
-                <PaginationButton icon={ChevronLeft} disabled />
+              <div className={cn("flex items-center gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
+                <PaginationButton icon={isRTL ? ChevronRight : ChevronLeft} disabled />
                 <PaginationNumber number={1} active />
                 {filteredTasks.length > 10 && <PaginationNumber number={2} />}
-                <PaginationButton icon={ChevronRight} disabled={filteredTasks.length <= 10} />
+                <PaginationButton icon={isRTL ? ChevronLeft : ChevronRight} disabled={filteredTasks.length <= 10} />
               </div>
             </div>
           )}
@@ -450,6 +448,8 @@ export default function ReceptionTasksPage() {
         isOpen={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
         locale={locale}
+        isRTL={isRTL}
+        t={t}
       />
     </div>
   );
@@ -457,7 +457,7 @@ export default function ReceptionTasksPage() {
 
 /* ── Sub-components ──────────────────────────────────────────── */
 
-function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose: () => void; locale: string }) {
+function CreateTaskModal({ isOpen, onClose, locale, isRTL, t }: { isOpen: boolean; onClose: () => void; locale: string; isRTL: boolean; t: any }) {
   const toastSuccess = useToastStore((s) => s.success);
   const toastError = useToastStore((s) => s.error);
 
@@ -495,7 +495,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
 
   const handleSubmit = async () => {
     if (!title || !selectedPatientId || !selectedDoctorId) {
-      toastError(locale === "ar" ? "يرجى ملء الحقول المطلوبة واختيار طبيب" : "Please fill required fields and select a doctor");
+      toastError(isRTL ? "يرجى ملء الحقول المطلوبة واختيار طبيب" : "Please fill required fields and select a doctor");
       return;
     }
 
@@ -509,7 +509,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
         dueDate: dueDate || undefined,
         priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as "LOW" | "NORMAL" | "HIGH" | "URGENT",
       });
-      toastSuccess(locale === "ar" ? "تم إنشاء المهمة بنجاح" : "Task created successfully");
+      toastSuccess(t("statusUpdatedSuccessfully"));
       onClose();
       // Reset form
       setTitle("");
@@ -518,7 +518,7 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
       setSelectedDoctorId("");
       setDueDate("");
     } catch {
-      toastError(locale === "ar" ? "فشل إنشاء المهمة" : "Failed to create task");
+      toastError(t("error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -526,52 +526,52 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-[24px] md:rounded-[32px] border-none shadow-2xl bg-white max-h-[95vh] flex flex-col">
-        <DialogHeader className="px-6 md:px-8 py-4 md:py-6 border-b border-slate-50 flex flex-row items-center justify-between shrink-0">
-          <DialogTitle className="text-lg md:text-xl font-bold text-slate-900">
-            {locale === "ar" ? "إنشاء مهمة جديدة" : "Create New Task"}
+      <DialogContent dir={isRTL ? "rtl" : "ltr"} className="max-w-2xl p-0 overflow-hidden rounded-[24px] md:rounded-[32px] border-none shadow-2xl bg-white max-h-[95vh] flex flex-col">
+        <DialogHeader className={cn("px-6 md:px-8 py-4 md:py-6 border-b border-slate-50 flex flex-row items-center justify-between shrink-0", isRTL ? "flex-row-reverse" : "flex-row")}>
+          <DialogTitle className={cn("text-lg md:text-xl font-bold text-slate-900", isRTL ? "text-right" : "text-left")}>
+            {t("createTask") || (isRTL ? "إنشاء مهمة جديدة" : "Create New Task")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="p-6 md:p-8 space-y-5 md:space-y-6 overflow-y-auto no-scrollbar flex-1">
           {/* Task Title */}
           <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-bold text-slate-700">
-              {locale === "ar" ? "عنوان المهمة" : "Task title"} *
+            <label className={cn("block text-xs md:text-sm font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>
+              {t("taskTitle") || (isRTL ? "عنوان المهمة" : "Task title")} *
             </label>
             <Input 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Schedule MRI Review" 
-              className="h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200 font-medium text-sm md:text-base"
+              className={cn("h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200 font-medium text-sm md:text-base", isRTL ? "text-right" : "text-left")}
             />
           </div>
 
           {/* Description */}
           <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-bold text-slate-700">
-              {locale === "ar" ? "الوصف" : "Description"}
+            <label className={cn("block text-xs md:text-sm font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>
+              {t("description")}
             </label>
             <Textarea 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Provide additional context for the clinical staff..."
-              className="min-h-[100px] md:min-h-[120px] rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200 font-medium resize-none text-sm md:text-base"
+              className={cn("min-h-[100px] md:min-h-[120px] rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 focus:ring-blue-600/5 focus:border-blue-200 font-medium resize-none text-sm md:text-base", isRTL ? "text-right" : "text-left")}
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Select Patient */}
             <div className="space-y-1.5">
-              <label className="text-xs md:text-sm font-bold text-slate-700">
-                {locale === "ar" ? "اختر المريض" : "Select patient"} *
+              <label className={cn("block text-xs md:text-sm font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>
+                {t("selectPatient")} *
               </label>
               <select
                 value={selectedPatientId}
                 onChange={(e) => setSelectedPatientId(e.target.value)}
-                className="w-full h-12 md:h-14 px-4 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base outline-none focus:ring-2 focus:ring-blue-500/20"
+                className={cn("w-full h-12 md:h-14 px-4 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base outline-none focus:ring-2 focus:ring-blue-500/20", isRTL ? "text-right" : "text-left")}
               >
-                <option value="">{locale === "ar" ? "اختر مريضاً..." : "Select a patient..."}</option>
+                <option value="">{isRTL ? "اختر مريضاً..." : "Select a patient..."}</option>
                 {patients.map(p => (
                   <option key={p.id} value={p.id}>{p.fullName}</option>
                 ))}
@@ -580,29 +580,29 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
 
             {/* Due Date */}
             <div className="space-y-1.5">
-              <label className="text-xs md:text-sm font-bold text-slate-700">
-                {locale === "ar" ? "تاريخ الاستحقاق" : "Due date"}
+              <label className={cn("block text-xs md:text-sm font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>
+                {t("dueDate") || (isRTL ? "تاريخ الاستحقاق" : "Due date")}
               </label>
               <Input 
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base"
+                className={cn("h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base", isRTL ? "text-right" : "text-left")}
               />
             </div>
           </div>
 
           {/* Assign to Doctor */}
           <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-bold text-slate-700">
-              {locale === "ar" ? "تعيين للطبيب" : "Assign to doctor"} *
+            <label className={cn("block text-xs md:text-sm font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>
+              {t("assignedDoctor") || (isRTL ? "تعيين للطبيب" : "Assign to doctor")} *
             </label>
             <select
               value={selectedDoctorId}
               onChange={(e) => setSelectedDoctorId(e.target.value)}
-              className="w-full h-12 md:h-14 px-4 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base outline-none focus:ring-2 focus:ring-blue-500/20"
+              className={cn("w-full h-12 md:h-14 px-4 rounded-xl md:rounded-2xl border-slate-100 bg-slate-50/30 text-sm md:text-base outline-none focus:ring-2 focus:ring-blue-500/20", isRTL ? "text-right" : "text-left")}
             >
-              <option value="">{locale === "ar" ? "اختر طبيباً..." : "Select a doctor..."}</option>
+              <option value="">{isRTL ? "اختر طبيباً..." : "Select a doctor..."}</option>
               {doctors.map(d => (
                 <option key={d.id} value={d.id}>{d.fullName}</option>
               ))}
@@ -611,38 +611,45 @@ function CreateTaskModal({ isOpen, onClose, locale }: { isOpen: boolean; onClose
 
           {/* Priority */}
           <div className="space-y-2 pb-2">
-            <label className="text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-              {locale === "ar" ? "الأولوية" : "PRIORITY"}
+            <label className={cn("block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+              {isRTL ? "الأولوية" : "PRIORITY"}
             </label>
-            <div className="flex p-1 bg-slate-50/50 rounded-xl md:rounded-2xl border border-slate-100">
-              {(["Low", "Medium", "High"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPriority(p)}
-                  className={cn(
-                    "flex-1 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all",
-                    priority === p 
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
-                      : "text-slate-500 hover:bg-white"
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
+            <div className={cn("flex p-1 bg-slate-50/50 rounded-xl md:rounded-2xl border border-slate-100", isRTL ? "flex-row-reverse" : "flex-row")}>
+              {(["Low", "Medium", "High"] as const).map((p) => {
+                const labels = {
+                  Low: isRTL ? "منخفضة" : "Low",
+                  Medium: isRTL ? "متوسطة" : "Medium",
+                  High: isRTL ? "عالية" : "High"
+                };
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPriority(p)}
+                    className={cn(
+                      "flex-1 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition-all",
+                      priority === p 
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" 
+                        : "text-slate-500 hover:bg-white"
+                    )}
+                  >
+                    {labels[p]}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        <div className="p-6 md:p-8 bg-slate-50/50 flex items-center justify-end gap-3 md:gap-4 border-t border-slate-50 shrink-0">
+        <div className={cn("p-6 md:p-8 bg-slate-50/50 flex items-center gap-3 md:gap-4 border-t border-slate-50 shrink-0", isRTL ? "flex-row-reverse justify-start" : "justify-end flex-row")}>
           <Button variant="ghost" onClick={onClose} className="rounded-xl text-xs md:text-sm font-bold text-slate-500 hover:bg-slate-100 h-10 md:h-12 px-5">
-            {locale === "ar" ? "إلغاء" : "Cancel"}
+            {isRTL ? "إلغاء" : "Cancel"}
           </Button>
           <Button 
             disabled={isSubmitting}
             onClick={handleSubmit}
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 md:h-12 px-6 md:px-10 text-xs md:text-sm font-bold shadow-lg shadow-blue-500/10"
           >
-            {isSubmitting ? (locale === "ar" ? "جاري الإرسال..." : "Sending...") : (locale === "ar" ? "إرسال المهمة" : "Send Task")}
+            {isSubmitting ? (isRTL ? "جاري الإرسال..." : "Sending...") : (isRTL ? "إرسال المهمة" : "Send Task")}
           </Button>
         </div>
       </DialogContent>
@@ -660,10 +667,11 @@ interface TaskSummaryCardProps {
 }
 
 function TaskSummaryCard({ label, value, icon: Icon, iconBg, iconColor, className }: TaskSummaryCardProps) {
+  const { isRTL } = useTranslation();
   return (
     <Card className={cn("border-none shadow-[0_8px_30px_rgb(0,0,0,0.03)] rounded-[24px] md:rounded-[32px] overflow-hidden bg-white", className)}>
-      <CardContent className="p-6 md:p-8 flex items-center justify-between">
-        <div className="space-y-2 md:space-y-4">
+      <CardContent className={cn("p-6 md:p-8 flex items-center justify-between", isRTL ? "flex-row-reverse" : "flex-row")}>
+        <div className={cn("space-y-2 md:space-y-4", isRTL ? "text-right" : "text-left")}>
           <p className="text-slate-500 font-bold text-xs md:text-sm">{label}</p>
           <h3 className="text-3xl md:text-4xl font-black text-slate-900">{value}</h3>
         </div>
@@ -676,10 +684,11 @@ function TaskSummaryCard({ label, value, icon: Icon, iconBg, iconColor, classNam
 }
 
 function TableFilter({ label, onClick }: { label: string; onClick?: () => void }) {
+  const { isRTL } = useTranslation();
   return (
     <div
       onClick={onClick}
-      className="flex items-center gap-2 md:gap-3 px-4 md:px-5 py-2.5 md:py-3 bg-white border border-slate-100 rounded-xl md:rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors whitespace-nowrap"
+      className={cn("flex items-center gap-2 md:gap-3 px-4 md:px-5 py-2.5 md:py-3 bg-white border border-slate-100 rounded-xl md:rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors whitespace-nowrap", isRTL ? "flex-row-reverse" : "flex-row")}
     >
       <span className="text-[11px] md:text-[13px] font-bold text-slate-500">{label}</span>
       <ChevronDown className="h-3 w-3 md:h-4 md:w-4 text-slate-400" />
@@ -688,27 +697,43 @@ function TableFilter({ label, onClick }: { label: string; onClick?: () => void }
 }
 
 function PriorityText({ priority }: { priority: "High" | "Medium" | "Low" }) {
+  const { isRTL } = useTranslation();
   const configs = {
     High: "text-rose-500 bg-rose-50/50",
     Medium: "text-purple-500 bg-purple-50/50",
     Low: "text-slate-400 bg-slate-50/50",
   };
+  
+  const labels = {
+    High: isRTL ? "عالية" : "High",
+    Medium: isRTL ? "متوسطة" : "Medium",
+    Low: isRTL ? "منخفضة" : "Low"
+  };
+
   return (
     <span className={cn("px-2.5 md:px-3 py-1 rounded-lg text-[9px] md:text-[11px] font-black uppercase tracking-wider", configs[priority])}>
-      {priority}
+      {labels[priority]}
     </span>
   );
 }
 
 function StatusBadge({ status }: { status: "Pending" | "In Progress" | "Done" }) {
+  const { isRTL } = useTranslation();
   const configs = {
     Pending: "bg-orange-50 text-orange-400",
     "In Progress": "bg-blue-50 text-blue-600",
     Done: "bg-emerald-50 text-emerald-600",
   };
+
+  const labels = {
+    Pending: isRTL ? "قيد الانتظار" : "Pending",
+    "In Progress": isRTL ? "قيد التنفيذ" : "In Progress",
+    Done: isRTL ? "مكتمل" : "Done"
+  };
+
   return (
     <Badge className={cn("rounded-full px-3 md:px-4 py-1 md:py-1.5 border-none font-black text-[9px] md:text-[10px] uppercase tracking-widest", configs[status])}>
-      {status}
+      {labels[status]}
     </Badge>
   );
 }
@@ -733,6 +758,7 @@ function PaginationButton({ icon: Icon, disabled }: PaginationButtonProps) {
 }
 
 function PaginationNumber({ number, active }: { number: number; active?: boolean }) {
+  const { isRTL } = useTranslation();
   return (
     <button
       className={cn(
@@ -740,9 +766,7 @@ function PaginationNumber({ number, active }: { number: number; active?: boolean
         active ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" : "text-slate-500 hover:bg-slate-100"
       )}
     >
-      {number}
+      {number.toLocaleString(isRTL ? "ar-EG" : "en-US")}
     </button>
   );
 }
-
-

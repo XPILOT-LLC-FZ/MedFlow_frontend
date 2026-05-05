@@ -44,59 +44,61 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useToastStore } from "@/stores/useToastStore";
-
-const TABS = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "queue", label: "Queue Management", icon: LayoutGrid },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "patient-prefs", label: "Patient Preferences", icon: Heart },
-  { id: "permissions", label: "Permissions", icon: ShieldIcon },
-];
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function ReceptionProfilePage() {
   const { user, updateProfile } = useAuthStore();
   const { success, error } = useToastStore();
+  const { t, isRTL, locale } = useTranslation();
+
+  const TABS = [
+    { id: "profile", label: t("profile") || (isRTL ? "الملف الشخصي" : "Profile"), icon: User },
+    { id: "billing", label: t("billing") || (isRTL ? "الفواتير" : "Billing"), icon: CreditCard },
+    { id: "queue", label: t("queueManagement") || (isRTL ? "إدارة الطابور" : "Queue Management"), icon: LayoutGrid },
+    { id: "notifications", label: t("notifications") || (isRTL ? "التنبيهات" : "Notifications"), icon: Bell },
+    { id: "patient-prefs", label: t("patientPreferences") || (isRTL ? "تفضيلات المريض" : "Patient Preferences"), icon: Heart },
+    { id: "permissions", label: t("permissions") || (isRTL ? "الصلاحيات" : "Permissions"), icon: ShieldIcon },
+  ];
 
   const [activeTab, setActiveTab] = useState("profile");
   const [fullName, setFullName] = useState("");
-  const [jobTitle, setJobTitle] = useState("Head Receptionist");
+  const [jobTitle, setJobTitle] = useState(isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("+1 (555) 222-3397");
   const [isSaving, setIsSaving] = useState(false);
   const [twoFAEnabled, setTwoFAEnabled] = useState(true);
 
   useEffect(() => {
-    setFullName(user?.name ?? "Sarah Jenkins");
+    setFullName(user?.name ?? (isRTL ? "سارة جينكينز" : "Sarah Jenkins"));
     setEmail(user?.email ?? "sjenkins@cityhealth.com");
-  }, [user]);
+  }, [user, isRTL]);
 
   const saveProfile = async () => {
     if (fullName.trim().length < 2) {
-      error("Name must be at least 2 characters");
+      error(isRTL ? "يجب أن يكون الاسم حرفين على الأقل" : "Name must be at least 2 characters");
       return;
     }
     setIsSaving(true);
     try {
       const result = await updateProfile({ name: fullName.trim() });
-      if (!result.success) { error(result.error || "Failed to update profile"); return; }
-      success("Profile updated successfully");
+      if (!result.success) { error(result.error || (isRTL ? "فشل تحديث الملف الشخصي" : "Failed to update profile")); return; }
+      success(isRTL ? "تم تحديث الملف الشخصي بنجاح" : "Profile updated successfully");
     } catch (err) {
-      error(err instanceof Error ? err.message : "Failed to update profile");
+      error(err instanceof Error ? err.message : (isRTL ? "فشل تحديث الملف الشخصي" : "Failed to update profile"));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans">
+    <div dir={isRTL ? "rtl" : "ltr"} className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans relative -m-4 md:-m-8">
       {/* Page Header */}
-      <div className="mb-8 space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900">Profile Settings</h1>
-        <p className="text-slate-400 text-sm font-medium">Manage your personal information, contact details, and account security.</p>
+      <div className={cn("mb-8 space-y-1", isRTL ? "text-right" : "text-left")}>
+        <h1 className="text-2xl font-bold text-slate-900">{t("profileSettings") || (isRTL ? "إعدادات الملف الشخصي" : "Profile Settings")}</h1>
+        <p className="text-slate-400 text-sm font-medium">{isRTL ? "إدارة معلوماتك الشخصية وتفاصيل الاتصال وأمان حسابك." : "Manage your personal information, contact details, and account security."}</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-7">
+      <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-7")}>
         {/* ── Left Sidebar ── */}
         <div className="lg:col-span-3">
           <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
@@ -108,10 +110,11 @@ export default function ReceptionProfilePage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-5 py-4 text-[13px] font-bold transition-all text-left border-l-[3px]",
+                    "w-full flex items-center gap-3 px-5 py-4 text-[13px] font-bold transition-all",
+                    isRTL ? "text-right border-l-0 border-r-[3px] flex-row-reverse" : "text-left border-l-[3px] flex-row",
                     active
-                      ? "bg-blue-50 text-[#3B82F6] border-l-[#3B82F6]"
-                      : "text-slate-500 border-l-transparent hover:bg-slate-50 hover:text-slate-700"
+                      ? "bg-blue-50 text-[#3B82F6] " + (isRTL ? "border-r-[3px] border-r-[#3B82F6]" : "border-l-[3px] border-l-[#3B82F6]")
+                      : "text-slate-500 border-transparent hover:bg-slate-50 hover:text-slate-700"
                   )}
                 >
                   <Icon className={cn("h-4.5 w-4.5 shrink-0", active ? "text-[#3B82F6]" : "text-slate-400")} size={18} />
@@ -129,78 +132,82 @@ export default function ReceptionProfilePage() {
               {/* Profile Information */}
               <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-8 space-y-8">
                 {/* Section Header */}
-                <div className="flex items-center gap-3">
+                <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                   <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
                     <User className="h-5 w-5 text-blue-600" />
                   </div>
-                  <h2 className="text-[16px] font-bold text-slate-900">Profile Information</h2>
+                  <h2 className="text-[16px] font-bold text-slate-900">{t("profileInformation") || (isRTL ? "معلومات الملف الشخصي" : "Profile Information")}</h2>
                 </div>
 
                 {/* Avatar Upload */}
-                <div className="flex items-center gap-6">
+                <div className={cn("flex items-center gap-6", isRTL ? "flex-row-reverse" : "flex-row")}>
                   <div className="relative shrink-0">
                     <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
                       <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah" />
                       <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-2xl">SJ</AvatarFallback>
                     </Avatar>
-                    <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md border-2 border-white hover:bg-blue-700 transition-colors">
+                    <button className={cn("absolute bottom-0 h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md border-2 border-white hover:bg-blue-700 transition-colors", isRTL ? "left-0" : "right-0")}>
                       <Camera className="h-4 w-4 text-white" />
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+                  <div className={cn("space-y-2", isRTL ? "text-right" : "text-left")}>
+                    <button className={cn("flex items-center gap-2 px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors", isRTL ? "flex-row-reverse" : "flex-row")}>
                       <Upload className="h-4 w-4 text-slate-400" />
-                      Upload Photo
+                      {isRTL ? "تحميل الصورة" : "Upload Photo"}
                     </button>
-                    <p className="text-[11px] font-bold text-slate-400">JPG, PNG or GIF – Max 1MB</p>
+                    <p className="text-[11px] font-bold text-slate-400">{isRTL ? "JPG, PNG أو GIF – الحجم الأقصى 1 ميجابايت" : "JPG, PNG or GIF – Max 1MB"}</p>
                   </div>
                 </div>
 
                 {/* Form Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <FormField
-                    label="Full Name"
+                    label={t("fullName") || (isRTL ? "الاسم الكامل" : "Full Name")}
                     value={fullName}
                     onChange={setFullName}
-                    placeholder="Sarah Jenkins"
+                    placeholder={isRTL ? "سارة جينكينز" : "Sarah Jenkins"}
+                    isRTL={isRTL}
                   />
                   <FormField
-                    label="Job Title"
+                    label={t("jobTitle") || (isRTL ? "المسمى الوظيفي" : "Job Title")}
                     value={jobTitle}
                     onChange={setJobTitle}
-                    placeholder="Head Receptionist"
+                    placeholder={isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist"}
+                    isRTL={isRTL}
                   />
                   <FormField
-                    label="Email Address"
+                    label={t("emailAddress") || (isRTL ? "عنوان البريد الإلكتروني" : "Email Address")}
                     value={email}
                     onChange={setEmail}
                     icon={<Mail className="h-4 w-4 text-blue-400" />}
                     placeholder="sjenkins@cityhealth.com"
+                    isRTL={isRTL}
                   />
                   <FormField
-                    label="Phone Number"
+                    label={t("phoneNumber") || (isRTL ? "رقم الهاتف" : "Phone Number")}
                     value={phone}
                     onChange={setPhone}
                     icon={<Phone className="h-4 w-4 text-slate-400" />}
                     placeholder="+1 (555) 222-3397"
+                    isRTL={isRTL}
                   />
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-50">
+                <div className={cn("flex items-center gap-3 pt-2 border-t border-slate-50", isRTL ? "justify-start flex-row-reverse" : "justify-end flex-row")}>
                   <Button
                     variant="outline"
                     className="h-11 px-8 rounded-2xl border-slate-200 font-bold text-slate-500 hover:bg-slate-50 bg-white text-[13px]"
-                    onClick={() => { setFullName(user?.name ?? "Sarah Jenkins"); setJobTitle("Head Receptionist"); setPhone("+1 (555) 222-3397"); }}
+                    onClick={() => { setFullName(user?.name ?? (isRTL ? "سارة جينكينز" : "Sarah Jenkins")); setJobTitle(isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist"); setPhone("+1 (555) 222-3397"); }}
                   >
-                    Discard
+                    {t("discard") || (isRTL ? "تجاهل" : "Discard")}
                   </Button>
                   <Button
                     onClick={() => void saveProfile()}
                     disabled={isSaving}
                     className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
                   >
-                    {isSaving ? "Saving..." : "Save Changes"}
+                    {isSaving ? (isRTL ? "جاري الحفظ..." : "Saving...") : (t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes"))}
                   </Button>
                 </div>
               </div>
@@ -208,58 +215,60 @@ export default function ReceptionProfilePage() {
               {/* Security */}
               <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-8 space-y-6">
                 {/* Section Header */}
-                <div className="flex items-center gap-3">
+                <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                   <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
                     <Lock className="h-5 w-5 text-blue-600" />
                   </div>
-                  <h2 className="text-[16px] font-bold text-slate-900">Security</h2>
+                  <h2 className="text-[16px] font-bold text-slate-900">{t("security") || (isRTL ? "الأمان" : "Security")}</h2>
                 </div>
 
                 {/* Password Status */}
                 <div className="space-y-3">
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Password Status</p>
-                  <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                    <div className="flex items-center gap-3">
+                  <p className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{t("passwordStatus") || (isRTL ? "حالة كلمة المرور" : "Password Status")}</p>
+                  <div className={cn("flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl", isRTL ? "flex-row-reverse" : "flex-row")}>
+                    <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                       <Key className="h-4.5 w-4.5 text-slate-400" size={18} />
-                      <span className="text-[13px] font-bold text-slate-600">Last changed 4 months ago</span>
+                      <span className="text-[13px] font-bold text-slate-600">{isRTL ? "تم تغييرها منذ 4 أشهر" : "Last changed 4 months ago"}</span>
                     </div>
                     <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
                   </div>
-                  <button className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-colors group">
-                    <span className="text-[13px] font-bold text-slate-700">Change Password</span>
-                    <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
+                  <button className={cn("w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-colors group", isRTL ? "flex-row-reverse" : "flex-row")}>
+                    <span className="text-[13px] font-bold text-slate-700">{t("changePassword") || (isRTL ? "تغيير كلمة المرور" : "Change Password")}</span>
+                    <ChevronRight className={cn("h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors", isRTL && "rotate-180")} />
                   </button>
                 </div>
 
                 {/* 2FA */}
                 <div className="space-y-3 pt-2 border-t border-slate-50">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-[14px] font-bold text-slate-900">Two-Factor Authentication</p>
+                  <div className={cn("flex items-center justify-between", isRTL ? "flex-row-reverse" : "flex-row")}>
+                    <div className={cn("space-y-1", isRTL ? "text-right" : "text-left")}>
+                      <p className="text-[14px] font-bold text-slate-900">{t("twoFactorAuthentication") || (isRTL ? "المصادقة الثنائية" : "Two-Factor Authentication")}</p>
                       <p className="text-[12px] font-medium text-slate-400">
-                        Add an extra layer of security to your account by enabling 2FA.
+                        {isRTL ? "أضف طبقة إضافية من الأمان لحسابك عن طريق تمكين 2FA." : "Add an extra layer of security to your account by enabling 2FA."}
                       </p>
                     </div>
                     {/* Toggle */}
                     <button
                       onClick={() => setTwoFAEnabled(!twoFAEnabled)}
                       className={cn(
-                        "relative h-7 w-14 rounded-full transition-all duration-300 shrink-0 ml-4",
+                        "relative h-7 w-14 rounded-full transition-all duration-300 shrink-0",
+                        isRTL ? "mr-4" : "ml-4",
                         twoFAEnabled ? "bg-blue-600" : "bg-slate-200"
                       )}
                     >
                       <span
                         className={cn(
                           "absolute top-1 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-300",
-                          twoFAEnabled ? "left-8" : "left-1"
+                          twoFAEnabled ? (isRTL ? "-translate-x-8" : "translate-x-8") : "translate-x-0"
                         )}
+                        style={{ [isRTL ? 'right' : 'left']: '4px' }}
                       />
                     </button>
                   </div>
                   {twoFAEnabled && (
-                    <div className="flex items-center gap-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 px-4 py-2.5 rounded-xl">
+                    <div className={cn("flex items-center gap-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 px-4 py-2.5 rounded-xl", isRTL ? "flex-row-reverse" : "flex-row")}>
                       <CheckCircle2 className="h-4 w-4 shrink-0" />
-                      Enabled
+                      {isRTL ? "مفعل" : "Enabled"}
                     </div>
                   )}
                 </div>
@@ -268,19 +277,19 @@ export default function ReceptionProfilePage() {
           )}
 
           {/* Billing Tab */}
-          {activeTab === "billing" && <BillingTab />}
+          {activeTab === "billing" && <BillingTab isRTL={isRTL} t={t} />}
 
           {/* Queue Management Tab */}
-          {activeTab === "queue" && <QueueManagementTab />}
+          {activeTab === "queue" && <QueueManagementTab isRTL={isRTL} t={t} />}
 
           {/* Notifications Tab */}
-          {activeTab === "notifications" && <NotificationsTab />}
+          {activeTab === "notifications" && <NotificationsTab isRTL={isRTL} t={t} />}
 
           {/* Patient Preferences Tab */}
-          {activeTab === "patient-prefs" && <PatientPreferencesTab />}
+          {activeTab === "patient-prefs" && <PatientPreferencesTab isRTL={isRTL} t={t} />}
 
           {/* Permissions Tab */}
-          {activeTab === "permissions" && <PermissionsTab />}
+          {activeTab === "permissions" && <PermissionsTab isRTL={isRTL} t={t} />}
 
           {/* Placeholder for remaining tabs */}
           {activeTab !== "profile" && activeTab !== "billing" && activeTab !== "queue" && activeTab !== "notifications" && activeTab !== "patient-prefs" && activeTab !== "permissions" && (
@@ -294,7 +303,7 @@ export default function ReceptionProfilePage() {
                       <Icon className="h-8 w-8 text-blue-400" />
                     </div>
                     <p className="text-[18px] font-bold text-slate-700">{tab?.label}</p>
-                    <p className="text-[13px] font-medium text-slate-400">This section is coming soon.</p>
+                    <p className="text-[13px] font-medium text-slate-400">{isRTL ? "هذا القسم قادم قريباً." : "This section is coming soon."}</p>
                   </>
                 );
               })()}
@@ -313,23 +322,25 @@ function FormField({
   onChange,
   placeholder,
   icon,
+  isRTL
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   icon?: React.ReactNode;
+  isRTL?: boolean;
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-[12px] font-black text-slate-500 uppercase tracking-widest">{label}</label>
-      <div className="relative flex items-center h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-50 transition-all">
-        {icon && <span className="mr-2.5 shrink-0">{icon}</span>}
+      <label className={cn("block text-[12px] font-black text-slate-500 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{label}</label>
+      <div className={cn("relative flex items-center h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-50 transition-all", isRTL ? "flex-row-reverse" : "flex-row")}>
+        {icon && <span className={cn("shrink-0", isRTL ? "ml-2.5" : "mr-2.5")}>{icon}</span>}
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300"
+          className={cn("flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
         />
       </div>
     </div>
@@ -337,7 +348,7 @@ function FormField({
 }
 
 /* ── Billing Tab ────────────────────────────────────────────────── */
-function BillingTab() {
+function BillingTab({ isRTL, t }: { isRTL: boolean; t: any }) {
   const [consultFee, setConsultFee] = useState("150");
   const [cashEnabled, setCashEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
@@ -349,106 +360,104 @@ function BillingTab() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      {/* Left column — stacked */}
       <div className="space-y-6">
-        {/* General Billing */}
         <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
-          <div className="flex items-center gap-3">
+          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
             <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
               <FileText className="h-5 w-5 text-blue-600" />
             </div>
-            <h3 className="text-[15px] font-bold text-slate-900">General Billing</h3>
+            <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "الفواتير العامة" : "General Billing"}</h3>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Default consultation fee</label>
-            <div className="flex items-center h-14 bg-slate-50 border border-slate-100 rounded-2xl px-4 gap-2">
+            <label className={cn("block text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{isRTL ? "رسوم الاستشارة الافتراضية" : "Default consultation fee"}</label>
+            <div className={cn("flex items-center h-14 bg-slate-50 border border-slate-100 rounded-2xl px-4 gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
               <span className="text-[18px] font-bold text-slate-400">$</span>
               <input
                 value={consultFee}
                 onChange={(e) => setConsultFee(e.target.value)}
-                className="flex-1 bg-transparent text-[22px] font-black text-slate-800 outline-none w-full"
+                className={cn("flex-1 bg-transparent text-[22px] font-black text-slate-800 outline-none w-full", isRTL ? "text-right" : "text-left")}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Currency selected</label>
-            <div className="flex items-center justify-between h-12 bg-slate-50 border border-slate-100 rounded-2xl px-4 cursor-pointer hover:border-slate-200 transition-all">
-              <span className="text-[13px] font-bold text-slate-700">USD – United States Dollar</span>
+            <label className={cn("block text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{isRTL ? "العملة المختارة" : "Currency selected"}</label>
+            <div className={cn("flex items-center justify-between h-12 bg-slate-50 border border-slate-100 rounded-2xl px-4 cursor-pointer hover:border-slate-200 transition-all", isRTL ? "flex-row-reverse" : "flex-row")}>
+              <span className="text-[13px] font-bold text-slate-700">{isRTL ? "USD – دولار أمريكي" : "USD – United States Dollar"}</span>
               <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
             </div>
           </div>
         </div>
 
-        {/* Payment Methods */}
         <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
-          <div className="flex items-center gap-3">
+          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
             <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
               <CreditCard className="h-5 w-5 text-indigo-600" />
             </div>
-            <h3 className="text-[15px] font-bold text-slate-900">Payment Methods</h3>
+            <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "طرق الدفع" : "Payment Methods"}</h3>
           </div>
 
           <div className="space-y-5">
             <ToggleRow
               icon={<Banknote className="h-4 w-4 text-slate-400" />}
-              title="Cash Payments"
-              subtitle="Allow reception to accept cash on desk"
+              title={isRTL ? "الدفع النقدي" : "Cash Payments"}
+              subtitle={isRTL ? "السماح لموظفي الاستقبال بقبول النقود" : "Allow reception to accept cash on desk"}
               enabled={cashEnabled}
               onToggle={() => setCashEnabled(!cashEnabled)}
+              isRTL={isRTL}
             />
             <ToggleRow
               icon={<CreditCard className="h-4 w-4 text-slate-400" />}
-              title="Card Payments"
-              subtitle="Enable POS terminal in Bay Street"
+              title={isRTL ? "الدفع بالبطاقة" : "Card Payments"}
+              subtitle={isRTL ? "تمكين محطة POS" : "Enable POS terminal"}
               enabled={cardEnabled}
               onToggle={() => setCardEnabled(!cardEnabled)}
+              isRTL={isRTL}
             />
             <ToggleRow
               icon={<Wallet className="h-4 w-4 text-slate-400" />}
-              title="Digital Wallets"
-              subtitle="Apple Pay, Google Pay, local QR code"
+              title={isRTL ? "المحافظ الرقمية" : "Digital Wallets"}
+              subtitle={isRTL ? "Apple Pay، Google Pay، QR code" : "Apple Pay, Google Pay, local QR code"}
               enabled={walletEnabled}
               onToggle={() => setWalletEnabled(!walletEnabled)}
+              isRTL={isRTL}
             />
           </div>
         </div>
       </div>
 
-      {/* Right column — Automation (full height) */}
       <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6 h-full">
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-9 w-9 rounded-xl bg-orange-50 flex items-center justify-center">
             <Repeat2 className="h-5 w-5 text-orange-500" />
           </div>
-          <h3 className="text-[15px] font-bold text-slate-900">Automation</h3>
+          <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "الأتمتة" : "Automation"}</h3>
         </div>
 
-        {/* Additional Services */}
         <div className="space-y-3">
-          <p className="text-[12px] font-bold text-slate-700">Additional Services</p>
-          <p className="text-[11px] font-medium text-slate-400 leading-relaxed">
-            Create controlled wording for all clinics drive (maximum) (ex: specialties name title)
+          <p className={cn("text-[12px] font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>{isRTL ? "خدمات إضافية" : "Additional Services"}</p>
+          <p className={cn("text-[11px] font-medium text-slate-400 leading-relaxed", isRTL ? "text-right" : "text-left")}>
+            {isRTL ? "إنشاء صياغة مضبوطة لجميع محركات العيادات" : "Create controlled wording for all clinics drive (maximum)"}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <div className="h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center">
+              <div className={cn("h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center", isRTL ? "flex-row-reverse" : "flex-row")}>
                 <input
                   value={supplement}
                   onChange={(e) => setSupplement(e.target.value)}
-                  placeholder="Supplement..."
-                  className="w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                  placeholder={isRTL ? "تكملة..." : "Supplement..."}
+                  className={cn("w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <div className="h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center">
+              <div className={cn("h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center", isRTL ? "flex-row-reverse" : "flex-row")}>
                 <input
                   value={hoursVisit}
                   onChange={(e) => setHoursVisit(e.target.value)}
-                  placeholder="Hours visits"
-                  className="w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300"
+                  placeholder={isRTL ? "ساعات الزيارة" : "Hours visits"}
+                  className={cn("w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
                 />
               </div>
             </div>
@@ -458,25 +467,24 @@ function BillingTab() {
         <div className="space-y-4">
           <ToggleRow
             icon={<FileText className="h-4 w-4 text-slate-400" />}
-            title="Auto-generate invoice"
-            subtitle=""
+            title={isRTL ? "إنشاء فاتورة تلقائياً" : "Auto-generate invoice"}
             enabled={autoInvoice}
             onToggle={() => setAutoInvoice(!autoInvoice)}
+            isRTL={isRTL}
           />
           <ToggleRow
             icon={<Printer className="h-4 w-4 text-slate-400" />}
-            title="Auto-print invoice"
-            subtitle=""
+            title={isRTL ? "طباعة فاتورة تلقائياً" : "Auto-print invoice"}
             enabled={autoPrint}
             onToggle={() => setAutoPrint(!autoPrint)}
+            isRTL={isRTL}
           />
         </div>
 
-        {/* Info Box */}
-        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl p-4">
+        <div className={cn("flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl p-4", isRTL ? "flex-row-reverse" : "flex-row")}>
           <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-          <p className="text-[11px] font-bold text-blue-600 leading-relaxed">
-            Automation settings will apply to all 3 of your clinics across the facility area code.
+          <p className={cn("text-[11px] font-bold text-blue-600 leading-relaxed", isRTL ? "text-right" : "text-left")}>
+            {isRTL ? "ستنطبق إعدادات الأتمتة على جميع عياداتك الثلاث عبر رمز منطقة المنشأة." : "Automation settings will apply to all 3 of your clinics across the facility area code."}
           </p>
         </div>
       </div>
@@ -490,13 +498,14 @@ interface ToggleRowProps {
   subtitle?: string;
   enabled: boolean;
   onToggle: () => void;
+  isRTL?: boolean;
 }
 
-function ToggleRow({ icon, title, subtitle, enabled, onToggle }: ToggleRowProps) {
+function ToggleRow({ icon, title, subtitle, enabled, onToggle, isRTL }: ToggleRowProps) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-start gap-2.5">
-        <span className="mt-0.5">{icon}</span>
+    <div className={cn("flex items-center justify-between gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn("flex items-start gap-2.5", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
+        {icon && <span className="mt-0.5">{icon}</span>}
         <div>
           <p className="text-[13px] font-bold text-slate-800">{title}</p>
           {subtitle && <p className="text-[11px] font-medium text-slate-400 mt-0.5">{subtitle}</p>}
@@ -512,8 +521,9 @@ function ToggleRow({ icon, title, subtitle, enabled, onToggle }: ToggleRowProps)
         <span
           className={cn(
             "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300",
-            enabled ? "left-7" : "left-1"
+            enabled ? (isRTL ? "-translate-x-7" : "translate-x-7") : "translate-x-0"
           )}
+          style={{ [isRTL ? 'right' : 'left']: '4px' }}
         />
       </button>
     </div>
@@ -521,7 +531,7 @@ function ToggleRow({ icon, title, subtitle, enabled, onToggle }: ToggleRowProps)
 }
 
 /* ── Notifications Tab ───────────────────────────────── */
-function NotificationsTab() {
+function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: any }) {
   const [checkInAlert, setCheckInAlert] = useState(true);
   const [lateAlert, setLateAlert] = useState(true);
   const [doctorReady, setDoctorReady] = useState(false);
@@ -531,62 +541,65 @@ function NotificationsTab() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
-        {/* Section Header */}
-        <div className="p-7 border-b border-slate-50 flex items-center gap-4">
+        <div className={cn("p-7 border-b border-slate-50 flex items-center gap-4", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
             <Bell className="h-5 w-5 text-blue-600" />
           </div>
-          <div>
-            <h3 className="text-[16px] font-bold text-slate-900">Alert Center</h3>
-            <p className="text-[12px] font-medium text-slate-400">Configure how and when you receive portal updates.</p>
+          <div className={isRTL ? "text-right" : "text-left"}>
+            <h3 className="text-[16px] font-bold text-slate-900">{isRTL ? "مركز التنبيهات" : "Alert Center"}</h3>
+            <p className="text-[12px] font-medium text-slate-400">{isRTL ? "تكوين كيفية ووقت تلقي تحديثات البوابة." : "Configure how and when you receive portal updates."}</p>
           </div>
         </div>
 
         <div className="p-7 space-y-8">
           <ToggleRow
             icon={null}
-            title="Patient check-in alert"
-            subtitle="Enable real-time alerts when a patient arrives at the clinic and completes registration."
+            title={isRTL ? "تنبيه تسجيل وصول المريض" : "Patient check-in alert"}
+            subtitle={isRTL ? "تمكين التنبيهات في الوقت الفعلي عند وصول المريض" : "Enable real-time alerts when a patient arrives"}
             enabled={checkInAlert}
             onToggle={() => setCheckInAlert(!checkInAlert)}
+            isRTL={isRTL}
           />
           
           <ToggleRow
             icon={null}
-            title="Late patient alert"
-            subtitle="Notify if a patient is more than 15 minutes late for their scheduled appointment time."
+            title={isRTL ? "تنبيه تأخر المريض" : "Late patient alert"}
+            subtitle={isRTL ? "إشعار إذا تأخر المريض أكثر من 15 دقيقة" : "Notify if a patient is more than 15 minutes late"}
             enabled={lateAlert}
             onToggle={() => setLateAlert(!lateAlert)}
+            isRTL={isRTL}
           />
 
           <ToggleRow
             icon={null}
-            title="Doctor ready notification"
-            subtitle="Alert when a provider is ready for the next patient to be moved to the examination room."
+            title={isRTL ? "إشعار جاهزية الطبيب" : "Doctor ready notification"}
+            subtitle={isRTL ? "تنبيه عندما يكون الطبيب جاهزاً للمريض التالي" : "Alert when a provider is ready for the next patient"}
             enabled={doctorReady}
             onToggle={() => setDoctorReady(!doctorReady)}
+            isRTL={isRTL}
           />
 
           <ToggleRow
             icon={null}
-            title="Payment pending reminder"
-            subtitle="Reminder for outstanding balances during the checkout process to ensure billing accuracy."
+            title={isRTL ? "تذكير الدفع المعلق" : "Payment pending reminder"}
+            subtitle={isRTL ? "تذكير بالأرصدة المستحقة أثناء عملية الخروج" : "Reminder for outstanding balances during checkout"}
             enabled={paymentReminder}
             onToggle={() => setPaymentReminder(!paymentReminder)}
+            isRTL={isRTL}
           />
 
           <div className="pt-6 border-t border-slate-50">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-start gap-2.5">
+            <div className={cn("flex items-center justify-between gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
+              <div className={cn("flex items-start gap-2.5", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-bold text-slate-800">Sound notifications</p>
+                  <div className={cn("flex items-center gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
+                    <p className="text-[13px] font-bold text-slate-800">{isRTL ? "تنبيهات صوتية" : "Sound notifications"}</p>
                     <span className="bg-blue-100 text-blue-600 text-[9px] font-black uppercase px-1.5 py-0.5 rounded tracking-widest">
-                      GLOBAL
+                      {isRTL ? "عام" : "GLOBAL"}
                     </span>
                   </div>
                   <p className="text-[11px] font-medium text-slate-400 mt-0.5">
-                    Global toggle for audible alerts. When disabled, notifications will only appear visually.
+                    {isRTL ? "تبديل عام للتنبيهات الصوتية. عند تعطيله، ستظهر التنبيهات بصرياً فقط." : "Global toggle for audible alerts. When disabled, notifications will only appear visually."}
                   </p>
                 </div>
               </div>
@@ -600,8 +613,9 @@ function NotificationsTab() {
                 <span
                   className={cn(
                     "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300",
-                    soundNotify ? "left-7" : "left-1"
+                    soundNotify ? (isRTL ? "-translate-x-7" : "translate-x-7") : "translate-x-0"
                   )}
+                  style={{ [isRTL ? 'right' : 'left']: '4px' }}
                 />
               </button>
             </div>
@@ -609,9 +623,9 @@ function NotificationsTab() {
         </div>
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
         <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          Save Changes
+          {t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes")}
         </Button>
       </div>
     </div>
@@ -619,7 +633,7 @@ function NotificationsTab() {
 }
 
 /* ── Queue Management Tab ───────────────────────────────── */
-function QueueManagementTab() {
+function QueueManagementTab({ isRTL, t }: { isRTL: boolean; t: any }) {
   const [sortMethod, setSortMethod] = useState<"appointment" | "manual">("appointment");
   const [autoMove, setAutoMove] = useState(true);
   const [highlightNext, setHighlightNext] = useState(true);
@@ -628,21 +642,20 @@ function QueueManagementTab() {
 
   return (
     <div className="space-y-6">
-      {/* Queue Sorting Method */}
       <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-5">
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
             <ArrowUpDown className="h-5 w-5 text-blue-600" />
           </div>
-          <h3 className="text-[16px] font-bold text-slate-900">Queue Sorting Method</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">{isRTL ? "طريقة فرز الطابور" : "Queue Sorting Method"}</h3>
         </div>
 
         <div className="space-y-3">
-          {/* By Appointment Time */}
           <button
             onClick={() => setSortMethod("appointment")}
             className={cn(
-              "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left",
+              "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all",
+              isRTL ? "flex-row-reverse text-right" : "flex-row text-left",
               sortMethod === "appointment"
                 ? "border-blue-400 bg-blue-50/50"
                 : "border-slate-100 bg-white hover:border-slate-200"
@@ -656,10 +669,10 @@ function QueueManagementTab() {
             </div>
             <div className="flex-1 min-w-0">
               <p className={cn("text-[14px] font-bold", sortMethod === "appointment" ? "text-blue-700" : "text-slate-800")}>
-                By Appointment Time
+                {isRTL ? "حسب وقت الموعد" : "By Appointment Time"}
               </p>
               <p className="text-[12px] font-medium text-slate-400 mt-0.5 leading-relaxed">
-                Patients are automatically ranked based on their scheduled slot.
+                {isRTL ? "يتم تصنيف المرضى تلقائياً بناءً على فترتهم المجدولة." : "Patients are automatically ranked based on their scheduled slot."}
               </p>
             </div>
             <div className={cn(
@@ -670,11 +683,11 @@ function QueueManagementTab() {
             </div>
           </button>
 
-          {/* Manual */}
           <button
             onClick={() => setSortMethod("manual")}
             className={cn(
-              "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left",
+              "w-full flex items-center gap-4 p-5 rounded-2xl border-2 transition-all",
+              isRTL ? "flex-row-reverse text-right" : "flex-row text-left",
               sortMethod === "manual"
                 ? "border-blue-400 bg-blue-50/50"
                 : "border-slate-100 bg-white hover:border-slate-200"
@@ -688,10 +701,10 @@ function QueueManagementTab() {
             </div>
             <div className="flex-1 min-w-0">
               <p className={cn("text-[14px] font-bold", sortMethod === "manual" ? "text-blue-700" : "text-slate-800")}>
-                Manual (Drag &amp; Drop)
+                {isRTL ? "يدوي (سحب وإفلات)" : "Manual (Drag & Drop)"}
               </p>
               <p className="text-[12px] font-medium text-slate-400 mt-0.5 leading-relaxed">
-                Allow staff to manually reorder the queue at any time.
+                {isRTL ? "السماح للموظفين بإعادة ترتيب الطابور يدوياً في أي وقت." : "Allow staff to manually reorder the queue at any time."}
               </p>
             </div>
             <div className={cn(
@@ -704,59 +717,60 @@ function QueueManagementTab() {
         </div>
       </div>
 
-      {/* Automation & Visibility */}
       <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-5">
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
             <Sparkles className="h-5 w-5 text-indigo-500" />
           </div>
-          <h3 className="text-[16px] font-bold text-slate-900">Automation &amp; Visibility</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">{isRTL ? "الأتمتة والرؤية" : "Automation & Visibility"}</h3>
         </div>
 
         <div className="space-y-5">
           <div className="pb-5 border-b border-slate-50">
             <ToggleRow
               icon={null}
-              title="Auto-move to next patient"
-              subtitle="Automatically advance the queue when a session ends"
+              title={isRTL ? "الانتقال التلقائي للمريض التالي" : "Auto-move to next patient"}
+              subtitle={isRTL ? "تقديم الطابور تلقائياً عند انتهاء الجلسة" : "Automatically advance the queue when a session ends"}
               enabled={autoMove}
               onToggle={() => setAutoMove(!autoMove)}
+              isRTL={isRTL}
             />
           </div>
           <div className="pb-5 border-b border-slate-50">
             <ToggleRow
               icon={null}
-              title="Highlight next patient"
-              subtitle="Visually distinguish the next patient in line"
+              title={isRTL ? "تمييز المريض التالي" : "Highlight next patient"}
+              subtitle={isRTL ? "تمييز المريض التالي في الطابور بصرياً" : "Visually distinguish the next patient in line"}
               enabled={highlightNext}
               onToggle={() => setHighlightNext(!highlightNext)}
+              isRTL={isRTL}
             />
           </div>
           <ToggleRow
             icon={null}
-            title="Waiting time indicator"
-            subtitle="Show real-time estimated wait times for patients"
+            title={isRTL ? "مؤشر وقت الانتظار" : "Waiting time indicator"}
+            subtitle={isRTL ? "إظهار أوقات الانتظار المقدرة للمرضى في الوقت الفعلي" : "Show real-time estimated wait times for patients"}
             enabled={waitIndicator}
             onToggle={() => setWaitIndicator(!waitIndicator)}
+            isRTL={isRTL}
           />
         </div>
       </div>
 
-      {/* Priority Handling */}
       <div className="rounded-[28px] p-7 space-y-5" style={{ background: "linear-gradient(135deg, #6366F1 0%, #818CF8 100%)" }}>
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center">
             <AlertTriangle className="h-5 w-5 text-yellow-300" />
           </div>
-          <h3 className="text-[16px] font-bold text-white">Priority Handling</h3>
+          <h3 className="text-[16px] font-bold text-white">{isRTL ? "التعامل مع الأولويات" : "Priority Handling"}</h3>
         </div>
-        <p className="text-[13px] font-medium text-indigo-100 leading-relaxed">
-          Manage how your clinic handles emergency arrivals or high-priority patients outside the standard order.
+        <p className={cn("text-[13px] font-medium text-indigo-100 leading-relaxed", isRTL ? "text-right" : "text-left")}>
+          {isRTL ? "إدارة كيفية تعامل عيادتك مع حالات الطوارئ أو المرضى ذوي الأولوية العالية خارج الترتيب القياسي." : "Manage how your clinic handles emergency arrivals or high-priority patients outside the standard order."}
         </p>
-        <div className="flex items-center justify-between bg-white/10 rounded-2xl px-5 py-4">
-          <div>
-            <p className="text-[13px] font-bold text-white">Enable priority cases</p>
-            <p className="text-[11px] font-medium text-indigo-200 mt-0.5">Manual override for urgent medical needs</p>
+        <div className={cn("flex items-center justify-between bg-white/10 rounded-2xl px-5 py-4", isRTL ? "flex-row-reverse" : "flex-row")}>
+          <div className={isRTL ? "text-right" : "text-left"}>
+            <p className="text-[13px] font-bold text-white">{isRTL ? "تمكين حالات الأولوية" : "Enable priority cases"}</p>
+            <p className="text-[11px] font-medium text-indigo-200 mt-0.5">{isRTL ? "تجاوز يدوي للاحتياجات الطبية العاجلة" : "Manual override for urgent medical needs"}</p>
           </div>
           <button
             onClick={() => setPriorityEnabled(!priorityEnabled)}
@@ -768,17 +782,17 @@ function QueueManagementTab() {
             <span
               className={cn(
                 "absolute top-1 h-5 w-5 rounded-full bg-white shadow-md transition-all duration-300",
-                priorityEnabled ? "left-8" : "left-1"
+                priorityEnabled ? (isRTL ? "-translate-x-8" : "translate-x-8") : "translate-x-0"
               )}
+              style={{ [isRTL ? 'right' : 'left']: '4px' }}
             />
           </button>
         </div>
       </div>
 
-      {/* Save Changes */}
-      <div className="flex justify-end pt-2">
+      <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
         <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          Save Changes
+          {isRTL ? "حفظ التغييرات" : "Save Changes"}
         </Button>
       </div>
     </div>
@@ -786,7 +800,7 @@ function QueueManagementTab() {
 }
 
 /* ── Patient Preferences Tab ─────────────────────────── */
-function PatientPreferencesTab() {
+function PatientPreferencesTab({ isRTL, t }: { isRTL: boolean; t: any }) {
   const [ageRequired, setAgeRequired] = useState(true);
   const [notesRequired, setNotesRequired] = useState(true);
   const [quickAdd, setQuickAdd] = useState(true);
@@ -794,129 +808,62 @@ function PatientPreferencesTab() {
 
   return (
     <div className="space-y-6">
-      {/* Required Fields Configuration */}
       <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-6">
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-            <ClipboardCheck className="h-5 w-5 text-indigo-600" />
+            <Heart className="h-5 w-5 text-indigo-600" />
           </div>
-          <h3 className="text-[16px] font-bold text-slate-900">Required Fields Configuration</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">{isRTL ? "تكوين الحقول المطلوبة" : "Required Fields Configuration"}</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Full Name - LOCKED */}
-          <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-            <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shrink-0">
-              <UserCircle2 className="h-5 w-5 text-slate-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-bold text-slate-800">Full Name</p>
-              <p className="text-[11px] font-medium text-slate-400">System Mandatory Field</p>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg">
-              <LockIcon className="h-3 w-3 text-slate-400" />
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Required</span>
-            </div>
-          </div>
-
-          {/* Phone Number - LOCKED */}
-          <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-            <div className="h-10 w-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shrink-0">
-              <Phone className="h-5 w-5 text-slate-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-bold text-slate-800">Phone Number</p>
-              <p className="text-[11px] font-medium text-slate-400">Essential for Notifications</p>
-            </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 rounded-lg">
-              <LockIcon className="h-3 w-3 text-slate-400" />
-              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Required</span>
-            </div>
-          </div>
-
-          {/* Patient Age - TOGGLE */}
-          <div className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-              <CalendarDays className="h-5 w-5 text-blue-500" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-bold text-slate-800">Patient Age</p>
-              <p className="text-[11px] font-medium text-slate-400">Toggle field requirement</p>
-            </div>
-            <button
-              onClick={() => setAgeRequired(!ageRequired)}
-              className={cn(
-                "relative h-6 w-12 rounded-full transition-all duration-300 shrink-0",
-                ageRequired ? "bg-blue-600" : "bg-slate-200"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300",
-                  ageRequired ? "left-7" : "left-1"
-                )}
-              />
-            </button>
-          </div>
-
-          {/* Notes Field - TOGGLE */}
-          <div className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-              <FileText className="h-5 w-5 text-blue-500" />
-            </div>
-            <div className="flex-1">
-              <p className="text-[13px] font-bold text-slate-800">Notes Field</p>
-              <p className="text-[11px] font-medium text-slate-400">Additional intake comments</p>
-            </div>
-            <button
-              onClick={() => setNotesRequired(!notesRequired)}
-              className={cn(
-                "relative h-6 w-12 rounded-full transition-all duration-300 shrink-0",
-                notesRequired ? "bg-blue-600" : "bg-slate-200"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-300",
-                  notesRequired ? "left-7" : "left-1"
-                )}
-              />
-            </button>
-          </div>
+        <div className="space-y-5">
+          <ToggleRow
+            icon={null}
+            title={isRTL ? "تاريخ الميلاد / العمر مطلوب" : "Date of birth / Age required"}
+            enabled={ageRequired}
+            onToggle={() => setAgeRequired(!ageRequired)}
+            isRTL={isRTL}
+          />
+          <ToggleRow
+            icon={null}
+            title={isRTL ? "الملاحظات السريرية الأولية مطلوبة" : "Initial clinical notes required"}
+            enabled={notesRequired}
+            onToggle={() => setNotesRequired(!notesRequired)}
+            isRTL={isRTL}
+          />
         </div>
       </div>
 
-      {/* Workflow Efficiency */}
-      <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
-        <div className="p-7 border-b border-slate-50 flex items-center gap-3">
+      <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-6">
+        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
             <Zap className="h-5 w-5 text-blue-600" />
           </div>
-          <h3 className="text-[16px] font-bold text-slate-900">Workflow Efficiency</h3>
+          <h3 className="text-[16px] font-bold text-slate-900">{isRTL ? "تجربة التسجيل" : "Registration Experience"}</h3>
         </div>
 
-        <div className="p-7 space-y-8">
+        <div className="space-y-5">
           <ToggleRow
-            icon={<UserPlus className="h-5 w-5 text-slate-400" />}
-            title="Enable Quick Add Patient"
-            subtitle="Shows a condensed intake form for fast check-ins during peak hours."
+            icon={null}
+            title={isRTL ? "تمكين الإضافة السريعة" : "Enable Quick Add"}
+            subtitle={isRTL ? "تجاوز التفاصيل غير الأساسية أثناء وقت الذروة" : "Skip non-essential details during peak hours"}
             enabled={quickAdd}
             onToggle={() => setQuickAdd(!quickAdd)}
+            isRTL={isRTL}
           />
-
           <ToggleRow
-            icon={<History className="h-5 w-5 text-slate-400" />}
-            title="Enable Auto-fill for Returning Patients"
-            subtitle="Automatically populate form data based on historical records when a name is matched."
+            icon={null}
+            title={isRTL ? "التعبئة التلقائية من السجلات السابقة" : "Auto-fill from previous records"}
             enabled={autoFill}
             onToggle={() => setAutoFill(!autoFill)}
+            isRTL={isRTL}
           />
         </div>
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
         <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          Save Changes
+          {isRTL ? "حفظ التغييرات" : "Save Changes"}
         </Button>
       </div>
     </div>
@@ -924,155 +871,43 @@ function PatientPreferencesTab() {
 }
 
 /* ── Permissions Tab ───────────────────────────────── */
-function PermissionsTab() {
-  const [editInvoices, setEditInvoices] = useState(true);
-  const [issueRefunds, setIssueRefunds] = useState(false);
-  const [deleteAppts, setDeleteAppts] = useState(false);
-
-  const visibilityItems = [
-    { label: "Dashboard Access", enabled: true },
-    { label: "Patients & Records", enabled: true },
-    { label: "Queue Management", enabled: true },
-    { label: "Billing View", enabled: true },
-    { label: "Clinic Financial Insights", enabled: false },
+function PermissionsTab({ isRTL, t }: { isRTL: boolean; t: any }) {
+  const permissions = [
+    { id: "p1", title: isRTL ? "عرض السجلات المالية" : "View Financial Records", enabled: true },
+    { id: "p2", title: isRTL ? "تعديل المواعيد" : "Edit Appointments", enabled: true },
+    { id: "p3", title: isRTL ? "حذف المرضى" : "Delete Patients", enabled: false },
+    { id: "p4", title: isRTL ? "تصدير البيانات" : "Export Data", enabled: false },
+    { id: "p5", title: isRTL ? "إدارة موظفي الاستقبال الآخرين" : "Manage Other Receptionists", enabled: true },
   ];
 
   return (
-    <div className="space-y-6 pb-10">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Action Permissions */}
-        <div className="lg:col-span-7 bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-8 space-y-8 min-h-[440px]">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
-              <LockIcon className="h-5 w-5 text-blue-600" />
-            </div>
-            <h3 className="text-[16px] font-bold text-slate-900">Action Permissions</h3>
-          </div>
-
-          <div className="space-y-8">
-            <ToggleRow
-              icon={null}
-              title="Allow editing invoices"
-              subtitle="Allow staff to modify existing billing records."
-              enabled={editInvoices}
-              onToggle={() => setEditInvoices(!editInvoices)}
-            />
-            <ToggleRow
-              icon={null}
-              title="Allow issuing refunds"
-              subtitle="Enable processing of payment reversals."
-              enabled={issueRefunds}
-              onToggle={() => setIssueRefunds(!issueRefunds)}
-            />
-            <ToggleRow
-              icon={null}
-              title="Allow deleting appointments"
-              subtitle="Grant authority to remove scheduled slots from the calendar."
-              enabled={deleteAppts}
-              onToggle={() => setDeleteAppts(!deleteAppts)}
-            />
-          </div>
+    <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-8 space-y-6">
+      <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
+        <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
+          <ShieldIcon className="h-5 w-5 text-blue-600" />
         </div>
-
-        {/* Visibility Matrix Column */}
-        <div className="lg:col-span-5 h-full">
-          <div className="bg-blue-50 border border-blue-200 rounded-[28px] p-7 flex flex-col gap-6 h-full min-h-[440px]">
-            <div className="flex items-center gap-3">
-              <Eye className="h-5 w-5 text-blue-600" />
-              <h3 className="text-[16px] font-bold text-slate-900">Visibility Matrix</h3>
-            </div>
-
-            <div className="bg-white rounded-2xl p-5 space-y-5 shadow-sm">
-              <div className="flex items-center justify-between pb-1">
-                <p className="text-[14px] font-bold text-blue-700">Current role</p>
-                <span className="bg-blue-100 text-blue-700 text-[10px] font-black uppercase px-2 py-1 rounded-md tracking-wider">
-                  Receptionist
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {visibilityItems.map((item, idx) => (
-                  <div 
-                    key={idx} 
-                    className={cn(
-                      "flex items-center gap-3 p-3 rounded-xl border text-[13px] font-bold transition-all",
-                      item.enabled 
-                        ? "bg-white border-slate-100 text-slate-700" 
-                        : "bg-slate-50 text-slate-300 italic border-transparent"
-                    )}
-                  >
-                    {item.enabled ? (
-                      <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-slate-300 shrink-0" />
-                    )}
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Administrative Note */}
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 flex items-start gap-4 mt-auto">
-              <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                <Info className="h-4 w-4 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-[13px] font-bold text-slate-800">Administrative Note</p>
-                <p className="text-[11px] font-medium text-amber-800/70 mt-1 leading-relaxed">
-                  Admin role has full access to all modules including system logs, financial reporting, and database management.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <h2 className="text-[16px] font-bold text-slate-900">{isRTL ? "الصلاحيات والأدوار" : "Permissions & Roles"}</h2>
       </div>
 
-      {/* Recent Access Changes */}
-      <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-8 space-y-8">
-        <h3 className="text-[16px] font-bold text-slate-900">Recent Access Changes</h3>
-        
-        <div className="space-y-10 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100 ml-1">
-          <TimelineItem 
-            title="Invoice editing permission enabled"
-            subtitle="Changed by Dr. Harrison (Admin) • 2 hours ago"
-            active
-          />
-          <TimelineItem 
-            title="Refund issuance requested"
-            subtitle="Initiated by Sarah Jenkins • Yesterday, 4:45 PM"
-          />
-          <TimelineItem 
-            title="System security audit completed"
-            subtitle="Automated Report • Oct 24, 2023"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end pt-2">
-        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          Save Changes
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function TimelineItem({ title, subtitle, active }: { title: string; subtitle: string; active?: boolean }) {
-  return (
-    <div className="relative pl-10">
-      <div className={cn(
-        "absolute left-0 top-1.5 h-6 w-6 rounded-full border-4 border-white shadow-sm transition-all z-10",
-        active ? "bg-blue-500 scale-110 shadow-blue-200" : "bg-slate-300"
-      )} />
-      <div className="space-y-1">
-        <p className={cn("text-[14px] font-bold", active ? "text-slate-900" : "text-slate-500")}>
-          {title}
+      <div className={cn("bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
+        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+        <p className={cn("text-[11px] font-bold text-blue-600 leading-relaxed", isRTL ? "text-right" : "text-left")}>
+          {isRTL ? "يتم تعيين هذه الصلاحيات من قبل مدير النظام ولا يمكن تغييرها يدوياً." : "These permissions are set by the administrator and cannot be manually changed."}
         </p>
-        <p className="text-[12px] font-medium text-slate-400">{subtitle}</p>
+      </div>
+
+      <div className="space-y-4">
+        {permissions.map((p) => (
+          <div key={p.id} className={cn("flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl", isRTL ? "flex-row-reverse" : "flex-row")}>
+            <span className={cn("text-[13px] font-bold", p.enabled ? "text-slate-900" : "text-slate-400")}>{p.title}</span>
+            {p.enabled ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+            ) : (
+              <XCircle className="h-5 w-5 text-slate-300 shrink-0" />
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
 }
-
-

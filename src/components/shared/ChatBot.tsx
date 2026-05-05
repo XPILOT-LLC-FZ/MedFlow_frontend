@@ -565,7 +565,7 @@ export function ChatBot({
           initial={{ opacity: 0, y: 18, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.98 }}
-          className="fixed right-6 bottom-[90px] lg:bottom-6 z-50 flex h-[min(78vh,640px)] w-[min(calc(100vw-1.5rem),390px)] flex-col overflow-hidden rounded-[28px] border border-border/60 bg-background shadow-[0_30px_90px_-35px_rgba(15,23,42,0.55)] rtl:right-auto rtl:left-6"
+          className="fixed right-6 bottom-6 lg:bottom-10 z-50 flex h-[min(78vh,640px)] w-[min(calc(100vw-1.5rem),390px)] flex-col overflow-hidden rounded-[28px] border border-border/60 bg-background shadow-[0_30px_90px_-35px_rgba(15,23,42,0.55)] rtl:right-auto rtl:left-6"
         >
           <div className="relative overflow-hidden border-b bg-gradient-to-br from-primary via-primary to-primary/85 px-5 py-4 text-primary-foreground">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.22),transparent_35%)]" />

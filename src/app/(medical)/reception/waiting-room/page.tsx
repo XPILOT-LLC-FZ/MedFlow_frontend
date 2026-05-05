@@ -13,6 +13,7 @@ import {
   Stethoscope,
   FileText,
   ChevronRight,
+  ChevronLeft,
   Zap,
   Filter,
   X,
@@ -37,6 +38,7 @@ import type { Appointment, ApiPatient, ApiDoctor } from "@/types";
 import { patientService } from "@/services/patientService";
 import { staffService } from "@/services/staffService";
 import { bookingService } from "@/services/bookingService";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const toMinutes = (value: string): number | null => {
   const [hours, minutes] = value.split(":").map(Number);
@@ -44,15 +46,16 @@ const toMinutes = (value: string): number | null => {
   return hours * 60 + minutes;
 };
 
-const formatWait = (minutes: number) => {
-  if (minutes < 60) return `${minutes}m`;
+const formatWait = (minutes: number, isRTL: boolean) => {
+  if (minutes < 60) return `${minutes}${isRTL ? "د" : "m"}`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  return m === 0 ? `${h}${isRTL ? "س" : "h"}` : `${h}${isRTL ? "س" : "h"} ${m}${isRTL ? "د" : "m"}`;
 };
 
 
 export default function QueueManagementPage() {
+  const { t, isRTL, locale } = useTranslation();
   const toast = useToastStore();
   const router = useRouter();
   const { appointments, fetchAppointments, updateAppointment, isLoading } = useBookingStore();
@@ -60,7 +63,6 @@ export default function QueueManagementPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
 
-  // ── All hooks must be declared before any early return ──
   const todayKey = useMemo(() => formatDateKey(new Date()), []);
 
   const loadQueue = useCallback(async () => {
@@ -120,16 +122,16 @@ export default function QueueManagementPage() {
     setProcessingKey(key);
     try {
       await updateAppointment(appt.id, { status: nextStatus });
-      toast.success(`Appointment marked as ${nextStatus.replace("-", " ")}`);
+      toast.success(t("statusUpdatedSuccessfully"));
     } catch {
-      toast.error("Failed to update status");
+      toast.error(t("error"));
     } finally {
       setProcessingKey(null);
     }
   };
 
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  // ── Early return AFTER all hooks ──
+
   if (checkInOpen) {
     return (
       <AddToQueueView 
@@ -143,20 +145,20 @@ export default function QueueManagementPage() {
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 bg-slate-50 min-h-screen pb-20 font-sans">
-      {/* ── Header ── */}
+    <div dir={isRTL ? "rtl" : "ltr"} className="p-4 lg:p-8 space-y-8 bg-slate-50 min-h-screen pb-20 font-sans">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">Queue Management</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{t("queueManagement")}</h1>
             {isLoading && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
           </div>
-          <p className="text-slate-400 text-sm font-medium">Real-time tracking of patient status across the clinic.</p>
+          <p className="text-slate-400 text-sm font-medium">{t("managePatientRecords")}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
             <CalendarDays className="h-4 w-4 text-indigo-500" />
-            <span className="text-[13px] font-bold text-slate-700">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+            <span className="text-[13px] font-bold text-slate-700">{new Date().toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
           <Button
@@ -164,28 +166,27 @@ export default function QueueManagementPage() {
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl h-11 px-7 font-bold shadow-lg shadow-blue-500/10 flex items-center gap-2 text-[13px]"
           >
             <Plus className="h-5 w-5" />
-            Add to Queue
+            {t("addToQueue")}
           </Button>
         </div>
       </div>
 
-      {/* ── Summary Cards ── */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <StatCard icon={Users} label="Total in Queue" value={String(waiting.length + inProgress.length)} iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <StatCard icon={Clock} label="Avg. Wait Time" value={formatWait(avgWaitMinutes)} iconBg="bg-orange-50" iconColor="text-orange-500" />
-        <StatCard icon={UserCheck} label="In Progress" value={String(inProgress.length)} iconBg="bg-purple-50" iconColor="text-purple-600" />
-        <StatCard icon={CheckCircle2} label="Completed Today" value={String(completed.length)} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
+        <StatCard icon={Users} label={t("totalInQueue")} value={String(waiting.length + inProgress.length)} iconBg="bg-blue-50" iconColor="text-blue-600" />
+        <StatCard icon={Clock} label={t("avgWaitTime")} value={formatWait(avgWaitMinutes, isRTL)} iconBg="bg-orange-50" iconColor="text-orange-500" />
+        <StatCard icon={UserCheck} label={t("inProgress")} value={String(inProgress.length)} iconBg="bg-purple-50" iconColor="text-purple-600" />
+        <StatCard icon={CheckCircle2} label={t("completedToday")} value={String(completed.length)} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
       </div>
 
-      {/* ── Kanban Board ── */}
-      {/* ── Kanban Board ── */}
+      {/* Kanban Board */}
       <div className="space-y-8">
         {/* Active Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
           {/* BOOKED Column */}
-          <KanbanColumn dot="bg-slate-300" title="Booked" count={booked.length} onFilter={() => setFilterOpen(true)}>
+          <KanbanColumn dot="bg-slate-300" title={t("booked")} count={booked.length} onFilter={() => setFilterOpen(true)}>
             {booked.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm italic">No appointments booked</div>
+              <div className="py-10 text-center text-slate-400 text-sm italic">{t("noPatientsInQueue")}</div>
             ) : (
               booked.map((appt) => (
                 <WaitingCard
@@ -196,9 +197,9 @@ export default function QueueManagementPage() {
                   time={appt.time}
                   waitMin={0}
                   doctor={appt.doctorName}
-                  dept={appt.type || "General"}
+                  dept={appt.type || t("generalVisit")}
                   loading={processingKey === `${appt.id}:confirmed`}
-                  actionLabel="Check-in"
+                  actionLabel={t("checkIn")}
                   onAction={() => {
                     setSelectedAppointment(appt);
                     setCheckInOpen(true);
@@ -210,9 +211,9 @@ export default function QueueManagementPage() {
           </KanbanColumn>
 
           {/* WAITING Column */}
-          <KanbanColumn dot="bg-amber-400" title="Live Queue" count={waiting.length} onFilter={() => setFilterOpen(true)}>
+          <KanbanColumn dot="bg-amber-400" title={t("liveQueue")} count={waiting.length} onFilter={() => setFilterOpen(true)}>
             {waiting.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm italic">No patients in live queue</div>
+              <div className="py-10 text-center text-slate-400 text-sm italic">{t("noPatientsInQueue")}</div>
             ) : (
               waiting.map((appt, i) => {
                 const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
@@ -227,9 +228,9 @@ export default function QueueManagementPage() {
                     time={appt.time}
                     waitMin={waitMin}
                     doctor={appt.doctorName}
-                    dept={appt.type || "General"}
+                    dept={appt.type || t("generalVisit")}
                     loading={processingKey === `${appt.id}:in-progress`}
-                    actionLabel="Start Session"
+                    actionLabel={t("startSession")}
                     onAction={() => void applyTransition(appt, "in-progress")}
                     onCancel={() => void applyTransition(appt, "cancelled")}
                   />
@@ -239,19 +240,19 @@ export default function QueueManagementPage() {
           </KanbanColumn>
 
           {/* IN PROGRESS Column */}
-          <KanbanColumn dot="bg-blue-500" title="In Progress" count={inProgress.length} onFilter={() => setFilterOpen(true)}>
+          <KanbanColumn dot="bg-blue-500" title={t("inProgress")} count={inProgress.length} onFilter={() => setFilterOpen(true)}>
             {inProgress.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm italic">No patients in session</div>
+              <div className="py-10 text-center text-slate-400 text-sm italic">{t("noPatientsInQueue")}</div>
             ) : (
               inProgress.map((appt) => (
                 <InProgressCard
                   key={appt.id}
-                  room="Room 3"
+                  room={isRTL ? "غرفة 3" : "Room 3"}
                   name={appt.patientName}
                   pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
                   sessionMin={15}
                   doctor={appt.doctorName}
-                  dept={appt.type || "General"}
+                  dept={appt.type || t("generalVisit")}
                   loading={processingKey === `${appt.id}:completed`}
                   onAction={() => void applyTransition(appt, "completed")}
                 />
@@ -260,9 +261,9 @@ export default function QueueManagementPage() {
           </KanbanColumn>
 
           {/* DONE Column */}
-          <KanbanColumn dot="bg-emerald-500" title="Done" count={completed.length} onFilter={() => setFilterOpen(true)}>
+          <KanbanColumn dot="bg-emerald-500" title={t("completed")} count={completed.length} onFilter={() => setFilterOpen(true)}>
             {completed.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm italic">No patients completed yet</div>
+              <div className="py-10 text-center text-slate-400 text-sm italic">{t("noRecentActivity")}</div>
             ) : (
               completed.slice(0, 10).map((appt) => (
                 <DoneCard
@@ -271,7 +272,7 @@ export default function QueueManagementPage() {
                   pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
                   completedAt={appt.endTime || appt.time}
                   doctor={appt.doctorName}
-                  dept={appt.type || "General"}
+                  dept={appt.type || t("generalVisit")}
                   prescription
                   isPaid={appt.paymentStatus === "PAID"}
                   onAction={() => router.push(`/reception/payments?appointmentId=${appt.id}`)}
@@ -283,9 +284,9 @@ export default function QueueManagementPage() {
 
         {/* Separated Columns (Cancelled) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-          <KanbanColumn dot="bg-red-400" title="Cancelled" count={cancelled.length} onFilter={() => setFilterOpen(true)}>
+          <KanbanColumn dot="bg-red-400" title={t("cancelled")} count={cancelled.length} onFilter={() => setFilterOpen(true)}>
             {cancelled.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm italic">No cancelled appointments</div>
+              <div className="py-10 text-center text-slate-400 text-sm italic">{t("noRecentActivity")}</div>
             ) : (
               cancelled.slice(0, 10).map((appt) => (
                 <DoneCard
@@ -294,8 +295,8 @@ export default function QueueManagementPage() {
                   pid={`#PT-${appt.id.slice(-5).toUpperCase()}`}
                   completedAt={appt.time}
                   doctor={appt.doctorName}
-                  dept={appt.type || "General"}
-                  statusLabel={appt.status === "no-show" ? "No Show" : "Cancelled"}
+                  dept={appt.type || t("generalVisit")}
+                  statusLabel={appt.status === "no-show" ? t("noShow") : t("cancelled")}
                   isCancelled
                   onAction={() => void applyTransition(appt, "scheduled")}
                 />
@@ -305,7 +306,7 @@ export default function QueueManagementPage() {
         </div>
       </div>
 
-      {/* ── Filter Modal ── */}
+      {/* Filter Modal */}
       {filterOpen && <FilterModal onClose={() => setFilterOpen(false)} />}
     </div>
   );
@@ -327,9 +328,9 @@ function StatCard({ icon: Icon, label, value, iconBg, iconColor }: StatCardProps
         <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center shrink-0", iconBg)}>
           <Icon className={cn("h-7 w-7", iconColor)} />
         </div>
-        <div>
-          <p className="text-[13px] font-bold text-slate-400">{label}</p>
-          <h3 className="text-[30px] font-black text-slate-900 tracking-tighter leading-none mt-1">{value}</h3>
+        <div className="overflow-hidden">
+          <p className="text-[13px] font-bold text-slate-400 truncate">{label}</p>
+          <h3 className="text-[30px] font-black text-slate-900 tracking-tighter leading-none mt-1 truncate">{value}</h3>
         </div>
       </CardContent>
     </Card>
@@ -346,20 +347,21 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({ dot, title, count, children, onFilter }: KanbanColumnProps) {
+  const { isRTL } = useTranslation();
   return (
     <div className="bg-white rounded-[28px] shadow-[0_4px_24px_rgb(0,0,0,0.05)] p-5 space-y-4">
       {/* Column Header */}
       <div className="flex items-center justify-between pb-2">
-        <div className="flex items-center gap-2.5">
-          <div className={cn("h-2.5 w-2.5 rounded-full", dot)} />
-          <span className="text-[15px] font-bold text-slate-800">{title}</span>
-          <span className="h-6 min-w-[26px] px-2 bg-slate-100 rounded-full text-[11px] font-black text-slate-500 flex items-center justify-center">
+        <div className="flex items-center gap-2.5 overflow-hidden">
+          <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", dot)} />
+          <span className="text-[15px] font-bold text-slate-800 truncate">{title}</span>
+          <span className="h-6 min-w-[26px] px-2 bg-slate-100 rounded-full text-[11px] font-black text-slate-500 flex items-center justify-center shrink-0">
             {count}
           </span>
         </div>
         <button
           onClick={onFilter}
-          className="h-7 w-7 rounded-lg hover:bg-slate-50 flex items-center justify-center transition-colors"
+          className="h-7 w-7 rounded-lg hover:bg-slate-50 flex items-center justify-center transition-colors shrink-0"
         >
           <MoreHorizontal className="h-4 w-4 text-slate-400" />
         </button>
@@ -403,27 +405,28 @@ interface QuickActionRowProps {
 }
 
 function QuickActionRow({ onAction, onCancel, loading, doctorName, actionLabel = "Quick action" }: QuickActionRowProps) {
+  const { t, isRTL } = useTranslation();
   return (
     <div className="flex items-center justify-between pt-3 mt-1 border-t border-slate-100">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 overflow-hidden">
         <DoctorAvatar name={doctorName} />
         {onCancel && (
           <button
             onClick={onCancel}
             disabled={loading}
-            className="text-[11px] font-bold text-red-400 hover:text-red-500 transition-colors"
+            className="text-[11px] font-bold text-red-400 hover:text-red-500 transition-colors truncate"
           >
-            Cancel
+            {t("cancel")}
           </button>
         )}
       </div>
       <button
         onClick={onAction}
         disabled={loading}
-        className="flex items-center gap-1 text-[12px] font-black text-[#3B82F6] hover:text-blue-700 transition-colors"
+        className="flex items-center gap-1 text-[12px] font-black text-[#3B82F6] hover:text-blue-700 transition-colors shrink-0"
       >
-        {loading ? "Updating..." : actionLabel}
-        <ChevronRight className="h-3.5 w-3.5" />
+        {loading ? t("saving") : actionLabel}
+        {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
       </button>
     </div>
   );
@@ -445,35 +448,36 @@ interface WaitingCardProps {
 }
 
 function WaitingCard({ priority, name, pid, time, waitMin, doctor, dept, onAction, onCancel, loading, actionLabel }: WaitingCardProps) {
+  const { t, isRTL } = useTranslation();
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Priority */}
       {priority === "high" ? (
         <span className="inline-flex px-3 py-1 rounded-lg bg-red-50 border border-red-100 text-[11px] font-bold text-red-500">
-          High priority
+          {t("urgent")}
         </span>
       ) : (
-        <p className="text-[12px] font-bold text-slate-400">Standard</p>
+        <p className="text-[12px] font-bold text-slate-400">{t("standard")}</p>
       )}
 
       {/* Patient */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 overflow-hidden">
         <PatientAvatar name={name} />
-        <div>
-          <p className="text-[15px] font-bold text-slate-900">{name}</p>
-          <p className="text-[12px] text-slate-400 mt-0.5">ID: {pid}</p>
+        <div className="min-w-0">
+          <p className="text-[15px] font-bold text-slate-900 truncate">{name}</p>
+          <p className="text-[12px] text-slate-400 mt-0.5 truncate">ID: {pid}</p>
         </div>
       </div>
 
       {/* Details */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500 overflow-hidden">
           <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          Appt: {time} {waitMin > 0 && `(Waiting ${waitMin}m)`}
+          <span className="truncate">{time} {waitMin > 0 && `(${t("waiting")} ${waitMin}${isRTL ? "د" : "m"})`}</span>
         </div>
-        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500 overflow-hidden">
           <Stethoscope className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          {doctor} • {dept}
+          <span className="truncate">{doctor} • {dept}</span>
         </div>
       </div>
 
@@ -501,6 +505,7 @@ interface InProgressCardProps {
 }
 
 function InProgressCard({ room, name, pid, sessionMin, doctor, dept, onAction, loading }: InProgressCardProps) {
+  const { t, isRTL } = useTranslation();
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
       {/* Room Badge */}
@@ -509,27 +514,27 @@ function InProgressCard({ room, name, pid, sessionMin, doctor, dept, onAction, l
       </span>
 
       {/* Patient */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 overflow-hidden">
         <PatientAvatar name={name} />
-        <div>
-          <p className="text-[15px] font-bold text-slate-900">{name}</p>
-          <p className="text-[12px] text-slate-400 mt-0.5">ID: {pid}</p>
+        <div className="min-w-0">
+          <p className="text-[15px] font-bold text-slate-900 truncate">{name}</p>
+          <p className="text-[12px] text-slate-400 mt-0.5 truncate">ID: {pid}</p>
         </div>
       </div>
 
       {/* Details */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-[12px] font-bold text-blue-500">
+        <div className="flex items-center gap-2 text-[12px] font-bold text-blue-500 overflow-hidden">
           <Zap className="h-3.5 w-3.5 shrink-0 fill-blue-400 text-blue-400" />
-          In session: {sessionMin}m
+          <span className="truncate">{t("inProgress")}: {sessionMin}${isRTL ? "د" : "m"}</span>
         </div>
-        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-500 overflow-hidden">
           <Stethoscope className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-          {doctor} • {dept}
+          <span className="truncate">{doctor} • {dept}</span>
         </div>
       </div>
 
-      <QuickActionRow onAction={onAction} loading={loading} doctorName={doctor} />
+      <QuickActionRow onAction={onAction} loading={loading} doctorName={doctor} actionLabel={t("completed")} />
     </div>
   );
 }
@@ -549,7 +554,8 @@ interface DoneCardProps {
 }
 
 function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction, statusLabel, isCancelled, isPaid }: DoneCardProps) {
-  const displayLabel = statusLabel || (isPaid ? "Paid" : "Checkout Req.");
+  const { t, isRTL } = useTranslation();
+  const displayLabel = statusLabel || (isPaid ? t("paid") : t("collectPayment"));
   
   return (
     <div className="bg-white rounded-[18px] border border-slate-100 p-5 space-y-4 shadow-[0_1px_8px_rgb(0,0,0,0.03)]">
@@ -566,28 +572,28 @@ function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction
       </span>
 
       {/* Patient */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 overflow-hidden">
         <PatientAvatar name={name} />
-        <div>
-          <p className="text-[15px] font-bold text-slate-500">{name}</p>
-          <p className="text-[12px] text-slate-400 mt-0.5">ID: {pid}</p>
+        <div className="min-w-0">
+          <p className="text-[15px] font-bold text-slate-500 truncate">{name}</p>
+          <p className="text-[12px] text-slate-400 mt-0.5 truncate">ID: {pid}</p>
         </div>
       </div>
 
       {/* Details */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400 overflow-hidden">
           <Clock className="h-3.5 w-3.5 text-slate-300 shrink-0" />
-          {isCancelled ? `Cancelled at ${completedAt}` : `Completed at ${completedAt}`}
+          <span className="truncate">{isCancelled ? `${t("cancelled")} ${completedAt}` : `${t("completed")} ${completedAt}`}</span>
         </div>
-        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400 overflow-hidden">
           <Stethoscope className="h-3.5 w-3.5 text-slate-300 shrink-0" />
-          {doctor} • {dept}
+          <span className="truncate">{doctor} • {dept}</span>
         </div>
         {prescription && !isCancelled && (
-          <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400">
+          <div className="flex items-center gap-2 text-[12px] font-medium text-slate-400 overflow-hidden">
             <FileText className="h-3.5 w-3.5 text-slate-300 shrink-0" />
-            E-Prescription Sent
+            <span className="truncate">{t("prescriptions")} {t("sent")}</span>
           </div>
         )}
       </div>
@@ -596,7 +602,7 @@ function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction
         onAction={onAction}
         loading={false}
         doctorName={doctor}
-        actionLabel={isCancelled ? "Reschedule" : isPaid ? "View Receipt" : "Checkout"}
+        actionLabel={isCancelled ? t("reschedule") : isPaid ? t("details") : t("collectPayment")}
       />
     </div>
   );
@@ -604,6 +610,7 @@ function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction
 
 /* ── Filter Modal ──────────────────────────────────────────────── */
 function FilterModal({ onClose }: { onClose: () => void }) {
+  const { t, isRTL } = useTranslation();
   const [selectedPriority, setSelectedPriority] = useState<"standard" | "high" | "low">("high");
   const [showAll, setShowAll] = useState(false);
   const [checked, setChecked] = useState<Record<string, boolean>>({
@@ -623,7 +630,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
   const toggle = (key: string) => setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
+    <div dir={isRTL ? "rtl" : "ltr"} className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
       <div className="w-full max-w-[400px] bg-white rounded-[24px] shadow-2xl border border-slate-100 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
@@ -631,7 +638,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
             <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center">
               <Filter className="h-4 w-4 text-indigo-600" />
             </div>
-            <h2 className="text-[17px] font-bold text-slate-900">Filter</h2>
+            <h2 className="text-[17px] font-bold text-slate-900">{t("filter")}</h2>
           </div>
           <button
             onClick={onClose}
@@ -645,7 +652,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
         <div className="px-7 py-6 space-y-7">
           {/* Specializations */}
           <div className="space-y-4">
-            <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest">Specializations</p>
+            <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest">{t("specialties")}</p>
             <div className="space-y-3">
               {specializations.map((spec) => (
                 <label key={spec} className="flex items-center gap-3 cursor-pointer group">
@@ -675,13 +682,13 @@ function FilterModal({ onClose }: { onClose: () => void }) {
               className="flex items-center gap-1.5 text-[12px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
             >
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAll && "rotate-180")} />
-              {showAll ? "Show less" : "Show all"}
+              {showAll ? t("showLess") : t("showAll")}
             </button>
           </div>
 
           {/* Priority */}
           <div className="space-y-4">
-            <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest">Priority</p>
+            <p className="text-[13px] font-black text-slate-900 uppercase tracking-widest">{t("priority")}</p>
             <div className="grid grid-cols-3 gap-2">
               {(["standard", "high", "low"] as const).map((p) => (
                 <button
@@ -694,7 +701,7 @@ function FilterModal({ onClose }: { onClose: () => void }) {
                       : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                   )}
                 >
-                  {p === "standard" ? "Standard" : p === "high" ? "High priority" : "Low priority"}
+                  {p === "standard" ? t("standard") : p === "high" ? t("urgent") : t("routine")}
                 </button>
               ))}
             </div>
@@ -708,20 +715,22 @@ function FilterModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="flex-1 h-12 rounded-2xl border-slate-200 text-slate-500 font-bold bg-white hover:bg-slate-50 text-[14px]"
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             onClick={onClose}
             className="flex-1 h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[14px]"
           >
-            Save
+            {t("save")}
           </Button>
         </div>
       </div>
     </div>
   );
 }
+
 function AddToQueueView({ appointment, onBack }: { appointment: Appointment | null; onBack: () => void }) {
+  const { t, isRTL } = useTranslation();
   const router = useRouter();
   const toast = useToastStore();
   const { updateAppointment, fetchAppointments } = useBookingStore();
@@ -773,7 +782,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
         });
       } else {
         if (!selectedPatient || !selectedDoctor) {
-          toast.error("Please select both a patient and a doctor");
+          toast.error(t("fillRequired"));
           return;
         }
         const now = new Date();
@@ -792,11 +801,11 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
           status: "CONFIRMED"
         });
       }
-      toast.success("Patient added to queue successfully");
+      toast.success(t("patientAddedSuccessfully"));
       await fetchAppointments({ date: formatDateKey(new Date()) });
       onBack();
     } catch (error) {
-      toast.error("Failed to add patient to queue");
+      toast.error(t("error"));
       console.error(error);
     } finally {
       setLoading(false);
@@ -811,17 +820,17 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
   const currentAmount = appointment?.amount || selectedDoctor?.consultationFee || 0;
 
   return (
-    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-6 md:space-y-8">
+    <div dir={isRTL ? "rtl" : "ltr"} className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-2 text-[13px] font-bold text-slate-400">
-          <span className="cursor-pointer hover:text-slate-600 transition-colors" onClick={onBack}>Patient Queue</span>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="text-slate-900">Patient Check-in</span>
+          <span className="cursor-pointer hover:text-slate-600 transition-colors" onClick={onBack}>{t("waitingRoom")}</span>
+          {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          <span className="text-slate-900">{t("patientCheckIn")}</span>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <Button variant="outline" onClick={onBack} className="rounded-xl border-slate-200 font-bold text-slate-500 hover:bg-slate-50 h-11 px-8 text-[13px] bg-white order-2 sm:order-1">
-            Cancel
+            {t("cancel")}
           </Button>
           <Button 
             disabled={loading || (!appointment && (!selectedPatient || !selectedDoctor))}
@@ -829,7 +838,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10 text-[13px] order-1 sm:order-2"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Confirm check in
+            {t("confirmCheckIn")}
           </Button>
         </div>
       </div>
@@ -841,18 +850,18 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
           {/* Patient Selection (Walk-in only) */}
           {!appointment && !selectedPatient && (
             <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-7 space-y-5">
-              <h3 className="text-[16px] font-bold text-slate-900">Select Patient</h3>
+              <h3 className="text-[16px] font-bold text-slate-900">{t("selectPatient")}</h3>
               <div className="relative">
                 {searchingPatients ? (
-                  <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
+                  <Loader2 className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin", isRTL ? "right-4" : "left-4")} />
                 ) : (
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                  <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300", isRTL ? "right-4" : "left-4")} />
                 )}
                 <Input 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, phone or ID..." 
-                  className="pl-11 h-14 rounded-2xl border-slate-100 bg-slate-50" 
+                  placeholder={t("searchPatientsPlaceholder")} 
+                  className={cn("h-14 rounded-2xl border-slate-100 bg-slate-50", isRTL ? "pr-11 pl-4" : "pl-11 pr-4")} 
                 />
                 {patients.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto no-scrollbar">
@@ -881,7 +890,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                    onClick={() => router.push("/reception/patients")}
                    className="text-blue-600 font-bold hover:bg-blue-50 rounded-xl"
                  >
-                   <Plus className="h-4 w-4 mr-2" /> Register New Patient
+                   <Plus className={cn("h-4 w-4", isRTL ? "ml-2" : "mr-2")} /> {t("addNewPatient")}
                  </Button>
               </div>
             </div>
@@ -896,35 +905,35 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                     <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${currentPatientName}`} />
                     <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-lg">{currentPatientName.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <div className="space-y-1">
+                  <div className={cn("space-y-1", isRTL ? "sm:text-right" : "sm:text-left")}>
                     <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
                       <h2 className="text-[18px] md:text-[19px] font-bold text-slate-900">{currentPatientName}</h2>
                       {!appointment && (
-                        <button onClick={() => setSelectedPatient(null)} className="text-[11px] font-bold text-blue-600 hover:underline">Change</button>
+                        <button onClick={() => setSelectedPatient(null)} className="text-[11px] font-bold text-blue-600 hover:underline">{t("change")}</button>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-[11px] md:text-[12px] font-bold text-slate-400">
                       <span>ID: #PT-{currentPatientId.toString().slice(-5).toUpperCase()}</span>
                       <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-slate-300" />
-                      <span>{currentPatientPhone || "No phone recorded"}</span>
+                      <span className="font-mono">{currentPatientPhone || "---"}</span>
                     </div>
                     <div className="flex items-center justify-center sm:justify-start gap-1.5 text-[11px] md:text-[12px] font-bold text-slate-500 mt-1">
                       <Clock className="h-3.5 w-3.5" />
-                      {appointment ? `Scheduled: ${appointment.time}` : "Walk-in Check-in"}
+                      {appointment ? `${t("scheduled")}: ${appointment.time}` : t("walkIn")}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col items-center sm:items-end gap-1.5 shrink-0">
                   <span className="inline-flex px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-[10px] md:text-[11px] font-black rounded-xl uppercase tracking-wide">
-                    {appointment ? appointment.status.toUpperCase() : "WALK-IN"} · Pending Check-in
+                    {appointment ? t(appointment.status.toLowerCase() as any) : t("walkIn")} · {t("pending")}
                   </span>
-                  <p className="text-[10px] md:text-[11px] font-bold text-slate-400">Date: {appointment ? new Date(appointment.date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+                  <p className="text-[10px] md:text-[11px] font-bold text-slate-400">{t("date")}: {appointment ? new Date(appointment.date).toLocaleDateString(isRTL ? "ar-EG" : "en-US") : new Date().toLocaleDateString(isRTL ? "ar-EG" : "en-US")}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6 pt-3 border-t border-slate-50">
                 <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl">
                   <ClipboardList className="h-4 w-4 text-slate-400" />
-                  <span className="text-[12px] font-bold text-slate-600">{appointment?.type || "General Visit"}</span>
+                  <span className="text-[12px] font-bold text-slate-600">{appointment?.type || t("generalVisit")}</span>
                 </div>
                 {currentDoctorName && (
                   <div className="flex items-center gap-2">
@@ -932,7 +941,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                       <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${currentDoctorName}`} />
                       <AvatarFallback className="text-[10px]">{currentDoctorName.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <span className="text-[12px] font-bold text-slate-600">Dr. {currentDoctorName}</span>
+                    <span className="text-[12px] font-bold text-slate-600">{t("doctor")} {currentDoctorName}</span>
                   </div>
                 )}
               </div>
@@ -946,10 +955,10 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                 <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
                   <ClipboardList className="h-5 w-5 text-indigo-600" />
                 </div>
-                <h3 className="text-[16px] font-bold text-slate-900">Check-in Requirements</h3>
+                <h3 className="text-[16px] font-bold text-slate-900">{t("requirements")}</h3>
               </div>
               <span className="text-[12px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-lg">
-                {consentSigned ? "3 of 3 Completed" : "2 of 3 Completed"}
+                {consentSigned ? `3 ${t("of")} 3 ${t("completed")}` : `2 ${t("of")} 3 ${t("completed")}`}
               </span>
             </div>
 
@@ -962,11 +971,11 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-[14px] font-bold text-slate-900">Verify Patient Identity</p>
-                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">ID and details confirmed</p>
+                    <p className="text-[14px] font-bold text-slate-900">{t("verifyIdentity")}</p>
+                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">{t("idAndDetailsConfirmed")}</p>
                   </div>
                 </div>
-                <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg whitespace-nowrap">Verified</span>
+                <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg whitespace-nowrap">{t("verified")}</span>
               </div>
 
               {/* 2. Consent Forms */}
@@ -979,18 +988,18 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                     }
                   </div>
                   <div>
-                    <p className="text-[14px] font-bold text-slate-900">Sign Consent Forms</p>
-                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">HIPAA and General Consent for treatment</p>
+                    <p className="text-[14px] font-bold text-slate-900">{t("signConsentForms")}</p>
+                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">{t("consentDescription")}</p>
                     {!consentSigned && (
                       <button onClick={() => setConsentSigned(true)} className="flex items-center gap-1 text-[12px] font-bold text-blue-600 mt-2 hover:text-blue-700 transition-colors">
-                        Open Digital Form <ChevronRight className="h-3 w-3" />
+                        {t("openDigitalForm")} {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                       </button>
                     )}
                   </div>
                 </div>
                 {consentSigned
-                  ? <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg whitespace-nowrap">Verified</span>
-                  : <span className="text-[11px] font-black text-red-500 bg-red-50 px-3 py-1 rounded-lg whitespace-nowrap">Required</span>
+                  ? <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg whitespace-nowrap">{t("verified")}</span>
+                  : <span className="text-[11px] font-black text-red-500 bg-red-50 px-3 py-1 rounded-lg whitespace-nowrap">{t("required")}</span>
                 }
               </div>
 
@@ -1001,12 +1010,12 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                     <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-[14px] font-bold text-slate-900">Update Contact Information</p>
-                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">Confirm phone number and email address</p>
+                    <p className="text-[14px] font-bold text-slate-900">{t("updateContactInformation")}</p>
+                    <p className="text-[12px] font-medium text-slate-400 mt-0.5">{t("confirmPhoneAndEmail")}</p>
                   </div>
                 </div>
                 <button className="text-[11px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap flex items-center gap-1">
-                  <Edit2 className="h-3 w-3" /> Edit
+                  <Edit2 className="h-3 w-3" /> {t("edit")}
                 </button>
               </div>
             </div>
@@ -1019,15 +1028,15 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                 <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
                   <Activity className="h-5 w-5 text-indigo-600" />
                 </div>
-                <h3 className="text-[16px] font-bold text-slate-900">Initial Vitals <span className="text-slate-300 font-normal">(Optional)</span></h3>
+                <h3 className="text-[16px] font-bold text-slate-900">{t("vitalsTrend")} <span className="text-slate-300 font-normal">({t("optional")})</span></h3>
               </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-              <VitalInput label="Blood Pressure" value="--" unit="mmhg" />
-              <VitalInput label="Heart Rate" value="--" unit="bpm" />
-              <VitalInput label="Temperature" value="--" unit="°F" />
-              <VitalInput label="Weight" value="--" unit="kg" />
+              <VitalInput label={t("bloodPressure")} value="--" unit="mmhg" />
+              <VitalInput label={t("heartRate")} value="--" unit="bpm" />
+              <VitalInput label={isRTL ? "الحرارة" : "Temperature"} value="--" unit={isRTL ? "م°" : "°C"} />
+              <VitalInput label={t("weight") || (isRTL ? "الوزن" : "Weight")} value="--" unit="kg" />
             </div>
           </div>
         </div>
@@ -1036,13 +1045,13 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
         <div className="xl:col-span-3 space-y-6">
           {/* Queue Assignment (Dynamic for Walk-in) */}
           <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
-            <h3 className="text-[16px] font-bold text-slate-900">Queue Assignment</h3>
+            <h3 className="text-[16px] font-bold text-slate-900">{t("queueAssignment")}</h3>
 
             {/* Assigned Doctor */}
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Assigned Doctor</label>
+              <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("assignedDoctor")}</label>
               {!appointment ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-40 overflow-y-auto no-scrollbar">
+                <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto no-scrollbar">
                   {doctors.map(doc => (
                     <div 
                       key={doc.id}
@@ -1071,7 +1080,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                       <AvatarFallback>{currentDoctorName.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="text-[13px] font-bold text-slate-900">Dr. {currentDoctorName}</p>
+                      <p className="text-[13px] font-bold text-slate-900">{t("doctor")} {currentDoctorName}</p>
                       <p className="text-[11px] font-bold text-slate-400">{currentSpecialty}</p>
                     </div>
                   </div>
@@ -1081,7 +1090,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
 
             {/* Priority Level */}
             <div className="space-y-3">
-              <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Priority Level</label>
+              <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("priority")}</label>
               <div className="grid grid-cols-3 gap-2">
                 {(["routine", "standard", "urgent"] as const).map((p) => (
                   <button
@@ -1094,7 +1103,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                          : "bg-slate-50 text-slate-500 hover:bg-slate-100"
                     )}
                   >
-                    {p}
+                    {p === "routine" ? t("routine") : p === "urgent" ? t("urgent") : t("standard")}
                   </button>
                 ))}
               </div>
@@ -1106,7 +1115,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
             {paid && (
               <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
                 <div className="border-4 border-emerald-400 text-emerald-400 text-[40px] font-black px-6 py-2 rounded-xl opacity-60 rotate-[-15deg] tracking-widest">
-                  PAID
+                  {t("paid").toUpperCase()}
                 </div>
               </div>
             )}
@@ -1114,21 +1123,21 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-blue-300" />
-                <span className="text-[13px] font-bold text-white">Payment Summary</span>
+                <span className="text-[13px] font-bold text-white">{t("paymentSummary")}</span>
               </div>
               <span className={cn("text-[10px] font-black px-2.5 py-1 rounded-lg", paid ? "bg-emerald-400/20 text-emerald-400" : "bg-amber-400/20 text-amber-400")}>
-                {paid ? "PAID" : "PENDING"}
+                {paid ? t("paid").toUpperCase() : t("pending").toUpperCase()}
               </span>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-blue-300">Amount Due</span>
-                <span className="text-[12px] font-bold text-white">{currentAmount} LE</span>
+                <span className="text-[12px] font-bold text-blue-300">{t("amountDue")}</span>
+                <span className="text-[12px] font-bold text-white">{currentAmount} {isRTL ? "ج.م" : "LE"}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] font-bold text-blue-300">Visit Type</span>
-                <span className="text-[12px] font-bold text-white capitalize">{appointment?.type || "Walk-in Consultation"}</span>
+                <span className="text-[12px] font-bold text-blue-300">{t("type")}</span>
+                <span className="text-[12px] font-bold text-white capitalize">{appointment?.type || t("walkIn")}</span>
               </div>
             </div>
 
@@ -1137,7 +1146,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                 onClick={() => setPaid(true)}
                 className="w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[14px] shadow-lg shadow-blue-900/30"
               >
-                <CreditCard className="h-4 w-4 mr-2" /> Collect Payment Now
+                <CreditCard className={cn("h-4 w-4", isRTL ? "ml-2" : "mr-2")} /> {t("collectPayment")}
               </Button>
             )}
           </div>
@@ -1147,7 +1156,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
             disabled={loading}
             className="w-full h-14 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
           >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Confirm check in"}
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("confirmCheckIn")}
           </Button>
         </div>
       </div>
@@ -1156,18 +1165,17 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
 }
 
 function VitalInput({ label, value, unit }: { label: string; value: string; unit: string }) {
+  const { isRTL } = useTranslation();
   return (
     <div className="space-y-2">
-      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{label}</label>
+      <label className={cn("text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{label}</label>
       <div className="flex items-center gap-2 h-12 px-4 bg-slate-50 border border-slate-100 rounded-xl">
         <input
           defaultValue={value}
-          className="flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none w-full"
+          className={cn("flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none w-full", isRTL && "text-right")}
         />
         <span className="text-[11px] font-bold text-slate-400 shrink-0">{unit}</span>
       </div>
     </div>
   );
 }
-
-

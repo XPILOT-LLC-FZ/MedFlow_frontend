@@ -251,15 +251,16 @@ export function DashboardTopbar() {
 
   // ── RECEPTION CUSTOM NAVBAR ───────────────────────────────────────────
   if (role === "STAFF") {
+    const { isRTL } = useTranslation();
     return (
-      <div className="hidden lg:flex w-full h-[88px] items-center justify-between border-b border-slate-100 bg-white px-10 transition-all duration-300">
+      <div dir={isRTL ? "rtl" : "ltr"} className="hidden lg:flex w-full h-[88px] items-center justify-between border-b border-slate-100 bg-white px-10 transition-all duration-300">
         {/* Left: Location Selector */}
-        <div className="flex items-center gap-4 group cursor-pointer">
+        <div className={cn("flex items-center gap-4 group cursor-pointer", isRTL ? "flex-row-reverse" : "flex-row")}>
           <div className="h-12 w-12 rounded-[20px] bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors shadow-sm">
             <Building2 className="h-6 w-6" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[14px] font-bold text-slate-900 tracking-tight">Tanta, Gharbia</span>
+          <div className={cn("flex items-center gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
+            <span className="text-[14px] font-bold text-slate-900 tracking-tight">{isRTL ? "طنطا، الغربية" : "Tanta, Gharbia"}</span>
             <ChevronDown className="h-4 w-4 text-slate-300" />
           </div>
         </div>
@@ -267,33 +268,33 @@ export function DashboardTopbar() {
         {/* Center: Search Bar */}
         <div className="flex-1 max-w-2xl px-12" ref={searchRef}>
           <div className="relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+            <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 group-focus-within:text-blue-600 transition-colors", isRTL ? "right-5" : "left-5")} />
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
-              placeholder="Search patients, doctors or appointments..."
-              className="w-full h-12 pl-12 pr-6 rounded-full border border-slate-100 bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-50/20 transition-all text-[13px] font-medium text-slate-600 outline-none shadow-sm placeholder:text-slate-400"
+              placeholder={isRTL ? "البحث عن المرضى أو الأطباء أو المواعيد..." : "Search patients, doctors or appointments..."}
+              className={cn("w-full h-12 rounded-full border border-slate-100 bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-50/20 transition-all text-[13px] font-medium text-slate-600 outline-none shadow-sm placeholder:text-slate-400", isRTL ? "pr-12 pl-6 text-right" : "pl-12 pr-6 text-left")}
             />
             {isSearchFocused && searchQuery.trim() && (
                <div className="absolute top-full mt-3 w-full overflow-hidden rounded-[24px] border border-slate-100 bg-white z-[100] shadow-2xl animate-in fade-in zoom-in-95 duration-200" style={{ maxHeight: "60vh", overflowY: "auto" }}>
                   {searchResults.length > 0 ? (
                     <div className="flex flex-col">
-                      <span className="px-6 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50">
-                        Results Found
+                      <span className={cn("px-6 py-3 text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50/50", isRTL ? "text-right" : "text-left")}>
+                        {isRTL ? "نتائج البحث" : "Results Found"}
                       </span>
                       {searchResults.map((route, i) => (
                         <button
                           key={`${route.href}-${i}`}
                           onClick={() => handleRouteNavigate(route.href)}
-                          className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 text-left transition-colors"
+                          className={cn("flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}
                         >
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                             <route.icon className="h-5 w-5" />
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold text-slate-900">{route.label}</span>
+                            <span className="text-sm font-bold text-slate-900">{isRTL ? route.labelAr : route.label}</span>
                             <span className="text-[11px] font-medium text-slate-400 truncate uppercase tracking-wider mt-0.5">{route.href}</span>
                           </div>
                         </button>
@@ -304,7 +305,7 @@ export function DashboardTopbar() {
                       <div className="h-12 w-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
                         <Search className="h-6 w-6" />
                       </div>
-                      <span className="text-sm font-bold text-slate-400">No results found.</span>
+                      <span className="text-sm font-bold text-slate-400">{isRTL ? "لم يتم العثور على نتائج." : "No results found."}</span>
                     </div>
                   )}
                </div>
@@ -313,7 +314,7 @@ export function DashboardTopbar() {
         </div>
 
         {/* Right: Actions & Profile */}
-        <div className="flex items-center gap-6">
+        <div className={cn("flex items-center gap-6", isRTL ? "flex-row-reverse" : "flex-row")}>
           {/* Online Toggle Button */}
           <button 
             onClick={async () => {
@@ -328,27 +329,28 @@ export function DashboardTopbar() {
             }}
             className={cn(
               "flex items-center gap-2.5 px-5 py-2.5 rounded-full font-black text-[11px] tracking-wider shadow-sm transition-all duration-300",
+              isRTL ? "flex-row-reverse" : "flex-row",
               user?.isAvailable 
                 ? "bg-emerald-50/60 border border-emerald-100/50 text-emerald-600 hover:bg-emerald-100" 
                 : "bg-slate-50/60 border border-slate-100/50 text-slate-400 hover:bg-slate-100"
             )}
           >
              <Activity className={cn("h-4 w-4", user?.isAvailable && "animate-pulse")} />
-             <span>{user?.isAvailable ? "ONLINE" : "OFFLINE"}</span>
+             <span>{user?.isAvailable ? (isRTL ? "متصل" : "ONLINE") : (isRTL ? "غير متصل" : "OFFLINE")}</span>
              <div className={cn(
                "h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all",
                user?.isAvailable ? "bg-emerald-500" : "bg-slate-300"
              )} />
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
             <button 
               onClick={() => setNotifOpen(!notifOpen)}
               className="h-11 w-11 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all relative group shadow-sm"
             >
               <Bell className="h-5 w-5" />
               {realNotifications.some(n => !n.readAt) && (
-                <span className="absolute top-[12px] right-[12px] h-2 w-2 rounded-full bg-rose-500 border-2 border-white" />
+                <span className={cn("absolute top-[12px] h-2 w-2 rounded-full bg-rose-500 border-2 border-white", isRTL ? "left-[12px]" : "right-[12px]")} />
               )}
             </button>
             <button 
@@ -367,7 +369,7 @@ export function DashboardTopbar() {
             </button>
           </div>
 
-          <Link href="/reception/profile" className="flex items-center gap-4 group ml-2">
+          <Link href="/reception/profile" className={cn("flex items-center gap-4 group", isRTL ? "flex-row-reverse mr-2" : "flex-row ml-2")}>
             <Avatar className={cn(
               "h-11 w-11 transition-all group-hover:scale-105 ring-2 shadow-md",
               user?.isAvailable ? "ring-blue-500" : "ring-slate-200"
@@ -375,12 +377,12 @@ export function DashboardTopbar() {
               <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user?.email}`} />
               <AvatarFallback className="bg-blue-600 text-white font-bold">{firstName.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col justify-center text-left">
+            <div className={cn("flex flex-col justify-center", isRTL ? "text-right" : "text-left")}>
               <p className="text-[15px] font-bold text-slate-900 leading-none mb-1 group-hover:text-blue-600 transition-colors">
-                {user?.name || "Sarah Jenkins"}
+                {displayName || (isRTL ? "سارة جينكينز" : "Sarah Jenkins")}
               </p>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">
-                {roleLabel === "Reception" ? "LEAD RECEPTIONIST" : roleLabel}
+                {roleLabel === (isRTL ? "استقبال" : "Reception") ? (isRTL ? "رئيس موظفي الاستقبال" : "LEAD RECEPTIONIST") : roleLabel}
               </p>
             </div>
           </Link>
@@ -400,18 +402,18 @@ export function DashboardTopbar() {
           />
         )}
         {notifOpen && (
-           <div className="absolute top-[72px] right-24 w-80 rounded-2xl border border-slate-100 bg-white shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">Recent Alerts</span>
+           <div className={cn("absolute top-[72px] w-80 rounded-2xl border border-slate-100 bg-white shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden", isRTL ? "left-24" : "right-24")}>
+              <div className={cn("px-5 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50", isRTL ? "flex-row-reverse" : "flex-row")}>
+                <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">{isRTL ? "تنبيهات حديثة" : "Recent Alerts"}</span>
                 <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold px-1.5">
-                  {realNotifications.filter(n => !n.readAt).length}
+                  {(realNotifications.filter(n => !n.readAt).length).toLocaleString(isRTL ? "ar-EG" : "en-US")}
                 </span>
               </div>
               <div className="max-h-[300px] overflow-y-auto no-scrollbar">
                 {realNotifications.slice(0, 5).map(n => (
-                  <div key={n.id} className="p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
-                    <p className="text-[13px] font-bold text-slate-800 mb-1">{n.title}</p>
-                    <p className="text-[11px] text-slate-500 line-clamp-2">{n.body}</p>
+                  <div key={n.id} className={cn("p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer", isRTL ? "text-right" : "text-left")}>
+                    <p className="text-[13px] font-bold text-slate-800 mb-1">{translateNotificationTitle(n.title)}</p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">{translateNotificationBody(n.body)}</p>
                   </div>
                 ))}
               </div>
@@ -419,7 +421,7 @@ export function DashboardTopbar() {
                 onClick={() => { setNotifOpen(false); setIsFullNotificationsOpen(true); }}
                 className="w-full py-3 text-[11px] font-bold text-blue-600 hover:bg-blue-50 transition-all uppercase tracking-widest"
               >
-                View all notifications
+                {isRTL ? "عرض جميع الإشعارات" : "View all notifications"}
               </button>
            </div>
         )}

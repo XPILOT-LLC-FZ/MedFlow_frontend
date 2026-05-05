@@ -4,11 +4,13 @@ import { Sidebar } from "@/components/shared/Sidebar";
 import { DashboardTopbar } from "@/components/shared/DashboardTopbar";
 import { MobileNavbar } from "@/components/shared/MobileNavbar";
 import { RoleGuard } from "@/components/shared/RoleGuard";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export default function MedicalLayout({ children }: { children: React.ReactNode }) {
+  const { isRTL } = useTranslation();
   return (
     <RoleGuard allowedRoles={["ADMIN", "DOCTOR", "STAFF"]}>
-      <div className="flex h-screen overflow-hidden medical-dashboard">
+      <div dir={isRTL ? "rtl" : "ltr"} className="flex h-screen overflow-hidden medical-dashboard">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <DashboardTopbar />
