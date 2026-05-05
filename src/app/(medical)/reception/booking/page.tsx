@@ -36,6 +36,10 @@ import { bookingService } from "@/services/bookingService";
 import { formatDateKey } from "@/lib/dateUtils";
 import type { ApiDoctor, ApiAppointment } from "@/types";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/hooks/useTranslation";
+import { patientService } from "@/services/patientService";
+import { useToastStore } from "@/stores/useToastStore";
+import type { ApiPatient } from "@/types";
 
 const getPositionForTime = (timeStr: string) => {
   // Expecting "HH:MM" or "HH:MM AM/PM"
@@ -53,6 +57,7 @@ const getPositionForTime = (timeStr: string) => {
 };
 
 export default function ReceptionSchedulePage() {
+  const { t, isRTL, locale } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
@@ -106,25 +111,23 @@ export default function ReceptionSchedulePage() {
   });
 
   const departments = [
-    { id: "all", label: "All Departments", checked: selectedDepartment === "all" },
-    { id: "cardiology", label: "Cardiology", checked: selectedDepartment === "cardiology" },
-    { id: "pediatrics", label: "Pediatrics", checked: selectedDepartment === "pediatrics" },
-    { id: "orthopedics", label: "Orthopedics", checked: selectedDepartment === "orthopedics" },
-    { id: "dermatology", label: "Dermatology", checked: selectedDepartment === "dermatology" },
+    { id: "all", label: t("allDepartments"), checked: selectedDepartment === "all" },
+    { id: "cardiology", label: t("cardiology") || "Cardiology", checked: selectedDepartment === "cardiology" },
+    { id: "pediatrics", label: t("pediatrics") || "Pediatrics", checked: selectedDepartment === "pediatrics" },
+    { id: "orthopedics", label: t("orthopedics") || "Orthopedics", checked: selectedDepartment === "orthopedics" },
+    { id: "dermatology", label: t("dermatology") || "Dermatology", checked: selectedDepartment === "dermatology" },
   ];
 
   const appointmentTypes = [
-    { label: "Consultation", color: "blue", apiType: "CONSULTATION" },
-    { label: "Follow-up", color: "emerald", apiType: "FOLLOW_UP" },
-    { label: "Procedure", color: "amber", apiType: "PROCEDURE" },
-    { label: "Emergency", color: "rose", apiType: "EMERGENCY" },
+    { label: t("consultation"), color: "blue", apiType: "CONSULTATION" },
+    { label: t("followUp"), color: "emerald", apiType: "FOLLOW_UP" },
+    { label: t("procedure") || "Procedure", color: "amber", apiType: "PROCEDURE" },
+    { label: t("emergency") || "Emergency", color: "rose", apiType: "EMERGENCY" },
   ];
 
   const timeSlots = [
     "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM"
   ];
-
-
 
   const handlePrevDay = () => {
     const d = new Date(selectedDate);
@@ -139,17 +142,18 @@ export default function ReceptionSchedulePage() {
   };
 
   return (
-    <div className="flex h-screen bg-white dark:bg-[#0B1120] overflow-hidden font-sans transition-colors duration-300 relative -m-4 md:-m-6">
-      {/* 1. Left Sidebar - Hidden on mobile by default */}
+    <div dir={isRTL ? "rtl" : "ltr"} className="flex h-screen bg-white dark:bg-[#0B1120] overflow-hidden font-sans transition-colors duration-300 relative -m-4 md:-m-6">
+      {/* 1. Sidebar */}
       <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-[280px] bg-white dark:bg-[#0B1120] border-r border-slate-100 dark:border-slate-800/50 transform transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-0",
-        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 z-50 w-[280px] bg-white dark:bg-[#0B1120] border-slate-100 dark:border-slate-800/50 transform transition-transform duration-300 lg:relative lg:translate-x-0 lg:z-0",
+        isRTL ? "right-0 border-l" : "left-0 border-r",
+        isSidebarOpen ? "translate-x-0" : (isRTL ? "translate-x-full" : "-translate-x-full")
       )}>
         <div className="h-full flex flex-col p-6 space-y-10 overflow-y-auto no-scrollbar">
           {/* Mobile Close Button */}
           <button 
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden absolute top-4 right-4 p-2 text-slate-400"
+            className={cn("lg:hidden absolute top-4 p-2 text-slate-400", isRTL ? "left-4" : "right-4")}
           >
             <X size={20} />
           </button>
@@ -158,16 +162,26 @@ export default function ReceptionSchedulePage() {
           <div className="space-y-6 pt-4 lg:pt-0">
             <div className="flex items-center justify-between px-2">
               <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">
-                {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {selectedDate.toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { month: 'long', year: 'numeric' })}
               </h2>
               <div className="flex items-center gap-3">
-                <ChevronLeft onClick={handlePrevDay} className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" />
-                <ChevronRight onClick={handleNextDay} className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" />
+                {isRTL ? (
+                   <>
+                    <ChevronRight onClick={handlePrevDay} className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" />
+                    <ChevronLeft onClick={handleNextDay} className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" />
+                   </>
+                ) : (
+                  <>
+                    <ChevronLeft onClick={handlePrevDay} className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" />
+                    <ChevronRight onClick={handleNextDay} className="h-4 w-4 text-slate-400 dark:text-slate-500 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" />
+                  </>
+                )}
               </div>
             </div>
-            {/* Simple Calendar Placeholder */}
+            
+            {/* Simple Calendar Placeholder - Fixed Grid */}
             <div className="grid grid-cols-7 gap-y-2 text-center">
-              {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+              {(isRTL ? ["ح", "ن", "ث", "ر", "خ", "ج", "س"] : ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]).map((d) => (
                 <span key={d} className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{d}</span>
               ))}
               {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
@@ -177,7 +191,7 @@ export default function ReceptionSchedulePage() {
                      const d = new Date(selectedDate);
                      d.setDate(day);
                      setSelectedDate(d);
-                     setIsSidebarOpen(false); // Close on mobile after selection
+                     setIsSidebarOpen(false);
                   }}
                   className={cn(
                     "text-[12px] font-bold h-8 w-8 flex items-center justify-center rounded-full cursor-pointer transition-all",
@@ -194,15 +208,12 @@ export default function ReceptionSchedulePage() {
 
           {/* Departments */}
           <div className="space-y-6">
-            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] px-2">DEPARTMENTS</h3>
+            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] px-2">{t("departments")}</h3>
             <div className="space-y-1">
               {departments.map((dept) => (
                 <div 
                   key={dept.id} 
-                  onClick={() => {
-                    setSelectedDepartment(dept.id);
-                    // Don't close sidebar on desktop, maybe on mobile?
-                  }}
+                  onClick={() => setSelectedDepartment(dept.id)}
                   className={cn(
                     "flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer group", 
                     dept.checked ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
@@ -230,7 +241,7 @@ export default function ReceptionSchedulePage() {
 
           {/* Legend */}
           <div className="space-y-6 pt-4">
-            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] px-2">APPOINTMENT TYPES</h3>
+            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] px-2">{t("appointmentTypes")}</h3>
             <div className="space-y-4 px-2">
               {appointmentTypes.map((type) => (
                 <div key={type.label} className="flex items-center gap-3">
@@ -256,7 +267,6 @@ export default function ReceptionSchedulePage() {
         {/* Header */}
         <header className="h-auto min-h-[80px] py-4 border-b border-slate-100 dark:border-slate-800/50 bg-white dark:bg-[#0B1120]/50 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between px-4 md:px-8 shrink-0 sticky top-0 z-20 gap-4">
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            {/* Sidebar Toggle for Mobile */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500"
@@ -267,7 +277,7 @@ export default function ReceptionSchedulePage() {
             <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm flex-1 sm:flex-none">
               <CalendarDays className="h-4 w-4 text-blue-500 hidden sm:block" />
               <span className="text-[12px] md:text-[14px] font-bold text-slate-700 dark:text-slate-200">
-                {selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                {selectedDate.toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
               <ChevronDown className="h-3 w-3 text-slate-400" />
             </div>
@@ -280,7 +290,7 @@ export default function ReceptionSchedulePage() {
               className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl h-10 md:h-11 px-4 md:px-6 font-bold shadow-lg shadow-blue-500/20 flex items-center gap-2 text-xs md:text-sm transition-all flex-1 sm:flex-none"
             >
               <Plus className="h-4 w-4" />
-              New Appointment
+              {t("newAppointment")}
             </Button>
           </div>
         </header>
@@ -290,16 +300,16 @@ export default function ReceptionSchedulePage() {
           <div className="min-w-[1000px] flex-1 flex flex-col">
             {/* Column Headers */}
             <div className="flex h-[100px] border-b border-slate-100 dark:border-slate-800/50 shrink-0 sticky top-0 bg-white/80 dark:bg-[#0B1120]/80 backdrop-blur-md z-10">
-              <div className="w-[100px] flex items-center justify-center border-r border-slate-100 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-900/10">
+              <div className={cn("w-[100px] flex items-center justify-center bg-slate-50/30 dark:bg-slate-900/10", isRTL ? "border-l" : "border-r", "border-slate-100 dark:border-slate-800/50")}>
                 <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Time</span>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t("time")}</span>
                   <span className="text-[12px] font-bold text-slate-300 dark:text-slate-600 mt-1">EST</span>
                 </div>
               </div>
               {filteredDoctors.map((doc) => (
-                <div key={doc.id} className="flex-1 flex items-center px-6 border-r border-slate-100 dark:border-slate-800/50 last:border-r-0">
+                <div key={doc.id} className={cn("flex-1 flex items-center px-6 border-slate-100 dark:border-slate-800/50 last:border-none", isRTL ? "border-l" : "border-r")}>
                   <div className="flex items-center gap-4">
-                    <div className="relative">
+                    <div className={cn("relative", isRTL ? "ml-4" : "mr-0")}>
                       <Avatar className="h-12 w-12 border-2 border-white dark:border-slate-800 shadow-md">
                         <AvatarImage src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`} />
                         <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">{doc.fullName.charAt(0)}</AvatarFallback>
@@ -309,7 +319,7 @@ export default function ReceptionSchedulePage() {
                         doc.status === "ACTIVE" ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-700"
                       )} />
                     </div>
-                    <div className="flex flex-col">
+                    <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
                       <span className="text-[15px] font-bold text-slate-900 dark:text-white leading-tight">{doc.fullName}</span>
                       <div className="flex items-center gap-1.5 mt-1">
                         <Badge variant="outline" className="text-[9px] font-black uppercase tracking-wider py-0 px-2 h-4 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-900/50">
@@ -325,7 +335,7 @@ export default function ReceptionSchedulePage() {
             {/* Main Body */}
             <div className="flex-1 relative flex">
               {/* Left Time Column Labels */}
-              <div className="w-[100px] shrink-0 border-r border-slate-100 dark:border-slate-800/50 bg-white dark:bg-[#0B1120]">
+              <div className={cn("w-[100px] shrink-0 bg-white dark:bg-[#0B1120]", isRTL ? "border-l" : "border-r", "border-slate-100 dark:border-slate-800/50")}>
                 {timeSlots.map((time) => (
                   <div key={time} className="h-[120px] flex justify-center py-4 border-b border-slate-50 dark:border-slate-800/30 last:border-none">
                     <span className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-tight">{time}</span>
@@ -340,12 +350,12 @@ export default function ReceptionSchedulePage() {
                     <div className="h-20 w-20 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6">
                       <CalendarIcon className="h-10 w-10 text-slate-200 dark:text-slate-800" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">No appointments scheduled</h3>
-                    <p className="text-slate-400 dark:text-slate-500 max-w-xs mt-2 text-sm">Select another date or add a new appointment to see it here.</p>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t("noPatientsInQueue")}</h3>
+                    <p className="text-slate-400 dark:text-slate-500 max-w-xs mt-2 text-sm">{t("noRecentActivity")}</p>
                   </div>
                 ) : (
                   filteredDoctors.map((doc) => (
-                  <div key={doc.id} className="flex-1 border-r border-slate-100 dark:border-slate-800/50 last:border-r-0 relative min-h-full">
+                  <div key={doc.id} className={cn("flex-1 border-slate-100 dark:border-slate-800/50 last:border-none relative min-h-full", isRTL ? "border-l" : "border-r")}>
                     {/* Horizontal Divider Lines */}
                     {timeSlots.map((_, idx) => (
                       <div key={idx} className="absolute left-0 right-0 h-px bg-slate-50 dark:bg-slate-800/30" style={{ top: `${idx * 120}px` }} />
@@ -356,15 +366,13 @@ export default function ReceptionSchedulePage() {
                       .filter(a => a.doctorId === doc.id && !["CANCELLED", "NO_SHOW", "RESCHEDULED"].includes(a.status))
                       .map((appt) => {
                       const top = getPositionForTime(appt.startTime);
-                      const height = Math.max((appt.durationMinutes || 30) * 2, 60); // Min height 60px
+                      const height = Math.max((appt.durationMinutes || 30) * 2, 60); 
 
-                      
                       return (
                         <AppointmentBlock
                           key={appt.id}
                           top={top}
                           height={height}
-
                           time={`${appt.startTime}`}
                           name={appt.patientName}
                           phone={appt.patientPhone}
@@ -379,13 +387,13 @@ export default function ReceptionSchedulePage() {
                     {/* Current Time Indicator (Line) */}
                     {selectedDate.toDateString() === currentTime.toDateString() && (
                       <div 
-                        className="absolute left-0 right-0 z-30 flex items-center pointer-events-none"
+                        className={cn("absolute left-0 right-0 z-30 flex items-center pointer-events-none", isRTL ? "flex-row-reverse" : "flex-row")}
                         style={{ top: `${timeIndicatorTop}px` }}
                       >
-                        <div className="h-2.5 w-2.5 rounded-full bg-rose-500 -ml-1.25 shadow-[0_0_10px_rgba(244,63,94,0.6)]" />
+                        <div className={cn("h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)]", isRTL ? "-mr-1.25" : "-ml-1.25")} />
                         <div className="h-0.5 flex-1 bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)]" />
-                        <div className="px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full ml-2 shadow-lg">
-                          NOW
+                        <div className={cn("px-2 py-0.5 bg-rose-500 text-white text-[9px] font-black rounded-full shadow-lg", isRTL ? "mr-2" : "ml-2")}>
+                          {t("now") || "NOW"}
                         </div>
                       </div>
                     )}
@@ -412,7 +420,6 @@ export default function ReceptionSchedulePage() {
 interface AppointmentBlockProps {
   top: number;
   height: number;
-
   time: string;
   name: string;
   phone?: string;
@@ -423,6 +430,7 @@ interface AppointmentBlockProps {
 }
 
 function AppointmentBlock({ top, height, time, name, phone, avatarUrl, reason, status, onClick }: AppointmentBlockProps) {
+  const { t, isRTL } = useTranslation();
   const isInProgress = status === "IN_PROGRESS";
   const isCompleted = status === "COMPLETED";
   const isConfirmed = status === "CONFIRMED";
@@ -441,51 +449,51 @@ function AppointmentBlock({ top, height, time, name, phone, avatarUrl, reason, s
       style={{ top: `${top}px`, height: `${height}px` }}
       onClick={onClick}
       className={cn(
-        "absolute left-3 right-3 rounded-[20px] border-l-4 p-4 pointer-events-auto cursor-pointer transition-all flex flex-col justify-start overflow-hidden hover:scale-[1.02] hover:z-20 group backdrop-blur-sm",
+        "absolute rounded-[20px] p-4 pointer-events-auto cursor-pointer transition-all flex flex-col justify-start overflow-hidden hover:scale-[1.02] hover:z-20 group backdrop-blur-sm",
+        isRTL ? "right-3 left-3 border-r-4" : "left-3 right-3 border-l-4",
         style,
         isInProgress && "animate-pulse ring-2 ring-blue-500/30",
       )}
     >
-      {/* Background Accent for In Progress */}
       {isInProgress && (
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent pointer-events-none" />
       )}
 
-      <div className="flex items-center justify-between mb-2 relative z-10">
+      <div className={cn("flex items-center justify-between mb-2 relative z-10", isRTL ? "flex-row-reverse" : "flex-row")}>
         <div className="flex items-center gap-2">
            <Clock className="h-3 w-3 opacity-50" />
            <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{time}</span>
         </div>
         {isCompleted ? (
           <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-             <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase">Done</span>
+             <span className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase">{t("completed")}</span>
              <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
           </div>
         ) : isInProgress ? (
           <div className="flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded-full">
             <Activity className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400 animate-bounce" />
-            <span className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase">Live</span>
+            <span className="text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase">{t("inProgress")}</span>
           </div>
         ) : isConfirmed ? (
            <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded-full">
              <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping" />
-             <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase">Arrived</span>
+             <span className="text-[8px] font-black text-amber-600 dark:text-amber-400 uppercase">{t("confirmed")}</span>
            </div>
         ) : (
           <div className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
         )}
       </div>
       
-      <div className="flex items-center gap-3 relative z-10">
+      <div className={cn("flex items-center gap-3 relative z-10", isRTL ? "flex-row-reverse" : "flex-row")}>
         {avatarUrl && height >= 75 && (
           <Avatar className="h-9 w-9 border-2 border-white dark:border-slate-800 shrink-0 shadow-sm transition-transform group-hover:scale-110">
             <AvatarImage src={avatarUrl} />
             <AvatarFallback className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800">{name.charAt(0)}</AvatarFallback>
           </Avatar>
         )}
-        <div className="flex flex-col min-w-0">
+        <div className={cn("flex flex-col min-w-0", isRTL ? "text-right" : "text-left")}>
           <h4 className={cn("font-black leading-tight truncate group-hover:whitespace-normal transition-colors", height < 55 ? "text-[12px]" : "text-[14px] font-bold text-slate-900 dark:text-white")}>{name}</h4>
-          {height >= 65 && <span className="text-[10px] font-bold opacity-60 mt-0.5 tracking-tight">{phone}</span>}
+          {height >= 65 && <span className="text-[10px] font-bold opacity-60 mt-0.5 tracking-tight font-mono">{phone}</span>}
         </div>
       </div>
       
@@ -496,7 +504,7 @@ function AppointmentBlock({ top, height, time, name, phone, avatarUrl, reason, s
             {reason}
           </p>
           <div className="h-6 w-6 rounded-lg bg-black/5 dark:bg-white/5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <ChevronRight className="h-3 w-3" />
+            {isRTL ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
           </div>
         </div>
       )}
@@ -506,17 +514,11 @@ function AppointmentBlock({ top, height, time, name, phone, avatarUrl, reason, s
 
 /* ── Book Appointment Modal ───────────────────────────────────── */
 
-import { patientService } from "@/services/patientService";
-import { useToastStore } from "@/stores/useToastStore";
-import type { ApiPatient } from "@/types";
-
-/* ── Book Appointment Modal ───────────────────────────────────── */
-
 function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; onClose: () => void; onBooked?: () => void }) {
+  const { t, isRTL } = useTranslation();
   const toast = useToastStore();
   const [loading, setLoading] = useState(false);
   
-  // Form State
   const [searchQuery, setSearchQuery] = useState("");
   const [patients, setPatients] = useState<ApiPatient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<ApiPatient | null>(null);
@@ -531,14 +533,12 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
   const [searchingPatients, setSearchingPatients] = useState(false);
   const [modalDepartment, setModalDepartment] = useState("all");
 
-  // Fetch doctors on mount
   useEffect(() => {
     if (isOpen) {
       void staffService.getDoctors().then(setAllDoctors);
     }
   }, [isOpen]);
 
-  // Search patients
   useEffect(() => {
     if (searchQuery.length > 2) {
       setSearchingPatients(true);
@@ -558,7 +558,6 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
     }
   }, [searchQuery]);
 
-  // Fetch slots when doctor or date changes
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
       setLoadingSlots(true);
@@ -573,13 +572,12 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
 
   const handleBook = async () => {
     if (!selectedPatient || !selectedDoctor || !selectedTime) {
-      toast.error("Please fill in all required fields");
+      toast.error(t("fillRequired"));
       return;
     }
 
     setLoading(true);
     try {
-      // Convert "02:30 PM" -> "14:30"
       let formattedTime = selectedTime;
       const [timePart, modifier] = selectedTime.split(' ');
       if (modifier) {
@@ -601,11 +599,11 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
         notes: notes,
         amount: selectedDoctor.consultationFee || 0,
       });
-      toast.success("Appointment booked successfully");
+      toast.success(t("patientAddedSuccessfully"));
       onBooked?.();
       onClose();
     } catch (e) {
-      toast.error("Failed to book appointment");
+      toast.error(t("error"));
       console.error(e);
     } finally {
       setLoading(false);
@@ -614,51 +612,51 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[1100px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-white dark:bg-[#0B1120] max-h-[95vh] flex flex-col transition-all">
+      <DialogContent dir={isRTL ? "rtl" : "ltr"} className="max-w-[1100px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-white dark:bg-[#0B1120] max-h-[95vh] flex flex-col transition-all">
         {/* Modal Header */}
         <div className="px-10 py-6 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0 bg-white dark:bg-[#0B1120] z-10">
           <div className="space-y-1">
-            <DialogTitle className="text-2xl font-bold text-slate-900 dark:text-white">Book New Appointment</DialogTitle>
-            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">Schedule a new visit for a patient.</p>
+            <DialogTitle className="text-2xl font-bold text-slate-900 dark:text-white">{t("newAppointment")}</DialogTitle>
+            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium">{t("managePatientRecords")}</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={onClose} className="rounded-xl font-bold text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 h-11 px-6">
-              Cancel
+              {t("cancel")}
             </Button>
             <Button 
               onClick={handleBook}
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Save & confirm"}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("saveAndConfirm")}
             </Button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col lg:flex-row bg-slate-50/50 dark:bg-[#0B1120]/50">
           {/* Left Form Column */}
-          <div className="flex-1 p-6 md:p-10 space-y-8 md:space-y-10 border-b lg:border-b-0 lg:border-r border-slate-50 dark:border-slate-800/50">
+          <div className={cn("flex-1 p-6 md:p-10 space-y-8 md:space-y-10 border-b lg:border-b-0", isRTL ? "lg:border-l" : "lg:border-r", "border-slate-50 dark:border-slate-800/50")}>
             {/* 1. Select Patient */}
             <section className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                   <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">Select Patient</h3>
+                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t("selectPatient")}</h3>
               </div>
               <div className="space-y-4">
                 {!selectedPatient ? (
                   <div className="relative">
                     {searchingPatients ? (
-                      <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
+                      <Loader2 className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin", isRTL ? "right-4" : "left-4")} />
                     ) : (
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 dark:text-slate-600" />
+                      <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 dark:text-slate-600", isRTL ? "right-4" : "left-4")} />
                     )}
                     <Input 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by name, phone or ID..." 
-                      className="pl-11 h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 dark:text-white" 
+                      placeholder={t("searchPatientsPlaceholder")} 
+                      className={cn("h-14 rounded-2xl border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 dark:text-white", isRTL ? "pr-11 pl-4" : "pl-11 pr-4")} 
                     />
                     {patients.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto no-scrollbar">
@@ -672,9 +670,9 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                               <AvatarImage src={p.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${p.fullName}`} />
                               <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">{p.fullName.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <div className="flex flex-col">
+                            <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
                               <span className="text-sm font-bold text-slate-900 dark:text-white">{p.fullName}</span>
-                              <span className="text-[11px] text-slate-500 dark:text-slate-500">{p.phone}</span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-500 font-mono">{p.phone}</span>
                             </div>
                           </div>
                         ))}
@@ -688,12 +686,12 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                         <AvatarImage src={selectedPatient.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${selectedPatient.fullName}`} />
                         <AvatarFallback className="bg-slate-100 dark:bg-slate-800">{selectedPatient.fullName.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col">
+                      <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
                         <span className="text-[15px] font-bold text-slate-900 dark:text-white">{selectedPatient.fullName}</span>
-                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1">ID: #{selectedPatient.id.slice(-5).toUpperCase()} • {selectedPatient.phone}</span>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1">ID: #{selectedPatient.id.slice(-5).toUpperCase()} • <span className="font-mono">{selectedPatient.phone}</span></span>
                       </div>
                     </div>
-                    <Button variant="outline" onClick={() => setSelectedPatient(null)} className="rounded-xl border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 font-bold px-5 h-9 hover:bg-slate-50 dark:hover:bg-slate-800">Change</Button>
+                    <Button variant="outline" onClick={() => setSelectedPatient(null)} className="rounded-xl border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 font-bold px-5 h-9 hover:bg-slate-50 dark:hover:bg-slate-800">{t("change")}</Button>
                   </div>
                 )}
               </div>
@@ -705,15 +703,15 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                 <div className="h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                   <Stethoscope className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">Select Provider & Visit Type</h3>
+                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t("selectDoctor")}</h3>
               </div>
               
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 ml-1">Visit Type</label>
+                  <label className={cn("text-[13px] font-bold text-slate-500 dark:text-slate-400", isRTL ? "mr-1" : "ml-1")}>{t("type")}</label>
                   <div className="relative group">
                     <div className="h-14 px-5 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between cursor-pointer group-hover:border-blue-500 transition-colors">
-                      <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 capitalize">{selectedType.replace('_', ' ').toLowerCase()}</span>
+                      <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 capitalize">{t(selectedType.toLowerCase() as any)}</span>
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </div>
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden opacity-0 group-hover:opacity-100 transition-all pointer-events-none group-hover:pointer-events-auto">
@@ -723,7 +721,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                           onClick={() => setSelectedType(type as "CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY")}
                           className="px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-none"
                         >
-                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{type.replace('_', ' ').toLowerCase()}</span>
+                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{t(type.toLowerCase() as any)}</span>
                           {selectedType === type && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                         </div>
                       ))}
@@ -732,10 +730,10 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[13px] font-bold text-slate-500 dark:text-slate-400 ml-1">Department</label>
+                  <label className={cn("text-[13px] font-bold text-slate-500 dark:text-slate-400", isRTL ? "mr-1" : "ml-1")}>{t("departments")}</label>
                   <div className="relative group">
                     <div className="h-14 px-5 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between cursor-pointer group-hover:border-blue-500 transition-colors">
-                      <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 capitalize">{modalDepartment}</span>
+                      <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 capitalize">{modalDepartment === "all" ? t("allDepartments") : modalDepartment}</span>
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </div>
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden opacity-0 group-hover:opacity-100 transition-all pointer-events-none group-hover:pointer-events-auto">
@@ -745,7 +743,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                           onClick={() => setModalDepartment(dept)}
                           className="px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-none"
                         >
-                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{dept}</span>
+                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{dept === "all" ? t("allDepartments") : dept}</span>
                           {modalDepartment === dept && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                         </div>
                       ))}
@@ -779,13 +777,13 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                         <AvatarImage src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`} />
                         <AvatarFallback className="bg-slate-100 dark:bg-slate-800">{doc.fullName.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col">
+                      <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
                         <span className="text-[15px] font-bold text-slate-900 dark:text-white">{doc.fullName}</span>
-                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1">{doc.specialization} • ${doc.consultationFee || 0} fee</span>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1">{doc.specialization} • {doc.consultationFee || 0} {isRTL ? "ج.م" : "fee"}</span>
                       </div>
                     </div>
                     <Badge className={cn("border-none rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-wider", doc.status === "ACTIVE" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500" : "bg-slate-50 dark:bg-slate-900/20 text-slate-400")}>
-                      ● {doc.status === "ACTIVE" ? "Available" : doc.status}
+                      ● {doc.status === "ACTIVE" ? (isRTL ? "متاح" : "Available") : doc.status}
                     </Badge>
                   </div>
                 ))}
@@ -798,12 +796,12 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                 <div className="h-8 w-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center">
                   <CalendarIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">Select Date & Time</h3>
+                <h3 className="text-[15px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t("selectDateTime")}</h3>
               </div>
 
-              <div className="flex gap-10">
-                <div className="w-[300px] space-y-6">
-                   <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Selected: {selectedDate.toLocaleDateString()}</p>
+              <div className="flex flex-col md:flex-row gap-10">
+                <div className="w-full md:w-[300px] space-y-6">
+                   <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{t("date")}: {selectedDate.toLocaleDateString(isRTL ? "ar-EG" : "en-US")}</p>
                    <Input 
                     type="date" 
                     value={formatDateKey(selectedDate)} 
@@ -812,13 +810,12 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                    />
                 </div>
 
-                {/* Slots */}
                 <div className="flex-1 space-y-8">
                   <div className="space-y-4">
                     <h5 className="text-[11px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-widest flex items-center gap-2">
-                      <Clock className="h-3 w-3" /> Available Slots
+                      <Clock className="h-3 w-3" /> {t("availableSlots")}
                     </h5>
-                    <div className="grid grid-cols-3 gap-3 relative min-h-[100px]">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 relative min-h-[100px]">
                       {loadingSlots && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-black/20 backdrop-blur-[1px] z-10 rounded-2xl">
                           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -840,7 +837,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                           </button>
                         ))
                       ) : (
-                        <p className="col-span-3 text-xs text-slate-400 dark:text-slate-600 text-center py-4 italic">No slots available or select a doctor.</p>
+                        <p className="col-span-3 text-xs text-slate-400 dark:text-slate-600 text-center py-4 italic">{t("noPatientsInQueue")}</p>
                       )}
                     </div>
                   </div>
@@ -855,27 +852,27 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
               <div className="h-10 w-10 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
                 <CalendarDays className="h-5 w-5 text-white" />
               </div>
-              <h3 className="text-[16px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">Summary</h3>
+              <h3 className="text-[16px] font-bold text-slate-900 dark:text-white uppercase tracking-widest">{t("summary")}</h3>
             </div>
 
             <div className="space-y-8">
-              <SummaryItem icon={User} label="Patient" value={selectedPatient?.fullName || "Not selected"} />
-              <SummaryItem icon={Stethoscope} label="Provider" value={selectedDoctor?.fullName || "Not selected"} subValue={selectedDoctor?.specialization} />
-              <SummaryItem icon={CalendarIcon} label="Schedule" value={selectedDate.toLocaleDateString()} subValue={selectedTime || "Time not selected"} />
-              <SummaryItem icon={Clock} label="Total Amount" value={`$${selectedDoctor?.consultationFee || 0}`} />
+              <SummaryItem icon={User} label={t("patient")} value={selectedPatient?.fullName || "---"} />
+              <SummaryItem icon={Stethoscope} label={t("doctor")} value={selectedDoctor?.fullName || "---"} subValue={selectedDoctor?.specialization} />
+              <SummaryItem icon={CalendarIcon} label={t("date")} value={selectedDate.toLocaleDateString(isRTL ? "ar-EG" : "en-US")} subValue={selectedTime || "---"} />
+              <SummaryItem icon={Clock} label={t("totalAmount")} value={`${selectedDoctor?.consultationFee || 0} ${isRTL ? "ج.م" : "LE"}`} />
               
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">Visit type</label>
-                  <p className="text-[15px] font-bold text-slate-900 dark:text-white capitalize">{selectedType.replace('_', ' ').toLowerCase()}</p>
+                  <label className={cn("text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("type")}</label>
+                  <p className="text-[15px] font-bold text-slate-900 dark:text-white capitalize">{t(selectedType.toLowerCase() as any)}</p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">Reason for visit / notes</label>
+                  <label className={cn("text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("notes")}</label>
                   <Textarea 
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Briefly describe the symptoms..." 
-                    className="min-h-[100px] rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 text-[13px] font-medium resize-none dark:text-white"
+                    placeholder={t("notes") + "..."} 
+                    className={cn("min-h-[100px] rounded-2xl border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/50 text-[13px] font-medium resize-none dark:text-white", isRTL && "text-right")}
                   />
                 </div>
               </div>
@@ -887,13 +884,9 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-2xl h-14 font-bold shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
               >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5" /> Book Appointment</>}
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5" /> {t("bookAppointment")}</>}
               </Button>
             </div>
-
-            <p className="text-[11px] text-slate-400 dark:text-slate-600 text-center font-medium leading-relaxed">
-              By booking, you agree to ClinicFlow<br />scheduling and cancellation policies.
-            </p>
           </div>
         </div>
       </DialogContent>
@@ -909,12 +902,13 @@ interface SummaryItemProps {
 }
 
 function SummaryItem({ icon: Icon, label, value, subValue }: SummaryItemProps) {
+  const { isRTL } = useTranslation();
   return (
-    <div className="flex gap-4 group">
+    <div className={cn("flex gap-4 group", isRTL ? "flex-row-reverse" : "flex-row")}>
       <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0 transition-transform group-hover:scale-110">
         <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
       </div>
-      <div className="flex flex-col min-w-0">
+      <div className={cn("flex flex-col min-w-0", isRTL ? "text-right" : "text-left")}>
         <span className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">{label}</span>
         <span className="text-[15px] font-bold text-slate-900 dark:text-white mt-0.5 truncate">{value}</span>
         {subValue && <span className="text-[12px] font-medium text-slate-500 dark:text-slate-500 mt-0.5 truncate">{subValue}</span>}
@@ -922,6 +916,7 @@ function SummaryItem({ icon: Icon, label, value, subValue }: SummaryItemProps) {
     </div>
   );
 }
+
 /* ── Manage Appointment Modal ───────────────────────────────────── */
 
 function ManageAppointmentModal({ 
@@ -935,6 +930,7 @@ function ManageAppointmentModal({
   onClose: () => void; 
   onUpdate: () => void;
 }) {
+  const { t, isRTL } = useTranslation();
   const toast = useToastStore();
   const [loading, setLoading] = useState(false);
 
@@ -945,28 +941,25 @@ function ManageAppointmentModal({
     setLoading(true);
     try {
       await bookingService.updateStatus(appointment.id, status as "SCHEDULED" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED");
-      toast.success(`Appointment marked as ${status.toLowerCase().replace('_', ' ')}`);
+      toast.success(t("statusUpdatedSuccessfully"));
       onUpdate();
       onClose();
     } catch (error) {
       console.error(error);
-      toast.error(`Failed to update to ${status}`);
+      toast.error(t("error"));
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel this appointment?")) return;
+    if (!confirm(isRTL ? "هل أنت متأكد من إلغاء هذا الموعد؟" : "Are you sure you want to cancel this appointment?")) return;
     handleUpdateStatus("CANCELLED");
   };
 
-
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[550px] p-0 overflow-hidden border-none rounded-[40px] shadow-2xl bg-white dark:bg-[#0B1120] transition-all">
-        {/* Decorative Header Background */}
+      <DialogContent dir={isRTL ? "rtl" : "ltr"} className="max-w-[550px] p-0 overflow-hidden border-none rounded-[40px] shadow-2xl bg-white dark:bg-[#0B1120] transition-all">
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-blue-50/50 to-transparent dark:from-blue-900/10 pointer-events-none" />
         
         <div className="p-10 relative z-10 space-y-10">
@@ -976,8 +969,8 @@ function ManageAppointmentModal({
               <div className="h-14 w-14 rounded-2xl bg-white dark:bg-slate-900 shadow-xl shadow-blue-500/10 flex items-center justify-center border border-slate-50 dark:border-slate-800">
                 <CalendarIcon className="h-7 w-7 text-blue-600 dark:text-blue-400" />
               </div>
-              <div>
-                <DialogTitle className="text-[22px] font-black text-slate-900 dark:text-white tracking-tight">Appointment Details</DialogTitle>
+              <div className={isRTL ? "text-right" : "text-left"}>
+                <DialogTitle className="text-[22px] font-black text-slate-900 dark:text-white tracking-tight">{t("appointmentDetails")}</DialogTitle>
                 <div className="flex items-center gap-2 mt-1.5">
                   <div className={cn(
                     "h-2 w-2 rounded-full animate-pulse",
@@ -987,7 +980,7 @@ function ManageAppointmentModal({
                     appointment.status === "COMPLETED" ? "bg-emerald-500" : "bg-rose-500"
                   )} />
                   <span className="text-slate-400 dark:text-slate-500 text-[13px] font-bold uppercase tracking-widest">
-                    {appointment.status.replace('_', ' ')}
+                    {t(appointment.status.toLowerCase() as any)}
                   </span>
                 </div>
               </div>
@@ -997,66 +990,59 @@ function ManageAppointmentModal({
             </button>
           </div>
 
-          {/* Info Sections Grouped */}
           <div className="grid grid-cols-1 gap-6 md:gap-8">
-            {/* Patient & Doctor Pair */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4 md:p-6 rounded-[32px] bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800/50">
-               <div className="space-y-1">
-                 <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Patient</span>
+               <div className={cn("space-y-1", isRTL ? "text-right" : "text-left")}>
+                 <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t("patient")}</span>
                  <p className="text-[14px] md:text-[15px] font-bold text-slate-900 dark:text-white truncate">{appointment.patientName}</p>
-                 <p className="text-[11px] md:text-[12px] font-medium text-slate-500 dark:text-slate-400">{appointment.patientPhone}</p>
+                 <p className="text-[11px] md:text-[12px] font-medium text-slate-500 dark:text-slate-400 font-mono">{appointment.patientPhone}</p>
                </div>
-               <div className="space-y-1 sm:border-l border-slate-200/50 dark:border-slate-800/50 sm:pl-6 pt-4 sm:pt-0 border-t sm:border-t-0">
-                 <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Doctor</span>
-                 <p className="text-[14px] md:text-[15px] font-bold text-slate-900 dark:text-white truncate">{appointment.doctorName || "N/A"}</p>
-                 <p className="text-[11px] md:text-[12px] font-medium text-slate-500 dark:text-slate-400 truncate">{appointment.serviceName || "Consultation"}</p>
+               <div className={cn("space-y-1 pt-4 sm:pt-0 border-t sm:border-t-0", isRTL ? "sm:border-r sm:pr-6 sm:text-right" : "sm:border-l sm:pl-6 sm:text-left", "border-slate-200/50 dark:border-slate-800/50")}>
+                 <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{t("doctor")}</span>
+                 <p className="text-[14px] md:text-[15px] font-bold text-slate-900 dark:text-white truncate">{appointment.doctorName || "---"}</p>
+                 <p className="text-[11px] md:text-[12px] font-medium text-slate-500 dark:text-slate-400 truncate">{appointment.serviceName || t("consultation")}</p>
                </div>
             </div>
 
-            {/* Time & Source */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 px-2 md:px-4">
-              <SummaryItem icon={Clock} label="Time & Duration" value={appointment.startTime} subValue={`${appointment.durationMinutes} minutes`} />
-              <SummaryItem icon={CreditCard} label="Payment Status" value={appointment.amount ? `${appointment.amount} LE` : "0 LE"} subValue={appointment.status === "COMPLETED" ? "PAID" : "PENDING"} />
+              <SummaryItem icon={Clock} label={t("time")} value={appointment.startTime} subValue={`${appointment.durationMinutes} ${isRTL ? "دقيقة" : "minutes"}`} />
+              <SummaryItem icon={CreditCard} label={t("paymentSummary")} value={appointment.amount ? `${appointment.amount} ${isRTL ? "ج.م" : "LE"}` : `0 ${isRTL ? "ج.م" : "LE"}`} subValue={appointment.status === "COMPLETED" ? t("paid") : t("pending")} />
             </div>
             
             {appointment.notes && (
               <div className="p-6 rounded-[28px] bg-blue-50/30 dark:bg-blue-900/5 border border-blue-100/30 dark:border-blue-800/30 space-y-3 relative overflow-hidden">
-                <div className="flex items-center gap-2 text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-[0.2em]">
-                  <MessageSquare className="h-3 w-3" /> Clinical Notes
+                <div className={cn("flex items-center gap-2 text-[10px] font-black text-blue-600/50 dark:text-blue-400/50 uppercase tracking-[0.2em]", isRTL ? "flex-row-reverse" : "flex-row")}>
+                  <MessageSquare className="h-3 w-3" /> {t("notes")}
                 </div>
-                <p className="text-[14px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">&quot;{appointment.notes}&quot;</p>
+                <p className={cn("text-[14px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic", isRTL ? "text-right" : "text-left")}>&quot;{appointment.notes}&quot;</p>
               </div>
             )}
           </div>
 
           <div className="space-y-6 pt-2">
-            {/* Queue Management Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">
-                  <Activity className="h-3 w-3" /> Status Control
+                <div className={cn("flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]", isRTL ? "flex-row-reverse" : "flex-row")}>
+                  <Activity className="h-3 w-3" /> {t("statusControl") || "Status Control"}
                 </div>
                 {loading && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
               </div>
               
               {appointment.status === "SCHEDULED" && (
                 <Button 
-                  onClick={() => {
-                    // Redirect to waiting room which now handles the detailed check-in
-                    router.push("/reception/waiting-room");
-                  }}
-                  className="w-full h-[72px] rounded-[28px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-xl shadow-blue-500/25 flex items-center justify-between px-8 transition-all hover:scale-[1.02] active:scale-[0.98] group border-t border-white/20"
+                  onClick={() => router.push("/reception/waiting-room")}
+                  className={cn("w-full h-[72px] rounded-[28px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-xl shadow-blue-500/25 flex items-center justify-between px-8 transition-all hover:scale-[1.02] active:scale-[0.98] group border-t border-white/20", isRTL ? "flex-row-reverse" : "flex-row")}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className={cn("flex items-center gap-4", isRTL ? "flex-row-reverse" : "flex-row")}>
                     <div className="h-11 w-11 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
                       <UserCheck className="h-6 w-6" />
                     </div>
-                    <div className="text-left">
-                      <span className="block text-[15px]">Open Check-in View</span>
-                      <span className="block text-[10px] opacity-70 font-bold uppercase tracking-wider mt-0.5">Go to Waiting Room</span>
+                    <div className={isRTL ? "text-right" : "text-left"}>
+                      <span className="block text-[15px]">{t("checkIn")}</span>
+                      <span className="block text-[10px] opacity-70 font-bold uppercase tracking-wider mt-0.5">{t("waitingRoom")}</span>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />
+                  {isRTL ? <ChevronLeft className="h-5 w-5 opacity-40 group-hover:-translate-x-1 transition-transform" /> : <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />}
                 </Button>
               )}
 
@@ -1064,18 +1050,18 @@ function ManageAppointmentModal({
                 <Button 
                   onClick={() => handleUpdateStatus("IN_PROGRESS")}
                   disabled={loading}
-                  className="w-full h-[72px] rounded-[28px] bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold shadow-xl shadow-indigo-500/25 flex items-center justify-between px-8 transition-all hover:scale-[1.02] active:scale-[0.98] group border-t border-white/20"
+                  className={cn("w-full h-[72px] rounded-[28px] bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold shadow-xl shadow-indigo-500/25 flex items-center justify-between px-8 transition-all hover:scale-[1.02] active:scale-[0.98] group border-t border-white/20", isRTL ? "flex-row-reverse" : "flex-row")}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className={cn("flex items-center gap-4", isRTL ? "flex-row-reverse" : "flex-row")}>
                     <div className="h-11 w-11 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
                       <Play className="h-6 w-6" />
                     </div>
-                    <div className="text-left">
-                      <span className="block text-[15px]">Start Consultation</span>
-                      <span className="block text-[10px] opacity-70 font-bold uppercase tracking-wider mt-0.5">Active Session</span>
+                    <div className={isRTL ? "text-right" : "text-left"}>
+                      <span className="block text-[15px]">{t("startConsultation")}</span>
+                      <span className="block text-[10px] opacity-70 font-bold uppercase tracking-wider mt-0.5">{t("inProgress")}</span>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />
+                  {isRTL ? <ChevronLeft className="h-5 w-5 opacity-40 group-hover:-translate-x-1 transition-transform" /> : <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />}
                 </Button>
               )}
 
@@ -1083,18 +1069,18 @@ function ManageAppointmentModal({
                 <Button 
                   onClick={() => handleUpdateStatus("COMPLETED")}
                   disabled={loading}
-                  className="w-full h-[72px] rounded-[28px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold shadow-xl shadow-emerald-500/25 flex items-center justify-between px-8 transition-all hover:scale-[1.02] active:scale-[0.98] group border-t border-white/20"
+                  className={cn("w-full h-[72px] rounded-[28px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold shadow-xl shadow-emerald-500/25 flex items-center justify-between px-8 transition-all hover:scale-[1.02] active:scale-[0.98] group border-t border-white/20", isRTL ? "flex-row-reverse" : "flex-row")}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className={cn("flex items-center gap-4", isRTL ? "flex-row-reverse" : "flex-row")}>
                     <div className="h-11 w-11 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
                       <CheckCircle2 className="h-6 w-6" />
                     </div>
-                    <div className="text-left">
-                      <span className="block text-[15px]">Mark as Completed</span>
-                      <span className="block text-[10px] opacity-70 font-bold uppercase tracking-wider mt-0.5">Finish Treatment</span>
+                    <div className={isRTL ? "text-right" : "text-left"}>
+                      <span className="block text-[15px]">{t("markAsCompleted")}</span>
+                      <span className="block text-[10px] opacity-70 font-bold uppercase tracking-wider mt-0.5">{t("completedToday")}</span>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />
+                  {isRTL ? <ChevronLeft className="h-5 w-5 opacity-40 group-hover:-translate-x-1 transition-transform" /> : <ChevronRight className="h-5 w-5 opacity-40 group-hover:translate-x-1 transition-transform" />}
                 </Button>
               )}
               
@@ -1103,11 +1089,10 @@ function ManageAppointmentModal({
                 onClick={onClose}
                 className="w-full h-14 rounded-2xl border-slate-100 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all active:scale-[0.98]"
               >
-                Dismiss Details
+                {t("dismissDetails") || "Dismiss Details"}
               </Button>
             </div>
 
-            {/* Specialized Cancellation Section */}
             {appointment.status !== "CANCELLED" && appointment.status !== "COMPLETED" && (
               <div className="pt-6 border-t border-slate-100 dark:border-slate-800/50">
                 <Button 
@@ -1118,13 +1103,10 @@ function ManageAppointmentModal({
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
                     <>
                       <XCircle className="h-5 w-5 group-hover:rotate-90 transition-transform duration-500" /> 
-                      Cancel Appointment
+                      {t("cancelAppointment")}
                     </>
                   )}
                 </Button>
-                <p className="text-[10px] text-center text-slate-400 dark:text-slate-600 font-medium mt-3 px-6">
-                  Note: Cancellation will notify both the patient and the assigned doctor immediately.
-                </p>
               </div>
             )}
           </div>

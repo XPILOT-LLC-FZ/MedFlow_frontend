@@ -23,12 +23,13 @@ import { cn } from "@/lib/utils";
 import { billingService, type InvoiceStats } from "@/services/billingService";
 import type { ApiInvoice } from "@/types";
 import { useToastStore } from "@/stores/useToastStore";
+import { useTranslation } from "@/hooks/useTranslation";
 
 type Status = "all" | "paid" | "pending" | "overdue";
-const STATUS_LABELS: Record<Status, string> = { all: "All states", paid: "Paid", pending: "Pending", overdue: "Overdue" };
 const PAGE_SIZE = 10;
 
 export default function InvoiceListPage() {
+  const { t, isRTL, locale } = useTranslation();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Status>("all");
   const [statusOpen, setStatusOpen] = useState(false);
@@ -44,6 +45,13 @@ export default function InvoiceListPage() {
   const statusRef = useRef<HTMLDivElement>(null);
   const deptRef = useRef<HTMLDivElement>(null);
 
+  const STATUS_LABELS: Record<Status, string> = { 
+    all: t("allStates") || (isRTL ? "جميع الحالات" : "All states"), 
+    paid: t("paid"), 
+    pending: t("pending"), 
+    overdue: t("overdue") || (isRTL ? "متأخر" : "Overdue")
+  };
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -55,11 +63,11 @@ export default function InvoiceListPage() {
       setTotalItems(res.total);
       setStats(s);
     } catch {
-      toast.error("Failed to load invoices");
+      toast.error(t("error"));
     } finally {
       setIsLoading(false);
     }
-  }, [search, status, page, toast]);
+  }, [search, status, page, toast, t]);
 
   useEffect(() => {
     void fetchData();
@@ -84,7 +92,6 @@ export default function InvoiceListPage() {
     else setSelected((prev) => { const n = new Set(prev); invoices.forEach((i) => n.add(i.id)); return n; });
   };
 
-  /* Page numbers to display */
   const pageNums = () => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
     if (page <= 3) return [1, 2, 3, "...", totalPages];
@@ -93,23 +100,23 @@ export default function InvoiceListPage() {
   };
 
   return (
-    <div className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-7">
+    <div dir={isRTL ? "rtl" : "ltr"} className="p-4 lg:p-8 bg-slate-50 min-h-screen pb-20 font-sans space-y-7">
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-900">Invoice List</h1>
-          <p className="text-slate-400 text-sm font-medium">Manage, print, and track all financial records and payment statuses.</p>
+        <div className={cn("space-y-1", isRTL ? "text-right" : "text-left")}>
+          <h1 className="text-2xl font-bold text-slate-900">{t("invoiceList") || (isRTL ? "قائمة الفواتير" : "Invoice List")}</h1>
+          <p className="text-slate-400 text-sm font-medium">{isRTL ? "إدارة وطباعة وتتبع جميع السجلات المالية وحالات الدفع." : "Manage, print, and track all financial records and payment statuses."}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-            <span className="text-[13px] font-bold text-slate-700">this month</span>
+            <span className="text-[13px] font-bold text-slate-700">{isRTL ? "هذا الشهر" : "this month"}</span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
           <Button variant="outline" className="h-11 px-6 rounded-2xl border-slate-200 bg-white font-bold text-slate-600 text-[13px] shadow-sm flex items-center gap-2">
-            <Upload className="h-4 w-4" /> Export
+            <Upload className="h-4 w-4" /> {t("export")}
           </Button>
-          <Button className="h-11 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[13px] shadow-lg shadow-blue-500/10 flex items-center gap-2">
-            <Plus className="h-4 w-4" /> New Invoice
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white h-11 px-6 rounded-2xl font-bold text-[13px] shadow-lg shadow-blue-500/10 flex items-center gap-2">
+            <Plus className="h-4 w-4" /> {t("newInvoice") || (isRTL ? "فاتورة جديدة" : "New Invoice")}
           </Button>
         </div>
       </div>
@@ -119,25 +126,25 @@ export default function InvoiceListPage() {
         <StatCard
           icon={<TrendingUp className="h-6 w-6 text-emerald-600" />}
           iconBg="bg-emerald-50"
-          label="Total billed"
-          value={`${(stats?.totalBilled || 0).toLocaleString()} LE`}
-          trend="+12% vs last month"
+          label={t("totalBilled") || (isRTL ? "إجمالي الفواتير" : "Total billed")}
+          value={`${(stats?.totalBilled || 0).toLocaleString(isRTL ? "ar-EG" : "en-US")} ${isRTL ? "ج.م" : "LE"}`}
+          trend={isRTL ? "+12% عن الشهر الماضي" : "+12% vs last month"}
           trendUp
         />
         <StatCard
           icon={<AlertCircle className="h-6 w-6 text-red-500" />}
           iconBg="bg-red-50"
-          label="Outstanding Balance"
-          value={`${(stats?.outstandingBalance || 0).toLocaleString()} LE`}
-          trend="↑ 1% vs last month"
+          label={t("outstandingBalance") || (isRTL ? "المبالغ المستحقة" : "Outstanding Balance")}
+          value={`${(stats?.outstandingBalance || 0).toLocaleString(isRTL ? "ar-EG" : "en-US")} ${isRTL ? "ج.م" : "LE"}`}
+          trend={isRTL ? "↑ 1% عن الشهر الماضي" : "↑ 1% vs last month"}
           trendUp={false}
         />
         <StatCard
           icon={<BarChart2 className="h-6 w-6 text-blue-600" />}
           iconBg="bg-blue-50"
-          label="Collection Rate"
-          value={`${stats?.collectionRate || 0}%`}
-          trend="+12% vs last month"
+          label={t("collectionRate") || (isRTL ? "معدل التحصيل" : "Collection Rate")}
+          value={`${(stats?.collectionRate || 0).toLocaleString(isRTL ? "ar-EG" : "en-US")}%`}
+          trend={isRTL ? "+12% عن الشهر الماضي" : "+12% vs last month"}
           trendUp
         />
       </div>
@@ -145,15 +152,15 @@ export default function InvoiceListPage() {
       {/* ── Main Table Card ── */}
       <div className="bg-white rounded-[28px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] overflow-hidden">
         {/* Filter Bar */}
-        <div className="flex flex-wrap items-center gap-3 p-5 border-b border-slate-50">
+        <div className={cn("flex flex-wrap items-center gap-3 p-5 border-b border-slate-50", isRTL ? "flex-row-reverse" : "flex-row")}>
           {/* Search */}
-          <div className="flex items-center gap-2 flex-1 min-w-[220px] h-11 px-4 bg-slate-50 border border-slate-100 rounded-2xl">
+          <div className={cn("flex items-center gap-2 flex-1 min-w-[220px] h-11 px-4 bg-slate-50 border border-slate-100 rounded-2xl", isRTL ? "flex-row-reverse" : "flex-row")}>
             <Search className="h-4 w-4 text-slate-400 shrink-0" />
             <input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search by ID or Patient Name"
-              className="flex-1 bg-transparent text-[13px] font-medium text-slate-700 outline-none placeholder:text-slate-300"
+              placeholder={isRTL ? "البحث برقم الفاتورة أو اسم المريض" : "Search by ID or Patient Name"}
+              className={cn("flex-1 bg-transparent text-[13px] font-medium text-slate-700 outline-none placeholder:text-slate-300", isRTL && "text-right")}
             />
           </div>
 
@@ -161,18 +168,18 @@ export default function InvoiceListPage() {
           <div ref={statusRef} className="relative">
             <button
               onClick={() => setStatusOpen(!statusOpen)}
-              className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className={cn("flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors", isRTL ? "flex-row-reverse" : "flex-row")}
             >
               {STATUS_LABELS[status]}
               <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", statusOpen && "rotate-180")} />
             </button>
             {statusOpen && (
-              <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/80 min-w-[180px] py-2 overflow-hidden">
+              <div className={cn("absolute top-[calc(100%+8px)] z-50 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/80 min-w-[180px] py-2 overflow-hidden", isRTL ? "right-0" : "left-0")}>
                 {(["all", "paid", "pending", "overdue"] as Status[]).map((s) => (
                   <button
                     key={s}
                     onClick={() => { setStatus(s); setStatusOpen(false); setPage(1); }}
-                    className="flex items-center gap-3 w-full px-5 py-3 text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                    className={cn("flex items-center gap-3 w-full px-5 py-3 text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}
                   >
                     {status === s && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
                     {status !== s && <span className="w-4 shrink-0" />}
@@ -187,17 +194,16 @@ export default function InvoiceListPage() {
           <div ref={deptRef} className="relative">
             <button
               onClick={() => setDeptOpen(!deptOpen)}
-              className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+              className={cn("flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors", isRTL ? "flex-row-reverse" : "flex-row")}
             >
-              All department
+              {t("allDepartments")}
               <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", deptOpen && "rotate-180")} />
             </button>
             {deptOpen && (
-              <div className="absolute top-[calc(100%+8px)] left-0 z-50 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/80 min-w-[200px] py-2 overflow-hidden">
-                {["All department", "Cardiology", "General", "Neurology", "Laboratory"].map((d) => (
-                  <button key={d} onClick={() => setDeptOpen(false)} className="flex items-center gap-3 w-full px-5 py-3 text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors text-left">
-                    {d === "All department" && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
-                    {d !== "All department" && <span className="w-4 shrink-0" />}
+              <div className={cn("absolute top-[calc(100%+8px)] z-50 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/80 min-w-[200px] py-2 overflow-hidden", isRTL ? "right-0" : "left-0")}>
+                {[t("allDepartments"), t("cardiology"), t("pediatrics"), t("orthopedics"), t("dermatology")].map((d) => (
+                  <button key={d} onClick={() => setDeptOpen(false)} className={cn("flex items-center gap-3 w-full px-5 py-3 text-[13px] font-bold text-slate-700 hover:bg-slate-50 transition-colors", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
+                    <span className="w-4 shrink-0" />
                     {d}
                   </button>
                 ))}
@@ -206,15 +212,17 @@ export default function InvoiceListPage() {
           </div>
 
           {/* Date Picker */}
-          <div className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
+          <div className={cn("flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors", isRTL ? "flex-row-reverse" : "flex-row")}>
             <CalendarDays className="h-4 w-4 text-indigo-500" />
-            Monday, Oct 24th, 2026
+            <span className="text-[13px] font-bold">
+              {new Date().toLocaleDateString(isRTL ? "ar-EG" : "en-US", { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
 
           {/* Bulk Actions */}
-          <button className="flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-500 hover:bg-slate-50 transition-colors ml-auto">
-            Bulk Actions
+          <button className={cn("flex items-center gap-2 h-11 px-5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-bold text-slate-500 hover:bg-slate-50 transition-colors", isRTL ? "mr-auto flex-row-reverse" : "ml-auto flex-row")}>
+            {t("bulkActions") || (isRTL ? "إجراءات جماعية" : "Bulk Actions")}
             <span className="h-5 w-5 rounded-full bg-slate-200 text-[10px] font-black text-slate-500 flex items-center justify-center">
               {selected.size}
             </span>
@@ -222,7 +230,7 @@ export default function InvoiceListPage() {
         </div>
 
         {/* Table Header - Hidden on Mobile */}
-        <div className="hidden md:grid grid-cols-12 gap-3 px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">
+        <div className={cn("hidden md:grid grid-cols-12 gap-3 px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50", isRTL ? "text-right" : "text-left")}>
           <div className="col-span-1 flex items-center">
             <button
               onClick={toggleAll}
@@ -234,12 +242,12 @@ export default function InvoiceListPage() {
               {allSelected && <Check className="h-3 w-3 text-white" />}
             </button>
           </div>
-          <div className="col-span-2">Invoice ID</div>
-          <div className="col-span-2">Date</div>
-          <div className="col-span-2">Patient Name</div>
-          <div className="col-span-2">Service Type</div>
-          <div className="col-span-2">Amount</div>
-          <div className="col-span-1 text-right">Actions</div>
+          <div className="col-span-2">{t("invoiceId") || (isRTL ? "رقم الفاتورة" : "Invoice ID")}</div>
+          <div className="col-span-2">{t("date")}</div>
+          <div className="col-span-2">{t("patientName") || (isRTL ? "اسم المريض" : "Patient Name")}</div>
+          <div className="col-span-2">{t("serviceType") || (isRTL ? "نوع الخدمة" : "Service Type")}</div>
+          <div className="col-span-2">{t("amount")}</div>
+          <div className={cn("col-span-1", isRTL ? "text-left" : "text-right")}>{isRTL ? "خيارات" : "Actions"}</div>
         </div>
 
         {/* Table Rows / Cards */}
@@ -251,7 +259,7 @@ export default function InvoiceListPage() {
           )}
           {invoices.length === 0 && !isLoading && (
             <div className="py-20 text-center">
-              <p className="text-slate-400 font-bold">No invoices found</p>
+              <p className="text-slate-400 font-bold">{isRTL ? "لم يتم العثور على فواتير" : "No invoices found"}</p>
             </div>
           )}
           {invoices.map((inv) => {
@@ -267,11 +275,11 @@ export default function InvoiceListPage() {
               key={inv.id}
               className={cn(
                 "flex flex-col md:grid md:grid-cols-12 gap-4 md:gap-3 px-6 py-5 md:py-4 items-start md:items-center hover:bg-slate-50/60 transition-colors",
+                isRTL ? "md:text-right" : "md:text-left",
                 selected.has(inv.id) && "bg-blue-50/40"
               )}
             >
-              {/* Desktop Checkbox & Mobile ID Header */}
-              <div className="col-span-1 flex items-center justify-between w-full md:w-auto">
+              <div className={cn("col-span-1 flex items-center justify-between w-full md:w-auto", isRTL ? "flex-row-reverse" : "flex-row")}>
                 <button
                   onClick={() => toggleSelect(inv.id)}
                   className={cn(
@@ -288,79 +296,82 @@ export default function InvoiceListPage() {
 
               {/* Invoice ID */}
               <div className="col-span-2 flex flex-col md:block">
-                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Invoice ID</span>
+                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">{isRTL ? "رقم الفاتورة" : "Invoice ID"}</span>
                 <span className="text-[14px] md:text-[13px] font-bold text-slate-700">INV-{inv.invoiceNumber || inv.id.slice(-6).toUpperCase()}</span>
               </div>
 
               {/* Date */}
               <div className="col-span-2 hidden md:block">
                 <span className="text-[12px] font-bold text-slate-400">
-                  {new Date(inv.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                  {new Date(inv.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { month: 'short', day: 'numeric', year: '2-digit' })}
                 </span>
               </div>
 
               {/* Patient */}
-              <div className="col-span-2 flex items-center gap-3 w-full">
+              <div className={cn("col-span-2 flex items-center gap-3 w-full", isRTL ? "flex-row-reverse" : "flex-row")}>
                 <Avatar className="h-9 w-9 md:h-8 md:w-8 shrink-0">
                   <AvatarImage src={invExtra.appointment?.patient?.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${invExtra.appointment?.patientName || "Guest"}`} />
                   <AvatarFallback className="bg-blue-50 text-blue-600 text-[10px] font-bold">PT</AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col min-w-0">
-                   <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Patient</span>
-                   <span className="text-[14px] md:text-[13px] font-bold text-slate-800 truncate">{invExtra.appointment?.patientName || "Walk-in"}</span>
+                <div className={cn("flex flex-col min-w-0", isRTL ? "text-right" : "text-left")}>
+                   <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">{isRTL ? "المريض" : "Patient"}</span>
+                   <span className="text-[14px] md:text-[13px] font-bold text-slate-800 truncate">{invExtra.appointment?.patientName || (isRTL ? "خارجي" : "Walk-in")}</span>
                 </div>
               </div>
 
-              {/* Service - Hidden on Small Mobile */}
+              {/* Service */}
               <div className="col-span-2 hidden sm:flex flex-col md:block">
-                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Service</span>
-                <span className="text-[12px] font-bold text-slate-500 leading-tight">{invExtra.appointment?.serviceName || "Consultation"}</span>
+                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">{isRTL ? "الخدمة" : "Service"}</span>
+                <span className="text-[12px] font-bold text-slate-500 leading-tight">{invExtra.appointment?.serviceName || t("consultation")}</span>
               </div>
 
               {/* Amount */}
               <div className="col-span-2 flex flex-col md:block w-full md:w-auto">
-                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Amount</span>
+                <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">{t("amount")}</span>
                 <span className="text-[18px] md:text-[15px] font-black text-slate-900">
-                  {inv.totalAmount.toFixed(2)} <span className="text-[12px] font-bold text-slate-400">LE</span>
+                  {inv.totalAmount.toLocaleString(isRTL ? "ar-EG" : "en-US", { minimumFractionDigits: 2 })} <span className="text-[12px] font-bold text-slate-400">{isRTL ? "ج.م" : "LE"}</span>
                 </span>
               </div>
 
-              {/* Status - Desktop only (Mobile shows at top) */}
+              {/* Status */}
               <div className="hidden md:block col-span-1">
                 <StatusBadge status={inv.paymentStatus.toLowerCase()} />
               </div>
 
               {/* Actions */}
-              <div className="col-span-1 flex items-center justify-end gap-2 md:gap-1.5 w-full md:w-auto pt-4 md:pt-0 border-t md:border-none border-slate-50 mt-1 md:mt-0">
+              <div className={cn("col-span-1 flex items-center justify-end gap-2 md:gap-1.5 w-full md:w-auto pt-4 md:pt-0 border-t md:border-none border-slate-50 mt-1 md:mt-0", isRTL ? "flex-row-reverse" : "flex-row")}>
                 <button className="flex-1 md:flex-none h-10 md:h-8 px-4 md:px-0 rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 md:gap-0 transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
                   <Eye className="h-4 w-4 text-slate-400" />
-                  <span className="md:hidden text-[12px] font-bold text-slate-500">View</span>
+                  <span className="md:hidden text-[12px] font-bold text-slate-500">{isRTL ? "عرض" : "View"}</span>
                 </button>
                 <button className="flex-1 md:flex-none h-10 md:h-8 px-4 md:px-0 rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 md:gap-0 transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
                   <Printer className="h-4 w-4 text-slate-400" />
-                  <span className="md:hidden text-[12px] font-bold text-slate-500">Print</span>
+                  <span className="md:hidden text-[12px] font-bold text-slate-500">{isRTL ? "طباعة" : "Print"}</span>
                 </button>
                 <button className="h-10 md:h-8 w-10 md:w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
                   <MoreVertical className="h-4 w-4 text-slate-400" />
                 </button>
               </div>
             </div>
-          );
+            );
           })}
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between px-6 py-5 border-t border-slate-50">
+        <div className={cn("flex items-center justify-between px-6 py-5 border-t border-slate-50", isRTL ? "flex-row-reverse" : "flex-row")}>
           <p className="text-[12px] font-bold text-slate-400">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalItems)} of {totalItems} results
+            {isRTL 
+              ? `عرض ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalItems)} من ${totalItems} نتيجة`
+              : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalItems)} of ${totalItems} results`
+            }
           </p>
-          <div className="flex items-center gap-1.5">
+          <div className={cn("flex items-center gap-1.5", isRTL ? "flex-row-reverse" : "flex-row")}>
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
               className="h-9 w-9 rounded-xl border border-slate-100 bg-white hover:bg-slate-50 flex items-center justify-center disabled:opacity-40 transition-colors"
             >
-              <ChevronLeft className="h-4 w-4 text-slate-500" />
+              {isRTL ? <ChevronRight className="h-4 w-4 text-slate-500" /> : <ChevronLeft className="h-4 w-4 text-slate-500" />}
             </button>
 
             {pageNums().map((num, idx) =>
@@ -379,7 +390,7 @@ export default function InvoiceListPage() {
                       : "border border-slate-100 bg-white text-slate-600 hover:bg-slate-50"
                   )}
                 >
-                  {num}
+                  {(num as number).toLocaleString(isRTL ? "ar-EG" : "en-US")}
                 </button>
               )
             )}
@@ -389,7 +400,7 @@ export default function InvoiceListPage() {
               disabled={page === totalPages}
               className="h-9 w-9 rounded-xl border border-slate-100 bg-white hover:bg-slate-50 flex items-center justify-center disabled:opacity-40 transition-colors"
             >
-              <ChevronRight className="h-4 w-4 text-slate-500" />
+              {isRTL ? <ChevronLeft className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
             </button>
           </div>
         </div>
@@ -410,13 +421,14 @@ interface StatCardProps {
 }
 
 function StatCard({ icon, iconBg, label, value, trend, trendUp }: StatCardProps) {
+  const { isRTL } = useTranslation();
   return (
-    <div className="bg-white rounded-[24px] shadow-[0_2px_16px_rgb(0,0,0,0.04)] p-6 flex items-center justify-between">
-      <div className="space-y-2">
+    <div className={cn("bg-white rounded-[24px] shadow-[0_2px_16px_rgb(0,0,0,0.04)] p-6 flex items-center justify-between", isRTL ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn("space-y-2", isRTL ? "text-right" : "text-left")}>
         <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
         <p className="text-[26px] font-black text-slate-900 tracking-tighter leading-none">{value}</p>
         <p className={cn("text-[11px] font-bold", trendUp ? "text-emerald-500" : "text-red-400")}>
-          {trendUp ? "↑" : "↓"} {trend}
+          {isRTL ? (trendUp ? "↑" : "↓") : (trendUp ? "↑" : "↓")} {trend}
         </p>
       </div>
       <div className={cn("h-12 w-12 rounded-2xl flex items-center justify-center shrink-0", iconBg)}>
@@ -427,6 +439,7 @@ function StatCard({ icon, iconBg, label, value, trend, trendUp }: StatCardProps)
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t, isRTL } = useTranslation();
   const styles: Record<string, string> = {
     paid: "bg-emerald-50 text-emerald-600 border-emerald-100",
     pending: "bg-amber-50 text-amber-600 border-amber-100",
@@ -437,9 +450,7 @@ function StatusBadge({ status }: { status: string }) {
   const normalizedStatus = status.toLowerCase();
   return (
     <span className={cn("inline-flex px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wide", styles[normalizedStatus] || "bg-slate-50 text-slate-500 border-slate-100")}>
-      {normalizedStatus}
+      {t(normalizedStatus as any) || normalizedStatus}
     </span>
   );
 }
-
-

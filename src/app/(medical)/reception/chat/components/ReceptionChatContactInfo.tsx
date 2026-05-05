@@ -34,14 +34,14 @@ interface ReceptionChatContactInfoProps {
 }
 
 export function ReceptionChatContactInfo({ user, activity, files, onClose }: ReceptionChatContactInfoProps) {
-  const { t, locale } = useTranslation();
+  const { t, isRTL, locale } = useTranslation();
   const [activeTab, setActiveTab] = useState("details");
   const [viewingFile, setViewingFile] = useState<{ id: string; name: string; size: string; date: string; fileUrl?: string } | null>(null);
   const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const tabs = ["details", "history", "files"];
 
   const handleViewFile = async (file: { id: string; name: string; size: string; date: string; fileUrl?: string }) => {
-    if (!user || user.role !== t("patient")) {
+    if (!user || user.role !== (isRTL ? "مريض" : "Patient")) {
       setViewingFile(file);
       return;
     }
@@ -60,7 +60,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
 
   if (!user) {
     return (
-      <div className="hidden lg:flex w-[300px] h-full bg-white dark:bg-slate-950 border-s border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 p-8 text-center">
+      <div dir={isRTL ? "rtl" : "ltr"} className={cn("hidden lg:flex w-[300px] h-full bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 p-8 text-center", isRTL ? "border-e" : "border-s")}>
         <p>{t("noResults")}</p>
       </div>
     );
@@ -74,14 +74,15 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
         onClick={onClose}
       />
 
-      <div className={cn(
+      <div dir={isRTL ? "rtl" : "ltr"} className={cn(
         "flex h-full flex-col overflow-hidden bg-white dark:bg-slate-950 z-50 transition-all duration-300 ease-in-out",
-        "fixed inset-y-0 right-0 w-full max-w-[320px] shadow-2xl lg:relative lg:inset-auto lg:w-[300px] lg:min-w-[300px] lg:shadow-none border-s border-slate-100 dark:border-slate-800"
+        "fixed inset-y-0 w-full max-w-[320px] shadow-2xl lg:relative lg:inset-auto lg:w-[300px] lg:min-w-[300px] lg:shadow-none border-slate-100 dark:border-slate-800",
+        isRTL ? "right-0 lg:border-e" : "right-0 lg:border-s"
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2 shrink-0">
+        <div className={cn("flex items-center justify-between px-6 pt-6 pb-2 shrink-0", isRTL ? "flex-row-reverse" : "flex-row")}>
           <h3 className="text-[18px] font-black text-slate-900 dark:text-white">
-            {t("contactInfo")}
+            {t("contactInfo") || (isRTL ? "معلومات الاتصال" : "Contact Info")}
           </h3>
           <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-all">
             <X size={20} />
@@ -100,13 +101,13 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
               )}
             </div>
             <h2 className="mb-1 text-[20px] font-black text-slate-900 dark:text-white text-center leading-tight">
-              {locale === "ar" && user.fullNameAr ? user.fullNameAr : user.name}
+              {isRTL && user.fullNameAr ? user.fullNameAr : user.name}
             </h2>
             <span className="mb-6 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold uppercase tracking-widest">
               {user.role}
             </span>
 
-            <div className="grid grid-cols-3 gap-3 w-full">
+            <div className={cn("grid grid-cols-3 gap-3 w-full", isRTL ? "flex-row-reverse" : "flex-row")}>
               {[
                 { icon: Phone, label: "Call", labelKey: "call" },
                 { icon: Video, label: "Video", labelKey: "video" },
@@ -125,7 +126,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
           </div>
 
           <div className="px-6 pb-4">
-            <div className="flex p-1 bg-slate-50 dark:bg-slate-900 rounded-2xl">
+            <div className={cn("flex p-1 bg-slate-50 dark:bg-slate-900 rounded-2xl", isRTL ? "flex-row-reverse" : "flex-row")}>
               {tabs.map((tab) => (
                 <button
                   key={tab}
@@ -148,8 +149,8 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
               {activeTab === "details" && (
                 <>
                   <section>
-                    <h3 className="text-[13px] font-black text-slate-900 dark:text-slate-100 mb-4 px-1">
-                      {t("personalInformation")}
+                    <h3 className={cn("text-[13px] font-black text-slate-900 dark:text-slate-100 mb-4 px-1", isRTL ? "text-right" : "text-left")}>
+                      {t("personalInformation") || (isRTL ? "المعلومات الشخصية" : "Personal Information")}
                     </h3>
                     <div className="space-y-3">
                       {[
@@ -157,13 +158,13 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                         { icon: Phone, label: "Phone", labelKey: "phone", value: user.phone || "—" },
                         { icon: MapPin, label: "Address", labelKey: "address", value: user.address || "—" },
                       ].map((item) => (
-                        <div key={item.label} className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
+                        <div key={item.label} className={cn("flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
                           <div className="text-slate-400 dark:text-slate-500">
                             <item.icon size={18} />
                           </div>
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as TranslationKey)}</p>
-                            <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[160px]">{item.value}</p>
+                            <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200 truncate">{item.value}</p>
                           </div>
                         </div>
                       ))}
@@ -171,26 +172,26 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                   </section>
 
                   <section>
-                    <h3 className="text-[13px] font-black text-slate-900 dark:text-slate-100 mb-4 px-1">
-                      {t("medicalInformation")}
+                    <h3 className={cn("text-[13px] font-black text-slate-900 dark:text-slate-100 mb-4 px-1", isRTL ? "text-right" : "text-left")}>
+                      {t("medicalInformation") || (isRTL ? "المعلومات الطبية" : "Medical Information")}
                     </h3>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className={cn("grid grid-cols-2 gap-3 mb-3", isRTL ? "direction-rtl" : "direction-ltr")}>
                       {[
-                        { label: "Age", labelKey: "age", value: user.age ? `${user.age} ${t("years")}` : `34 ${t("years")}` },
+                        { label: "Age", labelKey: "age", value: user.age ? `${user.age.toLocaleString(isRTL ? "ar-EG" : "en-US")} ${t("years")}` : `34 ${t("years")}` },
                         { label: "Blood Type", labelKey: "bloodType", value: user.bloodType || "O+" },
                       ].map((item) => (
-                        <div key={item.label} className="p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
+                        <div key={item.label} className={cn("p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50", isRTL ? "text-right" : "text-left")}>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t(item.labelKey as TranslationKey)}</p>
                           <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{item.value}</p>
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50">
+                    <div className={cn("flex items-center gap-4 p-4 rounded-2xl bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
                       <div className="text-slate-400 dark:text-slate-500">
                         <Calendar size={18} />
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("lastVisit")}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("lastVisit") || (isRTL ? "آخر زيارة" : "Last Visit")}</p>
                         <p className="text-[13px] font-bold text-slate-700 dark:text-slate-200">{user.lastVisit || "—"}</p>
                       </div>
                     </div>
@@ -200,16 +201,16 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
 
               {activeTab === "history" && (
                 <div className="space-y-4">
-                  <div className="px-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{t("recentActivity")}</p>
+                  <div className={cn("px-1", isRTL ? "text-right" : "text-left")}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{t("recentActivity") || (isRTL ? "النشاط الأخير" : "Recent Activity")}</p>
                   </div>
                   {activity.map((item) => (
-                    <div key={item.id} className="flex items-start gap-4 p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md">
+                    <div key={item.id} className={cn("flex items-start gap-4 p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
                       <div className="mt-1 h-9 w-9 rounded-2xl bg-white flex items-center justify-center text-blue-600 shadow-sm dark:bg-slate-800 group-hover:bg-blue-600 group-hover:text-white transition-all">
                         <Activity size={16} />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{item.date}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{new Date(item.date).toLocaleDateString(isRTL ? "ar-EG" : "en-US")}</p>
                         <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-tight">{item.title}</p>
                       </div>
                     </div>
@@ -224,21 +225,21 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
 
               {activeTab === "files" && (
                 <div className="space-y-4">
-                  <div className="px-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{t("sharedFiles")}</p>
+                  <div className={cn("px-1", isRTL ? "text-right" : "text-left")}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">{t("sharedFiles") || (isRTL ? "الملفات المشتركة" : "Shared Files")}</p>
                   </div>
                   {files.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md">
-                      <div className="flex items-center gap-4">
+                    <div key={file.id} className={cn("flex items-center justify-between p-4 rounded-[22px] bg-slate-50/50 border border-slate-50 dark:bg-slate-900/40 dark:border-slate-800/50 hover:bg-white dark:hover:bg-slate-900 transition-all group shadow-sm hover:shadow-md", isRTL ? "flex-row-reverse" : "flex-row")}>
+                      <div className={cn("flex items-center gap-4", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
                         <div className="h-11 w-11 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm dark:bg-blue-900/20 group-hover:bg-blue-600 group-hover:text-white transition-all">
                           <FileText size={20} />
                         </div>
                         <div className="min-w-0">
                           <p className="max-w-[120px] truncate text-[14px] font-bold text-slate-800 dark:text-slate-200 mb-0.5">{file.name}</p>
-                          <div className="flex items-center gap-2">
+                          <div className={cn("flex items-center gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{file.size}</span>
                             <span className="h-1 w-1 rounded-full bg-slate-300" />
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{file.date}</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(file.date).toLocaleDateString(isRTL ? "ar-EG" : "en-US")}</span>
                           </div>
                         </div>
                       </div>
@@ -262,15 +263,15 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
         </div>
 
         <div className="p-4 text-center shrink-0 border-t border-slate-50 dark:border-slate-900">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700">{t("secureSession")}</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-300 dark:text-slate-700">{t("secureSession") || (isRTL ? "جلسة آمنة" : "Secure Session")}</p>
         </div>
 
         <Dialog open={!!viewingFile} onOpenChange={(open) => !open && setViewingFile(null)}>
-          <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden rounded-[28px] border-none shadow-2xl bg-white dark:bg-slate-950">
+          <DialogContent dir={isRTL ? "rtl" : "ltr"} className="sm:max-w-[800px] p-0 overflow-hidden rounded-[28px] border-none shadow-2xl bg-white dark:bg-slate-950">
             <div className="flex flex-col h-[80vh]">
               <DialogHeader className="p-6 border-b border-slate-50 dark:border-slate-900 shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className={cn("flex items-center justify-between", isRTL ? "flex-row-reverse" : "flex-row")}>
+                  <div className={cn("flex items-center gap-4", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}>
                     <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
                       <FileText size={20} />
                     </div>
@@ -278,7 +279,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                       <DialogTitle className="text-[16px] font-black text-slate-900 dark:text-white mb-0.5">
                         {viewingFile?.name}
                       </DialogTitle>
-                      <div className="flex items-center gap-2">
+                      <div className={cn("flex items-center gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{viewingFile?.size}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-200" />
                         <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{viewingFile?.date}</span>
@@ -293,7 +294,7 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                   <div className="h-full w-full flex flex-col items-center justify-center gap-4">
                     <div className="h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
                     <p className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">
-                      {t("loadingViewer")}
+                      {t("loadingViewer") || (isRTL ? "جاري تحميل العارض..." : "Loading Viewer...")}
                     </p>
                   </div>
                 ) : viewingFile?.fileUrl ? (
@@ -308,10 +309,10 @@ export function ReceptionChatContactInfo({ user, activity, files, onClose }: Rec
                       <FileText size={32} />
                     </div>
                     <p className="text-[14px] font-bold text-slate-600 dark:text-slate-300 mb-2">
-                      {t("unableToDisplayFile")}
+                      {t("unableToDisplayFile") || (isRTL ? "تعذر عرض الملف" : "Unable to display file")}
                     </p>
                     <p className="text-[12px] font-medium text-slate-400 max-w-xs">
-                      {t("tryDownloadingFile")}
+                      {t("tryDownloadingFile") || (isRTL ? "حاول تحميل الملف لعرضه." : "Try downloading the file to view it.")}
                     </p>
                   </div>
                 )}

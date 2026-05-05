@@ -20,6 +20,7 @@ import { ReceptionChatSidebar } from "./components/ReceptionChatSidebar";
 import { ReceptionChatMain } from "./components/ReceptionChatMain";
 import { ReceptionChatContactInfo } from "./components/ReceptionChatContactInfo";
 import { Loader2, AlertCircle, Search, X, User as UserIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -54,7 +55,7 @@ function ReceptionChatPageContent() {
   const selectedConversationId = conversationIdParam ?? legacyConversationIdParam ?? "";
 
   const { user, accessToken, refreshAccessToken } = useAuthStore();
-  const { t, locale } = useTranslation();
+  const { t, isRTL, locale } = useTranslation();
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [unreadByConversation, setUnreadByConversation] = useState<Record<string, number>>({});
@@ -190,12 +191,12 @@ function ReceptionChatPageContent() {
       });
     } catch (err) {
       console.error("Failed to load conversations", err);
-      setError(locale === "ar" ? "فشل تحميل المحادثات. يرجى المحاولة مرة أخرى." : "Failed to load conversations. Please try again.");
+      setError(isRTL ? "فشل تحميل المحادثات. يرجى المحاولة مرة أخرى." : "Failed to load conversations. Please try again.");
       setConversations([]);
     } finally {
       setIsLoading(false);
     }
-  }, [locale, selectedConversationId, user?.id]);
+  }, [isRTL, selectedConversationId, user?.id]);
 
   const handleStartNewChat = useCallback(async (targetUser: ApiUser) => {
     if (!user) return;
@@ -211,9 +212,9 @@ function ReceptionChatPageContent() {
       void loadConversations();
     } catch (err) {
       console.error("Failed to create chat", err);
-      alert(locale === "ar" ? "تعذر إنشاء المحادثة." : "Could not create chat.");
+      alert(isRTL ? "تعذر إنشاء المحادثة." : "Could not create chat.");
     }
-  }, [user, handleSelectConversation, locale, loadConversations]);
+  }, [user, handleSelectConversation, isRTL, loadConversations]);
 
   const handleFavorite = useCallback((id: string) => {
     setConvMeta(prev => ({
@@ -244,8 +245,6 @@ function ReceptionChatPageContent() {
       [id]: { ...prev[id], isMuted: !prev[id]?.isMuted }
     }));
   }, []);
-
-
 
   const selectedConversation = useMemo(() =>
     conversations.find(c => c.id === selectedConversationId),
@@ -311,19 +310,19 @@ function ReceptionChatPageContent() {
         );
         handleSelectConversation(conversation.id);
       } catch {
-        setError(locale === "ar" ? "تعذر فتح محادثة الموعد" : "Unable to open appointment chat");
+        setError(isRTL ? "تعذر فتح محادثة الموعد" : "Unable to open appointment chat");
       }
     };
 
     void syncFromAppointment();
-  }, [appointmentIdParam, handleSelectConversation, locale, selectedConversationId]);
+  }, [appointmentIdParam, handleSelectConversation, isRTL, selectedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId || accessToken || !user) return;
     void refreshAccessToken().catch(() => {
-      setError(locale === "ar" ? "انتهت الجلسة" : "Session expired");
+      setError(isRTL ? "انتهت الجلسة" : "Session expired");
     });
-  }, [selectedConversationId, accessToken, user, refreshAccessToken, locale]);
+  }, [selectedConversationId, accessToken, user, refreshAccessToken, isRTL]);
 
   useEffect(() => {
     if (!selectedConversationId) {
@@ -355,15 +354,14 @@ function ReceptionChatPageContent() {
         if (!cancelled) {
           const errorStatus = (err as any)?.status;
           if (errorStatus === 403) {
-            setError(locale === "ar" ? "ليس لديك صلاحية للوصول لهذه المحادثة" : "You are not authorized to view this chat");
-            // Clear selection after a delay if it's a forbidden chat from URL
+            setError(isRTL ? "ليس لديك صلاحية للوصول لهذه المحادثة" : "You are not authorized to view this chat");
             setTimeout(() => {
               if (!cancelled && conversations.length > 0) {
                 handleSelectConversation(conversations[0].id);
               }
             }, 2000);
           } else {
-            setError(locale === "ar" ? "تعذر تحميل الرسائل" : "Failed to load messages");
+            setError(isRTL ? "تعذر تحميل الرسائل" : "Failed to load messages");
           }
         }
       } finally {
@@ -375,7 +373,7 @@ function ReceptionChatPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [selectedConversationId, locale]);
+  }, [selectedConversationId, isRTL, conversations, handleSelectConversation]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -414,7 +412,7 @@ function ReceptionChatPageContent() {
     return () => window.removeEventListener("focus", onFocus);
   }, [markSeen]);
 
-  // Load patient sidebar details with lightweight lookup first.
+  // Load patient sidebar details
   useEffect(() => {
     if (!selectedConversation) {
       setPatientDetails(null);
@@ -566,20 +564,20 @@ function ReceptionChatPageContent() {
       .map((conversation) => ({
         id: conversation.id,
         name: conversation.otherParticipantName || "User",
-        lastMessage: conversation.latestMessage?.text || "No messages yet",
+        lastMessage: conversation.latestMessage?.text || (isRTL ? "لا توجد رسائل بعد" : "No messages yet"),
         time: conversation.latestMessage
-          ? new Date(conversation.latestMessage.createdAt).toLocaleTimeString([], {
+          ? new Date(conversation.latestMessage.createdAt).toLocaleTimeString(isRTL ? "ar-EG" : "en-US", {
             hour: "2-digit",
             minute: "2-digit",
           })
           : "",
         unreadCount: unreadByConversation[conversation.id],
-        status: "online" as const, // For now
+        status: "online" as const, 
         role: conversation.otherParticipantRole || "PATIENT",
         isFavorite: convMeta[conversation.id]?.isFavorite,
         isMuted: convMeta[conversation.id]?.isMuted,
       }));
-  }, [conversations, unreadByConversation, convMeta]);
+  }, [conversations, convMeta, unreadByConversation, isRTL]);
 
   const chatMessages = useMemo(() => {
     return messages.map((message) => ({
@@ -598,7 +596,7 @@ function ReceptionChatPageContent() {
       <div className="h-screen flex items-center justify-center bg-white flex-col gap-4">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
         <p className="text-slate-500 font-medium">
-          {locale === "ar" ? "جارٍ تحميل المحادثات..." : "Loading conversations..."}
+          {isRTL ? "جارٍ تحميل المحادثات..." : "Loading conversations..."}
         </p>
       </div>
     );
@@ -612,29 +610,27 @@ function ReceptionChatPageContent() {
         </div>
         <div className="max-w-md">
           <h2 className="text-xl font-bold text-slate-900 mb-2">
-            {locale === "ar" ? "خطأ في الاتصال" : "Connection Error"}
+            {isRTL ? "خطأ في الاتصال" : "Connection Error"}
           </h2>
           <p className="text-slate-500 mb-6">{error}</p>
           <button
             onClick={() => void loadConversations()}
             className="px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
           >
-            {locale === "ar" ? "إعادة المحاولة" : "Retry Now"}
+            {isRTL ? "إعادة المحاولة" : "Retry Now"}
           </button>
         </div>
       </div>
     );
   }
 
-
-
   return (
-    <div className="flex h-[calc(100vh-110px)] md:h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6 relative">
+    <div dir={isRTL ? "rtl" : "ltr"} className={cn("flex h-[calc(100vh-110px)] md:h-[calc(100vh-140px)] overflow-hidden bg-white dark:bg-slate-950 -m-4 md:-m-6 relative", isRTL ? "flex-row" : "flex-row")}>
       <ReceptionChatSidebar
         conversations={sidebarConversations}
         selectedId={selectedConversationId}
         onSelect={handleSelectConversation}
-        onFilterChange={() => { }} // TODO: Role filtering
+        onFilterChange={() => { }} 
         onFavorite={handleFavorite}
         onArchive={handleArchive}
         onMute={handleMute}
@@ -680,10 +676,10 @@ function ReceptionChatPageContent() {
       {/* New Chat Modal */}
       {isNewChatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div dir={isRTL ? "rtl" : "ltr"} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div className={cn("p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between", isRTL ? "flex-row-reverse" : "flex-row")}>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                {locale === "ar" ? "محادثة جديدة" : "New Chat"}
+                {isRTL ? "محادثة جديدة" : "New Chat"}
               </h2>
               <button
                 onClick={() => setIsNewChatModalOpen(false)}
@@ -695,11 +691,11 @@ function ReceptionChatPageContent() {
             
             <div className="p-5 border-b border-slate-100 dark:border-slate-800">
               <div className="relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={18} />
+                <Search className={cn("absolute top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors", isRTL ? "right-4" : "left-4")} size={18} />
                 <input
                   type="text"
-                  placeholder={locale === "ar" ? "ابحث عن اسم المستخدم أو البريد..." : "Search user by name or email..."}
-                  className="w-full h-12 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl pl-12 pr-4 text-[14px] font-medium text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 focus:bg-slate-100 dark:focus:bg-slate-800 transition-all"
+                  placeholder={isRTL ? "ابحث عن اسم المستخدم أو البريد..." : "Search user by name or email..."}
+                  className={cn("w-full h-12 bg-slate-50 dark:bg-slate-800/50 border-none rounded-2xl text-[14px] font-medium text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 focus:bg-slate-100 dark:focus:bg-slate-800 transition-all", isRTL ? "pr-12 pl-4 text-right" : "pl-12 pr-4 text-left")}
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
                   autoFocus
@@ -717,7 +713,7 @@ function ReceptionChatPageContent() {
                   <button
                     key={usr.id}
                     onClick={() => handleStartNewChat(usr)}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
+                    className={cn("w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors", isRTL ? "flex-row-reverse text-right" : "flex-row text-left")}
                   >
                     <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
                       {usr.avatar ? (
@@ -737,11 +733,11 @@ function ReceptionChatPageContent() {
                 ))
               ) : userSearchQuery.trim().length > 0 ? (
                 <div className="py-8 text-center text-slate-500">
-                  <p className="font-medium text-[14px]">{locale === "ar" ? "لم يتم العثور على مستخدمين" : "No users found"}</p>
+                  <p className="font-medium text-[14px]">{isRTL ? "لم يتم العثور على مستخدمين" : "No users found"}</p>
                 </div>
               ) : (
                 <div className="py-8 text-center text-slate-400">
-                  <p className="font-medium text-[13px]">{locale === "ar" ? "اكتب للبحث عن مستخدم..." : "Type to search for a user..."}</p>
+                  <p className="font-medium text-[13px]">{isRTL ? "اكتب للبحث عن مستخدم..." : "Type to search for a user..."}</p>
                 </div>
               )}
             </div>
@@ -764,5 +760,3 @@ export default function ReceptionChatPage() {
     </Suspense>
   );
 }
-
-
