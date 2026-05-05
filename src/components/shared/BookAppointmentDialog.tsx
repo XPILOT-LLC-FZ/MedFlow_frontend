@@ -33,8 +33,10 @@ interface BookAppointmentDialogProps {
     date: string;
     time: string;
     mode: "ONSITE" | "ONLINE";
+    branchId?: string;
     redeemPoints: boolean;
   }) => void;
+  initialBranchId?: string;
 }
 
 const MONTH_NAMES = [
@@ -66,6 +68,7 @@ export function BookAppointmentDialog({
   onBack,
   doctor,
   onConfirm,
+  initialBranchId,
 }: BookAppointmentDialogProps) {
   const { t, locale, isRTL } = useTranslation();
 
@@ -76,11 +79,13 @@ export function BookAppointmentDialog({
   const [selectedTime, setSelectedTime] = React.useState<string | null>(null);
   const [timePeriod, setTimePeriod] = React.useState<"AM" | "PM">("AM");
   const [mode, setMode] = React.useState<"ONSITE" | "ONLINE">("ONSITE");
+  const [selectedBranchId, setSelectedBranchId] = React.useState<string>("");
   const [redeemPoints, setRedeemPoints] = React.useState(false);
   const [slots, setSlots] = React.useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = React.useState(false);
   const [reviewsRating, setReviewsRating] = React.useState<number | null>(null);
   const [, setReviewsCount] = React.useState<number>(0);
+  const [dayStatus, setDayStatus] = React.useState<Record<string, "available" | "full" | "off">>({});
 
   React.useEffect(() => {
     if (isOpen) {
@@ -95,23 +100,37 @@ export function BookAppointmentDialog({
   }, [isOpen]);
 
   React.useEffect(() => {
+    const defaultBranchId = initialBranchId || doctor?.branch?.id || doctor?.branches?.[0]?.id || "";
+    setSelectedBranchId(defaultBranchId);
+  }, [initialBranchId, doctor]);
+
+  React.useEffect(() => {
     if (!doctor || !selectedDay) {
       setSlots([]);
       return;
     }
+
+    const hasBranches = (doctor.branches && doctor.branches.length > 0) || !!doctor.branch;
+    if (mode === "ONSITE" && hasBranches && !selectedBranchId) {
+      setSlots([]);
+      return;
+    }
+
     const dateStr = formatDateKey(new Date(viewYear, viewMonth, selectedDay));
     setLoadingSlots(true);
     bookingService
-      .getAvailableSlots(doctor.id, dateStr)
+      .getAvailableSlots(doctor.id, dateStr, {
+        branchId: mode === "ONSITE" ? (selectedBranchId || undefined) : undefined,
+      })
       .then(setSlots)
       .catch(() => setSlots([]))
       .finally(() => setLoadingSlots(false));
-  }, [doctor, selectedDay, viewYear, viewMonth]);
+  }, [doctor, mode, selectedBranchId, selectedDay, viewYear, viewMonth]);
 
   const [shifts, setShifts] = React.useState<DoctorShift[]>([]);
   React.useEffect(() => {
     if (isOpen && doctor) {
-      staffService.getDoctorShifts(doctor.id)
+      staffService.getPublicDoctorShifts(doctor.id)
         .then(setShifts)
         .catch(() => setShifts([]));
 
@@ -129,6 +148,55 @@ export function BookAppointmentDialog({
     }
   }, [isOpen, doctor]);
 
+  React.useEffect(() => {
+    if (!isOpen || !doctor || shifts.length === 0) return;
+
+    const todayDate = new Date();
+
+    const checkAvailability = async () => {
+      const statusMap: Record<string, "available" | "full" | "off"> = {};
+      const daysInMonthCount = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const promises = [];
+
+      for (let day = 1; day <= daysInMonthCount; day++) {
+        const dObj = new Date(viewYear, viewMonth, day);
+        const dateStr = formatDateKey(dObj);
+        const dayOfWeekNumber = dObj.getDay();
+
+        const hasShift = shifts.some(
+          (s) =>
+            s.isAvailable &&
+            s.dayOfWeek === dayOfWeekNumber &&
+            (mode !== "ONSITE" || !selectedBranchId || !s.branchId || s.branchId === selectedBranchId)
+        );
+
+        if (!hasShift || dObj < new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate())) {
+          statusMap[dateStr] = "off";
+        } else {
+          statusMap[dateStr] = "available";
+          promises.push(
+            bookingService
+              .getAvailableSlots(doctor.id, dateStr, {
+                branchId: mode === "ONSITE" ? (selectedBranchId || undefined) : undefined,
+              })
+              .then((slots) => {
+                statusMap[dateStr] = slots && slots.length > 0 ? "available" : "full";
+              })
+              .catch(() => {
+                statusMap[dateStr] = "available";
+              })
+          );
+        }
+      }
+
+      setDayStatus({ ...statusMap });
+      await Promise.allSettled(promises);
+      setDayStatus((prev) => ({ ...prev, ...statusMap }));
+    };
+
+    void checkAvailability();
+  }, [isOpen, doctor, shifts, viewYear, viewMonth, selectedBranchId, mode]);
+
   if (!doctor) return null;
 
   const cells = buildCalendarDays(viewYear, viewMonth);
@@ -137,6 +205,7 @@ export function BookAppointmentDialog({
   const isPast = (day: number) => {
     const d = new Date(viewYear, viewMonth, day);
     d.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
     return d < todayDate;
   };
@@ -159,12 +228,7 @@ export function BookAppointmentDialog({
     return timePeriod === "AM" ? h < 12 : h >= 12;
   });
 
-  const displaySlots = filteredSlots.length > 0 ? filteredSlots : (
-    selectedDay ? (timePeriod === "AM"
-      ? ["09:00", "10:00", "11:00", "09:30", "10:30"]
-      : ["13:00", "14:00", "15:00", "16:00", "17:00"]
-    ) : []
-  );
+  const displaySlots = filteredSlots;
 
   const monthNames = locale === "ar" ? MONTH_NAMES_AR : MONTH_NAMES;
   const dayHeaders = locale === "ar" ? DAY_HEADERS_AR : DAY_HEADERS;
@@ -172,12 +236,26 @@ export function BookAppointmentDialog({
   const consultFee = doctor.consultationFee ?? 200;
   const sessionMin = 25;
 
-  const canConfirm = !!selectedDay && !!selectedTime;
+  const doctorBranches =
+    doctor.branches && doctor.branches.length > 0
+      ? doctor.branches
+      : doctor.branch
+        ? [doctor.branch]
+        : [];
+
+  const canConfirm =
+    !!selectedDay && !!selectedTime && (mode !== "ONSITE" || doctorBranches.length === 0 || !!selectedBranchId);
 
   const handleConfirm = () => {
     if (!selectedDay || !selectedTime) return;
     const dateStr = formatDateKey(new Date(viewYear, viewMonth, selectedDay));
-    onConfirm({ date: dateStr, time: selectedTime, mode, redeemPoints });
+    onConfirm({
+      date: dateStr,
+      time: selectedTime,
+      mode,
+      branchId: mode === "ONSITE" ? (selectedBranchId || undefined) : undefined,
+      redeemPoints,
+    });
   };
 
   return (
@@ -213,7 +291,17 @@ export function BookAppointmentDialog({
             {(["ONSITE", "ONLINE"] as const).map(m => (
               <button
                 key={m}
-                onClick={() => setMode(m)}
+                onClick={() => {
+                  setMode(m);
+                  setSelectedDay(null);
+                  setSelectedTime(null);
+                  if (m === "ONLINE") {
+                    setSelectedBranchId("");
+                  } else {
+                    const defaultBranchId = initialBranchId || doctor?.branch?.id || doctor?.branches?.[0]?.id || "";
+                    setSelectedBranchId(defaultBranchId);
+                  }
+                }}
                 className={cn(
                   "flex-1 h-12 rounded-md text-sm font-black transition-all flex items-center justify-center gap-2",
                   mode === m
@@ -264,13 +352,37 @@ export function BookAppointmentDialog({
             })()
           }
 
+          {mode === "ONSITE" && doctorBranches.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-100 dark:border-slate-700/50">
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+                {locale === "ar" ? "اختر الفرع" : "Select branch"}
+              </label>
+              <select
+                value={selectedBranchId}
+                onChange={(event) => {
+                  setSelectedBranchId(event.target.value);
+                  setSelectedTime(null);
+                  setSelectedDay(null);
+                }}
+                className="w-full h-11 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-bold text-slate-700 dark:text-slate-200"
+              >
+                {doctorBranches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                    {branch.address ? ` - ${branch.address}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-100 dark:border-slate-700/50">
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={prevMonth}
                 className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
               >
-                <ChevronRight className="h-5 w-5" />
+                {isRTL ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
               </button>
               <span className="text-base font-black text-slate-900 dark:text-slate-50">
                 {monthNames[viewMonth]} {viewYear}
@@ -279,7 +391,7 @@ export function BookAppointmentDialog({
                 onClick={nextMonth}
                 className="h-8 w-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
               >
-                <ChevronLeft className="h-5 w-5" />
+                {isRTL ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
               </button>
             </div>
 
@@ -303,14 +415,11 @@ export function BookAppointmentDialog({
 
                 // Color dots/points based on real working shifts
                 const dObj = new Date(viewYear, viewMonth, day);
-                const dayOfWeekNumber = dObj.getDay();
-                const hasShift = shifts.length > 0
-                  ? shifts.some(s => s.isAvailable && s.dayOfWeek === dayOfWeekNumber)
-                  : (dayOfWeekNumber !== 5 && dayOfWeekNumber !== 6);
-
-                const isOffDay = !hasShift;
-                const isFull = false;
-                const isAvailable = hasShift && !isFull;
+                const dateStr = formatDateKey(dObj);
+                const status = dayStatus[dateStr] || (isPast(day) ? "off" : "available");
+                const isOffDay = status === "off";
+                const isFull = status === "full";
+                const isAvailable = status === "available";
 
                 return (
                   <button
@@ -322,18 +431,17 @@ export function BookAppointmentDialog({
                     }}
                     className={cn(
                       "h-11 w-11 mx-auto rounded-xl text-sm font-bold transition-all flex flex-col items-center justify-center gap-0.5 relative",
-                      isSelected && "bg-blue-600 text-white shadow-md shadow-blue-500/30",
-                      !isSelected && isToday && "text-blue-600",
+                      isSelected && "bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-600 text-blue-600",
                       !isSelected && !isToday && !past && !isOffDay && "hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200",
                       !isSelected && isOffDay && "opacity-40 cursor-not-allowed",
                       past && "text-slate-200 dark:text-slate-700 cursor-not-allowed"
                     )}
                   >
-                    <span className="text-xs font-black">
+                    <span className="text-sm font-black">
                       {day}
                     </span>
                     {!past && (
-                      <span className={cn("h-1.5 w-1.5 rounded-full",
+                      <span className={cn("h-1 w-1 rounded-full mt-0.5",
                         isToday ? "bg-blue-600" : isAvailable ? "bg-emerald-500" : isFull ? "bg-rose-500" : "bg-slate-400"
                       )} />
                     )}
@@ -423,7 +531,7 @@ export function BookAppointmentDialog({
               <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-tight">
                 {locale === "ar" ? "نظرة عامة" : (t("overview") || "Your visit will be")}
               </h4>
-              
+
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-bold text-slate-600 dark:text-slate-300">
                   {locale === "ar"
@@ -434,7 +542,7 @@ export function BookAppointmentDialog({
                   {selectedTime}
                 </span>
               </div>
-              
+
               <div className="flex items-center justify-between pt-3 border-t border-blue-100/40 dark:border-slate-800/60">
                 <span className="text-xl font-black text-blue-600 dark:text-blue-400">
                   {locale === "ar" ? `${consultFee} درهم ` : `${consultFee} L.E`}

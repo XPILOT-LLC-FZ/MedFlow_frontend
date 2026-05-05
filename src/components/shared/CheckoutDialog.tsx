@@ -30,7 +30,13 @@ interface CheckoutDialogProps {
   onOpenChange: (open: boolean) => void;
   onBack?: () => void;
   doctor: ApiPublicDoctor | null;
-  bookingData: { date: string; time: string; mode: "ONSITE" | "ONLINE"; redeemPoints?: boolean } | null;
+  bookingData: {
+    date: string;
+    time: string;
+    mode: "ONSITE" | "ONLINE";
+    branchId?: string;
+    redeemPoints?: boolean;
+  } | null;
   loyaltyPoints: number;
   specialDiscount?: number;
   insuranceDiscount?: number;
@@ -102,6 +108,13 @@ export function CheckoutDialog({
 
   if (!doctor || !bookingData) return null;
 
+  const selectedBranch =
+    doctor.branches?.find((branch) => branch.id === bookingData.branchId) ||
+    (doctor.branch?.id === bookingData.branchId ? doctor.branch : null) ||
+    doctor.branch ||
+    doctor.branches?.[0] ||
+    null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
@@ -168,7 +181,7 @@ export function CheckoutDialog({
                 <span>
                   {bookingData.mode === "ONLINE"
                     ? (t("onlineConsultation") || "Online Consultation")
-                    : (doctor.branch?.address || doctor.branch?.name || doctor.clinicId || t("onClinic") || "On-Clinic Visit")}
+                    : (selectedBranch?.address || selectedBranch?.name || doctor.clinicId || t("onClinic") || "On-Clinic Visit")}
                 </span>
               </div>
             </div>

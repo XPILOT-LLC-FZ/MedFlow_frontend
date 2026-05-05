@@ -3,6 +3,7 @@
 import React from "react";
 import { Loader2, SendHorizontal, Paperclip, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface MessageInputProps {
   value: string;
@@ -22,6 +23,7 @@ export function MessageInput({
   onSend,
   onKeyDown,
 }: MessageInputProps) {
+  const { t } = useTranslation();
   const canSend = Boolean(value.trim()) && !disabled && !isSending;
 
   return (
@@ -43,7 +45,7 @@ export function MessageInput({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Type your message..."
+              placeholder={t("typeYourMessage") || "Type your message..."}
               disabled={disabled}
               className="block w-full max-h-32 min-h-[48px] resize-none border-none bg-transparent px-1 py-3 text-[15px] outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 disabled:opacity-50"
             />

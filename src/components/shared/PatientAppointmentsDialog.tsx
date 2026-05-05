@@ -10,7 +10,8 @@ import {
   ChevronRight,
   X,
   Search,
-  MessageSquare as MessageIcon
+  MessageSquare as MessageIcon,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,27 @@ export function PatientAppointmentsDialog({
             {t("upcomingAppointments")}
           </DialogTitle>
           <LanguageToggle variant="ghost" className="h-10 w-10 rounded-full hover:bg-slate-50 dark:hover:bg-slate-900" />
+        </div>
+
+        <div className="md:hidden px-6 py-4 bg-white dark:bg-slate-950 border-b border-slate-50 dark:border-slate-800/50 shrink-0">
+          <div className="relative group">
+            <Search className="absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-600 start-4" />
+            <input
+              type="text"
+              placeholder={t("searchAnything")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full h-12 rounded-2xl border-2 border-slate-300 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-slate-50 dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 transition-all ps-12 pe-10 text-start"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center text-slate-300 hover:text-slate-500 end-2"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Desktop Header */}
@@ -166,6 +188,12 @@ export function PatientAppointmentsDialog({
                   <div className="flex-1 flex flex-col min-w-0">
                     <span className="text-slate-900 dark:text-slate-50 font-black text-sm truncate">Dr. {apt.doctorName}</span>
                     <span className="text-slate-400 font-bold text-[10px] uppercase tracking-tight">{t("internistSpecialistDoctor")}</span>
+                    {(apt.branchName || apt.branchAddress) && (
+                      <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        <MapPin className="h-3 w-3" />
+                        {apt.branchAddress || apt.branchName}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={(e) => {

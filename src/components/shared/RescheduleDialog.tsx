@@ -10,12 +10,13 @@ import { bookingService } from "@/services/bookingService";
 import { cn } from "@/lib/utils";
 import { staffService } from "@/services/staffService";
 import type { Appointment, DoctorShift } from "@/types";
+import { formatDateKey, isPastDate } from "@/lib/dateUtils";
 
 interface RescheduleDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   appointment: Appointment | null;
-  onConfirm?: (newDate: string, newTime: string) => void;
+  onConfirm: (date: string, time: string, branchId?: string, mode?: "ONSITE" | "ONLINE") => void;
 }
 
 export function RescheduleDialog({
@@ -32,7 +33,11 @@ export function RescheduleDialog({
   const [timePeriod, setTimePeriod] = useState<"AM" | "PM">("AM");
   const [dayStatus, setDayStatus] = useState<Record<string, "available" | "full" | "off">>({});
   const [shifts, setShifts] = useState<DoctorShift[]>([]);
+  const [mode, setMode] = useState<"ONSITE" | "ONLINE">("ONSITE");
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("");
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [doctorAvatar, setDoctorAvatar] = useState<string>("");
   const [, setIsLoadingSlots] = useState<boolean>(false);
 
   const now = React.useMemo(() => new Date(), []);
@@ -40,26 +45,26 @@ export function RescheduleDialog({
   const [viewMonth, setViewMonth] = useState(now.getMonth() + 1);
 
   useEffect(() => {
-    if (isOpen && appointment?.date) {
-      const d = new Date(appointment.date.split("T")[0]);
-      if (!Number.isNaN(d.getTime())) {
-        setViewYear(d.getFullYear());
-        setViewMonth(d.getMonth() + 1);
-        setSelectedDate(appointment.date.split("T")[0]);
-      } else {
-        setViewYear(now.getFullYear());
-        setViewMonth(now.getMonth() + 1);
-        setSelectedDate(now.toISOString().split("T")[0]);
-      }
-      setUserHasSelectedDate(false);
-      setUserHasSelectedTime(false);
-    } else if (isOpen) {
-      setViewYear(now.getFullYear());
-      setViewMonth(now.getMonth() + 1);
-      setSelectedDate(now.toISOString().split("T")[0]);
-      setUserHasSelectedDate(false);
-      setUserHasSelectedTime(false);
+    if (!isOpen) return;
+
+    const targetDate = appointment?.date ? appointment.date.split("T")[0] : now.toISOString().split("T")[0];
+    const d = new Date(targetDate);
+    
+    if (!Number.isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      
+      Promise.resolve().then(() => {
+        setViewYear(y => y !== year ? year : y);
+        setViewMonth(m => m !== month ? month : m);
+        setSelectedDate(sd => sd !== targetDate ? targetDate : sd);
+      });
     }
+    
+    Promise.resolve().then(() => {
+      setUserHasSelectedDate(false);
+      setUserHasSelectedTime(false);
+    });
   }, [appointment?.date, isOpen, now]);
 
   const prevMonth = () => {
@@ -85,9 +90,6 @@ export function RescheduleDialog({
     { month: "long" }
   );
 
-  const getDayDateString = (day: number) => {
-    return `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  };
 
   const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
   const firstDayIndex = new Date(viewYear, viewMonth - 1, 1).getDay();
@@ -100,77 +102,124 @@ export function RescheduleDialog({
 
   useEffect(() => {
     if (isOpen && appointment?.doctorId) {
-      staffService.getDoctorShifts(appointment.doctorId)
-        .then(setShifts)
-        .catch(() => setShifts([]));
+      staffService
+        .getPublicDoctorById(appointment.doctorId)
+        .then((doctor) => {
+          if (doctor.shifts && doctor.shifts.length > 0) {
+            setShifts(doctor.shifts);
+          } else {
+            staffService.getPublicDoctorShifts(appointment.doctorId)
+              .then(setShifts)
+              .catch(() => setShifts([]));
+          }
+
+          setSelectedBranchId(appointment.branchId || "");
+          // Lock mode to original appointment mode and clear branch ID for online mode
+          const originalMode = appointment.mode === "ONLINE" ? "ONLINE" : "ONSITE";
+          setMode(originalMode);
+          if (originalMode === "ONLINE") {
+            setSelectedBranchId("");
+          }
+          if (doctor.user?.avatarUrl) {
+            setDoctorAvatar(doctor.user.avatarUrl);
+          }
+        })
+        .catch(() => {
+          setSelectedBranchId(appointment.branchId || "");
+          const originalMode = appointment.mode === "ONLINE" ? "ONLINE" : "ONSITE";
+          setMode(originalMode);
+          if (originalMode === "ONLINE") {
+            setSelectedBranchId("");
+          }
+        });
     }
-  }, [isOpen, appointment?.doctorId]);
+  }, [isOpen, appointment?.doctorId, appointment?.branchId, appointment?.mode, locale]);
 
   useEffect(() => {
-    const loadAvailability = async () => {
-      if (!isOpen || !appointment?.doctorId) return;
-      const statusMap: Record<string, "available" | "full" | "off"> = {};
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    if (!isOpen || !appointment?.doctorId || shifts.length === 0) return;
 
-      const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
-      const promises = Array.from({ length: daysInMonth }, (_, i) => {
-        const day = i + 1;
+    const statusMap: Record<string, "available" | "full" | "off"> = {};
+    const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const checkAvailability = async () => {
+      const promises = [];
+      const currentDayStatus: Record<string, "available" | "full" | "off"> = {};
+
+      for (let day = 1; day <= daysInMonth; day++) {
         const dObj = new Date(viewYear, viewMonth - 1, day);
-        dObj.setHours(0, 0, 0, 0);
-
-        const dateStr = `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         const dayOfWeekNumber = dObj.getDay();
+        const dateStr = formatDateKey(dObj);
 
-        // Check if doctor has a shift on this day of week
-        const hasShift = shifts.length > 0
-          ? shifts.some((s) => s.isAvailable && s.dayOfWeek === dayOfWeekNumber)
-          : dayOfWeekNumber !== 5 && dayOfWeekNumber !== 6;
+        // We check if the doctor has a shift on this day at the selected branch (if ONSITE)
+        const hasShift = shifts.some((s) =>
+          s.isAvailable &&
+          s.dayOfWeek === dayOfWeekNumber &&
+          (mode !== "ONSITE" || !selectedBranchId || !s.branchId || s.branchId === selectedBranchId)
+        );
 
-        if (dObj < today || !hasShift) {
-          statusMap[dateStr] = "off";
-          return Promise.resolve();
-        }
-
-        return bookingService.getAvailableSlots(appointment.doctorId, dateStr)
-          .then((slots) => {
-            if (slots && slots.length > 0) {
-              statusMap[dateStr] = "available";
-            } else {
-              statusMap[dateStr] = "full";
-            }
-          })
-          .catch(() => {
-            statusMap[dateStr] = "off";
-          });
-      });
-
-      await Promise.allSettled(promises);
-      setDayStatus(statusMap);
-    };
-    void loadAvailability();
-  }, [isOpen, appointment?.doctorId, viewMonth, viewYear, shifts, now]);
-
-  useEffect(() => {
-    const loadSlots = async () => {
-      if (!selectedDate || !appointment?.doctorId) return;
-      setIsLoadingSlots(true);
-      try {
-        const slots = await bookingService.getAvailableSlots(appointment.doctorId, selectedDate);
-        setAvailableSlots(slots);
-        if (slots && slots.length > 0) {
-          setSelectedTime(slots[0]);
+        if (!hasShift || isPastDate(dObj)) {
+          currentDayStatus[dateStr] = "off";
         } else {
-          setSelectedTime("");
+          // Initial state is available while we check in background
+          currentDayStatus[dateStr] = "available";
+
+          // Check if actually full in background
+          promises.push(
+            bookingService.getAvailableSlots(appointment.doctorId, dateStr, {
+              serviceId: appointment.serviceId,
+              branchId: mode === "ONSITE" ? (selectedBranchId || undefined) : undefined,
+            }).then(slots => {
+              statusMap[dateStr] = (slots && slots.length > 0) ? "available" : "full";
+            }).catch(err => {
+              console.warn(`[RescheduleDialog] Failed to fetch slots for ${dateStr}:`, err);
+              // Fallback to "available" if we already know there's a shift, 
+              // unless we are sure it's full.
+              statusMap[dateStr] = "available";
+            })
+          );
         }
+      }
+
+      // Update UI with initial available/off states immediately
+      setDayStatus({ ...currentDayStatus, ...statusMap });
+
+      // Update with accurate "Full" states as they come in
+      try {
+        await Promise.allSettled(promises);
+        setDayStatus(prev => ({ ...prev, ...statusMap }));
       } catch (err) {
-        console.error("Failed to load time slots", err);
-      } finally {
-        setIsLoadingSlots(false);
+        console.error("[RescheduleDialog] Error in background availability check:", err);
       }
     };
-    void loadSlots();
-  }, [appointment?.doctorId, selectedDate]);
+
+    void checkAvailability();
+  }, [isOpen, appointment?.doctorId, appointment?.serviceId, shifts, viewMonth, viewYear, selectedBranchId, mode]);
+
+  useEffect(() => {
+    if (isOpen && selectedDate && appointment?.doctorId) {
+      Promise.resolve().then(() => setIsLoadingSlots(true));
+      // For the selected day, we still don't filter by branch to allow maximum flexibility
+      // The backend will return slots for the first available shift it finds for that doctor on that day.
+      bookingService.getAvailableSlots(appointment.doctorId, selectedDate, {
+        serviceId: appointment.serviceId,
+        branchId: mode === "ONSITE" ? (selectedBranchId || undefined) : undefined,
+      })
+        .then((slots) => {
+          setAvailableSlots(slots);
+          // Auto-select first slot if user hasn't selected one yet
+          if (slots && slots.length > 0 && !userHasSelectedTime) {
+            setSelectedTime(slots[0]);
+          }
+        })
+        .catch((err) => {
+          console.error(`[RescheduleDialog] Error fetching slots for ${selectedDate}:`, err);
+          setAvailableSlots([]);
+        })
+        .finally(() => setIsLoadingSlots(false));
+    }
+  }, [isOpen, selectedDate, appointment?.doctorId, appointment?.serviceId, selectedBranchId, mode, userHasSelectedTime]);
 
   if (!appointment) return null;
 
@@ -188,7 +237,7 @@ export function RescheduleDialog({
       };
 
       const time24h = convertAmPmTo24Hour(selectedTime);
-      onConfirm(selectedDate, time24h);
+      onConfirm(selectedDate, time24h, mode === "ONSITE" ? (selectedBranchId || undefined) : undefined, mode);
       onOpenChange(false);
     }
   };
@@ -206,7 +255,8 @@ export function RescheduleDialog({
   });
 
   const getDayStatus = (day: number) => {
-    const dateStr = getDayDateString(day);
+    const dObj = new Date(viewYear, viewMonth - 1, day);
+    const dateStr = formatDateKey(dObj);
     return dayStatus[dateStr] || "off";
   };
 
@@ -228,7 +278,7 @@ export function RescheduleDialog({
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
           >
             {isRTL ? (
-              <ChevronRight className="h-6 w-6" />
+              <ChevronLeft className="h-6 w-6" />
             ) : (
               <ChevronLeft className="h-6 w-6" />
             )}
@@ -248,16 +298,23 @@ export function RescheduleDialog({
               {locale === "ar" ? "تفاصيل الموعد" : "Details Appointment"}
             </h3>
 
+            {/* Mode is locked to original appointment mode */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+              <span className="px-4 h-10 flex items-center justify-center text-sm font-bold rounded-xl bg-white dark:bg-slate-700 text-[#2b66ff] shadow-sm">
+                {mode === "ONSITE" ? (locale === "ar" ? "في العيادة" : "On Clinic") : (locale === "ar" ? "أونلاين" : "Online")}
+              </span>
+            </div>
+
             {/* Doctor Info */}
             <div className="bg-[#f8fafd] dark:bg-slate-800/40 rounded-xl p-3 flex items-center gap-3 border border-slate-100/40 dark:border-slate-800/40 shadow-sm">
               <div className="h-14 w-14 rounded-full overflow-hidden shrink-0">
                 <Image
                   src={
-                    appointment.patientAvatar ||
+                    doctorAvatar ||
                     `https://api.dicebear.com/9.x/avataaars/svg?seed=${appointment.doctorId}`
                   }
                   alt={appointment.doctorName || "Doctor"}
-                  width={564}
+                  width={64}
                   height={64}
                   className="h-full w-full object-cover rounded-full"
                   unoptimized
@@ -297,6 +354,7 @@ export function RescheduleDialog({
                 </p>
               </div>
             </div>
+
           </div>
 
           {/* Card 2: Custom Calendar */}
@@ -336,10 +394,18 @@ export function RescheduleDialog({
               ))}
 
               {monthDays.map((day) => {
-                const dateStr = getDayDateString(day);
+                const dObj = new Date(viewYear, viewMonth - 1, day);
+                const dateStr = formatDateKey(dObj);
+                const isPast = dObj < new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const isSelected = selectedDate === dateStr;
                 const status = getDayStatus(day);
                 const isClickable = status === "available";
+                const isTodayDay = (d: number) => {
+                  const date = new Date(viewYear, viewMonth - 1, d);
+                  return date.getDate() === now.getDate() &&
+                    date.getMonth() === now.getMonth() &&
+                    date.getFullYear() === now.getFullYear();
+                };
 
                 return (
                   <div
@@ -357,24 +423,27 @@ export function RescheduleDialog({
                   >
                     <div
                       className={cn(
-                        "h-8 w-11 rounded-lg flex items-center justify-center transition-all",
+                        "h-11 w-11 rounded-lg flex flex-col items-center justify-center transition-all",
                         isSelected
                           ? "bg-blue-50 dark:bg-blue-900/30 border-2 border-[#2b66ff] text-[#2b66ff]"
                           : "text-slate-600 dark:text-slate-300 hover:bg-slate-50"
                       )}
                     >
-                      {day}
-                    </div>
+                      <span className="text-base font-bold">{day}</span>
                     {/* Status Dot */}
-                    <div className="flex items-center justify-center pt-1">
-                      <span
-                        className={cn(
-                          "h-1 w-1 rounded-full",
-                          status === "available" && "bg-emerald-500",
-                          status === "full" && "bg-rose-500",
-                          status === "off" && "bg-slate-300"
-                        )}
-                      />
+                    {!isPast && (
+                      <div className="flex items-center justify-center pt-1">
+                        <div
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            isTodayDay(day) ? "bg-blue-600" :
+                              status === "available" ? "bg-emerald-500" :
+                                status === "full" ? "bg-rose-500" :
+                                  "bg-slate-400"
+                          )}
+                        />
+                      </div>
+                    )}
                     </div>
                   </div>
                 );
@@ -384,6 +453,10 @@ export function RescheduleDialog({
             {/* Color Legend exactly as requested */}
             <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 pt-3 border-t border-slate-50 dark:border-slate-800/40">
               <div className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 bg-blue-600 rounded-full" />
+                <span>Today</span>
+              </div>
+              <div className="flex items-center gap-1">
                 <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full" />
                 <span>Available</span>
               </div>
@@ -392,7 +465,7 @@ export function RescheduleDialog({
                 <span>Full</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="h-1.5 w-1.5 bg-slate-300 rounded-full" />
+                <span className="h-1.5 w-1.5 bg-slate-400 rounded-full" />
                 <span>Off Day</span>
               </div>
             </div>
@@ -431,7 +504,7 @@ export function RescheduleDialog({
             </div>
 
             {/* Time Slots Grid */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3 pb-4">
               {currentSlots.map((slot) => {
                 const isSelected = selectedTime === slot;
                 return (
@@ -462,19 +535,25 @@ export function RescheduleDialog({
 
           {/* Section 4: Summary You Reschedule to */}
           {userHasSelectedDate && userHasSelectedTime && selectedDate && selectedTime && (
-            <div className="bg-slate-100/60 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-100 dark:border-slate-800/60 space-y-2 text-center">
-              <h4 className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                {locale === "ar" ? "تمت إعادة الجدولة إلى" : "You reschedule to"}
+            <div className="bg-blue-50/50 dark:bg-blue-900/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-800/60 space-y-2 text-center animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                {locale === "ar" ? "تمت إعادة الجدولة إلى" : "Rescheduled to date"}
               </h4>
-              <div className="flex justify-around text-xs font-bold text-blue-600 dark:text-blue-400">
-                <span>
-                  {new Date(selectedDate).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric"
-                  })}
-                </span>
-                <span>{selectedTime}</span>
+              <div className="flex justify-around text-xs font-bold text-slate-800 dark:text-slate-100">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                  <span>
+                    {new Date(selectedDate).toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric"
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-blue-500" />
+                  <span>{selectedTime}</span>
+                </div>
               </div>
             </div>
           )}
@@ -484,7 +563,8 @@ export function RescheduleDialog({
         <div className="px-5 pb-6 pt-3 bg-white dark:bg-slate-900 border-t border-slate-50 dark:border-slate-800/40">
           <Button
             onClick={handleConfirm}
-            className="w-full h-12 rounded-3xl font-bold bg-[#2b66ff] hover:bg-[#1c54e0] text-white transition-colors"
+            disabled={!selectedDate || !selectedTime}
+            className="w-full h-12 rounded-3xl font-bold bg-[#2b66ff] hover:bg-[#1c54e0] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {locale === "ar" ? "تأكيد إعادة الجدولة" : "Reschedule appointment"}
           </Button>

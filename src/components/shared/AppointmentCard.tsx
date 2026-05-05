@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, Phone, User, MessageSquare, Trash2 } from "lucide-react";
+import { Clock, Phone, User, MessageSquare, Trash2, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,11 +51,13 @@ export function AppointmentCard({
   const displayName = isPatientView ? appointment.doctorName : appointment.patientName;
   const { user } = useAuthStore();
 
-  const handleReschedule = async (newDate: string, newTime: string) => {
+  const handleReschedule = async (newDate: string, newTime: string, branchId?: string, mode?: "ONSITE" | "ONLINE") => {
     try {
       await bookingService.rescheduleAppointment(appointment.id, {
         date: newDate,
         startTime: newTime,
+        branchId,
+        mode,
       });
       await fetchAppointments();
       toast.success(
@@ -126,6 +128,15 @@ export function AppointmentCard({
                 {appointment.time} • {appointment.duration || "30 min"}
               </span>
             </div>
+
+            {(appointment.branchName || appointment.branchAddress) && (
+              <div className="flex items-center gap-2.5 text-slate-500 dark:text-slate-400">
+                <MapPin className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-medium">
+                  {appointment.branchAddress || appointment.branchName}
+                </span>
+              </div>
+            )}
             
             <div className="flex items-center justify-between gap-2 text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2.5">
@@ -153,15 +164,30 @@ export function AppointmentCard({
 
           {/* Type Badge */}
           <div className="pt-1">
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "rounded-full px-3 py-0.5 font-semibold text-[11px] border-none",
-                statusStyles[appointment.status] || statusStyles.scheduled
-              )}
-            >
-              {appointment.type || "Follow-up"}
-            </Badge>
+            <div className="flex gap-2">
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "rounded-full px-3 py-0.5 font-semibold text-[11px] border-none",
+                  statusStyles[appointment.status] || statusStyles.scheduled
+                )}
+              >
+                {appointment.type || (locale === "ar" ? "متابعة" : "Follow-up")}
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "rounded-full px-3 py-0.5 font-semibold text-[11px] border-none",
+                  appointment.mode === "ONLINE" 
+                    ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400" 
+                    : "bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
+                )}
+              >
+                {appointment.mode === "ONLINE" 
+                  ? (locale === "ar" ? "أونلاين" : "Online") 
+                  : (locale === "ar" ? "في العيادة" : "On-Clinic")}
+              </Badge>
+            </div>
           </div>
         </div>
 

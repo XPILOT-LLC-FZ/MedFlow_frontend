@@ -36,7 +36,7 @@ export function ConversationList({
   isDoctor,
   isLoading = false,
 }: ConversationListProps) {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredItems = items.filter(
@@ -44,7 +44,6 @@ export function ConversationList({
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
       {/* Header */}
@@ -59,7 +58,7 @@ export function ConversationList({
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 transition-colors group-focus-within:text-primary" />
           <Input
-            placeholder="Search by name"
+            placeholder={t("searchByName") || "Search by name"}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-14 pl-12 pr-12 rounded-2xl border-2 border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50 transition-all focus-visible:border-primary focus-visible:ring-primary focus-visible:bg-background"

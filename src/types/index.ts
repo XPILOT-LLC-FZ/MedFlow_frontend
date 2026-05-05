@@ -72,6 +72,14 @@ export interface ApiDoctor {
   experienceYears: number;
   consultationFee: number;
   branchId?: string;
+  branches?: Array<{
+    id: string;
+    name: string;
+    nameAr?: string;
+    address?: string | null;
+    phone?: string | null;
+    isMain?: boolean;
+  }>;
   services: string[];
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   rating: number;
@@ -135,8 +143,17 @@ export interface ApiPublicDoctor {
   branch?: {
     id: string;
     name: string;
+    nameAr?: string;
     address?: string | null;
   } | null;
+  branches?: Array<{
+    id: string;
+    name: string;
+    nameAr?: string;
+    address?: string | null;
+    phone?: string | null;
+    isMain?: boolean;
+  }>;
   isAvailableNow?: boolean;
   user?: {
     id: string;
@@ -216,6 +233,7 @@ export interface CreateDoctorPayload {
   experienceStartDate?: string | null;
   consultationFee: number;
   branchId?: string;
+  branchIds?: string[];
   services: string[];
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   password: string;
@@ -234,6 +252,7 @@ export interface UpdateDoctorPayload {
   experienceStartDate?: string | null;
   consultationFee?: number;
   branchId?: string;
+  branchIds?: string[];
   services?: string[];
   status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   preferences?: Record<string, unknown>;
@@ -254,6 +273,7 @@ export interface TimeSlot {
 }
 
 export interface Appointment {
+  serviceId: string | undefined;
   serviceName: string;
   doctor?: ApiDoctor;
   endTime: string;
@@ -274,6 +294,9 @@ export interface Appointment {
   status: "scheduled" | "confirmed" | "completed" | "cancelled" | "in-progress" | "no-show" | "rescheduled";
   type: string;
   mode?: "ONSITE" | "ONLINE" | "PHONE_CALL";
+  branchId?: string;
+  branchName?: string;
+  branchAddress?: string;
   notes?: string;
   redeemPoints?: boolean;
   amount?: number;
@@ -306,6 +329,11 @@ export interface ApiAppointment {
   mode: "ONSITE" | "ONLINE" | "PHONE_CALL";
   notes?: string;
   branchId?: string;
+  branch?: {
+    id: string;
+    name: string;
+    address?: string | null;
+  } | null;
   redeemPoints?: boolean;
   amount: number;
   consultationSession?: {
@@ -367,6 +395,8 @@ export interface ApiPatientPaymentHistoryItem {
 export interface RescheduleAppointmentPayload {
   date: string;
   startTime: string;
+  branchId?: string | null;
+  mode?: "ONSITE" | "ONLINE";
   durationMinutes?: number;
   reason?: string;
 }

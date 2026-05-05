@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, MapPin, Calendar, Clock, ClipboardList, Pill, CheckCircle2, Award, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Calendar, Clock, ClipboardList, Pill, CheckCircle2, Award, FileText, Video } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { patientDocumentService } from "@/services/patientDocumentService";
@@ -21,10 +21,10 @@ const isClinicalPdfDocument = (
 
   return Boolean(
     isPdf &&
-      (!appointmentId || document.appointmentId === appointmentId) &&
-      (normalizedName.includes("diagnostic") ||
-        normalizedName.includes("clinical") ||
-        normalizedName.includes("report")),
+    (!appointmentId || document.appointmentId === appointmentId) &&
+    (normalizedName.includes("diagnostic") ||
+      normalizedName.includes("clinical") ||
+      normalizedName.includes("report")),
   );
 };
 
@@ -299,7 +299,7 @@ export function AppointmentDetailsDialog({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto no-scrollbar px-5 space-y-3">
-          
+
           {/* Card 1: Details Appointment */}
           <div className="bg-white dark:bg-slate-800/40 rounded-xl p-4 space-y-3 border border-slate-100/50 dark:border-slate-800/50 shadow-sm">
             <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
@@ -340,6 +340,23 @@ export function AppointmentDetailsDialog({
               <span className="text-slate-500 dark:text-slate-400">
                 {locale === "ar" ? "الموقع:" : "Location:"}{" "}
                 <span className="text-blue-500 font-bold">{locationName}</span>
+              </span>
+            </div>
+
+            {/* Appointment Mode */}
+            <div className="bg-[#f8fafd] dark:bg-slate-800/40 rounded-xl p-3 flex items-center gap-2 text-xs md:text-sm font-semibold border border-slate-100/40 dark:border-slate-800/40">
+              {appointment.mode === "ONLINE" ? (
+                <Video className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              ) : (
+                <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              )}
+              <span className="text-slate-500 dark:text-slate-400">
+                {locale === "ar" ? "نوع الموعد:" : "Appointment Type:"}{" "}
+                <span className="text-blue-500 font-bold">
+                  {appointment.mode === "ONLINE"
+                    ? (locale === "ar" ? "أونلاين" : "Online")
+                    : (locale === "ar" ? "في العيادة" : "On-Clinic")}
+                </span>
               </span>
             </div>
 
@@ -441,13 +458,13 @@ export function AppointmentDetailsDialog({
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-normal">
                     {clinicalReportDocument
                       ? (locale === "ar"
-                          ? "الملف السريري المعتمد من الطبيب متاح للمشاهدة أو التحميل"
-                          : "The signed clinical PDF is available for viewing/downloading")
+                        ? "الملف السريري المعتمد من الطبيب متاح للمشاهدة أو التحميل"
+                        : "The signed clinical PDF is available for viewing/downloading")
                       : hasPrescription
-                      ? (locale === "ar"
+                        ? (locale === "ar"
                           ? "لا توجد نسخة PDF محفوظة بعد، وسيتم عرض النسخة المطبوعة كبديل"
                           : "No saved PDF is available yet, so the printed preview will be used")
-                      : (locale === "ar"
+                        : (locale === "ar"
                           ? "لا يوجد ملف سريري متاح لهذا الموعد بعد"
                           : "No clinical PDF is available for this session yet.")}
                   </p>

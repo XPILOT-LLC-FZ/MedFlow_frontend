@@ -7,6 +7,7 @@ export interface PendingBooking {
   date: string;
   time: string;
   mode: "ONSITE" | "ONLINE";
+  branchId?: string;
   redeemPoints?: boolean;
 }
 
@@ -16,8 +17,10 @@ interface BookingFlowState {
   isProfileOpen: boolean;
   isBookOpen: boolean;
   isCheckoutOpen: boolean;
+  specTitleOverride: string | null;
   selectedSpecialization: string | null;
   selectedDoctor: ApiPublicDoctor | null;
+  selectedBranchId: string | null;
   pendingBooking: PendingBooking | null;
   history: string[];
 
@@ -27,10 +30,10 @@ interface BookingFlowState {
   setBookOpen: (open: boolean) => void;
   setCheckoutOpen: (open: boolean) => void;
 
-  openSpec: () => void;
+  openSpec: (title?: string) => void;
   openDocs: (spec: string | null) => void;
   openProfile: (doctor: ApiPublicDoctor) => void;
-  openBook: (doctor: ApiPublicDoctor) => void;
+  openBook: (doctor: ApiPublicDoctor, branchId?: string) => void;
   openCheckout: (booking: PendingBooking) => void;
   closeAll: () => void;
   goBack: () => void;
@@ -44,6 +47,8 @@ export const useBookingFlowStore = create<BookingFlowState>((set) => ({
   isCheckoutOpen: false,
   selectedSpecialization: null,
   selectedDoctor: null,
+  selectedBranchId: null,
+  specTitleOverride: null,
   pendingBooking: null,
   history: [],
 
@@ -53,12 +58,13 @@ export const useBookingFlowStore = create<BookingFlowState>((set) => ({
   setBookOpen: (open) => set({ isBookOpen: open }),
   setCheckoutOpen: (open) => set({ isCheckoutOpen: open }),
 
-  openSpec: () => set({
+  openSpec: (title) => set({
     isSpecOpen: true,
     isDocsOpen: false,
     isProfileOpen: false,
     isBookOpen: false,
     isCheckoutOpen: false,
+    specTitleOverride: title || null,
     selectedSpecialization: null,
     selectedDoctor: null,
     pendingBooking: null,
@@ -98,7 +104,7 @@ export const useBookingFlowStore = create<BookingFlowState>((set) => ({
     };
   }),
 
-  openBook: (doctor) => set((state) => {
+  openBook: (doctor, branchId) => set((state) => {
     const nextHistory = state.isDocsOpen || state.history.includes("docs")
       ? [...state.history.filter(x => x !== "book"), "book"]
       : ["book"];
@@ -109,6 +115,7 @@ export const useBookingFlowStore = create<BookingFlowState>((set) => ({
       isBookOpen: true,
       isCheckoutOpen: false,
       selectedDoctor: doctor,
+      selectedBranchId: branchId || null,
       pendingBooking: null,
       history: nextHistory,
     };
@@ -135,6 +142,7 @@ export const useBookingFlowStore = create<BookingFlowState>((set) => ({
     isProfileOpen: false,
     isBookOpen: false,
     isCheckoutOpen: false,
+    specTitleOverride: null,
     selectedSpecialization: null,
     selectedDoctor: null,
     pendingBooking: null,
@@ -151,6 +159,7 @@ export const useBookingFlowStore = create<BookingFlowState>((set) => ({
         isProfileOpen: false,
         isBookOpen: false,
         isCheckoutOpen: false,
+        specTitleOverride: null,
         selectedSpecialization: null,
         selectedDoctor: null,
         pendingBooking: null,

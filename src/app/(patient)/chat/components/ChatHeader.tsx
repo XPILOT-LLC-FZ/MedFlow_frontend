@@ -29,7 +29,7 @@ export function ChatHeader({
     const qs = params.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   };
-  const { isRTL } = useTranslation();
+  const { isRTL, t } = useTranslation();
 
   return (
     <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 dark:bg-slate-900/95 px-4 py-4 backdrop-blur-xl transition-all duration-300">
@@ -59,7 +59,7 @@ export function ChatHeader({
                 {title}
               </h1>
               <p className="text-[12px] font-medium text-emerald-500">
-                Online
+                {t("online") || "Online"}
               </p>
             </div>
           </div>

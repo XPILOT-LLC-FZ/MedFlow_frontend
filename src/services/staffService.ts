@@ -47,6 +47,14 @@ export const staffService = {
     return apiClient.get(`/doctors/public/list${toQueryString(filters)}`);
   },
 
+  async getPublicDoctorById(id: string): Promise<ApiPublicDoctor> {
+    return apiClient.get(`/doctors/public/${id}`);
+  },
+
+  async getPublicDoctorShifts(id: string): Promise<DoctorShift[]> {
+    return apiClient.get(`/doctors/public/${id}/shifts`);
+  },
+
   async getDoctorById(id: string): Promise<ApiDoctor> {
     return apiClient.get(`/doctors/${id}`);
   },

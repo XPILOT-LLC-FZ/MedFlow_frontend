@@ -46,6 +46,7 @@ const emptyForm = {
   consultationFee: "",
   clinicId: "",
   branchId: "",
+  branchIds: [] as string[],
   services: [] as string[],
   status: "ACTIVE" as ApiDoctor["status"],
   password: "",
@@ -230,6 +231,7 @@ export default function DoctorsPage() {
       experienceStartDate: form.experienceStartDate || null,
       consultationFee: parseFloat(form.consultationFee) || 0,
       branchId: form.branchId || undefined,
+      branchIds: (form.branchIds || []).length > 0 ? form.branchIds : (form.branchId ? [form.branchId] : []),
       services: form.services,
       status: form.status,
     };
@@ -492,6 +494,7 @@ export default function DoctorsPage() {
       branchId: doc.branchId || "",
       services: Array.isArray(doc.services) ? doc.services : [],
       status: doc.status,
+      branchIds: doc.branches ? doc.branches.map(b => b.id) : (doc.branchId ? [doc.branchId] : []),
       password: "",
       confirmPassword: "",
     });
@@ -656,7 +659,13 @@ export default function DoctorsPage() {
                       <label className="text-sm font-medium">Branch</label>
                       <select
                         value={form.branchId}
-                        onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            branchId: e.target.value,
+                            branchIds: e.target.value ? [e.target.value, ...(form.branchIds || []).filter((id) => id !== e.target.value)] : (form.branchIds || []),
+                          })
+                        }
                         className="w-full border rounded-lg px-3 py-2 text-sm bg-background"
                         disabled={isSuperAdmin}
                       >
@@ -707,6 +716,41 @@ export default function DoctorsPage() {
                     <option value="ON_LEAVE">{locale === "ar" ? "إجازة" : "On Leave"}</option>
                     <option value="INACTIVE">{locale === "ar" ? "غير نشط" : "Inactive"}</option>
                   </select>
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-sm font-medium">
+                    {locale === "ar" ? "فروع إضافية" : "Additional branches"}
+                  </label>
+                  <div className="max-h-40 overflow-y-auto rounded-lg border p-2 space-y-2 bg-background">
+                    {branches.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-1 py-2">
+                        {locale === "ar" ? "لا توجد فروع متاحة" : "No branches available"}
+                      </p>
+                    ) : (
+                      branches.map((branch) => (
+                        <label key={branch.id} className="flex items-center gap-2 text-sm px-1 py-1">
+                          <input
+                            type="checkbox"
+                            checked={(form.branchIds || []).includes(branch.id) || form.branchId === branch.id}
+                            onChange={() => {
+                              setForm((prev) => {
+                                const has = (prev.branchIds || []).includes(branch.id) || prev.branchId === branch.id;
+                                const nextIds = has
+                                  ? (prev.branchIds || []).filter((id) => id !== branch.id)
+                                  : [...(prev.branchIds || []), branch.id];
+                                return {
+                                  ...prev,
+                                  branchIds: nextIds,
+                                  branchId: prev.branchId || branch.id,
+                                };
+                              });
+                            }}
+                          />
+                          <span>{branch.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 </div>
 
                 {editId && (

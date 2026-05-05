@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Clock, User, Video, Trash2 } from "lucide-react";
+import { Calendar, Clock, User, Video, Trash2, MapPin } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -107,6 +107,32 @@ function MobilePatientAppointmentCard({
           <span className="text-xs md:text-sm font-medium text-slate-400 mt-0.5">
             {appointment.specialty || (locale === "ar" ? "طبيب متخصص" : "Specialist")}
           </span>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {(appointment.branchName || appointment.branchAddress) && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                <MapPin className="h-3.5 w-3.5" />
+                {appointment.branchAddress || appointment.branchName}
+              </span>
+            )}
+            <span className={cn(
+              "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full",
+              appointment.mode === "ONLINE" 
+                ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400" 
+                : "bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
+            )}>
+              {appointment.mode === "ONLINE" ? (
+                <>
+                  <Video className="h-3 w-3" />
+                  {locale === "ar" ? "أونلاين" : "Online"}
+                </>
+              ) : (
+                <>
+                  <MapPin className="h-3 w-3" />
+                  {locale === "ar" ? "في العيادة" : "On-Clinic"}
+                </>
+              )}
+            </span>
+          </div>
           {/* Booked-by info: if the current user is the patient, show 'You' */}
           {userId && appointment.patientId === userId ? (
             <div className="mt-2">
@@ -320,13 +346,13 @@ function AppointmentsPageContent() {
   const handleBookAgain = (appointment: Appointment) => {
     setIsDetailsDialogOpen(false);
     if (appointment.doctor) {
-      openBook(appointment.doctor as unknown as ApiPublicDoctor);
+      openBook(appointment.doctor as unknown as ApiPublicDoctor, appointment.branchId);
     } else if (appointment.doctorId) {
       openBook({
         id: appointment.doctorId,
         fullName: appointment.doctorName || "Doctor",
         specialization: appointment.specialty || "Generalist",
-      } as unknown as ApiPublicDoctor);
+      } as unknown as ApiPublicDoctor, appointment.branchId);
     }
     toast.success(
       locale === "ar"
@@ -336,12 +362,20 @@ function AppointmentsPageContent() {
   };
 
   // Handle reschedule confirmation
-  const handleReschedule = async (appointment: Appointment, newDate: string, newTime: string) => {
+  const handleReschedule = async (
+    appointment: Appointment,
+    newDate: string,
+    newTime: string,
+    branchId?: string,
+    mode?: "ONSITE" | "ONLINE",
+  ) => {
     try {
       setIsRescheduleDialogOpen(false);
       await bookingService.rescheduleAppointment(appointment.id, {
         date: newDate,
         startTime: newTime,
+        branchId,
+        mode,
       });
       void fetchAndDistribute();
       toast.success(
@@ -405,7 +439,7 @@ function AppointmentsPageContent() {
               value="upcoming"
               className="flex-1 rounded-full text-sm font-semibold transition-all h-12 data-[state=active]:bg-[#2b66ff] data-[state=active]:text-white data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-[#2b66ff] dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 select-none data-[state=active]:shadow-lg"
             >
-              {locale === "ar" ? "قادمة" : "Upcoming"}
+              {locale === "ar" ? "الحجوزات" : "Booking"}
               {upcomingAppointments.length > 0 && (
                 <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-50/20 text-xs font-semibold">
                   {upcomingAppointments.length}
@@ -507,9 +541,15 @@ function AppointmentsPageContent() {
         isOpen={isRescheduleDialogOpen}
         onOpenChange={setIsRescheduleDialogOpen}
         appointment={selectedAppointmentForReschedule}
-        onConfirm={(newDate, newTime) => {
+        onConfirm={(newDate, newTime, branchId, mode) => {
           if (selectedAppointmentForReschedule) {
-            handleReschedule(selectedAppointmentForReschedule, newDate, newTime);
+            handleReschedule(
+              selectedAppointmentForReschedule,
+              newDate,
+              newTime,
+              branchId,
+              mode,
+            );
           }
         }}
       />

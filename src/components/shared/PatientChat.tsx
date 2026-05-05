@@ -6,9 +6,14 @@ import { ChatBot } from "@/components/shared/ChatBot";
 import { FloatingChatButton } from "@/components/shared/FloatingChatButton";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useChatStore, type ChatMessage } from "@/stores/useChatStore";
+import { usePathname } from "next/navigation";
 import type { Locale } from "@/types";
 
 export function PatientChat() {
+  const pathname = usePathname();
+  const isChatPage = pathname === "/chat";
+  const isProfilePage = pathname === "/profile";
+
   const { user } = useAuthStore();
   const { messages } = useChatStore();
   const [open, setOpen] = useState(false);
@@ -16,6 +21,8 @@ export function PatientChat() {
   const participantId = user?.id ?? "guest";
 
   const unreadCount = useMemo(
+
+
     () =>
       messages.filter(
         (message: ChatMessage) =>
@@ -24,7 +31,10 @@ export function PatientChat() {
     [messages, participantId]
   );
 
+  if (isChatPage || isProfilePage) return null;
+
   return (
+
     <>
       <AnimatePresence>
         {!open && <FloatingChatButton unreadCount={unreadCount} onClick={() => setOpen(true)} />}

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { ChatMessage } from "@/services/doctorChatService";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -31,6 +32,7 @@ export function MessageBubble({
   senderFallback,
   formattedTime,
 }: MessageBubbleProps) {
+  const { t } = useTranslation();
   const [showMenu, setShowMenu] = useState(false);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -137,7 +139,7 @@ export function MessageBubble({
                   <div className="px-3 py-2.5 flex items-center gap-2.5 border-b border-slate-50 dark:border-slate-700/50">
                     <CheckCheck size={14} className={cn(message.status === "seen" ? "text-blue-500" : "text-slate-400")} />
                     <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-tight">
-                      {message.status === "seen" ? "Read" : "Delivered"} {formattedTime}
+                      {message.status === "seen" ? (t("read") || "Read") : (t("delivered") || "Delivered")} {formattedTime}
                     </span>
                   </div>
                   
@@ -145,7 +147,7 @@ export function MessageBubble({
                     onClick={copyToClipboard}
                     className="w-full px-3 py-3 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors group"
                   >
-                    <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200">Copy message</span>
+                    <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200">{t("copyMessage") || "Copy message"}</span>
                     <Copy size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
                   </button>
                 </motion.div>
@@ -169,10 +171,10 @@ export function MessageBubble({
                 <Check className="h-10 w-10 text-emerald-500" strokeWidth={3} />
               </div>
               <h2 className="text-[22px] font-extrabold text-slate-900 dark:text-slate-50 mb-2">
-                Message copied
+                {t("messageCopied") || "Message copied"}
               </h2>
               <p className="text-[15px] font-medium text-slate-400 dark:text-slate-500 leading-relaxed">
-                You can now paste it wherever you need.
+                {t("messageCopiedDesc") || "You can now paste it wherever you need."}
               </p>
             </motion.div>
           </div>

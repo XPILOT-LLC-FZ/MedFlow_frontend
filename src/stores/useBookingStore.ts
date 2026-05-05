@@ -93,6 +93,7 @@ export const mapToLocal = (api: ApiAppointment): Appointment => {
     patientAvatar: patient?.user?.avatarUrl || undefined,
     doctorId: api.doctorId || "unknown",
     doctorName: api.doctorName || "Unknown Doctor",
+    serviceId: api.serviceId,
     serviceName: api.serviceName || "General Consultation",
     specialty: api.serviceName || "Specialist",
     date: api.date,
@@ -106,6 +107,10 @@ export const mapToLocal = (api: ApiAppointment): Appointment => {
       api.consultationSession?.savedToPatient && api.consultationSession?.notes
         ? api.consultationSession.notes
         : api.notes,
+    branchId: api.branchId,
+    mode: api.mode,
+    branchName: api.branch?.name,
+    branchAddress: api.branch?.address || undefined,
     amount: api.amount,
     doctor: api.doctor,
     paymentMethodType: api.paymentMethodType,
@@ -136,9 +141,11 @@ const mapToApi = (local: Partial<Appointment>): Partial<ApiAppointment> => {
     api.type = local.type.toUpperCase() as ApiAppointment["type"];
   }
   if (local.notes) api.notes = local.notes;
+  if (local.branchId) api.branchId = local.branchId;
   if (local.specialty) api.serviceName = local.specialty;
   if (local.redeemPoints !== undefined) api.redeemPoints = local.redeemPoints;
   if (local.paymentMethodType) api.paymentMethodType = local.paymentMethodType;
+  if (local.mode) api.mode = local.mode as ApiAppointment["mode"];
 
   // Defaults for creation if missing
   if (!api.durationMinutes) api.durationMinutes = 30;

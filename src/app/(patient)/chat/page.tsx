@@ -31,26 +31,6 @@ function formatTime(iso: string) {
   });
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) return "Today";
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function groupByDay(messages: ChatMessage[]) {
-  const groups: Record<string, ChatMessage[]> = {};
-  for (const msg of messages) {
-    const key = formatDate(msg.createdAt);
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(msg);
-  }
-  return Object.entries(groups);
-}
-
 function applyStatusToMessages(
   messages: ChatMessage[],
   messageIds: string[],
@@ -80,7 +60,27 @@ function PatientChatPageContent() {
   const doctorIdParam = searchParams.get("doctorId");
   const selectedConversationId = searchParams.get("conversationId");
   const { user } = useAuthStore();
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
+
+  const formatDate = useCallback((iso: string) => {
+    const d = new Date(iso);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return t("today") || "Today";
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return t("yesterday") || "Yesterday";
+    return d.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", { month: "short", day: "numeric" });
+  }, [t, locale]);
+
+  const groupByDay = useCallback((messages: ChatMessage[]) => {
+    const groups: Record<string, ChatMessage[]> = {};
+    for (const msg of messages) {
+      const key = formatDate(msg.createdAt);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(msg);
+    }
+    return Object.entries(groups);
+  }, [formatDate]);
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [unreadByConversation, setUnreadByConversation] = useState<Record<string, number>>({});
@@ -262,11 +262,7 @@ function PatientChatPageContent() {
 
     if (!selectedConversationId) {
       setIsLoading(false);
-      setError(
-        locale === "ar"
-          ? "لم يتم تحديد محادثة."
-          : "No conversation selected."
-      );
+      setError(t("noConversationSelected") || "No conversation selected.");
       return;
     }
 
@@ -298,7 +294,7 @@ function PatientChatPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [selectedConversationId, scrollToBottom, locale, isConversationsLoading]);
+  }, [selectedConversationId, scrollToBottom, locale, isConversationsLoading, t]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -440,10 +436,10 @@ function PatientChatPageContent() {
         id: item.id,
         title:
           item.otherParticipantName ??
-          (locale === "ar" ? "محادثة طبية" : "Medical Chat"),
+          (t("medicalChat") || "Medical Chat"),
         subtitle:
           item.latestMessage?.text ??
-          (locale === "ar" ? "ابدأ المحادثة" : "Start conversation"),
+          (t("startConversation") || "Start conversation"),
         unreadCount: unreadByConversation[item.id] ?? 0,
         lastMessageTime: item.latestMessage ? formatTime(item.latestMessage.createdAt) : undefined,
         lastMessageStatus: (item.latestMessage && item.latestMessage.senderId === user?.id) ? item.latestMessage.status : undefined,
@@ -454,7 +450,7 @@ function PatientChatPageContent() {
           undefined,
       }));
     },
-    [conversations, locale, unreadByConversation, lastActivityByConversation, user?.id, doctorAvatars]
+    [conversations, unreadByConversation, lastActivityByConversation, user?.id, doctorAvatars, t]
   );
 
   return (
@@ -474,7 +470,7 @@ function PatientChatPageContent() {
           const selectedConv = conversations.find(c => c.id === selectedConversationId);
           return (
             <ChatHeader
-              title={selectedConv?.otherParticipantName ?? (locale === "ar" ? "محادثة طبية" : "Doctor Chat")}
+              title={selectedConv?.otherParticipantName ?? (t("medicalChat") || "Doctor Chat")}
               avatarUrl={
                 selectedConv?.otherParticipantId ? doctorAvatars[selectedConv.otherParticipantId] :
                 selectedConv?.otherParticipantName ? doctorAvatars[selectedConv.otherParticipantName] :
@@ -493,7 +489,7 @@ function PatientChatPageContent() {
               <div className="flex flex-col items-center gap-3 text-muted-foreground">
                 <Loader2 size={30} className="animate-spin text-primary" />
                 <span className="text-sm">
-                  {locale === "ar" ? "جارٍ تحميل المحادثة..." : "Loading conversation..."}
+                  {t("loadingConversation") || "Loading conversation..."}
                 </span>
               </div>
             </div>
@@ -517,10 +513,10 @@ function PatientChatPageContent() {
                   <MessageSquare size={24} />
                 </div>
                 <p className="text-sm font-medium text-foreground">
-                  {locale === "ar" ? "لا توجد رسائل بعد" : "No messages yet"}
+                  {t("noMessagesYet") || "No messages yet"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {locale === "ar" ? "ابدأ المحادثة الآن" : "Start the conversation below"}
+                  {t("startTheConversationBelow") || "Start the conversation below"}
                 </p>
               </div>
             </div>
@@ -545,7 +541,7 @@ function PatientChatPageContent() {
                     message={msg}
                     mine={isMine(msg)}
                     showSender={idx === 0 || dayMessages[idx - 1].senderId !== msg.senderId}
-                    senderFallback={locale === "ar" ? "الطرف الآخر" : "Other party"}
+                    senderFallback={t("otherParty") || "Other party"}
                     formattedTime={formatTime(msg.createdAt)}
                   />
                 ))}
@@ -562,15 +558,13 @@ function PatientChatPageContent() {
             onChange={setInput}
             onSend={handleSend}
             onKeyDown={handleKeyDown}
-            placeholder={locale === "ar" ? "اكتب رسالتك..." : "Type a message..."}
+            placeholder={t("typeYourMessage") || "Type a message..."}
             disabled={isLoading || !!error}
             isSending={isSending}
           />
         ) : (
           <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground">
-            {locale === "ar"
-              ? "يرجى اختيار محادثة للبدء"
-              : "Select a conversation to start chatting"}
+            {t("selectConversationToStart") || "Select a conversation to start chatting"}
           </div>
         )
       }

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useSearchParams } from "next/navigation";
 import { useProfileUiStore } from "@/stores/useProfileUiStore";
+import * as Portal from "@radix-ui/react-portal";
 
 import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
 
@@ -64,10 +65,18 @@ export function MobileBottomNav() {
   const isProfileRoute = pathname === "/profile";
   const shouldHideForProfile = isProfileRoute && (isDeepFlow || (profileSection && profileSection !== "profile"));
 
+  const { isSpecOpen, specTitleOverride } = useBookingFlowStore();
+  const isDirectBookingFlow = isSpecOpen && specTitleOverride === "appointment";
+
   if (!isPatientRoute || shouldHideForProfile) return null;
 
-  return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+  const NavContent = (
+    <div 
+      className={cn(
+        "lg:hidden fixed bottom-0 left-0 right-0 pointer-events-none transition-all duration-300",
+        isDirectBookingFlow ? "z-[1100]" : "z-50"
+      )}
+    >
       <div className="relative h-20 w-full pointer-events-auto">
         {/* SVG Background with Notch and Top Border/Shadow */}
         <div className="absolute inset-0">
@@ -103,7 +112,7 @@ export function MobileBottomNav() {
                   <button
                     onClick={(e) => {
                       e.preventDefault();
-                      useBookingFlowStore.getState().openSpec();
+                      useBookingFlowStore.getState().openSpec("appointment");
                     }}
                   >
                     <motion.div
@@ -155,4 +164,10 @@ export function MobileBottomNav() {
       </div>
     </div>
   );
+
+  if (isDirectBookingFlow) {
+    return <Portal.Root>{NavContent}</Portal.Root>;
+  }
+
+  return NavContent;
 }

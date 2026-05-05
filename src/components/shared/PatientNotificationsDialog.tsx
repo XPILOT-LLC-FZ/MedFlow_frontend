@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
-import { 
+import {
   Bell,
   Trash2,
-  AlertTriangle, 
-  Activity, 
-  ClipboardCheck, 
-  MessageSquare, 
+  AlertTriangle,
+  Activity,
+  ClipboardCheck,
+  MessageSquare,
   Calendar,
   AlertCircle,
   Coins,
@@ -60,28 +60,28 @@ export function PatientNotificationsDialog({
 
   const filteredNotifications = React.useMemo(() => {
     let list = notifications;
-    
+
     switch (filter) {
       case "unread":
         list = notifications.filter(n => !n.readAt);
         break;
       case "appointments":
-        list = notifications.filter(n => 
-          n.type === "APPOINTMENT_EVENT" || 
-          n.title?.toLowerCase().includes("booked") || 
+        list = notifications.filter(n =>
+          n.type === "APPOINTMENT_EVENT" ||
+          n.title?.toLowerCase().includes("booked") ||
           n.title?.toLowerCase().includes("appointment")
         );
         break;
       case "medical":
-        list = notifications.filter(n => 
-          n.type === "LAB_RESULT" || 
+        list = notifications.filter(n =>
+          n.type === "LAB_RESULT" ||
           n.type === "TREATMENT_PLAN" ||
           n.type === "PRESCRIPTION"
         );
         break;
       case "important":
-        list = notifications.filter(n => 
-          n.type === "CRITICAL" || 
+        list = notifications.filter(n =>
+          n.type === "CRITICAL" ||
           n.type === "ALERT" ||
           n.type === "LOYALTY_EVENT" ||
           !n.readAt
@@ -94,7 +94,7 @@ export function PatientNotificationsDialog({
 
   const groupedNotifications = React.useMemo(() => {
     const groups: Record<string, InAppNotification[]> = {};
-    
+
     filteredNotifications.forEach(n => {
       const date = new Date(n.createdAt);
       const today = new Date();
@@ -117,7 +117,7 @@ export function PatientNotificationsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         hideClose
         className={cn(
           "p-0 overflow-hidden border-none flex flex-col transition-all duration-300",
@@ -127,7 +127,7 @@ export function PatientNotificationsDialog({
       >
         {/* Mobile Header */}
         <div className="md:hidden flex items-center px-6 py-5 bg-white dark:bg-slate-950 border-b border-slate-50 dark:border-slate-800/50 shrink-0">
-          <button 
+          <button
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900"
           >
@@ -217,7 +217,7 @@ export function PatientNotificationsDialog({
                       {groupDate}
                     </span>
                   </div>
-                  
+
                   {groupItems.map((n) => (
                     <motion.div
                       layout
@@ -234,22 +234,22 @@ export function PatientNotificationsDialog({
                         <div className={cn(
                           "flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-all group-hover/item:scale-105",
                           n.type === "CRITICAL" ? "bg-rose-100 text-rose-500" :
-                          n.type === "ALERT" ? "bg-amber-100 text-amber-500" :
-                          n.type === "LAB_RESULT" ? "bg-blue-600 text-white" :
-                          n.type === "APPOINTMENT_EVENT" ? "bg-blue-600 text-white" :
-                          n.type === "LOYALTY_EVENT" ? "bg-amber-400 text-white" :
-                          "bg-slate-100 text-slate-400"
+                            n.type === "ALERT" ? "bg-amber-100 text-amber-500" :
+                              n.type === "LAB_RESULT" ? "bg-blue-600 text-white" :
+                                n.type === "APPOINTMENT_EVENT" ? "bg-blue-600 text-white" :
+                                  n.type === "LOYALTY_EVENT" ? "bg-amber-400 text-white" :
+                                    "bg-slate-100 text-slate-400"
                         )}>
                           {n.type === "CRITICAL" ? <AlertTriangle className="h-6 w-6" /> :
                             n.type === "ALERT" ? <AlertCircle className="h-6 w-6" /> :
-                            n.type === "LAB_RESULT" ? <Activity className="h-6 w-6" /> :
-                            n.type === "TASK_EVENT" ? <ClipboardCheck className="h-6 w-6" /> :
-                            n.type === "CHAT_MESSAGE" ? <MessageSquare className="h-6 w-6" /> :
-                            n.type === "APPOINTMENT_EVENT" ? <Calendar className="h-6 w-6" /> :
-                            n.type === "LOYALTY_EVENT" ? <Coins className="h-6 w-6" /> :
-                            <Bell className="h-6 w-6" />}
+                              n.type === "LAB_RESULT" ? <Activity className="h-6 w-6" /> :
+                                n.type === "TASK_EVENT" ? <ClipboardCheck className="h-6 w-6" /> :
+                                  n.type === "CHAT_MESSAGE" ? <MessageSquare className="h-6 w-6" /> :
+                                    n.type === "APPOINTMENT_EVENT" ? <Calendar className="h-6 w-6" /> :
+                                      n.type === "LOYALTY_EVENT" ? <Coins className="h-6 w-6" /> :
+                                        <Bell className="h-6 w-6" />}
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-4">
                             <h4 className="text-[15px] font-black text-slate-900 dark:text-slate-100 tracking-tight leading-snug">
@@ -262,7 +262,7 @@ export function PatientNotificationsDialog({
                           <p className="mt-1 text-[13px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
                             {translateNotificationBody(n.body)}
                           </p>
-    
+
                           <div className="mt-4 flex items-center justify-between">
                             <div className="flex items-center gap-4">
                               {!n.readAt && (

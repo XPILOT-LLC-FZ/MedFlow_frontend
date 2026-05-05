@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { TranslationKey } from "@/lib/i18n";
@@ -20,6 +20,7 @@ import { ReceptionChatSidebar } from "./components/ReceptionChatSidebar";
 import { ReceptionChatMain } from "./components/ReceptionChatMain";
 import { ReceptionChatContactInfo } from "./components/ReceptionChatContactInfo";
 import { Loader2, AlertCircle, Search, X, User as UserIcon } from "lucide-react";
+import Image from "next/image";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -353,7 +354,7 @@ function ReceptionChatPageContent() {
       } catch (err) {
         console.error("Failed to fetch messages", err);
         if (!cancelled) {
-          const errorStatus = (err as any)?.status;
+          const errorStatus = (err as { status: number })?.status;
           if (errorStatus === 403) {
             setError(locale === "ar" ? "ليس لديك صلاحية للوصول لهذه المحادثة" : "You are not authorized to view this chat");
             // Clear selection after a delay if it's a forbidden chat from URL
@@ -375,7 +376,7 @@ function ReceptionChatPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [selectedConversationId, locale]);
+  }, [selectedConversationId, locale, conversations, handleSelectConversation]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -721,7 +722,7 @@ function ReceptionChatPageContent() {
                   >
                     <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
                       {usr.avatar ? (
-                         <img src={usr.avatar} alt={usr.name} className="w-full h-full object-cover" />
+                         <Image src={usr.avatar} alt={usr.name} width={40} height={40} className="w-full h-full object-cover" />
                       ) : (
                          <UserIcon size={18} />
                       )}

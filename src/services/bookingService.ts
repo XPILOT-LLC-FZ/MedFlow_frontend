@@ -109,11 +109,18 @@ export const bookingService = {
   async getAvailableSlots(
     doctorId: string,
     date: string,
-    options?: { serviceId?: string; durationMinutes?: number },
+    options?: {
+      serviceId?: string;
+      durationMinutes?: number;
+      branchId?: string;
+    },
   ): Promise<string[]> {
     const params = new URLSearchParams({ doctorId, date });
     if (options?.serviceId) {
       params.set("serviceId", options.serviceId);
+    }
+    if (options?.branchId) {
+      params.set("branchId", options.branchId);
     }
     if (
       typeof options?.durationMinutes === "number" &&

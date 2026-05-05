@@ -28,6 +28,7 @@ interface PatientSpecializationsDialogProps {
   services: ApiService[];
   doctors: ApiPublicDoctor[];
   onSelectSpecialization?: (specialization: string) => void;
+  titleOverride?: string | null;
 }
 
 export function PatientSpecializationsDialog({
@@ -36,6 +37,7 @@ export function PatientSpecializationsDialog({
   services,
   doctors,
   onSelectSpecialization,
+  titleOverride,
 }: PatientSpecializationsDialogProps) {
   const { t, locale, isRTL } = useTranslation();
   const [search, setSearch] = React.useState("");
@@ -62,17 +64,17 @@ export function PatientSpecializationsDialog({
           const docSpec = (d.specialization || "").toLowerCase();
           const svcName = s.name.toLowerCase();
           const cat = (s.category || "").toLowerCase();
-          
+
           return docSpec.includes(svcName) ||
-                 svcName.includes(docSpec) ||
-                 docSpec.includes(cat) ||
-                 cat.includes(docSpec) ||
-                 (svcName.includes("general") && docSpec.includes("general")) ||
-                 (svcName.includes("dermato") && docSpec.includes("dermato")) ||
-                 (svcName.includes("teeth") && docSpec.includes("dental")) ||
-                 (svcName.includes("teeth") && docSpec.includes("dentist")) ||
-                 (svcName.includes("laser") && docSpec.includes("derma")) ||
-                 (svcName.includes("laser") && docSpec.includes("aesthetic"));
+            svcName.includes(docSpec) ||
+            docSpec.includes(cat) ||
+            cat.includes(docSpec) ||
+            (svcName.includes("general") && docSpec.includes("general")) ||
+            (svcName.includes("dermato") && docSpec.includes("dermato")) ||
+            (svcName.includes("teeth") && docSpec.includes("dental")) ||
+            (svcName.includes("teeth") && docSpec.includes("dentist")) ||
+            (svcName.includes("laser") && docSpec.includes("derma")) ||
+            (svcName.includes("laser") && docSpec.includes("aesthetic"));
         }).length;
 
         specs.set(name, { name, category: s.category, count });
@@ -113,7 +115,7 @@ export function PatientSpecializationsDialog({
       });
     }
 
-    return Array.from(specs.values()).filter(s => 
+    return Array.from(specs.values()).filter(s =>
       s.name.toLowerCase().includes(search.toLowerCase())
     );
   }, [services, doctors, locale, t, search]);
@@ -121,20 +123,20 @@ export function PatientSpecializationsDialog({
   const getSpecIcon = (name: string, category?: string) => {
     const cat = category?.toUpperCase() || "";
     const n = name.toLowerCase();
-    
+
     if (cat === "DENTAL" || n.includes("dentist")) return <Stethoscope className="h-6 w-6 text-blue-500" strokeWidth={1.5} />;
     if (cat === "DERMATOLOGY" || n.includes("dermatolog")) return <Activity className="h-6 w-6 text-indigo-500" strokeWidth={1.5} />;
     if (n.includes("heart") || n.includes("cardio")) return <Heart className="h-6 w-6 text-rose-500" strokeWidth={1.5} />;
     if (n.includes("neuro") || n.includes("brain")) return <Brain className="h-6 w-6 text-purple-500" strokeWidth={1.5} />;
     if (n.includes("pediatric") || n.includes("baby")) return <Baby className="h-6 w-6 text-amber-500" strokeWidth={1.5} />;
     if (n.includes("monologist")) return <Activity className="h-6 w-6 text-blue-500" strokeWidth={1.5} />;
-    
+
     return <Activity className="h-6 w-6 text-blue-500" strokeWidth={1.5} />;
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent 
+      <DialogContent
         hideClose
         className={cn(
           "p-0 overflow-hidden border-none flex flex-col transition-all duration-300",
@@ -143,7 +145,7 @@ export function PatientSpecializationsDialog({
       >
         {/* Modern Header */}
         <div className="flex items-center px-6 pt-4 bg-transparent shrink-0">
-          <button 
+          <button
             onClick={() => onOpenChange(false)}
             className="h-10 w-10 -ml-2 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-white dark:hover:bg-slate-900 transition-all"
           >
@@ -154,7 +156,7 @@ export function PatientSpecializationsDialog({
             )}
           </button>
           <DialogTitle className="flex-1 text-center text-xl font-black text-slate-900 dark:text-slate-50 tracking-tight">
-            {t("specialization" as never) || "Specialization"}
+            {titleOverride ? t(titleOverride as never) : (t("specialization" as never) || "Specialization")}
           </DialogTitle>
         </div>
 
@@ -173,7 +175,7 @@ export function PatientSpecializationsDialog({
               )}
             />
             {search && (
-              <button 
+              <button
                 onClick={() => setSearch("")}
                 className="absolute top-1/2 -translate-y-1/2 h-10 w-10 flex items-center justify-center text-slate-300 hover:text-slate-500 end-2"
               >
@@ -184,7 +186,10 @@ export function PatientSpecializationsDialog({
         </div>
 
         {/* Content - Vertical List */}
-        <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-4 space-y-3">
+        <div className={cn(
+          "flex-1 overflow-y-auto no-scrollbar px-6 space-y-3",
+          titleOverride === "appointment" ? "pb-28" : "pb-4"
+        )}>
           {specializations.map((spec, idx) => (
             <button
               key={idx}
@@ -203,7 +208,7 @@ export function PatientSpecializationsDialog({
               )}>
                 {getSpecIcon(spec.name, spec.category)}
               </div>
-              
+
               <div className="flex-1 text-start">
                 <h4 className="text-md font-black text-slate-800 dark:text-slate-100 leading-tight">
                   {spec.name}

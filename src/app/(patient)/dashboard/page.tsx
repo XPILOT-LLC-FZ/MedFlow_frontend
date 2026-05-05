@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -64,7 +63,6 @@ export default function PatientDashboard() {
   } | null>(null);
   const [redeemOpen, setRedeemOpen] = useState(false);
   const [comingSoonModal, setComingSoonModal] = useState(false);
-  const [, setSpecOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [aptsOpen, setAptsOpen] = useState(false);
   const [selectedDetailApt, setSelectedDetailApt] = useState<Appointment | null>(null);
@@ -72,6 +70,7 @@ export default function PatientDashboard() {
   const [loyaltyHistory, setLoyaltyHistory] = useState<ApiLoyaltyTransaction[]>([]);
   const [isLoyaltyLoading, setIsLoyaltyLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
 
 
   const { favoriteDoctorIds, toggleFavorite, fetchFavorites } = usePatientStore();
@@ -152,19 +151,30 @@ export default function PatientDashboard() {
   }, [user?.id]);
 
   const patientAppointments = appointments.filter((a) => a.patientId === patientId);
-  const upcoming = patientAppointments
-    .filter((a) => {
-      // Only include scheduled and confirmed appointments
-      if (a.status !== "scheduled" && a.status !== "confirmed" && a.status !== "in-progress") return false;
-      const aptTime = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
-      return aptTime > Date.now();
-    })
-    .sort((a, b) => {
-      const timeA = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
-      const timeB = new Date(`${b.date}T${b.startTime || '00:00'}:00`).getTime();
-      return timeA - timeB; // Ascending (Closest first)
-    })
-    .slice(0, 3);
+  const todayAppointments = useMemo(() => {
+    const now = new Date();
+
+    return patientAppointments
+      .filter((a) => {
+        if (a.status !== "scheduled" && a.status !== "confirmed" && a.status !== "in-progress") return false;
+
+        const aptDate = new Date(a.date);
+        return (
+          aptDate.getFullYear() === now.getFullYear() &&
+          aptDate.getMonth() === now.getMonth() &&
+          aptDate.getDate() === now.getDate()
+        );
+      })
+      .sort((a, b) => {
+        const timeA = new Date(`${a.date}T${a.startTime || '00:00'}:00`).getTime();
+        const timeB = new Date(`${b.date}T${b.startTime || '00:00'}:00`).getTime();
+        return timeA - timeB;
+      });
+  }, [patientAppointments]);
+
+  const todayAppointment = useMemo(() => {
+    return todayAppointments[0] ?? null;
+  }, [todayAppointments]);
 
   const openCredentialPreview = async (doctorId: string, credential: ApiDoctorCredential) => {
     if (credential.previewUrl) {
@@ -219,10 +229,6 @@ export default function PatientDashboard() {
       });
   }, [appointments]);
 
-  const upcomingApt = useMemo(() => {
-    return allUpcomingApts[0];
-  }, [allUpcomingApts]);
-
   const recommendedDoctors = useMemo(() => {
     if (activeTab === "latest") return publicDoctors.slice(0, 6);
     return publicDoctors.filter(doc => {
@@ -240,6 +246,7 @@ export default function PatientDashboard() {
     const q = searchQuery.toLowerCase();
     return publicDoctors.filter(doc =>
       doc.fullName.toLowerCase().includes(q) ||
+      (doc.fullNameAr?.toLowerCase() || "").includes(q) ||
       (doc.specialization?.toLowerCase() || "").includes(q)
     );
   }, [publicDoctors, searchQuery]);
@@ -273,23 +280,24 @@ export default function PatientDashboard() {
                   cat === "AESTHETIC" ? "bg-rose-50 dark:bg-rose-900/10" :
                     cat === "WELLNESS" ? "bg-amber-50 dark:bg-amber-900/10" :
                       "bg-indigo-50 dark:bg-indigo-900/10",
-          categoryName: s.category ? t(s.category.toLowerCase() as never) : t("medical")
+          categoryName: s.category ? t(s.category.toLowerCase() as never) : t("medical"),
+          filterValue: s.category || s.name
         };
       });
     }
 
     // Fallback to hardcoded beautiful ones if no real services yet
     return [
-      { name: t("dentist"), icon: <Stethoscope className="h-6 w-6 text-blue-500" />, bg: "bg-blue-50 dark:bg-blue-900/10", categoryName: t("dental") },
-      { name: t("monologist"), icon: <Activity className="h-6 w-6 text-indigo-500" />, bg: "bg-indigo-50 dark:bg-indigo-900/10", categoryName: t("consultation") },
-      { name: t("heart"), icon: <Heart className="h-6 w-6 text-rose-500" />, bg: "bg-rose-50 dark:bg-rose-900/10", categoryName: t("consultation") },
-      { name: t("neuro"), icon: <Brain className="h-6 w-6 text-purple-500" />, bg: "bg-purple-50 dark:bg-purple-900/10", categoryName: t("consultation") },
-      { name: t("pediatric"), icon: <Baby className="h-6 w-6 text-amber-500" />, bg: "bg-amber-50 dark:bg-amber-900/10", categoryName: t("consultation") },
+      { name: t("neuro"), icon: <Brain className="h-6 w-6 text-purple-500" />, bg: "bg-purple-50 dark:bg-purple-900/10", categoryName: t("consultation"), filterValue: "NEUROLOGY" },
+      { name: t("heart"), icon: <Heart className="h-6 w-6 text-rose-500" />, bg: "bg-rose-50 dark:bg-rose-900/10", categoryName: t("consultation"), filterValue: "CARDIOLOGY" },
+      { name: t("dentist"), icon: <Stethoscope className="h-6 w-6 text-blue-500" />, bg: "bg-blue-50 dark:bg-blue-900/10", categoryName: t("dental"), filterValue: "DENTAL" },
+      { name: t("monologist"), icon: <Activity className="h-6 w-6 text-indigo-500" />, bg: "bg-indigo-50 dark:bg-indigo-900/10", categoryName: t("consultation"), filterValue: "CONSULTATION" },
+      { name: t("pediatric"), icon: <Baby className="h-6 w-6 text-amber-500" />, bg: "bg-amber-50 dark:bg-amber-900/10", categoryName: t("consultation"), filterValue: "PEDIATRIC" },
     ];
   }, [services, locale, t]);
 
   const handleDoctorClick = (doc: ApiPublicDoctor) => {
-    useBookingFlowStore.getState().openBook(doc);
+    useBookingFlowStore.getState().openProfile(doc);
   };
 
 
@@ -422,12 +430,12 @@ export default function PatientDashboard() {
                 </div>
 
                 <div className="mt-3 flex items-center gap-3 w-full">
-                  <Link
-                    href="/appointments"
+                  <button
+                    onClick={() => setRedeemOpen(true)}
                     className="w-1/2 h-10 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg shadow-blue-900/30 active:scale-95 transition-all uppercase tracking-widest text-[11px] flex items-center justify-center"
                   >
                     {t("redeemNow")}
-                  </Link>
+                  </button>
                 </div>
               </div>
 
@@ -437,14 +445,14 @@ export default function PatientDashboard() {
             </div>
 
             {/* Upcoming Appointment Card */}
-            {upcomingApt && (
+            {todayAppointment && (
               <div
-                onClick={() => setSelectedDetailApt(upcomingApt)}
+                onClick={() => setSelectedDetailApt(todayAppointment)}
                 className="bg-blue-600 rounded-3xl py-4 px-5 text-white shadow-sm shadow-blue-500/10 relative overflow-hidden group active:scale-[0.98] transition-all cursor-pointer"
               >
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-lg font-black tracking-tight">{t("upcomingAppointments")}</h3>
+                    <h3 className="text-lg font-black tracking-tight">{t("todaySchedule")}</h3>
                     <ChevronRight className="h-5 w-5 opacity-40 group-hover:opacity-100 transition-opacity" />
                   </div>
 
@@ -455,7 +463,7 @@ export default function PatientDashboard() {
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[13px] font-black leading-tight">
-                          {new Date(upcomingApt.date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'short', day: 'numeric', month: 'long' })}
+                          {new Date(todayAppointment.date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', { weekday: 'short', day: 'numeric', month: 'long' })}
                         </span>
                         <span className="text-[9px] opacity-60 font-bold uppercase tracking-wider mt-0.5">{t("appointmentsDate")}</span>
                       </div>
@@ -466,7 +474,7 @@ export default function PatientDashboard() {
                       </div>
                       <div className="flex flex-col">
                         <span className="text-[13px] font-black leading-tight">
-                          {upcomingApt.startTime} - {upcomingApt.endTime}
+                          {todayAppointment.startTime} - {todayAppointment.endTime}
                         </span>
                         <span className="text-[9px] opacity-60 font-bold uppercase tracking-wider mt-0.5">{t("appointmentsTime")}</span>
                       </div>
@@ -476,8 +484,8 @@ export default function PatientDashboard() {
                   <div className="bg-white dark:bg-slate-900 rounded-lg p-3 flex items-center gap-3">
                     <div className="h-11 w-11 rounded-full overflow-hidden shrink-0 border-2 border-slate-50 dark:border-slate-800">
                       <Image
-                        src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${upcomingApt.doctorName}`}
-                        alt={upcomingApt.doctorName}
+                        src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${todayAppointment.doctorName}`}
+                        alt={todayAppointment.doctorName}
                         width={60}
                         height={60}
                         className="h-full w-full object-cover"
@@ -485,27 +493,27 @@ export default function PatientDashboard() {
                     </div>
                     <div className="flex-1 flex flex-col min-w-0">
                       <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="text-[13px] font-black text-slate-900 leading-tight truncate">Dr. {upcomingApt.doctorName}</span>
-                        {upcomingApt.status === "in-progress" && (
+                        <span className="text-[13px] font-black text-slate-900 leading-tight truncate">Dr. {todayAppointment.doctorName}</span>
+                        {todayAppointment.status === "in-progress" && (
                           <span className="flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/20 flex-shrink-0">
                             <span className="h-1 w-1 animate-pulse rounded-full bg-emerald-500" />
                             {locale === "ar" ? "مباشر" : "Live"}
                           </span>
                         )}
                       </div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{upcomingApt.specialty || t("internistSpecialistDoctor")}</span>
-                      {upcomingApt.createdByName || upcomingApt.createdByRole ? (
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{todayAppointment.specialty || t("internistSpecialistDoctor")}</span>
+                      {todayAppointment.createdByName || todayAppointment.createdByRole ? (
                         <span className="text-[11px] text-slate-600 mt-1 truncate">
-                          {upcomingApt.createdByRole === "PATIENT" && user?.id === upcomingApt.patientId
+                          {todayAppointment.createdByRole === "PATIENT" && user?.id === todayAppointment.patientId
                             ? (locale === "ar" ? "تم الحجز بواسطة: أنت" : "Booked by: You")
-                            : (locale === "ar" ? `تم الحجز بواسطة: ${upcomingApt.createdByName || upcomingApt.createdByRole}` : `Booked by: ${upcomingApt.createdByName || upcomingApt.createdByRole}`)}
+                            : (locale === "ar" ? `تم الحجز بواسطة: ${todayAppointment.createdByName || todayAppointment.createdByRole}` : `Booked by: ${todayAppointment.createdByName || todayAppointment.createdByRole}`)}
                         </span>
                       ) : null}
                     </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        router.push(`/chat?appointmentId=${upcomingApt.id}`);
+                        router.push(`/chat?appointmentId=${todayAppointment.id}`);
                       }}
                       className="h-10 w-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 active:scale-90 transition-all"
                     >
@@ -526,7 +534,7 @@ export default function PatientDashboard() {
                 </h2>
                 <button
                   onClick={() => {
-                    useBookingFlowStore.getState().setSpecOpen(true);
+                    useBookingFlowStore.getState().openSpec();
                   }}
                   className="text-[12px] font-black text-blue-600 uppercase tracking-wider"
                 >
@@ -536,7 +544,14 @@ export default function PatientDashboard() {
 
               <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                 {realSpecializations.map((spec, idx) => (
-                  <div key={idx} className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 pr-6 rounded-2xl shadow-sm min-w-max">
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      setSelectedSpec(spec.filterValue);
+                      setDocsOpen(true);
+                    }}
+                    className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-3 pr-6 rounded-2xl shadow-sm min-w-max cursor-pointer active:scale-95 transition-all"
+                  >
                     <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", spec.bg)}>
                       {spec.icon}
                     </div>
@@ -588,7 +603,7 @@ export default function PatientDashboard() {
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
                         <span>{doc.specialization}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{doc.branch?.name || "Medica Hospital"}</span>
+                        <span>{locale === 'ar' && doc.branch?.nameAr ? doc.branch.nameAr : (doc.branch?.name || "Medica Hospital")}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-blue-600 mt-1">
                         <Clock className="h-3.5 w-3.5" />
@@ -673,7 +688,7 @@ export default function PatientDashboard() {
                       </div>
 
                       <div className="absolute bottom-0 left-0 right-0 h-12 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-4">
-                        <span className="text-[13px] font-black text-white">{doc.branch?.name || "Medica Hospital"}</span>
+                        <span className="text-[13px] font-black text-white">{locale === 'ar' && doc.branch?.nameAr ? doc.branch.nameAr : (doc.branch?.name || "Medica Hospital")}</span>
                         <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
                           <Plus className="h-4 w-4 text-white" />
                         </div>
@@ -691,11 +706,11 @@ export default function PatientDashboard() {
                         </div>
                       </div>
                       <p className="text-[13px] font-bold text-slate-400 mb-4">
-                        {doc.specialization}
+                        {t((doc.specialization?.toLowerCase().replace(/\s+/g, '') as never) || 'generalpractitioner')}
                       </p>
                       <div className="flex items-baseline gap-1">
                         <span className="text-lg font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("perHour")}</span>
                       </div>
                     </div>
                   </div>
@@ -780,7 +795,7 @@ export default function PatientDashboard() {
                           />
                           <div className="absolute top-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/20 start-5">
                             <div className="h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse" />
-                            <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Available</span>
+                            <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">{t("available")}</span>
                           </div>
                           <button
                             onClick={(e) => {
@@ -808,11 +823,11 @@ export default function PatientDashboard() {
                             </div>
                           </div>
                           <p className="text-[14px] font-bold text-slate-400 mb-6">
-                            {doc.specialization}
+                            {t((doc.specialization?.toLowerCase().replace(/\s+/g, '') as never) || 'generalpractitioner')}
                           </p>
                           <div className="flex items-baseline gap-1 mt-auto">
                             <span className="text-2xl font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("perHour")}</span>
                           </div>
                         </div>
                       </div>
@@ -835,14 +850,24 @@ export default function PatientDashboard() {
                     <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                       {t("popularSpecializations")}
                     </h2>
-                    <button onClick={() => setSpecOpen(true)} className="text-[13px] font-black text-blue-600 uppercase tracking-wider hover:underline">
+                    <button
+                      onClick={() => useBookingFlowStore.getState().openSpec()}
+                      className="text-[13px] font-black text-blue-600 uppercase tracking-wider hover:underline"
+                    >
                       {t("seeAll")}
                     </button>
                   </div>
 
                   <div className="grid grid-cols-3 xl:grid-cols-5 gap-4">
                     {realSpecializations.map((spec, idx) => (
-                      <div key={idx} className="flex flex-col items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[32px] shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          setSelectedSpec(spec.filterValue);
+                          setDocsOpen(true);
+                        }}
+                        className="flex flex-col items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-6 rounded-[32px] shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.98]"
+                      >
                         <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center", spec.bg)}>
                           {spec.icon}
                         </div>
@@ -899,7 +924,7 @@ export default function PatientDashboard() {
                           />
                           <div className="absolute top-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/20 start-5">
                             <div className="h-2.5 w-2.5 rounded-full bg-blue-600 animate-pulse" />
-                            <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">Available</span>
+                            <span className="text-[11px] font-black text-blue-600 uppercase tracking-widest">{t("available")}</span>
                           </div>
 
                           <button
@@ -918,7 +943,7 @@ export default function PatientDashboard() {
                           </button>
 
                           <div className="absolute bottom-0 left-0 right-0 h-16 bg-blue-600/90 backdrop-blur-md flex items-center justify-between px-8">
-                            <span className="text-[14px] font-black text-white">{doc.branch?.name || "Medica Hospital"}</span>
+                             <span className="text-[14px] font-black text-white">{locale === 'ar' && doc.branch?.nameAr ? doc.branch.nameAr : (doc.branch?.name || "Medica Hospital")}</span>
                             <div className="h-9 w-9 bg-white/20 rounded-xl flex items-center justify-center">
                               <Plus className="h-5 w-5 text-white" />
                             </div>
@@ -936,11 +961,11 @@ export default function PatientDashboard() {
                             </div>
                           </div>
                           <p className="text-[14px] font-bold text-slate-400 mb-6">
-                            {doc.specialization}
+                            {t((doc.specialization?.toLowerCase().replace(/\s+/g, '') as never) || 'generalpractitioner')}
                           </p>
                           <div className="flex items-baseline gap-1 mt-auto">
                             <span className="text-2xl font-black text-blue-600">AED {doc.consultationFee.toLocaleString()}</span>
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">/hours</span>
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("perHour")}</span>
                           </div>
                         </div>
                       </div>
@@ -966,6 +991,14 @@ export default function PatientDashboard() {
                     {t("pts")}
                   </span>
                 </div>
+                <div className="mt-6 flex items-center gap-3 w-full">
+                  <button
+                    onClick={() => setRedeemOpen(true)}
+                    className="w-1/2 h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg shadow-blue-900/30 active:scale-95 transition-all uppercase tracking-widest text-[13px] flex items-center justify-center"
+                  >
+                    {t("redeemNow")}
+                  </button>
+                </div>
               </div>
 
               <div className="absolute top-6 w-[200px] h-[200px] pointer-events-none drop-shadow-2xl opacity-90 end-[-20px] rtl:-scale-x-100">
@@ -979,14 +1012,19 @@ export default function PatientDashboard() {
                 <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                   {t("upcomingAppointments")}
                 </h2>
-                <Link href="/appointments" className="h-10 w-10 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setAptsOpen(true)}
+                  className="h-10 w-10 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors shadow-sm"
+                  aria-label={t("upcomingAppointments")}
+                >
                   <ChevronRight className="h-6 w-6 rtl:rotate-180" />
-                </Link>
+                </button>
               </div>
 
               <div className="flex flex-col gap-4">
-                {upcoming.length > 0 ? (
-                  upcoming.map((apt) => (
+                {allUpcomingApts.length > 0 ? (
+                  allUpcomingApts.map((apt) => (
                     <div
                       key={apt.id}
                       onClick={() => setSelectedDetailApt(apt)}
@@ -996,12 +1034,12 @@ export default function PatientDashboard() {
                         <div className="flex-1 bg-white/10 backdrop-blur-md rounded-2xl p-5 flex flex-col gap-1 border border-white/10">
                           <Calendar className="h-6 w-6 opacity-60 mb-2" />
                           <span className="text-[15px] font-black">{apt.date}</span>
-                          <span className="text-[11px] font-bold opacity-60 uppercase tracking-widest">Date</span>
+                          <span className="text-[11px] font-bold opacity-60 uppercase tracking-widest">{t("date")}</span>
                         </div>
                         <div className="flex-1 bg-white/10 backdrop-blur-md rounded-2xl p-5 flex flex-col gap-1 border border-white/10">
                           <Clock className="h-6 w-6 opacity-60 mb-2" />
                           <span className="text-[15px] font-black">{apt.startTime}</span>
-                          <span className="text-[11px] font-bold opacity-60 uppercase tracking-widest">Time</span>
+                          <span className="text-[11px] font-bold opacity-60 uppercase tracking-widest">{t("time")}</span>
                         </div>
                       </div>
 
@@ -1012,7 +1050,9 @@ export default function PatientDashboard() {
                           </div>
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-[15px] font-black text-slate-900">Dr. {apt.doctorName}</span>
+                              <span className="text-[15px] font-black text-slate-900">
+                                {locale === "ar" && apt.doctor?.fullNameAr ? apt.doctor.fullNameAr : `Dr. ${apt.doctorName}`}
+                              </span>
                               {apt.status === "in-progress" && (
                                 <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-600 ring-1 ring-emerald-500/20">
                                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
@@ -1020,7 +1060,7 @@ export default function PatientDashboard() {
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">{apt.specialty || "Specialist"}</span>
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">{t(apt.specialty?.toLowerCase().replace(/\s+/g, '') as never) || t("specialization")}</span>
                           </div>
                         </div>
                         <div
@@ -1074,12 +1114,12 @@ export default function PatientDashboard() {
                     </div>
                     <div className="flex-1 flex flex-col gap-1.5">
                       <h3 className="text-base font-black text-slate-800 dark:text-slate-100 leading-none">
-                        Dr. {doc.fullName}
+                        {locale === "ar" && doc.fullNameAr ? doc.fullNameAr : `Dr. ${doc.fullName}`}
                       </h3>
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-slate-400">
-                        <span>{doc.specialization}</span>
+                        <span>{t((doc.specialization?.toLowerCase().replace(/\s+/g, '') as never) || 'generalpractitioner')}</span>
                         <span className="h-1 w-1 rounded-full bg-slate-300" />
-                        <span>{doc.branch?.name || "Medica Hospital"}</span>
+                        <span>{locale === 'ar' && doc.branch?.nameAr ? doc.branch.nameAr : (doc.branch?.name || "Medica Hospital")}</span>
                       </div>
                       <div className="flex items-center gap-2 text-blue-600 mt-1">
                         <Clock className="h-4 w-4" />
@@ -1107,8 +1147,12 @@ export default function PatientDashboard() {
 
       <PatientDoctorsDialog
         isOpen={docsOpen}
-        onOpenChange={setDocsOpen}
+        onOpenChange={(open) => {
+          setDocsOpen(open);
+          if (!open) setSelectedSpec(null);
+        }}
         doctors={publicDoctors}
+        specializationFilter={selectedSpec}
       />
 
       <PatientAppointmentsDialog
@@ -1133,19 +1177,23 @@ export default function PatientDashboard() {
             "bg-white dark:bg-slate-950 shadow-2xl"
           )}
         >
-          <div className="md:hidden flex items-center px-6 py-5 shrink-0">
-            <button onClick={() => setRedeemOpen(false)} className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400">
+          <div className="md:hidden flex items-center justify-between px-6 py-5 shrink-0 border-b border-slate-50 dark:border-slate-900">
+            <button onClick={() => setRedeemOpen(false)} className="h-10 w-10 -ml-2 rounded-full flex items-center justify-center text-slate-400 border border-slate-100 dark:border-slate-800">
               {locale === "ar" ? (
-                <ChevronRight className="h-6 w-6" />
+                <ChevronRight className="h-5 w-5" />
               ) : (
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-5 w-5" />
               )}
             </button>
+            <h2 className="text-lg font-black text-slate-900 dark:text-slate-50 tracking-tight">
+              {t("yourWisePoints")}
+            </h2>
+            <div className="w-8" /> {/* Spacer to center the title */}
           </div>
 
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex flex-col items-center justify-center px-10 py-2 text-center shrink-0">
-              <DialogTitle className="text-3xl font-black text-slate-900 dark:text-slate-50 tracking-tight leading-tight">
+              <DialogTitle className="hidden md:block text-3xl font-black text-slate-900 dark:text-slate-50 tracking-tight leading-tight">
                 {t("yourWisePoints")}
               </DialogTitle>
               <div className="flex items-baseline gap-2 mt-2">
@@ -1208,14 +1256,7 @@ export default function PatientDashboard() {
               )}
             </div>
 
-            <div className="p-6 bg-slate-50 dark:bg-slate-950 flex flex-col gap-3 shrink-0">
-              <Link
-                href="/appointments"
-                className="h-14 w-full rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-transform flex items-center justify-center"
-              >
-                {t("redeemNow")}
-              </Link>
-            </div>
+
           </div>
         </DialogContent>
       </Dialog>
@@ -1227,7 +1268,7 @@ export default function PatientDashboard() {
             <div className="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
               <div className="flex flex-col">
                 <DialogTitle className="text-xl font-black text-slate-900 dark:text-white leading-tight">{previewFile?.name}</DialogTitle>
-                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">Document Preview</span>
+                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">{t("documentPreview")}</span>
               </div>
               <Button
                 variant="ghost"
@@ -1258,7 +1299,7 @@ export default function PatientDashboard() {
               ) : (
                 <div className="flex items-center justify-center h-full flex-col gap-4">
                   <AlertCircle className="h-16 w-16 text-rose-500 opacity-20" />
-                  <p className="text-slate-400 font-bold">Failed to load preview</p>
+                  <p className="text-slate-400 font-bold">{t("failedToLoadPreview")}</p>
                 </div>
               )}
             </div>
@@ -1290,7 +1331,7 @@ export default function PatientDashboard() {
             <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white leading-tight">
               {t("doctorCredentials", { name: credentialDoctor?.name || "" })}
             </DialogTitle>
-            <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">Official Verification & Certifications</p>
+            <p className="text-sm font-bold text-slate-400 mt-1 uppercase tracking-widest">{t("officialVerification")}</p>
           </div>
           <div className="p-8 max-h-[60vh] overflow-y-auto space-y-4 no-scrollbar">
             {credentialLoading ? (

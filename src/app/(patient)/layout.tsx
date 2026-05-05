@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/shared/Sidebar";
 import { DashboardTopbar } from "@/components/shared/DashboardTopbar";
 import { MobileBottomNav } from "@/components/shared/MobileBottomNav";
 import { RoleGuard } from "@/components/shared/RoleGuard";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useProfileUiStore } from "@/stores/useProfileUiStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Bell } from "lucide-react";
@@ -19,13 +19,14 @@ import { useBookingFlowStore } from "@/stores/useBookingFlowStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { usePatientStore } from "@/stores/usePatientStore";
-import { useToastStore } from "@/stores/useToastStore";
 import { servicesCatalogService } from "@/services/servicesCatalogService";
 import { staffService } from "@/services/staffService";
 import { PatientSpecializationsDialog } from "@/components/shared/PatientSpecializationsDialog";
 import { PatientDoctorsDialog } from "@/components/shared/PatientDoctorsDialog";
+import { DoctorProfileDialog } from "@/components/shared/DoctorProfileDialog";
 import { BookAppointmentDialog } from "@/components/shared/BookAppointmentDialog";
 import { CheckoutDialog } from "@/components/shared/CheckoutDialog";
+import { BookingResultDialog } from "@/components/shared/BookingResultDialog";
 
 function MobileBottomNavWrapper() {
   const pathname = usePathname();
@@ -80,19 +81,31 @@ function MobileSettingsToggles({
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   const { locale } = useTranslation();
   const pathname = usePathname();
+  const router = useRouter();
 
   const [notifOpen, setNotifOpen] = useState(false);
+  const [resultDialogOpen, setResultDialogOpen] = useState(false);
+  const [bookingResult, setBookingResult] = useState<{
+    status: "success" | "error";
+    message?: string;
+    details?: {
+      doctorName: string;
+      date: string;
+      time: string;
+      location: string;
+    };
+  }>({ status: "success" });
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
 
   // Booking Flow Data State
   const [services, setServices] = useState<ApiService[]>([]);
   const [doctors, setDoctors] = useState<ApiPublicDoctor[]>([]);
-  const toast = useToastStore();
 
   const {
-    isSpecOpen, isDocsOpen, isBookOpen, isCheckoutOpen,
-    selectedSpecialization, selectedDoctor, pendingBooking,
-    setSpecOpen, setDocsOpen, setBookOpen, setCheckoutOpen,
+    isSpecOpen, isDocsOpen, isProfileOpen, isBookOpen, isCheckoutOpen,
+    selectedSpecialization, selectedDoctor, selectedBranchId, pendingBooking,
+    specTitleOverride,
+    setSpecOpen, setDocsOpen, setProfileOpen, setBookOpen, setCheckoutOpen,
     openDocs, openBook, openCheckout, closeAll, goBack
   } = useBookingFlowStore();
 
@@ -184,16 +197,30 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         status: "scheduled",
         type: "Consultation",
         mode: pendingBooking.mode,
+        branchId: pendingBooking.branchId,
         notes: data.notes,
         redeemPoints: data.redeemPoints,
         paymentMethodType: data.paymentMethodType,
       });
 
-      toast.success(locale === "ar" ? "تم حجز الموعد بنجاح" : "Appointment booked successfully");
+      setBookingResult({
+        status: "success",
+        details: {
+          doctorName: selectedDoctor.fullName,
+          date: pendingBooking.date,
+          time: pendingBooking.time,
+          location: pendingBooking.mode === "ONLINE" ? "Online Consultation" : (selectedDoctor.branch?.address || selectedDoctor.branch?.name || "Clinic"),
+        }
+      });
+      setResultDialogOpen(true);
       closeAll();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to book appointment";
-      toast.error(message);
+      setBookingResult({
+        status: "error",
+        message
+      });
+      setResultDialogOpen(true);
     }
   };
 
@@ -241,6 +268,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             onOpenChange={setSpecOpen}
             services={services}
             doctors={doctors}
+            titleOverride={specTitleOverride}
             onSelectSpecialization={(spec) => openDocs(spec)}
           />
 
@@ -250,7 +278,14 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             onBack={() => goBack()}
             doctors={doctors}
             specializationFilter={selectedSpecialization}
-            onBookAppointment={(doc) => openBook(doc)}
+            onBookAppointment={(doc, branchId) => openBook(doc, branchId)}
+          />
+
+          <DoctorProfileDialog
+            isOpen={isProfileOpen}
+            onOpenChange={setProfileOpen}
+            doctor={selectedDoctor}
+            onBookAppointment={(doc, branchId) => openBook(doc, branchId)}
           />
 
           <BookAppointmentDialog
@@ -258,6 +293,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             onOpenChange={setBookOpen}
             onBack={() => goBack()}
             doctor={selectedDoctor}
+            initialBranchId={selectedBranchId || undefined}
             loyaltyPoints={currentPatient?.loyaltyPoints || user?.loyaltyPoints || 0}
             onConfirm={(booking) => openCheckout(booking)}
           />
@@ -272,6 +308,19 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             specialDiscount={currentPatient?.specialDiscount || user?.specialDiscount || 0}
             insuranceDiscount={getVerifiedInsuranceDiscount()}
             onBookNow={handleBookNow}
+          />
+
+          <BookingResultDialog
+            isOpen={resultDialogOpen}
+            onOpenChange={setResultDialogOpen}
+            status={bookingResult.status}
+            message={bookingResult.message}
+            details={bookingResult.details}
+            onAction={() => {
+              if (bookingResult.status === "success") {
+                router.push("/appointments");
+              }
+            }}
           />
         </div>
       </div>

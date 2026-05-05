@@ -10,3 +10,8 @@ export const startOfLocalDay = (date: Date): Date =>
 
 export const isDateBefore = (candidate: Date, floor: Date): boolean =>
   startOfLocalDay(candidate).getTime() < startOfLocalDay(floor).getTime();
+
+export const isPastDate = (date: Date): boolean => {
+  const today = startOfLocalDay(new Date());
+  return startOfLocalDay(date).getTime() < today.getTime();
+};
