@@ -84,7 +84,7 @@ export interface ApiDoctor {
   status: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
   rating: number;
   shifts?: DoctorShift[];
-  preferences?: Record<string, unknown>;
+  preferences?: UserPreferences;
   user?: {
     id: string;
     email: string;
@@ -255,7 +255,7 @@ export interface UpdateDoctorPayload {
   branchIds?: string[];
   services?: string[];
   status?: "ACTIVE" | "ON_LEAVE" | "INACTIVE";
-  preferences?: Record<string, unknown>;
+  preferences?: UserPreferences;
 }
 
 export interface ResetDoctorPasswordPayload {
@@ -1486,3 +1486,38 @@ export interface SystemLog {
 }
 
 export type Locale = "en" | "ar";
+
+export interface UserPreferences {
+  billing?: {
+    consultFee?: string;
+    cashEnabled?: boolean;
+    cardEnabled?: boolean;
+    walletEnabled?: boolean;
+    autoInvoice?: boolean;
+    autoPrint?: boolean;
+    supplement?: string;
+    hoursVisit?: string;
+  };
+  notifications?: {
+    checkInAlert?: boolean;
+    lateAlert?: boolean;
+    doctorReady?: boolean;
+    paymentReminder?: boolean;
+    soundNotify?: boolean;
+  };
+  queue?: {
+    sortMethod?: "appointment" | "manual";
+    autoMove?: boolean;
+    highlightNext?: boolean;
+    waitIndicator?: boolean;
+    priorityEnabled?: boolean;
+  };
+  patient?: {
+    ageRequired?: boolean;
+    notesRequired?: boolean;
+    quickAdd?: boolean;
+    autoFill?: boolean;
+  };
+  [key: string]: unknown;
+}
+

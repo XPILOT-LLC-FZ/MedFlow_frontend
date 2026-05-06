@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Role } from "@/types";
+import type { Role, UserPreferences } from "@/types";
 import { apiClient } from "@/lib/apiClient";
 
 export interface AuthUser {
@@ -20,6 +20,7 @@ export interface AuthUser {
   passwordUpdatedAt?: string | null;
   loyaltyPoints?: number;
   specialDiscount?: number;
+  preferences?: UserPreferences;
 }
 
 export interface SignupData {
@@ -127,6 +128,7 @@ function mapUser(raw: Record<string, unknown>, fallback?: Partial<SignupData>): 
     passwordUpdatedAt: (raw["passwordUpdatedAt"] as string) ?? (raw["password_updated_at"] as string) ?? null,
     loyaltyPoints: (raw["loyaltyPoints"] as number) ?? 0,
     specialDiscount: (raw["specialDiscount"] as number) ?? (raw["patient"] as Record<string, unknown> | undefined)?.["specialDiscount"] ?? 0,
+    preferences: (raw["preferences"] as UserPreferences) ?? {},
   };
 }
 
@@ -546,6 +548,9 @@ export const useAuthStore = create<AuthState>()(
           if (typeof data.jobTitle === "string") {
             payload["jobTitle"] = data.jobTitle.trim();
           }
+          if (data.preferences) {
+            payload["preferences"] = data.preferences;
+          }
 
           const updatedUser = await apiClient.patch<Record<string, unknown>>(
             "/auth/me",
@@ -606,6 +611,9 @@ export const useAuthStore = create<AuthState>()(
               ? (updatedUser["passwordUpdatedAt"] as string)
               : currentUser.passwordUpdatedAt;
 
+          const nextPreferences =
+            (updatedUser["preferences"] as UserPreferences | undefined) ?? data.preferences ?? currentUser.preferences;
+
           set({
             user: {
               ...currentUser,
@@ -617,6 +625,7 @@ export const useAuthStore = create<AuthState>()(
               jobTitle: nextJobTitle,
               isAvailable: nextIsAvailable,
               passwordUpdatedAt: nextPasswordUpdatedAt,
+              preferences: nextPreferences,
             },
           });
           return { success: true };

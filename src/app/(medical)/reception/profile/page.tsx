@@ -394,16 +394,16 @@ export default function ReceptionProfilePage() {
           )}
 
           {/* Billing Tab */}
-          {activeTab === "billing" && <BillingTab isRTL={isRTL}/>}
+          {activeTab === "billing" && <BillingTab isRTL={isRTL} t={t}/>}
 
           {/* Queue Management Tab */}
-          {activeTab === "queue" && <QueueManagementTab isRTL={isRTL}/>}
+          {activeTab === "queue" && <QueueManagementTab isRTL={isRTL} t={t}/>}
 
           {/* Notifications Tab */}
           {activeTab === "notifications" && <NotificationsTab isRTL={isRTL} t={t}/>}
 
           {/* Patient Preferences Tab */}
-          {activeTab === "patient-prefs" && <PatientPreferencesTab isRTL={isRTL}/>}
+          {activeTab === "patient-prefs" && <PatientPreferencesTab isRTL={isRTL} t={t}/>}
 
           {/* Permissions Tab */}
           {activeTab === "permissions" && <PermissionsTab isRTL={isRTL}/>}
@@ -558,145 +558,192 @@ function FormField({
 }
 
 /* ── Billing Tab ────────────────────────────────────────────────── */
-function BillingTab({ isRTL }: { isRTL: boolean}) {
-  const [consultFee, setConsultFee] = useState("150");
-  const [cashEnabled, setCashEnabled] = useState(true);
-  const [cardEnabled, setCardEnabled] = useState(true);
-  const [walletEnabled, setWalletEnabled] = useState(false);
-  const [autoInvoice, setAutoInvoice] = useState(true);
-  const [autoPrint, setAutoPrint] = useState(false);
-  const [supplement, setSupplement] = useState("");
-  const [hoursVisit, setHoursVisit] = useState("");
+function BillingTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKey) => string }) {
+  const { user, updateProfile } = useAuthStore();
+  const { success, error } = useToastStore();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [consultFee, setConsultFee] = useState(user?.preferences?.billing?.consultFee ?? "150");
+  const [cashEnabled, setCashEnabled] = useState(user?.preferences?.billing?.cashEnabled ?? true);
+  const [cardEnabled, setCardEnabled] = useState(user?.preferences?.billing?.cardEnabled ?? true);
+  const [walletEnabled, setWalletEnabled] = useState(user?.preferences?.billing?.walletEnabled ?? false);
+  const [autoInvoice, setAutoInvoice] = useState(user?.preferences?.billing?.autoInvoice ?? true);
+  const [autoPrint, setAutoPrint] = useState(user?.preferences?.billing?.autoPrint ?? false);
+  const [supplement, setSupplement] = useState(user?.preferences?.billing?.supplement ?? "");
+  const [hoursVisit, setHoursVisit] = useState(user?.preferences?.billing?.hoursVisit ?? "");
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const result = await updateProfile({
+        preferences: {
+          ...user?.preferences,
+          billing: {
+            consultFee,
+            cashEnabled,
+            cardEnabled,
+            walletEnabled,
+            autoInvoice,
+            autoPrint,
+            supplement,
+            hoursVisit,
+          },
+        },
+      });
+
+      if (result.success) {
+        success(isRTL ? "تم حفظ إعدادات الفواتير بنجاح" : "Billing settings saved successfully");
+      } else {
+        error(result.error || (isRTL ? "فشل حفظ الإعدادات" : "Failed to save settings"));
+      }
+    } catch (err) {
+      error(err instanceof Error ? err.message : (isRTL ? "حدث خطأ غير متوقع" : "An unexpected error occurred"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      <div className="space-y-6">
-        <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
-          <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
-            <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-blue-600" />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="space-y-6">
+          <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
+            <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
+              <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "الفواتير العامة" : "General Billing"}</h3>
             </div>
-            <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "الفواتير العامة" : "General Billing"}</h3>
+
+            <div className="space-y-2">
+              <label className={cn("block text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{isRTL ? "رسوم الاستشارة الافتراضية" : "Default consultation fee"}</label>
+              <div className={cn("flex items-center h-14 bg-slate-50 border border-slate-100 rounded-2xl px-4 gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
+                <span className="text-[18px] font-bold text-slate-400">$</span>
+                <input
+                  value={consultFee}
+                  onChange={(e) => setConsultFee(e.target.value)}
+                  className={cn("flex-1 bg-transparent text-[22px] font-black text-slate-800 outline-none w-full", isRTL ? "text-right" : "text-left")}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className={cn("block text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{isRTL ? "العملة المختارة" : "Currency selected"}</label>
+              <div className={cn("flex items-center justify-between h-12 bg-slate-50 border border-slate-100 rounded-2xl px-4 cursor-pointer hover:border-slate-200 transition-all", isRTL ? "flex-row-reverse" : "flex-row")}>
+                <span className="text-[13px] font-bold text-slate-700">{isRTL ? "USD – دولار أمريكي" : "USD – United States Dollar"}</span>
+                <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className={cn("block text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{isRTL ? "رسوم الاستشارة الافتراضية" : "Default consultation fee"}</label>
-            <div className={cn("flex items-center h-14 bg-slate-50 border border-slate-100 rounded-2xl px-4 gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
-              <span className="text-[18px] font-bold text-slate-400">$</span>
-              <input
-                value={consultFee}
-                onChange={(e) => setConsultFee(e.target.value)}
-                className={cn("flex-1 bg-transparent text-[22px] font-black text-slate-800 outline-none w-full", isRTL ? "text-right" : "text-left")}
+          <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
+            <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
+              <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                <CreditCard className="h-5 w-5 text-indigo-600" />
+              </div>
+              <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "طرق الدفع" : "Payment Methods"}</h3>
+            </div>
+
+            <div className="space-y-5">
+              <ToggleRow
+                icon={<Banknote className="h-4 w-4 text-slate-400" />}
+                title={isRTL ? "الدفع النقدي" : "Cash Payments"}
+                subtitle={isRTL ? "السماح لموظفي الاستقبال بقبول النقود" : "Allow reception to accept cash on desk"}
+                enabled={cashEnabled}
+                onToggle={() => setCashEnabled(!cashEnabled)}
+                isRTL={isRTL}
               />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className={cn("block text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{isRTL ? "العملة المختارة" : "Currency selected"}</label>
-            <div className={cn("flex items-center justify-between h-12 bg-slate-50 border border-slate-100 rounded-2xl px-4 cursor-pointer hover:border-slate-200 transition-all", isRTL ? "flex-row-reverse" : "flex-row")}>
-              <span className="text-[13px] font-bold text-slate-700">{isRTL ? "USD – دولار أمريكي" : "USD – United States Dollar"}</span>
-              <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+              <ToggleRow
+                icon={<CreditCard className="h-4 w-4 text-slate-400" />}
+                title={isRTL ? "الدفع بالبطاقة" : "Card Payments"}
+                subtitle={isRTL ? "تمكين محطة POS" : "Enable POS terminal"}
+                enabled={cardEnabled}
+                onToggle={() => setCardEnabled(!cardEnabled)}
+                isRTL={isRTL}
+              />
+              <ToggleRow
+                icon={<Wallet className="h-4 w-4 text-slate-400" />}
+                title={isRTL ? "المحافظ الرقمية" : "Digital Wallets"}
+                subtitle={isRTL ? "Apple Pay، Google Pay، QR code" : "Apple Pay, Google Pay, local QR code"}
+                enabled={walletEnabled}
+                onToggle={() => setWalletEnabled(!walletEnabled)}
+                isRTL={isRTL}
+              />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6">
+        <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6 h-full">
           <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-indigo-600" />
+            <div className="h-9 w-9 rounded-xl bg-orange-50 flex items-center justify-center">
+              <Repeat2 className="h-5 w-5 text-orange-500" />
             </div>
-            <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "طرق الدفع" : "Payment Methods"}</h3>
+            <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "الأتمتة" : "Automation"}</h3>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-3">
+            <p className={cn("text-[12px] font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>{isRTL ? "خدمات إضافية" : "Additional Services"}</p>
+            <p className={cn("text-[11px] font-medium text-slate-400 leading-relaxed", isRTL ? "text-right" : "text-left")}>
+              {isRTL ? "إنشاء صياغة مضبوطة لجميع محركات العيادات" : "Create controlled wording for all clinics drive (maximum)"}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <div className={cn("h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center", isRTL ? "flex-row-reverse" : "flex-row")}>
+                  <input
+                    value={supplement}
+                    onChange={(e) => setSupplement(e.target.value)}
+                    placeholder={isRTL ? "تكملة..." : "Supplement..."}
+                    className={cn("w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <div className={cn("h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center", isRTL ? "flex-row-reverse" : "flex-row")}>
+                  <input
+                    value={hoursVisit}
+                    onChange={(e) => setHoursVisit(e.target.value)}
+                    placeholder={isRTL ? "ساعات الزيارة" : "Hours visits"}
+                    className={cn("w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
             <ToggleRow
-              icon={<Banknote className="h-4 w-4 text-slate-400" />}
-              title={isRTL ? "الدفع النقدي" : "Cash Payments"}
-              subtitle={isRTL ? "السماح لموظفي الاستقبال بقبول النقود" : "Allow reception to accept cash on desk"}
-              enabled={cashEnabled}
-              onToggle={() => setCashEnabled(!cashEnabled)}
+              icon={<FileText className="h-4 w-4 text-slate-400" />}
+              title={isRTL ? "إنشاء فاتورة تلقائياً" : "Auto-generate invoice"}
+              enabled={autoInvoice}
+              onToggle={() => setAutoInvoice(!autoInvoice)}
               isRTL={isRTL}
             />
             <ToggleRow
-              icon={<CreditCard className="h-4 w-4 text-slate-400" />}
-              title={isRTL ? "الدفع بالبطاقة" : "Card Payments"}
-              subtitle={isRTL ? "تمكين محطة POS" : "Enable POS terminal"}
-              enabled={cardEnabled}
-              onToggle={() => setCardEnabled(!cardEnabled)}
+              icon={<Printer className="h-4 w-4 text-slate-400" />}
+              title={isRTL ? "طباعة فاتورة تلقائياً" : "Auto-print invoice"}
+              enabled={autoPrint}
+              onToggle={() => setAutoPrint(!autoPrint)}
               isRTL={isRTL}
             />
-            <ToggleRow
-              icon={<Wallet className="h-4 w-4 text-slate-400" />}
-              title={isRTL ? "المحافظ الرقمية" : "Digital Wallets"}
-              subtitle={isRTL ? "Apple Pay، Google Pay، QR code" : "Apple Pay, Google Pay, local QR code"}
-              enabled={walletEnabled}
-              onToggle={() => setWalletEnabled(!walletEnabled)}
-              isRTL={isRTL}
-            />
+          </div>
+
+          <div className={cn("flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl p-4", isRTL ? "flex-row-reverse" : "flex-row")}>
+            <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className={cn("text-[11px] font-bold text-blue-600 leading-relaxed", isRTL ? "text-right" : "text-left")}>
+              {isRTL ? "ستنطبق إعدادات الأتمتة على جميع عياداتك الثلاث عبر رمز منطقة المنشأة." : "Automation settings will apply to all 3 of your clinics across the facility area code."}
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-[24px] shadow-[0_4px_20px_rgb(0,0,0,0.04)] p-6 space-y-6 h-full">
-        <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
-          <div className="h-9 w-9 rounded-xl bg-orange-50 flex items-center justify-center">
-            <Repeat2 className="h-5 w-5 text-orange-500" />
-          </div>
-          <h3 className="text-[15px] font-bold text-slate-900">{isRTL ? "الأتمتة" : "Automation"}</h3>
-        </div>
-
-        <div className="space-y-3">
-          <p className={cn("text-[12px] font-bold text-slate-700", isRTL ? "text-right" : "text-left")}>{isRTL ? "خدمات إضافية" : "Additional Services"}</p>
-          <p className={cn("text-[11px] font-medium text-slate-400 leading-relaxed", isRTL ? "text-right" : "text-left")}>
-            {isRTL ? "إنشاء صياغة مضبوطة لجميع محركات العيادات" : "Create controlled wording for all clinics drive (maximum)"}
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <div className={cn("h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center", isRTL ? "flex-row-reverse" : "flex-row")}>
-                <input
-                  value={supplement}
-                  onChange={(e) => setSupplement(e.target.value)}
-                  placeholder={isRTL ? "تكملة..." : "Supplement..."}
-                  className={cn("w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className={cn("h-10 bg-slate-50 border border-slate-100 rounded-xl px-3 flex items-center", isRTL ? "flex-row-reverse" : "flex-row")}>
-                <input
-                  value={hoursVisit}
-                  onChange={(e) => setHoursVisit(e.target.value)}
-                  placeholder={isRTL ? "ساعات الزيارة" : "Hours visits"}
-                  className={cn("w-full bg-transparent text-[12px] font-bold text-slate-700 outline-none placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <ToggleRow
-            icon={<FileText className="h-4 w-4 text-slate-400" />}
-            title={isRTL ? "إنشاء فاتورة تلقائياً" : "Auto-generate invoice"}
-            enabled={autoInvoice}
-            onToggle={() => setAutoInvoice(!autoInvoice)}
-            isRTL={isRTL}
-          />
-          <ToggleRow
-            icon={<Printer className="h-4 w-4 text-slate-400" />}
-            title={isRTL ? "طباعة فاتورة تلقائياً" : "Auto-print invoice"}
-            enabled={autoPrint}
-            onToggle={() => setAutoPrint(!autoPrint)}
-            isRTL={isRTL}
-          />
-        </div>
-
-        <div className={cn("flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl p-4", isRTL ? "flex-row-reverse" : "flex-row")}>
-          <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-          <p className={cn("text-[11px] font-bold text-blue-600 leading-relaxed", isRTL ? "text-right" : "text-left")}>
-            {isRTL ? "ستنطبق إعدادات الأتمتة على جميع عياداتك الثلاث عبر رمز منطقة المنشأة." : "Automation settings will apply to all 3 of your clinics across the facility area code."}
-          </p>
-        </div>
+      <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
+        <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
+        >
+          {isSaving ? (isRTL ? "جاري الحفظ..." : "Saving...") : (t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes"))}
+        </Button>
       </div>
     </div>
   );
@@ -742,11 +789,43 @@ function ToggleRow({ icon, title, subtitle, enabled, onToggle, isRTL }: ToggleRo
 
 /* ── Notifications Tab ───────────────────────────────── */
 function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKey) => string }) {
-  const [checkInAlert, setCheckInAlert] = useState(true);
-  const [lateAlert, setLateAlert] = useState(true);
-  const [doctorReady, setDoctorReady] = useState(false);
-  const [paymentReminder, setPaymentReminder] = useState(true);
-  const [soundNotify, setSoundNotify] = useState(true);
+  const { user, updateProfile } = useAuthStore();
+  const { success, error } = useToastStore();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [checkInAlert, setCheckInAlert] = useState(user?.preferences?.notifications?.checkInAlert ?? true);
+  const [lateAlert, setLateAlert] = useState(user?.preferences?.notifications?.lateAlert ?? true);
+  const [doctorReady, setDoctorReady] = useState(user?.preferences?.notifications?.doctorReady ?? false);
+  const [paymentReminder, setPaymentReminder] = useState(user?.preferences?.notifications?.paymentReminder ?? true);
+  const [soundNotify, setSoundNotify] = useState(user?.preferences?.notifications?.soundNotify ?? true);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const result = await updateProfile({
+        preferences: {
+          ...user?.preferences,
+          notifications: {
+            checkInAlert,
+            lateAlert,
+            doctorReady,
+            paymentReminder,
+            soundNotify,
+          },
+        },
+      });
+
+      if (result.success) {
+        success(isRTL ? "تم حفظ إعدادات التنبيهات بنجاح" : "Notification settings saved successfully");
+      } else {
+        error(result.error || (isRTL ? "فشل حفظ الإعدادات" : "Failed to save settings"));
+      }
+    } catch (err) {
+      error(err instanceof Error ? err.message : (isRTL ? "حدث خطأ غير متوقع" : "An unexpected error occurred"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -834,8 +913,12 @@ function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKe
       </div>
 
       <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
-        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          {t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes")}
+        <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
+        >
+          {isSaving ? (isRTL ? "جاري الحفظ..." : "Saving...") : (t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes"))}
         </Button>
       </div>
     </div>
@@ -843,12 +926,44 @@ function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKe
 }
 
 /* ── Queue Management Tab ───────────────────────────────── */
-function QueueManagementTab({ isRTL }: { isRTL: boolean}) {
-  const [sortMethod, setSortMethod] = useState<"appointment" | "manual">("appointment");
-  const [autoMove, setAutoMove] = useState(true);
-  const [highlightNext, setHighlightNext] = useState(true);
-  const [waitIndicator, setWaitIndicator] = useState(false);
-  const [priorityEnabled, setPriorityEnabled] = useState(true);
+function QueueManagementTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKey) => string }) {
+  const { user, updateProfile } = useAuthStore();
+  const { success, error } = useToastStore();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [sortMethod, setSortMethod] = useState<"appointment" | "manual">(user?.preferences?.queue?.sortMethod ?? "appointment");
+  const [autoMove, setAutoMove] = useState(user?.preferences?.queue?.autoMove ?? true);
+  const [highlightNext, setHighlightNext] = useState(user?.preferences?.queue?.highlightNext ?? true);
+  const [waitIndicator, setWaitIndicator] = useState(user?.preferences?.queue?.waitIndicator ?? false);
+  const [priorityEnabled, setPriorityEnabled] = useState(user?.preferences?.queue?.priorityEnabled ?? true);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const result = await updateProfile({
+        preferences: {
+          ...user?.preferences,
+          queue: {
+            sortMethod,
+            autoMove,
+            highlightNext,
+            waitIndicator,
+            priorityEnabled,
+          },
+        },
+      });
+
+      if (result.success) {
+        success(isRTL ? "تم حفظ إعدادات الطابور بنجاح" : "Queue settings saved successfully");
+      } else {
+        error(result.error || (isRTL ? "فشل حفظ الإعدادات" : "Failed to save settings"));
+      }
+    } catch (err) {
+      error(err instanceof Error ? err.message : (isRTL ? "حدث خطأ غير متوقع" : "An unexpected error occurred"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1001,8 +1116,12 @@ function QueueManagementTab({ isRTL }: { isRTL: boolean}) {
       </div>
 
       <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
-        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          {isRTL ? "حفظ التغييرات" : "Save Changes"}
+        <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
+        >
+          {isSaving ? (isRTL ? "جاري الحفظ..." : "Saving...") : (t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes"))}
         </Button>
       </div>
     </div>
@@ -1010,11 +1129,42 @@ function QueueManagementTab({ isRTL }: { isRTL: boolean}) {
 }
 
 /* ── Patient Preferences Tab ─────────────────────────── */
-function PatientPreferencesTab({ isRTL }: { isRTL: boolean}) {
-  const [ageRequired, setAgeRequired] = useState(true);
-  const [notesRequired, setNotesRequired] = useState(true);
-  const [quickAdd, setQuickAdd] = useState(true);
-  const [autoFill, setAutoFill] = useState(true);
+function PatientPreferencesTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKey) => string }) {
+  const { user, updateProfile } = useAuthStore();
+  const { success, error } = useToastStore();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [ageRequired, setAgeRequired] = useState(user?.preferences?.patient?.ageRequired ?? true);
+  const [notesRequired, setNotesRequired] = useState(user?.preferences?.patient?.notesRequired ?? true);
+  const [quickAdd, setQuickAdd] = useState(user?.preferences?.patient?.quickAdd ?? true);
+  const [autoFill, setAutoFill] = useState(user?.preferences?.patient?.autoFill ?? true);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const result = await updateProfile({
+        preferences: {
+          ...user?.preferences,
+          patient: {
+            ageRequired,
+            notesRequired,
+            quickAdd,
+            autoFill,
+          },
+        },
+      });
+
+      if (result.success) {
+        success(isRTL ? "تم حفظ تفضيلات المرضى بنجاح" : "Patient preferences saved successfully");
+      } else {
+        error(result.error || (isRTL ? "فشل حفظ التفضيلات" : "Failed to save preferences"));
+      }
+    } catch (err) {
+      error(err instanceof Error ? err.message : (isRTL ? "حدث خطأ غير متوقع" : "An unexpected error occurred"));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1072,8 +1222,12 @@ function PatientPreferencesTab({ isRTL }: { isRTL: boolean}) {
       </div>
 
       <div className={cn("flex pt-2", isRTL ? "justify-start" : "justify-end")}>
-        <Button className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]">
-          {isRTL ? "حفظ التغييرات" : "Save Changes"}
+        <Button 
+          onClick={handleSave}
+          disabled={isSaving}
+          className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
+        >
+          {isSaving ? (isRTL ? "جاري الحفظ..." : "Saving...") : (t("saveChanges") || (isRTL ? "حفظ التغييرات" : "Save Changes"))}
         </Button>
       </div>
     </div>
