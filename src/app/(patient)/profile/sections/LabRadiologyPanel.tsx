@@ -23,6 +23,8 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { patientService } from '@/services/patientService';
+import type { ApiPublicDoctor } from '@/types';
 
 type TabState = 'lab' | 'radiology';
 
@@ -59,6 +61,12 @@ export default function LabRadiologyPanel() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [doctors, setDoctors] = useState<ApiPublicDoctor[]>([]);
+
+  useEffect(() => {
+    patientService.getDoctors().then(setDoctors).catch(console.error);
+  }, []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -405,13 +413,28 @@ export default function LabRadiologyPanel() {
                   <label className="text-[15px] font-bold text-slate-800 dark:text-slate-200">
                     {locale === 'ar' ? 'اسم الدكتور' : 'DR. name'}
                   </label>
-                  <input
-                    type="text"
-                    value={doctorName}
-                    onChange={(e) => setDoctorName(e.target.value)}
-                    placeholder={locale === 'ar' ? 'أدخل الاسم' : 'Enter the name'}
-                    className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium placeholder:text-slate-300"
-                  />
+                  <div className="relative group">
+                    <select
+                      value={doctorName}
+                      onChange={(e) => {
+                        const docName = e.target.value;
+                        setDoctorName(docName);
+                        const selectedDoc = doctors.find(d => d.fullName === docName);
+                        if (selectedDoc && selectedDoc.specialization) {
+                          setSpecialization(selectedDoc.specialization);
+                        }
+                      }}
+                      className="w-full h-14 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[24px] px-6 text-slate-600 dark:text-slate-300 appearance-none outline-none focus:ring-2 ring-blue-500/20 transition-all shadow-sm font-medium"
+                    >
+                      <option value="">{locale === 'ar' ? 'اختر الطبيب' : 'Select doctor'}</option>
+                      {doctors.map(doc => (
+                        <option key={doc.id} value={doc.fullName}>
+                          {locale === 'ar' && doc.fullNameAr ? doc.fullNameAr : doc.fullName}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className={cn("absolute top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors", isRTL ? "left-6" : "right-6")} />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
