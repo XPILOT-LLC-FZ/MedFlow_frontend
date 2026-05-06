@@ -12,10 +12,12 @@ export interface AuthUser {
   email: string;
   role: Role;
   phone?: string;
+  jobTitle?: string;
   clinicId?: string;
   isOnboarded?: boolean;
   isAvailable?: boolean;
   avatarUrl?: string | null;
+  passwordUpdatedAt?: string | null;
   loyaltyPoints?: number;
   specialDiscount?: number;
 }
@@ -117,10 +119,12 @@ function mapUser(raw: Record<string, unknown>, fallback?: Partial<SignupData>): 
     email: (raw["email"] as string) ?? fallback?.email ?? "",
     role: normalizeRole(raw["role"]),
     phone: (raw["phone"] as string) ?? fallback?.phone,
+    jobTitle: (raw["jobTitle"] as string) ?? undefined,
     clinicId: (raw["clinicId"] as string) ?? (raw["clinic_id"] as string) ?? clinic?.id ?? (raw["tenantId"] as string) ?? (raw["tenant_id"] as string) ?? (raw["cid"] as string),
     isOnboarded: (raw["isOnboarded"] as boolean) ?? false,
     isAvailable: (raw["isAvailable"] as boolean) ?? true,
     avatarUrl: (raw["avatarUrl"] as string) ?? (raw["avatar"] as string) ?? null,
+    passwordUpdatedAt: (raw["passwordUpdatedAt"] as string) ?? (raw["password_updated_at"] as string) ?? null,
     loyaltyPoints: (raw["loyaltyPoints"] as number) ?? 0,
     specialDiscount: (raw["specialDiscount"] as number) ?? (raw["patient"] as Record<string, unknown> | undefined)?.["specialDiscount"] ?? 0,
   };
@@ -536,6 +540,12 @@ export const useAuthStore = create<AuthState>()(
           if (typeof data.isAvailable === "boolean") {
             payload["isAvailable"] = data.isAvailable;
           }
+          if (typeof data.phone === "string") {
+            payload["phone"] = data.phone.trim();
+          }
+          if (typeof data.jobTitle === "string") {
+            payload["jobTitle"] = data.jobTitle.trim();
+          }
 
           const updatedUser = await apiClient.patch<Record<string, unknown>>(
             "/auth/me",
@@ -566,7 +576,9 @@ export const useAuthStore = create<AuthState>()(
           const nextPhone =
             typeof updatedUser["phone"] === "string"
               ? (updatedUser["phone"] as string)
-              : currentUser.phone;
+              : data.phone !== undefined
+                ? data.phone
+                : currentUser.phone;
 
           const nextAvatarUrl =
             typeof updatedUser["avatarUrl"] === "string"
@@ -577,10 +589,22 @@ export const useAuthStore = create<AuthState>()(
                   ? data.avatarUrl
                   : currentUser.avatarUrl;
 
+          const nextJobTitle =
+            typeof updatedUser["jobTitle"] === "string"
+              ? (updatedUser["jobTitle"] as string)
+              : data.jobTitle !== undefined
+                ? data.jobTitle
+                : currentUser.jobTitle;
+
           const nextIsAvailable =
             typeof updatedUser["isAvailable"] === "boolean"
               ? (updatedUser["isAvailable"] as boolean)
               : currentUser.isAvailable;
+
+          const nextPasswordUpdatedAt =
+            typeof updatedUser["passwordUpdatedAt"] === "string"
+              ? (updatedUser["passwordUpdatedAt"] as string)
+              : currentUser.passwordUpdatedAt;
 
           set({
             user: {
@@ -590,7 +614,9 @@ export const useAuthStore = create<AuthState>()(
               email: nextEmail,
               phone: nextPhone,
               avatarUrl: nextAvatarUrl,
+              jobTitle: nextJobTitle,
               isAvailable: nextIsAvailable,
+              passwordUpdatedAt: nextPasswordUpdatedAt,
             },
           });
           return { success: true };

@@ -31,6 +31,8 @@ import {
   Check,
   Zap,
   XCircle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -39,6 +41,18 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { TranslationKey } from "@/lib/i18n";
+import { CldUploadWidget, type CloudinaryUploadWidgetResults } from "next-cloudinary";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { formatDistanceToNow } from "date-fns";
+import { arSA } from "date-fns/locale";
+import { apiClient } from "@/lib/apiClient";
 
 export default function ReceptionProfilePage() {
   const { user, updateProfile } = useAuthStore();
@@ -56,15 +70,74 @@ export default function ReceptionProfilePage() {
 
   const [activeTab, setActiveTab] = useState("profile");
   const [fullName, setFullName] = useState("");
-  const [jobTitle, setJobTitle] = useState(isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist");
+  const [jobTitle, setJobTitle] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("+1 (555) 222-3397");
+  const [phone, setPhone] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [twoFAEnabled, setTwoFAEnabled] = useState(true);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const formatPasswordLastChanged = () => {
+    if (!user?.passwordUpdatedAt) return isRTL ? "لا يوجد تغيير" : "No Changes";
+    try {
+      const date = new Date(user.passwordUpdatedAt);
+      return isRTL 
+        ? `تم تغييرها منذ ${formatDistanceToNow(date, { addSuffix: false, locale: arSA })}`
+        : `Last changed ${formatDistanceToNow(date, { addSuffix: true })}`;
+    } catch {
+      return isRTL ? "تم تغييرها مؤخراً" : "Last changed recently";
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      error(isRTL ? "يرجى ملء جميع الحقول" : "Please fill in all fields");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      error(isRTL ? "كلمات المرور الجديدة غير متطابقة" : "New passwords do not match");
+      return;
+    }
+    if (newPassword.length < 8) {
+      error(isRTL ? "يجب أن تكون كلمة المرور 8 أحرف على الأقل" : "Password must be at least 8 characters");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await apiClient.patch("/auth/me/password", {
+        currentPassword,
+        newPassword
+      });
+      success(isRTL ? "تم تغيير كلمة المرور بنجاح" : "Password changed successfully");
+      setIsChangePasswordOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      // Update session to get new timestamp
+      useAuthStore.getState().bootSession(true);
+    } catch (err: unknown) {
+      // Show the actual error from the backend if it exists
+      const errorMessage = (err as { message: string }).message || (isRTL ? "كلمة المرور الحالية غير صحيحة" : "Incorrect current password");
+      error(errorMessage);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   useEffect(() => {
-    setFullName(user?.name ?? (isRTL ? "سارة جينكينز" : "Sarah Jenkins"));
-    setEmail(user?.email ?? "sjenkins@cityhealth.com");
+    setFullName(user?.name ?? "");
+    setJobTitle(user?.jobTitle ?? (isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist"));
+    setEmail(user?.email ?? "");
+    setPhone(user?.phone ?? "");
+    setAvatarPreview(user?.avatarUrl ?? null);
   }, [user, isRTL]);
 
   const saveProfile = async () => {
@@ -74,9 +147,18 @@ export default function ReceptionProfilePage() {
     }
     setIsSaving(true);
     try {
-      const result = await updateProfile({ name: fullName.trim() });
-      if (!result.success) { error(result.error || (isRTL ? "فشل تحديث الملف الشخصي" : "Failed to update profile")); return; }
+      const result = await updateProfile({
+        name: fullName.trim(),
+        jobTitle: jobTitle.trim(),
+        phone: phone.trim(),
+        avatarUrl: avatarPreview,
+      });
+      if (!result.success) {
+        error(result.error || (isRTL ? "فشل تحديث الملف الشخصي" : "Failed to update profile"));
+        return;
+      }
       success(isRTL ? "تم تحديث الملف الشخصي بنجاح" : "Profile updated successfully");
+      useAuthStore.getState().bootSession(true);
     } catch (err) {
       error(err instanceof Error ? err.message : (isRTL ? "فشل تحديث الملف الشخصي" : "Failed to update profile"));
     } finally {
@@ -137,20 +219,52 @@ export default function ReceptionProfilePage() {
                 <div className={cn("flex items-center gap-6", isRTL ? "flex-row-reverse" : "flex-row")}>
                   <div className="relative shrink-0">
                     <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                      <AvatarImage src="https://api.dicebear.com/9.x/avataaars/svg?seed=Sarah" />
-                      <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-2xl">SJ</AvatarFallback>
+                      <AvatarImage src={avatarPreview || user?.avatarUrl || undefined} />
+                      <AvatarFallback className="bg-blue-50 text-blue-600 font-bold text-2xl">
+                        {fullName?.charAt(0) || user?.name?.charAt(0) || "U"}
+                      </AvatarFallback>
                     </Avatar>
-                    <button className={cn("absolute bottom-0 h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md border-2 border-white hover:bg-blue-700 transition-colors", isRTL ? "left-0" : "right-0")}>
-                      <Camera className="h-4 w-4 text-white" />
-                    </button>
+                    <div className={cn("absolute bottom-0", isRTL ? "left-0" : "right-0")}>
+                      <CldUploadWidget
+                        uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "default_preset"}
+                        onSuccess={(result: CloudinaryUploadWidgetResults) => {
+                          if (result.info && typeof result.info !== "string" && result.info.secure_url) {
+                            setAvatarPreview(result.info.secure_url);
+                          }
+                        }}
+                      >
+                        {({ open }) => (
+                          <button
+                            onClick={() => open()}
+                            className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md border-2 border-white hover:bg-blue-700 transition-colors"
+                          >
+                            <Camera className="h-4 w-4 text-white" />
+                          </button>
+                        )}
+                      </CldUploadWidget>
+                    </div>
                   </div>
-                  <div className={cn("space-y-2", isRTL ? "text-right" : "text-left")}>
-                    <button className={cn("flex items-center gap-2 px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors", isRTL ? "flex-row-reverse" : "flex-row")}>
-                      <Upload className="h-4 w-4 text-slate-400" />
-                      {isRTL ? "تحميل الصورة" : "Upload Photo"}
-                    </button>
-                    <p className="text-[11px] font-bold text-slate-400">{isRTL ? "JPG, PNG أو GIF – الحجم الأقصى 1 ميجابايت" : "JPG, PNG or GIF – Max 1MB"}</p>
-                  </div>
+                    <div className={cn("flex items-center gap-2", isRTL ? "flex-row-reverse" : "flex-row")}>
+                      <CldUploadWidget
+                        uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "default_preset"}
+                        onSuccess={(result: CloudinaryUploadWidgetResults) => {
+                          if (result.info && typeof result.info !== "string" && result.info.secure_url) {
+                            setAvatarPreview(result.info.secure_url);
+                          }
+                        }}
+                      >
+                        {({ open }) => (
+                          <button
+                            onClick={() => open()}
+                            className={cn("flex items-center gap-2 px-5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[13px] font-bold text-slate-600 hover:bg-slate-100 transition-colors", isRTL ? "flex-row-reverse" : "flex-row")}
+                          >
+                            <Upload className="h-4 w-4 text-slate-400" />
+                            {isRTL ? "تحميل الصورة" : "Upload Photo"}
+                          </button>
+                        )}
+                      </CldUploadWidget>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-400">{isRTL ? "JPG, PNG أو GIF – الحجم الأقصى 5 ميجابايت" : "JPG, PNG or GIF – Max 5MB"}</p>
                 </div>
 
                 {/* Form Fields */}
@@ -174,15 +288,16 @@ export default function ReceptionProfilePage() {
                     value={email}
                     onChange={setEmail}
                     icon={<Mail className="h-4 w-4 text-blue-400" />}
-                    placeholder="sjenkins@cityhealth.com"
+                    placeholder="email@example.com"
                     isRTL={isRTL}
+                    disabled
                   />
                   <FormField
                     label={t("phoneNumber") || (isRTL ? "رقم الهاتف" : "Phone Number")}
                     value={phone}
                     onChange={setPhone}
                     icon={<Phone className="h-4 w-4 text-slate-400" />}
-                    placeholder="+1 (555) 222-3397"
+                    placeholder="+1 (555) 000-0000"
                     isRTL={isRTL}
                   />
                 </div>
@@ -192,7 +307,12 @@ export default function ReceptionProfilePage() {
                   <Button
                     variant="outline"
                     className="h-11 px-8 rounded-2xl border-slate-200 font-bold text-slate-500 hover:bg-slate-50 bg-white text-[13px]"
-                    onClick={() => { setFullName(user?.name ?? (isRTL ? "سارة جينكينز" : "Sarah Jenkins")); setJobTitle(isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist"); setPhone("+1 (555) 222-3397"); }}
+                    onClick={() => {
+                      setFullName(user?.name ?? "");
+                      setJobTitle(user?.jobTitle ?? (isRTL ? "رئيس موظفي الاستقبال" : "Head Receptionist"));
+                      setPhone(user?.phone ?? "");
+                      setAvatarPreview(user?.avatarUrl ?? null);
+                    }}
                   >
                     {t("discard") || (isRTL ? "تجاهل" : "Discard")}
                   </Button>
@@ -222,11 +342,14 @@ export default function ReceptionProfilePage() {
                   <div className={cn("flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl", isRTL ? "flex-row-reverse" : "flex-row")}>
                     <div className={cn("flex items-center gap-3", isRTL ? "flex-row-reverse" : "flex-row")}>
                       <Key className="h-4.5 w-4.5 text-slate-400" size={18} />
-                      <span className="text-[13px] font-bold text-slate-600">{isRTL ? "تم تغييرها منذ 4 أشهر" : "Last changed 4 months ago"}</span>
+                      <span className="text-[13px] font-bold text-slate-600">{formatPasswordLastChanged()}</span>
                     </div>
                     <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
                   </div>
-                  <button className={cn("w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-colors group", isRTL ? "flex-row-reverse" : "flex-row")}>
+                  <button 
+                    onClick={() => setIsChangePasswordOpen(true)}
+                    className={cn("w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-slate-50 transition-colors group", isRTL ? "flex-row-reverse" : "flex-row")}
+                  >
                     <span className="text-[13px] font-bold text-slate-700">{t("changePassword") || (isRTL ? "تغيير كلمة المرور" : "Change Password")}</span>
                     <ChevronRight className={cn("h-4 w-4 text-slate-400 group-hover:text-slate-600 transition-colors", isRTL && "rotate-180")} />
                   </button>
@@ -305,6 +428,88 @@ export default function ReceptionProfilePage() {
           )}
         </div>
       </div>
+
+      <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+        <DialogContent className={cn("sm:max-w-[425px] rounded-[32px] border-none shadow-2xl p-0 overflow-hidden", isRTL && "text-right")}>
+          <div className="bg-blue-600 p-8 text-white relative">
+            <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center mb-4">
+              <Lock className="h-6 w-6 text-white" />
+            </div>
+            <DialogTitle className="text-2xl font-bold mb-1">
+              {isRTL ? "تغيير كلمة المرور" : "Change Password"}
+            </DialogTitle>
+            <DialogDescription className="text-blue-100 font-medium">
+              {isRTL ? "يرجى إدخال كلمة المرور الحالية والجديدة لتحديث حسابك." : "Please enter your current and new password to update your account."}
+            </DialogDescription>
+          </div>
+
+          <div className="p-8 space-y-5 bg-white">
+            <div className="space-y-2">
+              <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest block", isRTL && "text-right")}>
+                {isRTL ? "كلمة المرور الحالية" : "Current Password"}
+              </label>
+              <div className="relative">
+                <Input
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className={cn("h-12 bg-slate-50 border-slate-100 rounded-xl font-bold pr-10", isRTL && "text-right pr-4 pl-10")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className={cn("absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600", isRTL ? "left-3" : "right-3")}
+                >
+                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest block", isRTL && "text-right")}>
+                {isRTL ? "كلمة المرور الجديدة" : "New Password"}
+              </label>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className={cn("h-12 bg-slate-50 border-slate-100 rounded-xl font-bold pr-10", isRTL && "text-right pr-4 pl-10")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className={cn("absolute top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600", isRTL ? "left-3" : "right-3")}
+                >
+                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest block", isRTL && "text-right")}>
+                {isRTL ? "تأكيد كلمة المرور" : "Confirm New Password"}
+              </label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={cn("h-12 bg-slate-50 border-slate-100 rounded-xl font-bold", isRTL && "text-right")}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="p-8 pt-0 bg-white">
+            <Button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
+              className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20"
+            >
+              {isChangingPassword ? (isRTL ? "جاري التحديث..." : "Updating...") : (isRTL ? "تحديث كلمة المرور" : "Update Password")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -316,7 +521,8 @@ function FormField({
   onChange,
   placeholder,
   icon,
-  isRTL
+  isRTL,
+  disabled
 }: {
   label: string;
   value: string;
@@ -324,17 +530,27 @@ function FormField({
   placeholder?: string;
   icon?: React.ReactNode;
   isRTL?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <label className={cn("block text-[12px] font-black text-slate-500 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>{label}</label>
-      <div className={cn("relative flex items-center h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-50 transition-all", isRTL ? "flex-row-reverse" : "flex-row")}>
+      <div className={cn(
+        "relative flex items-center h-12 bg-slate-50 border border-slate-100 rounded-xl px-4 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-50 transition-all",
+        isRTL ? "flex-row-reverse" : "flex-row",
+        disabled && "opacity-60 cursor-not-allowed bg-slate-100"
+      )}>
         {icon && <span className={cn("shrink-0", isRTL ? "ml-2.5" : "mr-2.5")}>{icon}</span>}
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className={cn("flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300", isRTL ? "text-right" : "text-left")}
+          disabled={disabled}
+          className={cn(
+            "flex-1 bg-transparent text-[14px] font-bold text-slate-800 outline-none placeholder:font-medium placeholder:text-slate-300",
+            isRTL ? "text-right" : "text-left",
+            disabled && "cursor-not-allowed"
+          )}
         />
       </div>
     </div>

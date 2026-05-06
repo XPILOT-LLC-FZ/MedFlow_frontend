@@ -374,11 +374,11 @@ export function DashboardTopbar() {
               user?.isAvailable ? "ring-blue-500" : "ring-slate-200"
             )}>
               <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user?.email}`} />
-              <AvatarFallback className="bg-blue-600 text-white font-bold">{firstName.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="bg-blue-600 text-white font-bold">{firstName?.charAt(0) || "U"}</AvatarFallback>
             </Avatar>
             <div className={cn("flex flex-col justify-center", isRTL ? "text-right" : "text-left")}>
               <p className="text-[15px] font-bold text-slate-900 leading-none mb-1 group-hover:text-blue-600 transition-colors">
-                {displayName || (isRTL ? "سارة جينكينز" : "Sarah Jenkins")}
+                {displayName || (isRTL ? "مستخدم النظام" : "System User")}
               </p>
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">
                 {roleLabel === (isRTL ? "استقبال" : "Reception") ? (isRTL ? "رئيس موظفي الاستقبال" : "LEAD RECEPTIONIST") : roleLabel}
