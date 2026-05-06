@@ -206,19 +206,19 @@ export default function ReceptionPrescriptionsPage() {
 
           {/* Table Container */}
           <div className="overflow-x-auto no-scrollbar rounded-2xl md:rounded-3xl border border-slate-50">
-            <table className="w-full text-left border-collapse table-fixed min-w-[950px] xl:min-w-full">
+            <table className="w-full text-left border-collapse table-fixed">
               <thead>
                 <tr className="bg-slate-50/30">
                   <th className={cn("w-[22%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right last:rounded-tl-3xl" : "text-left first:rounded-tl-3xl")}>
                     {t("patientName")}
                   </th>
-                  <th className={cn("w-[18%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("w-[17%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
                     {t("assignedDoctor") || (isRTL ? "الطبيب المعين" : "ASSIGNED DOCTOR")}
                   </th>
                   <th className={cn("w-[15%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
                     {t("dateAndTime") || (isRTL ? "التاريخ والوقت" : "DATE & TIME")}
                   </th>
-                  <th className={cn("w-[14%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
+                  <th className={cn("w-[13%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-right" : "text-left")}>
                     {t("type")}
                   </th>
                   <th className="w-[10%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">
@@ -227,7 +227,7 @@ export default function ReceptionPrescriptionsPage() {
                   <th className="w-[10%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">
                     {t("comms") || (isRTL ? "التواصل" : "Comms")}
                   </th>
-                  <th className={cn("w-[11%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right", isRTL ? "text-left first:rounded-tr-3xl" : "text-right last:rounded-tr-3xl")}>
+                  <th className={cn("w-[13%] px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right", isRTL ? "text-left first:rounded-tr-3xl" : "text-right last:rounded-tr-3xl")}>
                     {isRTL ? "الإجراءات" : "Actions"}
                   </th>
                 </tr>
@@ -295,11 +295,11 @@ export default function ReceptionPrescriptionsPage() {
                       </td>
                       <td className="px-4 md:px-6 py-4 md:py-6">
                         <div className="flex items-center justify-center gap-3 md:gap-5">
-                          <Mail className={cn("h-4 w-4 md:h-5 md:w-5 transition-colors", item.status === "SENT" ? "text-blue-600 fill-blue-50" : "text-slate-200")} />
-                          <MessageCircle className={cn("h-4 w-4 md:h-5 md:w-5 transition-colors text-slate-200")} />
+                          <Mail className={cn("h-4 w-4 md:h-5 md:w-5 transition-colors", item.status === "SENT" ? "text-slate-400" : "text-slate-300")} />
+                          <MessageCircle className={cn("h-4 w-4 md:h-5 md:w-5 transition-colors text-blue-600 fill-blue-600")} />
                         </div>
                       </td>
-                      <td className={cn("px-4 md:px-6 py-4 md:py-6", isRTL ? "text-left" : "text-right")}>
+                      <td className={cn("px-4 md:px-8 py-4 md:py-6 flex items-center", isRTL ? "text-left justify-start" : "text-right justify-end")}>
                         <Button
                           size="sm"
                           onClick={() => handleSend(item.id)}

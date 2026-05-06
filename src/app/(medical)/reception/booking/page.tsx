@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { staffService } from "@/services/staffService";
 import { bookingService } from "@/services/bookingService";
 import { formatDateKey } from "@/lib/dateUtils";
@@ -40,7 +41,10 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { patientService } from "@/services/patientService";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiPatient } from "@/types";
+import { useSearchParams } from "next/navigation";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { TranslationKey } from "@/lib/i18n";
+import { User as UserIcon } from "lucide-react";
 
 const getPositionForTime = (timeStr: string) => {
   // Expecting "HH:MM" or "HH:MM AM/PM"
@@ -60,6 +64,11 @@ const getPositionForTime = (timeStr: string) => {
 
 export default function ReceptionSchedulePage() {
   const { t, isRTL } = useTranslation();
+  const searchParams = useSearchParams();
+  const view = searchParams.get("view");
+  const isFromDashboard = searchParams.get("from") === "dashboard";
+  const router = useRouter();
+  
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
@@ -142,6 +151,10 @@ export default function ReceptionSchedulePage() {
     d.setDate(d.getDate() + 1);
     setSelectedDate(d);
   };
+
+  if (view === "new") {
+    return <AddNewAppointmentView onBack={() => router.push(isFromDashboard ? "/reception/dashboard" : "/reception/booking")} />;
+  }
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="flex h-screen bg-white dark:bg-[#0B1120] overflow-hidden font-sans transition-colors duration-300 relative -m-4 md:-m-6">
@@ -288,7 +301,7 @@ export default function ReceptionSchedulePage() {
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
             {loading && <Loader2 className="h-5 w-5 animate-spin text-blue-500" />}
             <Button 
-              onClick={() => setIsNewAppointmentOpen(true)}
+              onClick={() => router.push("/reception/booking?view=new")}
               className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl h-10 md:h-11 px-4 md:px-6 font-bold shadow-lg shadow-blue-500/20 flex items-center gap-2 text-xs md:text-sm transition-all flex-1 sm:flex-none"
             >
               <Plus className="h-4 w-4" />
@@ -518,6 +531,7 @@ function AppointmentBlock({ top, height, time, name, phone, avatarUrl, reason, s
 
 function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; onClose: () => void; onBooked?: () => void }) {
   const { t, isRTL } = useTranslation();
+  const { user } = useAuthStore();
   const toast = useToastStore();
   const [loading, setLoading] = useState(false);
   
@@ -563,7 +577,9 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
       setLoadingSlots(true);
-      void bookingService.getAvailableSlots(selectedDoctor.id, formatDateKey(selectedDate))
+      void bookingService.getAvailableSlots(selectedDoctor.id, formatDateKey(selectedDate), {
+        branchId: selectedDoctor.branchId || selectedDoctor.branches?.[0]?.id || user?.clinicId
+      })
         .then(slots => {
           setAvailableSlots(slots);
           setLoadingSlots(false);
@@ -600,8 +616,9 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
         type: selectedType,
         notes: notes,
         amount: selectedDoctor.consultationFee || 0,
+        branchId: selectedDoctor.branchId || selectedDoctor.branches?.[0]?.id || user?.clinicId,
       });
-      toast.success(t("patientAddedSuccessfully"));
+      toast.success(t("appointmentAddedSuccessfully"));
       onBooked?.();
       onClose();
     } catch (e) {
@@ -614,7 +631,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir={isRTL ? "rtl" : "ltr"} className="max-w-[1100px] p-0 overflow-hidden rounded-[32px] border-none shadow-2xl bg-white dark:bg-[#0B1120] max-h-[95vh] flex flex-col transition-all">
+      <DialogContent dir={isRTL ? "rtl" : "ltr"} className="max-w-[1100px] p-0 rounded-[32px] border-none shadow-2xl bg-white dark:bg-[#0B1120] max-h-[95vh] flex flex-col transition-all">
         {/* Modal Header */}
         <div className="px-10 py-6 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between shrink-0 bg-white dark:bg-[#0B1120] z-10">
           <div className="space-y-1">
@@ -781,7 +798,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                       </Avatar>
                       <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
                         <span className="text-[15px] font-bold text-slate-900 dark:text-white">{doc.fullName}</span>
-                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1">{doc.specialization} • {doc.consultationFee || 0} {isRTL ? "ج.م" : "fee"}</span>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1">{doc.specialization} • {doc.consultationFee || 0} {isRTL ? "ج.م" : "LE"}</span>
                       </div>
                     </div>
                     <Badge className={cn("border-none rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-wider", doc.status === "ACTIVE" ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500" : "bg-slate-50 dark:bg-slate-900/20 text-slate-400")}>
@@ -839,7 +856,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                           </button>
                         ))
                       ) : (
-                        <p className="col-span-3 text-xs text-slate-400 dark:text-slate-600 text-center py-4 italic">{t("noPatientsInQueue")}</p>
+                        <p className="col-span-3 text-xs text-slate-400 dark:text-slate-600 text-center py-8 italic font-medium">{t("noAvailableSlots") || t("noPatientsInQueue")}</p>
                       )}
                     </div>
                   </div>
@@ -849,7 +866,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
           </div>
 
           {/* Right Summary Column */}
-          <div className="w-full lg:w-[380px] p-6 md:p-10 bg-white dark:bg-[#0B1120] shrink-0 space-y-8 lg:sticky lg:top-0">
+          <div className="w-full lg:w-[380px] p-6 md:p-10 bg-white dark:bg-[#0B1120] shrink-0 space-y-8">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
                 <CalendarDays className="h-5 w-5 text-white" />
@@ -861,7 +878,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
               <SummaryItem icon={User} label={t("patient")} value={selectedPatient?.fullName || "---"} />
               <SummaryItem icon={Stethoscope} label={t("doctor")} value={selectedDoctor?.fullName || "---"} subValue={selectedDoctor?.specialization} />
               <SummaryItem icon={CalendarIcon} label={t("date")} value={selectedDate.toLocaleDateString(isRTL ? "ar-EG" : "en-US")} subValue={selectedTime || "---"} />
-              <SummaryItem icon={Clock} label={t("totalAmount")} value={`${selectedDoctor?.consultationFee || 0} ${isRTL ? "ج.م" : "LE"}`} />
+              <SummaryItem icon={CreditCard} label={t("totalAmount")} value={`${selectedDoctor?.consultationFee || 0} ${isRTL ? "ج.م" : "LE"}`} />
               
               <div className="space-y-4">
                 <div className="space-y-1">
@@ -914,6 +931,407 @@ function SummaryItem({ icon: Icon, label, value, subValue }: SummaryItemProps) {
         <span className="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">{label}</span>
         <span className="text-[15px] font-bold text-slate-900 dark:text-white mt-0.5 truncate">{value}</span>
         {subValue && <span className="text-[12px] font-medium text-slate-500 dark:text-slate-500 mt-0.5 truncate">{subValue}</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Add New Appointment View ───────────────────────────────────── */
+
+function AddNewAppointmentView({ onBack }: { onBack: () => void }) {
+  const { t, isRTL } = useTranslation();
+  const searchParams = useSearchParams();
+  const { user } = useAuthStore();
+  const isFromDashboard = searchParams.get("from") === "dashboard";
+  const toast = useToastStore();
+  const [loading, setLoading] = useState(false);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [patients, setPatients] = useState<ApiPatient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<ApiPatient | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<ApiDoctor | null>(null);
+  const [allDoctors, setAllDoctors] = useState<ApiDoctor[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [notes, setNotes] = useState("");
+  const [selectedType, setSelectedType] = useState<"CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY">("CONSULTATION");
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [searchingPatients, setSearchingPatients] = useState(false);
+  const [modalDepartment, setModalDepartment] = useState("all");
+
+  useEffect(() => {
+    void staffService.getDoctors().then(setAllDoctors);
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      setSearchingPatients(true);
+      const delay = setTimeout(async () => {
+        try {
+          const results = await patientService.getAll({ search: searchQuery });
+          setPatients(results);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setSearchingPatients(false);
+        }
+      }, 300);
+      return () => clearTimeout(delay);
+    } else {
+      setPatients([]);
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (selectedDoctor && selectedDate) {
+      setLoadingSlots(true);
+      void bookingService.getAvailableSlots(selectedDoctor.id, formatDateKey(selectedDate), {
+        branchId: selectedDoctor.branchId || selectedDoctor.branches?.[0]?.id || user?.clinicId
+      })
+        .then(slots => {
+          setAvailableSlots(slots);
+          setLoadingSlots(false);
+        })
+        .catch(() => setLoadingSlots(false));
+    }
+  }, [selectedDoctor, selectedDate]);
+
+  const handleBook = async () => {
+    if (!selectedPatient || !selectedDoctor || !selectedTime) {
+      toast.error(t("fillRequired"));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let formattedTime = selectedTime;
+      const [timePart, modifier] = selectedTime.split(' ');
+      if (modifier) {
+        const [h, minutes] = timePart.split(':').map(Number);
+        let hours = h;
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      }
+
+      await bookingService.create({
+        patientId: selectedPatient.id,
+        patientName: selectedPatient.fullName,
+        doctorId: selectedDoctor.id,
+        doctorName: selectedDoctor.fullName,
+        date: formatDateKey(selectedDate),
+        startTime: formattedTime,
+        type: selectedType,
+        notes: notes,
+        amount: selectedDoctor.consultationFee || 0,
+        branchId: selectedDoctor.branchId || selectedDoctor.branches?.[0]?.id || user?.clinicId,
+      });
+      toast.success(t("appointmentAddedSuccessfully") || t("patientAddedSuccessfully"));
+      onBack();
+    } catch (e) {
+      toast.error(t("error"));
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div dir={isRTL ? "rtl" : "ltr"} className="p-4 lg:p-8 space-y-10 bg-slate-50 min-h-screen pb-20 font-sans">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-[13px] font-bold text-slate-400">
+             <span className="hover:text-blue-600 cursor-pointer transition-colors" onClick={onBack}>
+               {isFromDashboard ? t("dashboard") : t("schedule")}
+             </span>
+             {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+             <span className="text-slate-900">{t("newAppointment")}</span>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t("newAppointment")}</h1>
+          <p className="text-slate-400 text-[13px] font-medium">{t("managePatientRecords")}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={onBack} disabled={loading} className="rounded-xl font-bold text-slate-400 border-slate-100 bg-white hover:bg-slate-50 h-11 px-8">
+            {t("cancel")}
+          </Button>
+          <Button 
+            onClick={handleBook} 
+            disabled={loading}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : t("saveAndConfirm")}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-10 gap-10">
+        <div className="xl:col-span-7 space-y-8">
+          {/* 1. Select Patient */}
+          <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[32px] bg-white p-8 space-y-8">
+             <div className="flex items-center gap-4">
+               <div className="h-10 w-10 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center border border-blue-100 shadow-sm">
+                 <UserIcon className="h-5 w-5 text-blue-600" />
+               </div>
+               <h2 className="text-[14px] font-black text-slate-800 uppercase tracking-[0.1em]">{t("selectPatient")}</h2>
+             </div>
+             
+             <div className="space-y-4">
+                {!selectedPatient ? (
+                  <div className="relative max-w-2xl">
+                    {searchingPatients ? (
+                      <Loader2 className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin", isRTL ? "right-4" : "left-4")} />
+                    ) : (
+                      <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300", isRTL ? "right-4" : "left-4")} />
+                    )}
+                    <Input 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={t("searchPatientsPlaceholder")} 
+                      className={cn("h-14 rounded-2xl border-slate-100 bg-slate-50/50 text-[15px] font-bold text-slate-700 placeholder:text-slate-300", isRTL ? "pr-11 pl-4" : "pl-11 pr-4")} 
+                    />
+                    {patients.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto no-scrollbar">
+                        {patients.map(p => (
+                          <div 
+                            key={p.id} 
+                            onClick={() => setSelectedPatient(p)}
+                            className="p-4 hover:bg-slate-50 cursor-pointer flex items-center gap-4 border-b border-slate-50 last:border-none transition-colors"
+                          >
+                            <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
+                              <AvatarImage src={p.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${p.fullName}`} />
+                              <AvatarFallback className="bg-slate-100 text-slate-500 font-bold">{p.fullName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
+                              <span className="text-[15px] font-bold text-slate-900">{p.fullName}</span>
+                              <span className="text-[12px] text-slate-400 font-bold font-mono tracking-wider">{p.phone}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 bg-blue-50/30 border border-blue-100 rounded-[28px] flex items-center justify-between shadow-sm group hover:border-blue-200 transition-all">
+                    <div className="flex items-center gap-5">
+                      <Avatar className="h-16 w-16 border-4 border-white shadow-lg transition-transform group-hover:scale-105">
+                        <AvatarImage src={selectedPatient.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${selectedPatient.fullName}`} />
+                        <AvatarFallback className="bg-slate-100 font-bold">{selectedPatient.fullName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className={cn("flex flex-col", isRTL ? "text-right" : "text-left")}>
+                        <span className="text-[18px] font-black text-slate-900">{selectedPatient.fullName}</span>
+                        <div className="flex items-center gap-3 mt-1">
+                           <Badge className="bg-white text-blue-600 border-none font-bold text-[10px] tracking-widest px-2 h-5 rounded-md shadow-sm">ID: #{selectedPatient.id.slice(-5).toUpperCase()}</Badge>
+                           <span className="text-[13px] font-bold text-slate-400 font-mono">{selectedPatient.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="outline" onClick={() => setSelectedPatient(null)} className="rounded-xl border-white bg-white text-blue-600 font-bold px-6 h-10 shadow-sm hover:shadow-md transition-all">{t("change")}</Button>
+                  </div>
+                )}
+             </div>
+          </Card>
+
+          {/* 2. Select Doctor & Type */}
+          <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[32px] bg-white p-8 space-y-8">
+             <div className="flex items-center gap-4">
+               <div className="h-10 w-10 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center border border-blue-100 shadow-sm">
+                 <Stethoscope className="h-5 w-5 text-blue-600" />
+               </div>
+               <h2 className="text-[14px] font-black text-slate-800 uppercase tracking-[0.1em]">{t("selectDoctor")}</h2>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{t("type")}</label>
+                   <div className="grid grid-cols-2 gap-3">
+                      {["CONSULTATION", "FOLLOW_UP", "PROCEDURE", "EMERGENCY"].map((type) => (
+                        <button 
+                          key={type}
+                          onClick={() => setSelectedType(type as any)}
+                          className={cn(
+                            "h-12 rounded-2xl border text-[12px] font-bold transition-all",
+                            selectedType === type 
+                              ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/10" 
+                              : "border-slate-100 bg-slate-50/50 text-slate-500 hover:border-blue-200"
+                          )}
+                        >
+                          {t(type.toLowerCase() as TranslationKey)}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="space-y-3">
+                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{t("departments")}</label>
+                   <div className="flex flex-wrap gap-2">
+                      {["all", "cardiology", "pediatrics", "orthopedics", "dermatology"].map((dept) => (
+                        <button 
+                          key={dept}
+                          onClick={() => setModalDepartment(dept)}
+                          className={cn(
+                            "px-4 py-2 rounded-xl border text-[11px] font-bold transition-all",
+                            modalDepartment === dept 
+                              ? "bg-slate-900 border-slate-900 text-white" 
+                              : "border-slate-100 bg-white text-slate-400 hover:border-slate-200"
+                          )}
+                        >
+                          {dept === "all" ? t("allDepartments") : t(dept as TranslationKey)}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {allDoctors
+                  .filter(doc => modalDepartment === "all" || doc.specialization?.toLowerCase() === modalDepartment.toLowerCase())
+                  .map(doc => (
+                  <div 
+                    key={doc.id}
+                    onClick={() => setSelectedDoctor(doc)}
+                    className={cn(
+                      "p-5 rounded-[28px] border transition-all cursor-pointer group relative overflow-hidden",
+                      selectedDoctor?.id === doc.id 
+                        ? "border-blue-600 bg-blue-50/10 shadow-xl shadow-blue-500/5" 
+                        : "border-slate-100 bg-white hover:border-blue-200 hover:shadow-md"
+                    )}
+                  >
+                    {selectedDoctor?.id === doc.id && (
+                       <div className="absolute top-4 right-4 h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 scale-110">
+                          <Check className="h-3 w-3 text-white" />
+                       </div>
+                    )}
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-14 w-14 border-2 border-white shadow-md group-hover:scale-105 transition-transform">
+                        <AvatarImage src={doc.user?.avatarUrl || `https://api.dicebear.com/9.x/avataaars/svg?seed=${doc.fullName}`} />
+                        <AvatarFallback className="font-bold">{doc.fullName.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[15px] font-black text-slate-900 truncate">{doc.fullName}</span>
+                        <span className="text-[11px] font-bold text-slate-400 mt-0.5 tracking-tight">{doc.specialization}</span>
+                        <div className="flex items-center gap-1.5 mt-2">
+                           <Badge className="bg-emerald-50 text-emerald-600 border-none font-bold text-[9px] px-2 h-4 rounded-md">{doc.consultationFee || 0} {isRTL ? "ج.م" : "LE"}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </Card>
+
+          {/* 3. Date & Time */}
+          <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[32px] bg-white p-8 space-y-8">
+             <div className="flex items-center gap-4">
+               <div className="h-10 w-10 rounded-[14px] bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center border border-blue-100 shadow-sm">
+                 <CalendarIcon className="h-5 w-5 text-blue-600" />
+               </div>
+               <h2 className="text-[14px] font-black text-slate-800 uppercase tracking-[0.1em]">{t("selectDateTime")}</h2>
+             </div>
+
+             <div className="flex flex-col xl:flex-row gap-12">
+                <div className="w-full xl:w-[320px] space-y-4">
+                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">{t("selectDate")}</label>
+                   <Input 
+                    type="date" 
+                    value={formatDateKey(selectedDate)} 
+                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                    className="h-14 rounded-2xl border-slate-100 bg-slate-50/50 text-[15px] font-bold text-slate-700 shadow-sm focus:ring-blue-500/5 focus:border-blue-300"
+                   />
+                </div>
+
+                <div className="flex-1 space-y-6">
+                   <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] flex items-center gap-2">
+                        <Clock className="h-3 w-3" /> {t("availableSlots")}
+                      </label>
+                      {loadingSlots && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
+                   </div>
+
+                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {availableSlots.length > 0 ? (
+                        availableSlots.map((time) => (
+                          <button 
+                            key={time} 
+                            onClick={() => setSelectedTime(time)}
+                            className={cn(
+                              "h-12 rounded-2xl text-[13px] font-black border transition-all flex items-center justify-center",
+                              selectedTime === time 
+                                ? "bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-500/20 scale-[1.02]" 
+                                : "bg-white border-slate-100 text-slate-400 hover:border-blue-200"
+                            )}
+                          >
+                            {time}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="col-span-full py-10 flex flex-col items-center justify-center bg-slate-50/50 rounded-[32px] border-2 border-dashed border-slate-100 opacity-50">
+                           <Clock className="h-8 w-8 text-slate-200 mb-3" />
+                           <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("noAvailableSlots")}</p>
+                        </div>
+                      )}
+                   </div>
+                </div>
+             </div>
+          </Card>
+        </div>
+
+        {/* Right Column: Summary */}
+        <div className="xl:col-span-3 space-y-8">
+           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[32px] bg-white p-8 space-y-8">
+              <div className="flex items-center gap-4">
+                 <div className="h-10 w-10 rounded-[14px] bg-slate-900 flex items-center justify-center shadow-lg shadow-slate-900/10">
+                    <CalendarDays className="h-5 w-5 text-white" />
+                 </div>
+                 <h2 className="text-[14px] font-black text-slate-800 uppercase tracking-[0.1em]">{t("summary")}</h2>
+              </div>
+
+              <div className="space-y-8">
+                 <SummaryItem icon={User} label={t("patient")} value={selectedPatient?.fullName || "---"} />
+                 <SummaryItem icon={Stethoscope} label={t("doctor")} value={selectedDoctor?.fullName || "---"} subValue={selectedDoctor?.specialization} />
+                 <SummaryItem icon={CalendarIcon} label={t("date")} value={selectedDate.toLocaleDateString(isRTL ? "ar-EG" : "en-US")} subValue={selectedTime || "---"} />
+                 <SummaryItem icon={CreditCard} label={t("totalAmount")} value={`${selectedDoctor?.consultationFee || 0} ${isRTL ? "ج.م" : "LE"}`} />
+                 
+                 <div className="space-y-4 pt-4 border-t border-slate-50">
+                    <div className="space-y-2.5">
+                       <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.1em] ml-1">{t("notes")}</label>
+                       <Textarea 
+                         value={notes}
+                         onChange={(e) => setNotes(e.target.value)}
+                         placeholder={t("notes") + "..."} 
+                         className={cn("min-h-[120px] rounded-[24px] border-slate-100 bg-slate-50/50 text-[14px] font-bold text-slate-700 placeholder:text-slate-200 focus:ring-blue-600/5 focus:border-blue-200 transition-all resize-none shadow-inner", isRTL && "text-right")}
+                       />
+                    </div>
+                 </div>
+
+                 <Button 
+                    onClick={handleBook}
+                    disabled={loading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-[24px] h-16 font-black text-[16px] shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                 >
+                    {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : <><CheckCircle2 className="h-5 w-5" /> {t("saveAndConfirm")}</>}
+                 </Button>
+              </div>
+           </Card>
+
+           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[28px] bg-slate-900 p-8 text-white space-y-6">
+              <div className="space-y-2">
+                 <h3 className="text-[13px] font-black uppercase tracking-widest text-slate-400">{t("quickHelp")}</h3>
+                 <p className="text-[14px] font-medium leading-relaxed opacity-80">{t("bookingInstructions") || "Select a patient, choose a specialized doctor, and pick an available time slot to confirm the appointment."}</p>
+              </div>
+              <div className="flex items-center gap-4 pt-2">
+                 <div className="flex -space-x-3">
+                    {[1,2,3].map(i => (
+                       <Avatar key={i} className="h-8 w-8 border-2 border-slate-900 shadow-xl">
+                          <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${i * 55}`} />
+                       </Avatar>
+                    ))}
+                 </div>
+                 <span className="text-[11px] font-bold text-slate-400">{t("verifiedByReception")}</span>
+              </div>
+           </Card>
+        </div>
       </div>
     </div>
   );

@@ -58,6 +58,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { label: "Queue Management", labelAr: "إدارة الطوابير", href: "/reception/waiting-room", icon: Activity },
     { label: "Tasks", labelAr: "المهام", href: "/reception/tasks", icon: ClipboardList },
     { label: "Prescriptions", labelAr: "الوصفات الطبية", href: "/reception/prescriptions", icon: Package },
+    { label: "Inventory", labelAr: "المخزون", href: "/reception/inventory", icon: Package },
     { label: "Checkout & payment", labelAr: "الدفع والسداد", href: "/reception/payments", icon: CreditCard },
     { label: "Invoice List", labelAr: "قائمة الفواتير", href: "/reception/invoices", icon: FileText },
     { label: "Chats", labelAr: "المحادثات", href: "/reception/chat", icon: MessageSquare },

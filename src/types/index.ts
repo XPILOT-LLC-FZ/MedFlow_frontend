@@ -799,6 +799,7 @@ export interface DashboardStaffSummaryData {
     completed: number;
     totalPatients: number;
     todayRevenue: number;
+    averageWaitMinutes: number;
   };
   queue: {
     upcoming: DashboardStaffQueueItem[];
@@ -1023,6 +1024,7 @@ export interface UpdateQuickTaskPayload {
   priority?: TaskPriority;
   dueDate?: string;
   doctorId?: string;
+  patientId?: string;
 }
 
 export interface QuickTaskListFilters {
@@ -1495,6 +1497,8 @@ export interface UserPreferences {
     walletEnabled?: boolean;
     autoInvoice?: boolean;
     autoPrint?: boolean;
+    additionalServicesEnabled?: boolean;
+    activeServices?: string[];
     supplement?: string;
     hoursVisit?: string;
   };

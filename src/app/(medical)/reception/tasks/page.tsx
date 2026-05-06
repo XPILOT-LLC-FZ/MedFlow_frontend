@@ -9,10 +9,11 @@ import {
   Clock,
   ClipboardList,
   CheckSquare,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Download,
+  Edit3,
+  Trash2,
   RefreshCw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,7 @@ import { patientService } from "@/services/patientService";
 import { staffService } from "@/services/staffService";
 import { tasksService } from "@/services/tasksService";
 import type { ApiReceptionHandoff, ApiQuickTask, ApiPatient, ApiDoctor } from "@/types";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 type StatusFilter = "ALL" | "NEW" | "REVIEWED";
 
@@ -46,7 +48,9 @@ export default function ReceptionTasksPage() {
   const [selectedHandoff, setSelectedHandoff] = useState<ApiReceptionHandoff | null>(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<ApiQuickTask | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const role = useAuthStore((s) => s.user?.role);
 
   // ── Data fetching ────────────────────────────────────────────
   const fetchTasks = useCallback(async () => {
@@ -111,6 +115,35 @@ export default function ReceptionTasksPage() {
       toastSuccess(t("statusUpdatedSuccessfully"));
       void fetchTasks();
     } catch {
+      toastError(t("error"));
+    }
+  };
+
+  const handleEdit = (task: ApiReceptionHandoff | ApiQuickTask) => {
+    if ('patientName' in task) {
+      // Reception handoffs are not editable via quick task editor — open PDF instead
+      openPdfPreview(task as ApiReceptionHandoff);
+      return;
+    }
+    setEditingTask(task as ApiQuickTask);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleDelete = async (task: ApiReceptionHandoff | ApiQuickTask) => {
+    if ('patientName' in task) {
+      // Deleting reception handoffs is not supported from the UI
+      toastError(isRTL ? "لا يمكن حذف هذه المهمة" : "Cannot delete this handoff");
+      return;
+    }
+
+    if (!confirm(isRTL ? "هل أنت متأكد أنك تريد حذف المهمة؟" : "Are you sure you want to delete this task?")) return;
+
+    try {
+      await tasksService.delete(task.id);
+      toastSuccess(t("statusUpdatedSuccessfully"));
+      void fetchTasks();
+    } catch (err) {
+      console.error("Failed to delete task", err);
       toastError(t("error"));
     }
   };
@@ -206,7 +239,7 @@ export default function ReceptionTasksPage() {
             </Button>
 
             <Button
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={() => { setEditingTask(null); setIsCreateModalOpen(true); }}
               className={cn("bg-blue-600 hover:bg-blue-700 text-white rounded-xl md:rounded-2xl h-10 md:h-12 px-4 md:px-6 flex items-center gap-2 font-bold shadow-lg shadow-blue-500/10 whitespace-nowrap", isRTL ? "flex-row-reverse" : "flex-row")}
             >
               <Plus className="h-4 w-4 md:h-5 md:w-5" />
@@ -379,28 +412,43 @@ export default function ReceptionTasksPage() {
                         </td>
                         <td className={cn("px-6 py-5 md:py-6", isRTL ? "text-left" : "text-right")}>
                           <div className={cn("flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity", isRTL ? "justify-start flex-row-reverse" : "justify-end flex-row")}>
-                            {isNew && (
-                              <button
-                                onClick={() => handleMarkAsDone(task)}
-                                className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all duration-200"
-                                title={t("markAsDone") || (isRTL ? "إنهاء المهمة" : "Mark as done")}
-                              >
-                                <CheckCircle2 className="h-5 w-5" />
-                              </button>
-                            )}
-                            {!isNew && (
-                              <div className="p-2 rounded-xl text-blue-600 bg-blue-50">
-                                <CheckCircle2 className="h-5 w-5" />
-                              </div>
-                            )}
-                            {'patientName' in task && (
-                              <button
-                                onClick={() => openPdfPreview(task as ApiReceptionHandoff)}
-                                className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
-                                title={isRTL ? "عرض وتحميل" : "View & PDF"}
-                              >
-                                <Download className="h-5 w-5" />
-                              </button>
+                            {/* removed check/true icon per request */}
+                            {'patientName' in task ? (
+                              <>
+                                <button
+                                  onClick={() => openPdfPreview(task as ApiReceptionHandoff)}
+                                  className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                                  title={isRTL ? "عرض وتحميل" : "View & PDF"}
+                                >
+                                  <Download className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(task)}
+                                  className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200"
+                                  title={isRTL ? "حذف" : "Delete"}
+                                >
+                                  <Trash2 className="h-5 w-5" />
+                                </button>
+                              </>
+                              ) : (
+                              role === "STAFF" ? (
+                                <>
+                                  <button
+                                    onClick={() => handleEdit(task)}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                                    title={isRTL ? "تعديل" : "Edit"}
+                                  >
+                                    <Edit3 className="h-5 w-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(task)}
+                                    className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200"
+                                    title={isRTL ? "حذف" : "Delete"}
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </button>
+                                </>
+                              ) : null
                             )}
                           </div>
                         </td>
@@ -447,9 +495,11 @@ export default function ReceptionTasksPage() {
       {/* Create Task Modal */}
       <CreateTaskModal 
         isOpen={isCreateModalOpen} 
-        onClose={() => setIsCreateModalOpen(false)} 
+        onClose={() => { setIsCreateModalOpen(false); setEditingTask(null); }} 
         isRTL={isRTL}
         t={t}
+        initialTask={editingTask}
+        onSaved={() => { setEditingTask(null); void fetchTasks(); }}
       />
     </div>
   );
@@ -457,7 +507,7 @@ export default function ReceptionTasksPage() {
 
 /* ── Sub-components ──────────────────────────────────────────── */
 
-function CreateTaskModal({ isOpen, onClose, isRTL, t }: { isOpen: boolean; onClose: () => void; isRTL: boolean; t: (key: TranslationKey) => string }) {
+function CreateTaskModal({ isOpen, onClose, isRTL, t, initialTask, onSaved }: { isOpen: boolean; onClose: () => void; isRTL: boolean; t: (key: TranslationKey) => string; initialTask?: ApiQuickTask | null; onSaved?: () => void }) {
   const toastSuccess = useToastStore((s) => s.success);
   const toastError = useToastStore((s) => s.error);
 
@@ -493,6 +543,27 @@ function CreateTaskModal({ isOpen, onClose, isRTL, t }: { isOpen: boolean; onClo
     void loadData();
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialTask) {
+      setTitle(initialTask.title || "");
+      setDescription(initialTask.description || "");
+      setSelectedPatientId(initialTask.patientId || "");
+      setSelectedDoctorId(initialTask.doctorId || "");
+      setDueDate(initialTask.dueDate ? initialTask.dueDate.split("T")[0] : "");
+      const p = initialTask.priority === "HIGH" ? "High" : initialTask.priority === "NORMAL" ? "Medium" : "Low";
+      setPriority(p as "Low" | "Medium" | "High");
+    } else {
+      // reset when creating
+      setTitle("");
+      setDescription("");
+      setSelectedPatientId("");
+      setSelectedDoctorId("");
+      setDueDate("");
+      setPriority("Low");
+    }
+  }, [isOpen, initialTask]);
+
   const handleSubmit = async () => {
     if (!title || !selectedPatientId || !selectedDoctorId) {
       toastError(isRTL ? "يرجى ملء الحقول المطلوبة واختيار طبيب" : "Please fill required fields and select a doctor");
@@ -501,14 +572,25 @@ function CreateTaskModal({ isOpen, onClose, isRTL, t }: { isOpen: boolean; onClo
 
     setIsSubmitting(true);
     try {
-      await tasksService.create({
-        title,
-        description,
-        patientId: selectedPatientId,
-        doctorId: selectedDoctorId,
-        dueDate: dueDate || undefined,
-        priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as "LOW" | "NORMAL" | "HIGH" | "URGENT",
-      });
+      if (initialTask) {
+        await tasksService.update(initialTask.id, {
+          title,
+          description,
+          patientId: selectedPatientId,
+          doctorId: selectedDoctorId,
+          dueDate: dueDate || undefined,
+          priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as "LOW" | "NORMAL" | "HIGH" | "URGENT",
+        });
+      } else {
+        await tasksService.create({
+          title,
+          description,
+          patientId: selectedPatientId,
+          doctorId: selectedDoctorId,
+          dueDate: dueDate || undefined,
+          priority: (priority === "Medium" ? "NORMAL" : priority.toUpperCase()) as "LOW" | "NORMAL" | "HIGH" | "URGENT",
+        });
+      }
       toastSuccess(t("statusUpdatedSuccessfully"));
       onClose();
       // Reset form
@@ -517,6 +599,8 @@ function CreateTaskModal({ isOpen, onClose, isRTL, t }: { isOpen: boolean; onClo
       setSelectedPatientId("");
       setSelectedDoctorId("");
       setDueDate("");
+      setPriority("Low");
+      if (onSaved) onSaved();
     } catch {
       toastError(t("error"));
     } finally {

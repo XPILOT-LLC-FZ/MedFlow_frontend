@@ -23,17 +23,33 @@ import { Progress } from "@/components/ui/progress";
 import { useTranslation } from "@/hooks/useTranslation";
 import { dashboardService } from "@/services/dashboardService";
 import { patientService } from "@/services/patientService";
-import { useToastStore } from "@/stores/useToastStore";
+import { formatDateKey } from "@/lib/dateUtils";
 import { useBookingStore } from "@/stores/useBookingStore";
+import { useToastStore } from "@/stores/useToastStore";
 import { cn } from "@/lib/utils";
 import { TranslationKey } from "@/lib/i18n";
 import type { DashboardStaffSummaryData, DashboardAppointmentStatus, ApiPatient, DashboardStaffQueueItem, Appointment } from "@/types";
 import { Check, X, Eye, Loader2 } from "lucide-react";
 
+const toMinutes = (value: string): number | null => {
+  if (!value) return null;
+  const [time, modifier] = value.split(" ");
+  const [hoursStr, minutesStr] = time.split(":").map(s => s.trim());
+  let hours = Number(hoursStr);
+  const minutes = Number(minutesStr);
+  
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  
+  if (modifier === "PM" && hours < 12) hours += 12;
+  if (modifier === "AM" && hours === 12) hours = 0;
+  
+  return hours * 60 + minutes;
+};
+
 export default function ReceptionDashboard() {
   const { t, isRTL } = useTranslation();
   const toast = useToastStore();
-  const { updateAppointment } = useBookingStore();
+  const { updateAppointment, fetchAppointments, appointments } = useBookingStore();
   const [dashboardData, setDashboardData] = React.useState<DashboardStaffSummaryData | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [processingId, setProcessingId] = React.useState<string | null>(null);
@@ -44,10 +60,15 @@ export default function ReceptionDashboard() {
 
   const refreshDashboard = React.useCallback(async () => {
     try {
-      const summary = await dashboardService.getStaffSummary({ period: "day" });
+      const todayKey = formatDateKey(new Date());
+      const [summary, patients] = await Promise.all([
+        dashboardService.getStaffSummary({ period: "day" }),
+        patientService.getAll(),
+        fetchAppointments({ date: todayKey })
+      ]);
+      
       setDashboardData(summary);
       
-      const patients = await patientService.getAll();
       const filtered = (patients || []).filter((p: ApiPatient) => {
         const mh = (p.medicalHistory as Record<string, unknown>) || {};
         const ins = (mh.insuranceDetails as Record<string, unknown>) || {};
@@ -59,7 +80,7 @@ export default function ReceptionDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchAppointments]);
 
   const handleVerify = async (patientId: string, status: "verified" | "rejected") => {
     try {
@@ -80,9 +101,9 @@ export default function ReceptionDashboard() {
   const handleStatusUpdate = async (apptId: string, nextStatus: string) => {
     setProcessingId(apptId);
     try {
-      const status = nextStatus.toLowerCase().replace("_", "-") as Appointment["status"];
-      await updateAppointment(apptId, { status });
-      toast.success(`${t("appointmentStatusUpdated")}: ${t(status as TranslationKey)}`);
+      const status = nextStatus.toUpperCase().replace("-", "_") as Appointment["status"];
+      await updateAppointment(apptId, { status: status.toLowerCase().replace("_", "-") as any });
+      toast.success(`${t("appointmentStatusUpdated")}: ${t(status.toLowerCase().replace("_", "-") as TranslationKey)}`);
       void refreshDashboard();
     } catch {
       toast.error(t("error"));
@@ -98,8 +119,28 @@ export default function ReceptionDashboard() {
   }, [refreshDashboard]);
 
   const summary = dashboardData?.summaryCards;
-  const upcoming = dashboardData?.queue.upcoming || [];
   const activityLog = dashboardData?.activityLog || [];
+  
+  // Use store appointments to ensure patients don't disappear when status changes to IN_PROGRESS
+  const todayAppointments = appointments.length > 0 ? appointments : (dashboardData?.queue.upcoming || []);
+  const upcoming = dashboardData?.queue.upcoming || [];
+
+  const computedAvgWait = React.useMemo(() => {
+    if (summary?.averageWaitMinutes && summary.averageWaitMinutes > 0) return summary.averageWaitMinutes;
+    
+    const waitingPatients = upcoming.filter(a => a.status === "CONFIRMED");
+    if (waitingPatients.length === 0) return 0;
+    
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    
+    const total = waitingPatients.reduce((sum, a) => {
+      const m = toMinutes(a.time);
+      return m === null ? sum : sum + Math.max(0, nowMin - m);
+    }, 0);
+    
+    return Math.round(total / waitingPatients.length);
+  }, [summary?.averageWaitMinutes, upcoming]);
 
   return (
     <div dir={isRTL ? "rtl" : "ltr"} className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto bg-slate-50 min-h-screen relative pb-24">
@@ -139,7 +180,7 @@ export default function ReceptionDashboard() {
       {/* 2. Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard icon={Users} label={t("totalPatients")} value={isLoading ? "..." : (summary?.totalPatients || 0)} color="blue" />
-        <StatCard icon={Clock} label={t("waiting")} value={isLoading ? "..." : (summary?.scheduledConfirmed || 0)} badge={t("active")} color="orange" />
+        <StatCard icon={Clock} label={t("waiting")} value={isLoading ? "..." : (summary?.scheduledConfirmed || 0)} badge={isLoading ? undefined : `${t("avg")} ${computedAvgWait} ${t("min")}`} color="orange" />
         <StatCard icon={CheckCircle} label={t("completed")} value={isLoading ? "..." : (summary?.completed || 0)} color="purple" />
         <StatCard icon={CircleDollarSign} label={t("dailyRevenue")} value={isLoading ? "..." : `${summary?.todayRevenue?.toLocaleString() || 0} ${isRTL ? "ج.م" : "L.E"}`} color="green" />
       </div>
@@ -148,8 +189,8 @@ export default function ReceptionDashboard() {
       <div className="space-y-6">
         <h2 className="text-xl font-bold text-slate-900 tracking-tight">{t("quickActions")}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <ActionCard icon={UserPlus} title={t("addPatient")} subtitle={t("registerNewVisitor")} href="/reception/patients?view=new" />
-          <ActionCard icon={Calendar} title={t("newAppointment")} subtitle={t("bookASession")} href="/reception/booking" />
+          <ActionCard icon={UserPlus} title={t("addPatient")} subtitle={t("registerNewVisitor")} href="/reception/patients?view=new&from=dashboard" />
+          <ActionCard icon={Calendar} title={t("newAppointment")} subtitle={t("bookASession")} href="/reception/booking?view=new&from=dashboard" />
           <ActionCard icon={UserCheck} title={t("checkInPatients")} subtitle={t("confirmArrivalPatients")} href="/reception/waiting-room" />
           <ActionCard icon={CreditCard} title={t("payment")} subtitle={t("processPayment")} href="/reception/payments" />
         </div>
@@ -321,14 +362,22 @@ export default function ReceptionDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {upcoming.length === 0 ? (
+                  {todayAppointments.filter((apt: any) => {
+                    const status = (apt.status as string).toUpperCase();
+                    return status === "SCHEDULED" || status === "IN_PROGRESS" || status === "IN-PROGRESS";
+                  }).length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-sm font-medium">
                         {t("noResults")}
                       </td>
                     </tr>
                   ) : (
-                    upcoming.map((apt: DashboardStaffQueueItem, idx: number) => {
+                    todayAppointments
+                      .filter((apt: any) => {
+                        const status = (apt.status as string).toUpperCase();
+                        return status === "SCHEDULED" || status === "IN_PROGRESS" || status === "IN-PROGRESS";
+                      })
+                      .map((apt: any, idx: number) => {
                       return (
                         <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-6 py-5">
@@ -348,11 +397,14 @@ export default function ReceptionDashboard() {
                           <td className="px-6 py-5 text-[13px] font-medium text-slate-500 truncate">{apt.serviceName}</td>
                           <td className="px-6 py-5 text-[13px] font-bold text-slate-900">{apt.time}</td>
                           <td className="px-6 py-5">
-                            <StatusBadge status={apt.status as DashboardAppointmentStatus} />
+                            <StatusBadge 
+                              status={(apt.status as string).toUpperCase().replace("-", "_") as DashboardAppointmentStatus} 
+                              avgTime={summary?.averageWaitMinutes}
+                            />
                           </td>
                           <td className={cn("px-6 py-5", isRTL ? "text-left" : "text-right")}>
                             <ActionButton 
-                              status={apt.status as DashboardAppointmentStatus} 
+                              status={(apt.status as string).toUpperCase().replace("-", "_") as DashboardAppointmentStatus} 
                               patientId={apt.patientId}
                               aptId={apt.id}
                               onUpdate={(s) => handleStatusUpdate(apt.id, s)}
@@ -401,14 +453,22 @@ export default function ReceptionDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {upcoming.length === 0 ? (
+                    {todayAppointments.filter((apt: any) => {
+                      const status = (apt.status as string).toUpperCase();
+                      return status === "CONFIRMED";
+                    }).length === 0 ? (
                       <tr>
                         <td colSpan={5} className="px-4 py-10 text-center text-slate-400 text-sm font-medium">
                           {t("noResults")}
                         </td>
                       </tr>
                     ) : (
-                      upcoming.map((apt, i) => (
+                      todayAppointments
+                        .filter((apt: any) => {
+                          const status = (apt.status as string).toUpperCase();
+                          return status === "CONFIRMED";
+                        })
+                        .map((apt: any, i: number) => (
                         <tr key={apt.id || i} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="px-4 py-5">
                             <div className="flex items-center gap-2">
@@ -427,10 +487,13 @@ export default function ReceptionDashboard() {
                           <td className="px-4 py-5 text-[13px] font-medium text-slate-400/80 truncate">{apt.doctorName}</td>
                           <td className="px-4 py-5 text-[13px] font-bold text-slate-500/90 truncate">{apt.time}</td>
                           <td className="px-4 py-5">
-                            <QueueStatusBadge status={apt.status === "IN_PROGRESS" ? "IN_PROGRESS" : apt.status === "CONFIRMED" ? "WAITING" : "UPCOMING"} />
+                            <QueueStatusBadge 
+                              status={(apt.status as string).toUpperCase().replace("-", "_") === "IN_PROGRESS" ? "IN_PROGRESS" : (apt.status as string).toUpperCase().replace("-", "_") === "CONFIRMED" ? "WAITING" : "UPCOMING"} 
+                              avgTime={summary?.averageWaitMinutes}
+                            />
                           </td>
                           <td className={cn("px-4 py-5", isRTL ? "text-left" : "text-right")}>
-                            {apt.status === "SCHEDULED" ? (
+                            {(apt.status as string).toUpperCase().replace("-", "_") === "SCHEDULED" ? (
                               <button 
                                 onClick={() => handleStatusUpdate(apt.id, "CONFIRMED")}
                                 disabled={processingId === apt.id}
@@ -439,7 +502,7 @@ export default function ReceptionDashboard() {
                                 {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
                                 {t("checkIn")}
                               </button>
-                            ) : apt.status === "CONFIRMED" ? (
+                            ) : (apt.status as string).toUpperCase().replace("-", "_") === "CONFIRMED" ? (
                               <button 
                                 onClick={() => handleStatusUpdate(apt.id, "IN_PROGRESS")}
                                 disabled={processingId === apt.id}
@@ -447,6 +510,15 @@ export default function ReceptionDashboard() {
                               >
                                 {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
                                 {t("startSession")}
+                              </button>
+                            ) : (apt.status as string).toUpperCase().replace("-", "_") === "IN_PROGRESS" ? (
+                              <button 
+                                onClick={() => handleStatusUpdate(apt.id, "COMPLETED")}
+                                disabled={processingId === apt.id}
+                                className={cn("text-[12px] font-bold text-purple-600 hover:text-purple-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
+                              >
+                                {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                {t("complete")}
                               </button>
                             ) : (
                               <button className="text-[12px] font-bold text-slate-400 hover:text-slate-600 whitespace-nowrap">
@@ -589,12 +661,13 @@ function ActionCard({ icon: Icon, title, subtitle, href }: ActionCardProps) {
 
 interface StatusBadgeProps {
   status: DashboardAppointmentStatus;
+  avgTime?: number;
 }
 
-function StatusBadge({ status }: StatusBadgeProps) {
+function StatusBadge({ status, avgTime }: StatusBadgeProps) {
   const { t } = useTranslation();
   const configs: Record<string, { label: string; color: string }> = { 
-    CONFIRMED: { label: t("checkedIn"), color: "bg-amber-50 text-amber-600" }, 
+    CONFIRMED: { label: avgTime !== undefined ? `${t("liveQueue")} (${avgTime} ${t("min")})` : t("liveQueue"), color: "bg-amber-50 text-amber-600" }, 
     IN_PROGRESS: { label: t("inprogress"), color: "bg-blue-50 text-blue-600" }, 
     SCHEDULED: { label: t("booked"), color: "bg-slate-100 text-slate-500" }, 
     COMPLETED: { label: t("completed"), color: "bg-emerald-50 text-emerald-600" },
@@ -641,11 +714,23 @@ function ActionButton({ status, patientId, aptId, onUpdate, loading }: ActionBut
     );
   }
 
+  if (status === "IN_PROGRESS") {
+    return (
+      <Button 
+        variant="link" 
+        onClick={() => onUpdate?.("COMPLETED")}
+        className={cn("text-purple-600 font-bold hover:no-underline px-0 transition-all", isRTL ? "hover:-translate-x-1" : "hover:translate-x-1")}
+      >
+        {t("complete")}
+      </Button>
+    );
+  }
+
   if (status === "COMPLETED") {
     return (
       <Link href={`/reception/payments?appointmentId=${aptId}`}>
         <Button variant="link" className={cn("text-blue-600 font-bold hover:no-underline px-0 transition-all", isRTL ? "hover:-translate-x-1" : "hover:translate-x-1")}>
-          {t("payment")}
+          {t("collectPayment")}
         </Button>
       </Link>
     );
@@ -662,13 +747,14 @@ function ActionButton({ status, patientId, aptId, onUpdate, loading }: ActionBut
 
 interface QueueStatusBadgeProps {
   status: "IN_PROGRESS" | "WAITING" | "UPCOMING";
+  avgTime?: number;
 }
 
-function QueueStatusBadge({ status }: QueueStatusBadgeProps) {
-  const { isRTL } = useTranslation();
+function QueueStatusBadge({ status, avgTime }: QueueStatusBadgeProps) {
+  const { t, isRTL } = useTranslation();
   const configs: Record<string, { label: string; color: string }> = { 
     IN_PROGRESS: { label: isRTL ? "في الجلسة" : "IN-SESSION", color: "bg-blue-50 text-blue-600" }, 
-    WAITING: { label: isRTL ? "قائمة الانتظار" : "LIVE-QUEUE", color: "bg-amber-50 text-amber-600" }, 
+    WAITING: { label: avgTime !== undefined ? `${t("liveQueue")} (${avgTime} ${t("min")})` : (isRTL ? "قائمة الانتظار" : "LIVE-QUEUE"), color: "bg-amber-50 text-amber-600" }, 
     UPCOMING: { label: isRTL ? "مجدول" : "BOOKED", color: "bg-slate-50 text-slate-400" } 
   };
   const config = configs[status] || configs.UPCOMING;
