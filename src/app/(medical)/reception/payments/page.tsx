@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { bookingService } from "@/services/bookingService";
 import { patientService } from "@/services/patientService";
+import { calculatePaymentTotals, type CheckedService } from "./utils";
 import { useToastStore } from "@/stores/useToastStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { ApiAppointment, ApiPatient, ApiInvoice } from "@/types";
@@ -36,23 +37,13 @@ const BILLING_HISTORY = [
   { month: "Jun", value: 200 },
 ];
 
-interface CheckedService {
-  id: string;
-  name: string;
-  dept: string;
-  code: string;
-  qty: number;
-  amount: number;
-  checked: boolean;
-}
-
 interface ChartHistoryItem {
   month: string;
   value: number;
 }
 
 export default function CheckoutPaymentPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const searchParams = useSearchParams();
   const router = useRouter();
   const toast = useToastStore();
@@ -68,6 +59,16 @@ export default function CheckoutPaymentPage() {
   const [billingHistory, setBillingHistory] = useState<ChartHistoryItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<ApiInvoice | null>(null);
   const [pendingCheckouts, setPendingCheckouts] = useState<ApiAppointment[]>([]);
+  
+  // Card Details State
+  const [cardDetails, setCardDetails] = useState({
+    name: "",
+    number: "",
+    expiry: "",
+    cvv: ""
+  });
+
+  const [, setReceiptOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!appointmentId) {
@@ -124,7 +125,7 @@ export default function CheckoutPaymentPage() {
           }]);
         }
 
-        if (inv.paymentStatus === "PAID") {
+        if (inv.paymentStatus === "PAID" || inv.paymentMethodType === "ONLINE_CARD" || inv.paymentMethodType === "ONLINE_WALLET") {
           setPaid(true);
         }
       } else {
@@ -167,15 +168,20 @@ export default function CheckoutPaymentPage() {
   const toggleService = (id: string) =>
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s)));
 
-  const subtotal = services.filter((s) => s.checked).reduce((sum, s) => sum + s.amount * s.qty, 0);
-
   const discountPercent = (patient?.medicalHistory?.insuranceDetails as Record<string, unknown>)?.discountPercent as number || 0;
-  const insuranceCoverage = Math.round(subtotal * (discountPercent / 100));
-  const totalDue = subtotal - insuranceCoverage;
+  const { subtotal, insuranceCoverage, totalDue } = calculatePaymentTotals(services, discountPercent);
 
   const handleProcessPayment = async () => {
+    if (paymentMethod === "card" && (!cardDetails.name || !cardDetails.number || !cardDetails.expiry || !cardDetails.cvv)) {
+      toast.error(isRTL ? "يرجى إكمال تفاصيل البطاقة" : "Please complete card details");
+      return;
+    }
+
     setProcessing(true);
     try {
+      // Simulate real network latency and gateway interaction
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
       const methodMap = {
         card: "ONSITE_CARD",
         cash: "ONSITE_CASH",
@@ -321,7 +327,7 @@ export default function CheckoutPaymentPage() {
           </div>
           <Button
             variant="outline"
-            onClick={() => window.print()}
+            onClick={() => setReceiptOpen(true)}
             className="h-11 px-6 rounded-2xl border-slate-200 bg-white font-bold text-slate-600 text-[13px] shadow-sm flex items-center gap-2"
           >
             <Printer className="h-4 w-4" /> {isRTL ? "طباعة الفاتورة" : "Print Invoice"}
@@ -559,11 +565,35 @@ export default function CheckoutPaymentPage() {
             {/* Card Form */}
             {paymentMethod === "card" && (
               <div className="space-y-4 pt-2">
-                <CardField label={isRTL ? "اسم حامل البطاقة" : "Cardholder Name"} value="Robert Chen" type="text" />
-                <CardField label={isRTL ? "رقم البطاقة" : "Card Number"} value="•••• •••• •••• 4242" type="text" />
+                <CardField 
+                  label={isRTL ? "اسم حامل البطاقة" : "Cardholder Name"} 
+                  value={cardDetails.name} 
+                  type="text" 
+                  onChange={(v) => setCardDetails(prev => ({ ...prev, name: v }))}
+                  placeholder={isRTL ? "الاسم كما هو على البطاقة" : "Name as on card"}
+                />
+                <CardField 
+                  label={isRTL ? "رقم البطاقة" : "Card Number"} 
+                  value={cardDetails.number} 
+                  type="text" 
+                  onChange={(v) => setCardDetails(prev => ({ ...prev, number: v }))}
+                  placeholder="xxxx xxxx xxxx xxxx"
+                />
                 <div className="grid grid-cols-2 gap-3">
-                  <CardField label={isRTL ? "تاريخ الانتهاء" : "Expiry Date"} value="10/25" type="text" />
-                  <CardField label={isRTL ? "رمز الأمان" : "CVV"} value="•••" type="text" />
+                  <CardField 
+                    label={isRTL ? "تاريخ الانتهاء" : "Expiry Date"} 
+                    value={cardDetails.expiry} 
+                    type="text" 
+                    onChange={(v) => setCardDetails(prev => ({ ...prev, expiry: v }))}
+                    placeholder="MM/YY"
+                  />
+                  <CardField 
+                    label={isRTL ? "رمز الأمان" : "CVV"} 
+                    value={cardDetails.cvv} 
+                    type="password" 
+                    onChange={(v) => setCardDetails(prev => ({ ...prev, cvv: v }))}
+                    placeholder="***"
+                  />
                 </div>
               </div>
             )}
@@ -663,16 +693,21 @@ function PaymentOption({ selected, onClick, icon, iconBg, title, subtitle }: Pay
   );
 }
 
-function CardField({ label, value, type }: { label: string; value: string; type: string }) {
+
+/* ── Receipt Modal ────────────────────────────────────────────── */
+
+function CardField({ label, value, type, onChange, placeholder }: { label: string; value: string; type: string; onChange: (v: string) => void, placeholder?: string }) {
   const { isRTL } = useTranslation();
   return (
     <div className="space-y-1.5">
       <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{label}</label>
-      <div className="h-12 px-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center">
+      <div className="h-12 px-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center group focus-within:border-blue-400 focus-within:bg-white transition-all">
         <input
           type={type}
-          defaultValue={value}
-          className={cn("w-full bg-transparent text-[13px] font-bold text-slate-800 outline-none", isRTL && "text-right")}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={cn("w-full bg-transparent text-[13px] font-bold text-slate-800 outline-none placeholder:text-slate-300", isRTL && "text-right")}
         />
       </div>
     </div>

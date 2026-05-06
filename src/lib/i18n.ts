@@ -766,6 +766,14 @@ export const translations = {
     onlineCard: "Online Card",
     secureOnlineCard: "Visa, Mastercard",
     onlineWallet: "Digital Wallet",
+    onsitePay: "Pay at Clinic",
+    onlinePay: "Pay Online",
+    onsitePayDesc: "Pay at Clinic",
+    onlinePayDesc: "Pay Online",
+    print: "Print",
+    statusUpdated: "Status Updated",
+    printStarted: "Print Started",
+    description: "Description",
 
     // Booking Result
     bookingSuccessful: "Booking Successful!",
@@ -1623,6 +1631,14 @@ export const translations = {
     onlineCard: "دفع بالبطاقة أونلاين",
     secureOnlineCard: "فيزا، ماستركارد",
     onlineWallet: "محفظة إلكترونية",
+    onsitePay: "الدفع في العيادة",
+    onlinePay: "الدفع أونلاين",
+    onsitePayDesc: "الدفع بالنقدي أو الكارت في العيادة",
+    onlinePayDesc: "الدفع أونلاين",
+    print: "طباعة",
+    statusUpdated: "تم تحديث الحالة",
+    printStarted: "تم بدء الطباعة",
+    description: "الوصف",
 
     // Booking Result
     bookingSuccessful: "تم الحجز بنجاح!",

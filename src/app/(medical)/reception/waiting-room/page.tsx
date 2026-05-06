@@ -39,6 +39,7 @@ import { patientService } from "@/services/patientService";
 import { staffService } from "@/services/staffService";
 import { bookingService } from "@/services/bookingService";
 import { useTranslation } from "@/hooks/useTranslation";
+import { TranslationKey } from "@/lib/i18n";
 
 const toMinutes = (value: string): number | null => {
   const [hours, minutes] = value.split(":").map(Number);
@@ -55,7 +56,7 @@ const formatWait = (minutes: number, isRTL: boolean) => {
 
 
 export default function QueueManagementPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const toast = useToastStore();
   const router = useRouter();
   const { appointments, fetchAppointments, updateAppointment, isLoading } = useBookingStore();
@@ -347,7 +348,6 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({ dot, title, count, children, onFilter }: KanbanColumnProps) {
-  const { isRTL } = useTranslation();
   return (
     <div className="bg-white rounded-[28px] shadow-[0_4px_24px_rgb(0,0,0,0.05)] p-5 space-y-4">
       {/* Column Header */}
@@ -554,7 +554,7 @@ interface DoneCardProps {
 }
 
 function DoneCard({ name, pid, completedAt, doctor, dept, prescription, onAction, statusLabel, isCancelled, isPaid }: DoneCardProps) {
-  const { t, isRTL } = useTranslation();
+  const { t } = useTranslation();
   const displayLabel = statusLabel || (isPaid ? t("paid") : t("collectPayment"));
   
   return (
@@ -925,7 +925,7 @@ function AddToQueueView({ appointment, onBack }: { appointment: Appointment | nu
                 </div>
                 <div className="flex flex-col items-center sm:items-end gap-1.5 shrink-0">
                   <span className="inline-flex px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-600 text-[10px] md:text-[11px] font-black rounded-xl uppercase tracking-wide">
-                    {appointment ? t(appointment.status.toLowerCase() as any) : t("walkIn")} · {t("pending")}
+                    {appointment ? t(appointment.status.toLowerCase() as TranslationKey) : t("walkIn")} · {t("pending")}
                   </span>
                   <p className="text-[10px] md:text-[11px] font-bold text-slate-400">{t("date")}: {appointment ? new Date(appointment.date).toLocaleDateString(isRTL ? "ar-EG" : "en-US") : new Date().toLocaleDateString(isRTL ? "ar-EG" : "en-US")}</p>
                 </div>

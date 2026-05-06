@@ -61,7 +61,7 @@ export function ReceptionChatMain({
   onBack,
   isContactInfoOpen,
 }: ReceptionChatMainProps) {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
 
   if (!recipient) {
     return (

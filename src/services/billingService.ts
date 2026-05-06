@@ -32,4 +32,9 @@ export const billingService = {
     const response = await apiClient.get<InvoiceStats>("/invoices/stats");
     return response;
   },
+
+  async updateStatus(id: string, status: string): Promise<ApiInvoice> {
+    const response = await apiClient.patch<ApiInvoice>(`/invoices/${id}`, { paymentStatus: status });
+    return response;
+  },
 };

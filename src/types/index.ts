@@ -366,11 +366,13 @@ export interface ApiInvoice {
   discount: number;
   tax: number;
   totalAmount: number;
+  paidAmount?: number;
   paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
   notes?: string | null;
   createdAt: string;
   updatedAt?: string;
+  appointment?: Pick<ApiAppointment, "date" | "startTime" | "serviceName" | "type" | "status" | "amount" | "patientName"> | null;
 }
 
 export interface ApiPatientPaymentHistoryItem {

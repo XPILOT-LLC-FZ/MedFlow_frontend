@@ -26,7 +26,7 @@ import { HandoffPdfModal } from "@/components/reception/HandoffPdfModal";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ReceptionHandoffsPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const toastSuccess = useToastStore((state) => state.success);
   const toastError = useToastStore((state) => state.error);
 

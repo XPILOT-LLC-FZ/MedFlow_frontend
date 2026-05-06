@@ -26,7 +26,7 @@ import type { ApiPrescription, PrescriptionStatus } from "@/types";
 type StatusFilter = "ALL" | "ISSUED" | "SENT" | "DRAFT";
 
 export default function ReceptionPrescriptionsPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const toastSuccess = useToastStore((s) => s.success);
   const toastError = useToastStore((s) => s.error);
 

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { bookingService } from "@/services/bookingService";
 import { useTranslation } from "@/hooks/useTranslation";
+import { TranslationKey } from "@/lib/i18n";
 import { useToastStore } from "@/stores/useToastStore";
 import { HandoffPdfModal } from "@/components/reception/HandoffPdfModal";
 import { cn } from "@/lib/utils";
@@ -35,7 +36,7 @@ import type { ApiReceptionHandoff, ApiQuickTask, ApiPatient, ApiDoctor } from "@
 type StatusFilter = "ALL" | "NEW" | "REVIEWED";
 
 export default function ReceptionTasksPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const toastSuccess = useToastStore((s) => s.success);
   const toastError = useToastStore((s) => s.error);
 
@@ -447,7 +448,6 @@ export default function ReceptionTasksPage() {
       <CreateTaskModal 
         isOpen={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
-        locale={locale}
         isRTL={isRTL}
         t={t}
       />
@@ -457,7 +457,7 @@ export default function ReceptionTasksPage() {
 
 /* ── Sub-components ──────────────────────────────────────────── */
 
-function CreateTaskModal({ isOpen, onClose, locale, isRTL, t }: { isOpen: boolean; onClose: () => void; locale: string; isRTL: boolean; t: any }) {
+function CreateTaskModal({ isOpen, onClose, isRTL, t }: { isOpen: boolean; onClose: () => void; isRTL: boolean; t: (key: TranslationKey) => string }) {
   const toastSuccess = useToastStore((s) => s.success);
   const toastError = useToastStore((s) => s.error);
 

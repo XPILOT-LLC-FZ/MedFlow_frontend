@@ -26,11 +26,12 @@ import { patientService } from "@/services/patientService";
 import { useToastStore } from "@/stores/useToastStore";
 import { useBookingStore } from "@/stores/useBookingStore";
 import { cn } from "@/lib/utils";
+import { TranslationKey } from "@/lib/i18n";
 import type { DashboardStaffSummaryData, DashboardAppointmentStatus, ApiPatient, DashboardStaffQueueItem, Appointment } from "@/types";
 import { Check, X, Eye, Loader2 } from "lucide-react";
 
 export default function ReceptionDashboard() {
-  const { locale, t, isRTL } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const toast = useToastStore();
   const { updateAppointment } = useBookingStore();
   const [dashboardData, setDashboardData] = React.useState<DashboardStaffSummaryData | null>(null);
@@ -81,7 +82,7 @@ export default function ReceptionDashboard() {
     try {
       const status = nextStatus.toLowerCase().replace("_", "-") as Appointment["status"];
       await updateAppointment(apptId, { status });
-      toast.success(`${t("appointmentStatusUpdated")}: ${t(status as any)}`);
+      toast.success(`${t("appointmentStatusUpdated")}: ${t(status as TranslationKey)}`);
       void refreshDashboard();
     } catch {
       toast.error(t("error"));
@@ -682,7 +683,6 @@ interface TimelineItemProps {
 }
 
 function TimelineItem({ time, title, subtitle, active }: TimelineItemProps) {
-  const { isRTL } = useTranslation();
   return (
     <div className="flex gap-6 relative">
       <div className={cn("z-10 h-[22px] w-[22px] rounded-full border-4 border-white shadow-sm transition-colors", active ? "bg-blue-600" : "bg-slate-200")} />

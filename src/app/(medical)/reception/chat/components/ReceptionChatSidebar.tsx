@@ -47,7 +47,7 @@ export function ReceptionChatSidebar({
   onMute,
   onNewChat,
 }: ReceptionChatSidebarProps) {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 

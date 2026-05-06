@@ -19,7 +19,7 @@ import type { ApiPatient, ApiService, SmartRecommendation } from "@/types";
 
 export default function ReceptionSmartSchedulerPage() {
   const router = useRouter();
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const { doctors, fetchDoctors } = useStaffStore();
   const toast = useToastStore();
 

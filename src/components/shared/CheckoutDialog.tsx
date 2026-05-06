@@ -77,10 +77,16 @@ export function CheckoutDialog({
     if (!isOpen) return;
     setRedeemPoints(Boolean(bookingData?.redeemPoints));
     setNotes("");
-    setPaymentMethod("ONLINE_WALLET");
-    setSelectedCheckoutMethod("apple");
-    setIsAddingCard(false);
     setCardForm({ cardholderName: "", cardNumber: "", expiryDate: "", cvv: "" });
+
+    // Set default payment method based on mode
+    if (bookingData?.mode === "ONSITE") {
+      setPaymentMethod("ONSITE_CASH");
+      setSelectedCheckoutMethod("cash");
+    } else {
+      setPaymentMethod("ONLINE_WALLET");
+      setSelectedCheckoutMethod("apple");
+    }
 
     // Auto import cards from profile
     if (typeof window !== 'undefined') {
@@ -94,7 +100,7 @@ export function CheckoutDialog({
         }
       }
     }
-  }, [isOpen, bookingData?.redeemPoints]);
+  }, [isOpen, bookingData?.redeemPoints, bookingData?.mode]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined' && cards.length > 0) {
@@ -222,16 +228,18 @@ export function CheckoutDialog({
               <h5 className="text-md font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
                 {t("paymentMode" as never) || "Payment method"}
               </h5>
-              <button
-                type="button"
-                onClick={() => setSelectedCheckoutMethod("apple")}
-                className="text-blue-600 hover:text-blue-700 transition-all"
-              >
-                <Pencil className="h-4 w-4 stroke-[2]" />
-              </button>
+              {bookingData.mode === "ONLINE" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCheckoutMethod("apple")}
+                  className="text-blue-600 hover:text-blue-700 transition-all"
+                >
+                  <Pencil className="h-4 w-4 stroke-[2]" />
+                </button>
+              )}
             </div>
 
-            <div className="flex flex-col">
+            <div className="space-y-0.5">
               {/* Apple Pay */}
               <div
                 onClick={() => {
@@ -239,14 +247,16 @@ export function CheckoutDialog({
                   setPaymentMethod("ONLINE_WALLET");
                   setIsAddingCard(false);
                 }}
-                className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-slate-800 cursor-pointer transition-all"
+                className="flex items-center justify-between py-4 border-b border-slate-200/60 dark:border-slate-800 cursor-pointer transition-all group"
               >
                 <div className="flex items-center gap-4">
-                  <div className="h-7 px-2 border border-slate-300 dark:border-slate-600 rounded flex items-center justify-center bg-white dark:bg-slate-800 shrink-0 gap-1">
-                    <svg viewBox="0 0 384 512" className="h-3 w-3 fill-current text-slate-800 dark:text-slate-100">
-                      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
-                    </svg>
-                    <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">Pay</span>
+                  <div className="h-8 w-12 bg-slate-100 dark:bg-slate-800 rounded flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-slate-700">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3.5 h-3.5 bg-black dark:bg-white rounded-full flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 bg-white dark:bg-black rounded-full" />
+                      </div>
+                      <span className="text-[12px] font-bold text-slate-800 dark:text-slate-100">Pay</span>
+                    </div>
                   </div>
                   <span className="text-base font-medium text-slate-800 dark:text-slate-200">Apple Pay</span>
                 </div>
@@ -266,11 +276,11 @@ export function CheckoutDialog({
                   setPaymentMethod("ONLINE_WALLET");
                   setIsAddingCard(false);
                 }}
-                className="flex items-center justify-between py-3 border-b border-slate-200/60 dark:border-slate-800 cursor-pointer transition-all"
+                className="flex items-center justify-between py-4 border-b border-slate-200/60 dark:border-slate-800 cursor-pointer transition-all"
               >
                 <div className="flex items-center gap-4">
-                  <div className="h-7 px-2 border border-slate-300 dark:border-slate-600 rounded flex items-center justify-center bg-white dark:bg-slate-800 shrink-0">
-                    <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100"><span className="text-[#4285F4]">G</span> Pay</span>
+                  <div className="h-8 w-12 bg-slate-100 dark:bg-slate-800 rounded flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-slate-700">
+                    <span className="text-[12px] font-bold text-slate-800 dark:text-slate-100"><span className="text-[#4285F4]">G</span> Pay</span>
                   </div>
                   <span className="text-base font-medium text-slate-800 dark:text-slate-200">Google Pay</span>
                 </div>
@@ -283,7 +293,7 @@ export function CheckoutDialog({
                 )}
               </div>
 
-              {/* Saved Cards from local storage */}
+              {/* Saved Cards */}
               {cards.map((card) => (
                 <div
                   key={card.id}
@@ -312,28 +322,6 @@ export function CheckoutDialog({
                 </div>
               ))}
 
-              {/* Cash */}
-              <div
-                onClick={() => {
-                  setSelectedCheckoutMethod("cash");
-                  setPaymentMethod("ONSITE_CASH");
-                  setIsAddingCard(false);
-                }}
-                className="flex items-center justify-between py-4 border-b border-slate-200/60 dark:border-slate-800 cursor-pointer transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <HandCoins className="h-7 w-7 text-slate-700 dark:text-slate-300 stroke-[1.5]" />
-                  <span className="text-base font-medium text-slate-800 dark:text-slate-200">{t("onsiteCash") || "Cash"}</span>
-                </div>
-                {selectedCheckoutMethod === "cash" ? (
-                  <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center">
-                    <Check className="h-3.5 w-3.5 text-white stroke-[3]" />
-                  </div>
-                ) : (
-                  <div className="h-4 w-4 rounded-full border border-blue-500" />
-                )}
-              </div>
-
               {/* add new Credit card trigger */}
               <div
                 onClick={() => {
@@ -359,6 +347,33 @@ export function CheckoutDialog({
                   <div className="h-4 w-4 rounded-full border border-blue-500" />
                 )}
               </div>
+
+              {/* Onsite Payment (Cash/Card at Reception) - ONLY FOR ONSITE */}
+              {bookingData?.mode === "ONSITE" && (
+                <div
+                  onClick={() => {
+                    setSelectedCheckoutMethod("cash");
+                    setPaymentMethod("ONSITE_CASH");
+                    setIsAddingCard(false);
+                  }}
+                  className="flex items-center justify-between py-4 border-t border-slate-200/60 dark:border-slate-800 mt-2 cursor-pointer transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <HandCoins className="h-7 w-7 text-slate-700 dark:text-slate-300 stroke-[1.5]" />
+                    <div className="flex flex-col">
+                      <span className="text-base font-black text-slate-800 dark:text-slate-200">{t("onsitePay") || "Pay at Reception"}</span>
+                      <span className="text-[11px] font-bold text-slate-400">{t("onsitePayDesc") || "Payment will be handled at the clinic"}</span>
+                    </div>
+                  </div>
+                  {selectedCheckoutMethod === "cash" ? (
+                    <div className="h-4 w-4 rounded-full bg-blue-500 flex items-center justify-center">
+                      <Check className="h-3.5 w-3.5 text-white stroke-[3]" />
+                    </div>
+                  ) : (
+                    <div className="h-4 w-4 rounded-full border border-blue-500" />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Inline Card creation form */}

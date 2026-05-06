@@ -88,7 +88,7 @@ export function DashboardTopbar() {
   const router = useRouter();
   const { appointments, fetchAppointments } = useBookingStore();
   const { setLocale, theme, toggleTheme } = useStore();
-  const { t, locale } = useTranslation();
+  const { t, locale, isRTL } = useTranslation();
   const { user } = useAuthStore();
   const [notifOpen, setNotifOpen] = useState(false);
   const [isFullNotificationsOpen, setIsFullNotificationsOpen] = useState(false);
@@ -251,7 +251,6 @@ export function DashboardTopbar() {
 
   // ── RECEPTION CUSTOM NAVBAR ───────────────────────────────────────────
   if (role === "STAFF") {
-    const { isRTL } = useTranslation();
     return (
       <div dir={isRTL ? "rtl" : "ltr"} className="hidden lg:flex w-full h-[88px] items-center justify-between border-b border-slate-100 bg-white px-10 transition-all duration-300">
         {/* Left: Location Selector */}

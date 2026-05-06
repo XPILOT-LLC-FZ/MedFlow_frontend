@@ -29,14 +29,7 @@ import {
   Sparkles,
   AlertTriangle,
   Check,
-  ClipboardCheck,
   Zap,
-  UserPlus,
-  History,
-  UserCircle2,
-  Lock as LockIcon,
-  CalendarDays,
-  Eye,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,11 +38,12 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useToastStore } from "@/stores/useToastStore";
 import { useTranslation } from "@/hooks/useTranslation";
+import { TranslationKey } from "@/lib/i18n";
 
 export default function ReceptionProfilePage() {
   const { user, updateProfile } = useAuthStore();
   const { success, error } = useToastStore();
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
 
   const TABS = [
     { id: "profile", label: t("profile") || (isRTL ? "الملف الشخصي" : "Profile"), icon: User },
@@ -277,19 +271,19 @@ export default function ReceptionProfilePage() {
           )}
 
           {/* Billing Tab */}
-          {activeTab === "billing" && <BillingTab isRTL={isRTL} t={t} />}
+          {activeTab === "billing" && <BillingTab isRTL={isRTL}/>}
 
           {/* Queue Management Tab */}
-          {activeTab === "queue" && <QueueManagementTab isRTL={isRTL} t={t} />}
+          {activeTab === "queue" && <QueueManagementTab isRTL={isRTL}/>}
 
           {/* Notifications Tab */}
-          {activeTab === "notifications" && <NotificationsTab isRTL={isRTL} t={t} />}
+          {activeTab === "notifications" && <NotificationsTab isRTL={isRTL} t={t}/>}
 
           {/* Patient Preferences Tab */}
-          {activeTab === "patient-prefs" && <PatientPreferencesTab isRTL={isRTL} t={t} />}
+          {activeTab === "patient-prefs" && <PatientPreferencesTab isRTL={isRTL}/>}
 
           {/* Permissions Tab */}
-          {activeTab === "permissions" && <PermissionsTab isRTL={isRTL} t={t} />}
+          {activeTab === "permissions" && <PermissionsTab isRTL={isRTL}/>}
 
           {/* Placeholder for remaining tabs */}
           {activeTab !== "profile" && activeTab !== "billing" && activeTab !== "queue" && activeTab !== "notifications" && activeTab !== "patient-prefs" && activeTab !== "permissions" && (
@@ -348,7 +342,7 @@ function FormField({
 }
 
 /* ── Billing Tab ────────────────────────────────────────────────── */
-function BillingTab({ isRTL, t }: { isRTL: boolean; t: any }) {
+function BillingTab({ isRTL }: { isRTL: boolean}) {
   const [consultFee, setConsultFee] = useState("150");
   const [cashEnabled, setCashEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
@@ -531,7 +525,7 @@ function ToggleRow({ icon, title, subtitle, enabled, onToggle, isRTL }: ToggleRo
 }
 
 /* ── Notifications Tab ───────────────────────────────── */
-function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: any }) {
+function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKey) => string }) {
   const [checkInAlert, setCheckInAlert] = useState(true);
   const [lateAlert, setLateAlert] = useState(true);
   const [doctorReady, setDoctorReady] = useState(false);
@@ -633,7 +627,7 @@ function NotificationsTab({ isRTL, t }: { isRTL: boolean; t: any }) {
 }
 
 /* ── Queue Management Tab ───────────────────────────────── */
-function QueueManagementTab({ isRTL, t }: { isRTL: boolean; t: any }) {
+function QueueManagementTab({ isRTL }: { isRTL: boolean}) {
   const [sortMethod, setSortMethod] = useState<"appointment" | "manual">("appointment");
   const [autoMove, setAutoMove] = useState(true);
   const [highlightNext, setHighlightNext] = useState(true);
@@ -800,7 +794,7 @@ function QueueManagementTab({ isRTL, t }: { isRTL: boolean; t: any }) {
 }
 
 /* ── Patient Preferences Tab ─────────────────────────── */
-function PatientPreferencesTab({ isRTL, t }: { isRTL: boolean; t: any }) {
+function PatientPreferencesTab({ isRTL }: { isRTL: boolean}) {
   const [ageRequired, setAgeRequired] = useState(true);
   const [notesRequired, setNotesRequired] = useState(true);
   const [quickAdd, setQuickAdd] = useState(true);
@@ -871,7 +865,7 @@ function PatientPreferencesTab({ isRTL, t }: { isRTL: boolean; t: any }) {
 }
 
 /* ── Permissions Tab ───────────────────────────────── */
-function PermissionsTab({ isRTL, t }: { isRTL: boolean; t: any }) {
+function PermissionsTab({ isRTL }: { isRTL: boolean }) {
   const permissions = [
     { id: "p1", title: isRTL ? "عرض السجلات المالية" : "View Financial Records", enabled: true },
     { id: "p2", title: isRTL ? "تعديل المواعيد" : "Edit Appointments", enabled: true },

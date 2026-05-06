@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   CalendarDays,
@@ -16,20 +17,39 @@ import {
   ChevronRight,
   ChevronLeft,
   Check,
+  CreditCard,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { billingService, type InvoiceStats } from "@/services/billingService";
 import type { ApiInvoice } from "@/types";
 import { useToastStore } from "@/stores/useToastStore";
 import { useTranslation } from "@/hooks/useTranslation";
+import { FileText } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { TranslationKey } from "@/lib/i18n";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
 
 type Status = "all" | "paid" | "pending" | "overdue";
 const PAGE_SIZE = 10;
 
 export default function InvoiceListPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Status>("all");
   const [statusOpen, setStatusOpen] = useState(false);
@@ -40,6 +60,8 @@ export default function InvoiceListPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [stats, setStats] = useState<InvoiceStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState<ApiInvoice | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const toast = useToastStore();
 
   const statusRef = useRef<HTMLDivElement>(null);
@@ -97,6 +119,126 @@ export default function InvoiceListPage() {
     if (page <= 3) return [1, 2, 3, "...", totalPages];
     if (page >= totalPages - 2) return [1, "...", totalPages - 2, totalPages - 1, totalPages];
     return [1, "...", page - 1, page, page + 1, "...", totalPages];
+  };
+
+  const handlePrint = (inv: ApiInvoice) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const patientName = inv.appointment?.patientName || inv.patientName || (isRTL ? "خارجي" : "Walk-in");
+    const serviceName = inv.appointment?.serviceName || t("consultation");
+    const date = new Date(inv.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { 
+      year: 'numeric', month: 'long', day: 'numeric' 
+    });
+    const invoiceID = "INV-" + (inv.invoiceNumber || inv.id.slice(-6).toUpperCase());
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${invoiceID}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #334155; direction: ${isRTL ? 'rtl' : 'ltr'}; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 40px; }
+            .logo { font-size: 28px; font-weight: 900; color: #2563eb; letter-spacing: -1px; }
+            .invoice-info { text-align: ${isRTL ? 'left' : 'right'}; }
+            .invoice-info h1 { margin: 0; font-size: 24px; color: #0f172a; }
+            .invoice-info p { margin: 5px 0; font-size: 14px; color: #64748b; font-weight: 600; }
+            
+            .details-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+            .section-title { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+            .info-box { background: #f8fafc; padding: 20px; rounded: 12px; border: 1px solid #f1f5f9; }
+            .info-item { margin-bottom: 8px; font-size: 14px; }
+            .info-label { font-weight: 600; color: #64748b; margin-${isRTL ? 'left' : 'right'}: 8px; }
+            .info-value { font-weight: 700; color: #1e293b; }
+
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { text-align: ${isRTL ? 'right' : 'left'}; padding: 12px 15px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; }
+            td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; font-weight: 600; }
+            
+            .totals { margin-top: 40px; display: flex; flex-direction: column; align-items: flex-end; }
+            .total-row { display: flex; justify-content: space-between; width: 250px; margin-bottom: 10px; font-size: 14px; }
+            .grand-total { margin-top: 15px; padding-top: 15px; border-top: 2px solid #f1f5f9; font-size: 20px; font-weight: 900; color: #2563eb; }
+            
+            .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #f1f5f9; text-align: center; font-size: 12px; color: #94a3b8; font-weight: 600; }
+            
+            @media print {
+              body { padding: 0; }
+              @page { margin: 2cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">MedFlow</div>
+            <div class="invoice-info">
+              <h1>${isRTL ? "فاتورة ضريبية" : "TAX INVOICE"}</h1>
+              <p>${invoiceID}</p>
+              <p>${date}</p>
+            </div>
+          </div>
+
+          <div class="details-grid">
+            <div>
+              <div class="section-title">${isRTL ? "مقدم الخدمة" : "SERVICE PROVIDER"}</div>
+              <div class="info-item"><span class="info-value">MedFlow Medical Center</span></div>
+              <div class="info-item"><span class="info-value">123 Medical Plaza, Cairo</span></div>
+            </div>
+            <div>
+              <div class="section-title">${isRTL ? "بيانات المريض" : "PATIENT DETAILS"}</div>
+              <div class="info-item"><span class="info-label">${isRTL ? "الاسم:" : "Name:"}</span><span class="info-value">${patientName}</span></div>
+              <div class="info-item"><span class="info-label">${isRTL ? "رقم المريض:" : "Patient ID:"}</span><span class="info-value">#PT-${inv.patientId?.slice(-6).toUpperCase() || "N/A"}</span></div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>${isRTL ? "الوصف" : "DESCRIPTION"}</th>
+                <th style="text-align: center;">${isRTL ? "الكمية" : "QTY"}</th>
+                <th style="text-align: ${isRTL ? 'left' : 'right'};">${isRTL ? "السعر" : "PRICE"}</th>
+                <th style="text-align: ${isRTL ? 'left' : 'right'};">${isRTL ? "الإجمالي" : "TOTAL"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${serviceName}</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: ${isRTL ? 'left' : 'right'};">${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</td>
+                <td style="text-align: ${isRTL ? 'left' : 'right'};">${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <div class="total-row">
+              <span style="color: #64748b; font-weight: 600;">${isRTL ? "المجموع الفرعي" : "Subtotal"}</span>
+              <span style="font-weight: 700;">${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
+            </div>
+            <div class="total-row">
+              <span style="color: #64748b; font-weight: 600;">${isRTL ? "الخصم" : "Discount"}</span>
+              <span style="font-weight: 700;">0.00 ${isRTL ? "ج.م" : "LE"}</span>
+            </div>
+            <div class="total-row grand-total">
+              <span>${isRTL ? "الإجمالي" : "Total"}</span>
+              <span>${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            ${isRTL ? "شكراً لاختياركم MedFlow. تمنياتنا لكم بالشفاء العاجل." : "Thank you for choosing MedFlow. We wish you a speedy recovery."}
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() { window.close(); };
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    toast.success(t("printStarted") || "Print started...");
   };
 
   return (
@@ -246,7 +388,8 @@ export default function InvoiceListPage() {
           <div className="col-span-2">{t("date")}</div>
           <div className="col-span-2">{t("patientName") || (isRTL ? "اسم المريض" : "Patient Name")}</div>
           <div className="col-span-2">{t("serviceType") || (isRTL ? "نوع الخدمة" : "Service Type")}</div>
-          <div className="col-span-2">{t("amount")}</div>
+          <div className="col-span-1">{t("amount")}</div>
+          <div className="col-span-1">{t("status")}</div>
           <div className={cn("col-span-1", isRTL ? "text-left" : "text-right")}>{isRTL ? "خيارات" : "Actions"}</div>
         </div>
 
@@ -290,14 +433,23 @@ export default function InvoiceListPage() {
                   {selected.has(inv.id) && <Check className="h-3 w-3 text-white" />}
                 </button>
                 <div className="md:hidden">
-                   <StatusBadge status={inv.paymentStatus.toLowerCase()} />
+                  <StatusBadge 
+                    status={
+                      inv.paymentMethodType === "ONLINE_CARD" || inv.paymentMethodType === "ONLINE_WALLET" 
+                        ? "paid" 
+                        : inv.paymentStatus.toLowerCase()
+                    } 
+                  />
                 </div>
               </div>
 
               {/* Invoice ID */}
-              <div className="col-span-2 flex flex-col md:block">
+              <div 
+                onClick={() => inv.appointmentId && router.push(`/reception/payments?appointmentId=${inv.appointmentId}`)}
+                className="col-span-2 flex flex-col md:block cursor-pointer group"
+              >
                 <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">{isRTL ? "رقم الفاتورة" : "Invoice ID"}</span>
-                <span className="text-[14px] md:text-[13px] font-bold text-slate-700">INV-{inv.invoiceNumber || inv.id.slice(-6).toUpperCase()}</span>
+                <span className="text-[14px] md:text-[13px] font-bold text-slate-700 group-hover:text-blue-600 transition-colors">INV-{inv.invoiceNumber || inv.id.slice(-6).toUpperCase()}</span>
               </div>
 
               {/* Date */}
@@ -326,7 +478,7 @@ export default function InvoiceListPage() {
               </div>
 
               {/* Amount */}
-              <div className="col-span-2 flex flex-col md:block w-full md:w-auto">
+              <div className="col-span-1 flex flex-col md:block w-full md:w-auto">
                 <span className="md:hidden text-[10px] font-black text-slate-300 uppercase tracking-widest mb-0.5">{t("amount")}</span>
                 <span className="text-[18px] md:text-[15px] font-black text-slate-900">
                   {inv.totalAmount.toLocaleString(isRTL ? "ar-EG" : "en-US", { minimumFractionDigits: 2 })} <span className="text-[12px] font-bold text-slate-400">{isRTL ? "ج.م" : "LE"}</span>
@@ -335,22 +487,60 @@ export default function InvoiceListPage() {
 
               {/* Status */}
               <div className="hidden md:block col-span-1">
-                <StatusBadge status={inv.paymentStatus.toLowerCase()} />
+                <StatusBadge 
+                  status={
+                    inv.paymentMethodType === "ONLINE_CARD" || inv.paymentMethodType === "ONLINE_WALLET" 
+                      ? "paid" 
+                      : inv.paymentStatus.toLowerCase()
+                  } 
+                />
               </div>
 
               {/* Actions */}
               <div className={cn("col-span-1 flex items-center justify-end gap-2 md:gap-1.5 w-full md:w-auto pt-4 md:pt-0 border-t md:border-none border-slate-50 mt-1 md:mt-0", isRTL ? "flex-row-reverse" : "flex-row")}>
-                <button className="flex-1 md:flex-none h-10 md:h-8 px-4 md:px-0 rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 md:gap-0 transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
-                  <Eye className="h-4 w-4 text-slate-400" />
-                  <span className="md:hidden text-[12px] font-bold text-slate-500">{isRTL ? "عرض" : "View"}</span>
-                </button>
-                <button className="flex-1 md:flex-none h-10 md:h-8 px-4 md:px-0 rounded-xl hover:bg-slate-100 flex items-center justify-center gap-2 md:gap-0 transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
-                  <Printer className="h-4 w-4 text-slate-400" />
-                  <span className="md:hidden text-[12px] font-bold text-slate-500">{isRTL ? "طباعة" : "Print"}</span>
-                </button>
-                <button className="h-10 md:h-8 w-10 md:w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
-                  <MoreVertical className="h-4 w-4 text-slate-400" />
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-10 md:h-8 w-10 md:w-8 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-colors border md:border-none border-slate-100 md:bg-transparent bg-white">
+                      <MoreVertical className="h-4 w-4 text-slate-400" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align={isRTL ? "start" : "end"} className="w-56 rounded-2xl p-2 shadow-xl border-slate-100 dark:border-slate-800">
+                    <DropdownMenuItem 
+                      onClick={() => {
+                        setSelectedInvoice(inv);
+                        setDetailsOpen(true);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold text-slate-700 dark:text-slate-200"
+                    >
+                      <Eye className="h-4 w-4 text-slate-400" />
+                      {isRTL ? "عرض التفاصيل" : "Show Details"}
+                    </DropdownMenuItem>
+
+                    {(() => {
+                      const isPaid = inv.paymentStatus === "PAID" || inv.paymentMethodType === "ONLINE_CARD" || inv.paymentMethodType === "ONLINE_WALLET";
+                      if (isPaid) return null;
+                      return (
+                        <DropdownMenuItem 
+                          onClick={() => inv.appointmentId && router.push(`/reception/payments?appointmentId=${inv.appointmentId}`)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold text-blue-600 dark:text-blue-400"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          {isRTL ? "تحصيل الدفع" : "Collect Payment"}
+                        </DropdownMenuItem>
+                      );
+                    })()}
+
+                    <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-800" />
+                    
+                    <DropdownMenuItem 
+                      onClick={() => handlePrint(inv)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-bold text-slate-700 dark:text-slate-200"
+                    >
+                      <Printer className="h-4 w-4 text-slate-400" />
+                      {isRTL ? "طباعة الفاتورة" : "Print Invoice"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             );
@@ -405,6 +595,99 @@ export default function InvoiceListPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Details Dialog ── */}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-md rounded-[28px] border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
+          <DialogHeader className="p-6 pb-0">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <DialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  {isRTL ? "تفاصيل الفاتورة" : "Invoice Details"}
+                </DialogTitle>
+                <DialogDescription className="text-slate-400 font-medium">
+                  INV-{selectedInvoice?.invoiceNumber || selectedInvoice?.id.slice(-6).toUpperCase()}
+                </DialogDescription>
+              </div>
+              <div className="h-12 w-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center">
+                <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="p-6 space-y-6">
+            {/* Patient & Service info */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{isRTL ? "المريض" : "Patient"}</span>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  {selectedInvoice?.patientName || (isRTL ? "خارجي" : "Walk-in")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{isRTL ? "الخدمة" : "Service"}</span>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  {selectedInvoice?.appointment?.serviceName || t("consultation")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{t("date")}</span>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  {selectedInvoice?.createdAt && new Date(selectedInvoice.createdAt).toLocaleDateString(isRTL ? "ar-EG" : "en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+
+            {/* Financial Details */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[13px] font-bold text-slate-500">{isRTL ? "إجمالي المبلغ" : "Total Amount"}</span>
+                <span className="text-lg font-black text-slate-900 dark:text-slate-100">
+                  {selectedInvoice?.totalAmount.toLocaleString(isRTL ? "ar-EG" : "en-US")} {isRTL ? "ج.م" : "LE"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[13px] font-bold text-slate-500">{isRTL ? "المبلغ المدفوع" : "Paid Amount"}</span>
+                <span className="text-md font-bold text-emerald-600">
+                  {(() => {
+                    const isOnline = selectedInvoice?.paymentMethodType === "ONLINE_CARD" || selectedInvoice?.paymentMethodType === "ONLINE_WALLET";
+                    const isPaid = selectedInvoice?.paymentStatus === "PAID" || isOnline;
+                    const amount = selectedInvoice?.paidAmount ?? (isPaid ? selectedInvoice?.totalAmount : 0);
+                    return (amount || 0).toLocaleString(isRTL ? "ar-EG" : "en-US") + " " + (isRTL ? "ج.م" : "LE");
+                  })()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                <span className="text-[13px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">{isRTL ? "الحالة" : "Status"}</span>
+                <StatusBadge 
+                  status={(() => {
+                    const isOnline = selectedInvoice?.paymentMethodType === "ONLINE_CARD" || selectedInvoice?.paymentMethodType === "ONLINE_WALLET";
+                    if (isOnline) return "paid";
+                    return selectedInvoice?.paymentStatus?.toLowerCase() || "pending";
+                  })()} 
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-800/30 gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setDetailsOpen(false)}
+              className="flex-1 h-11 rounded-xl border-slate-200 dark:border-slate-700 font-bold"
+            >
+              {isRTL ? "إغلاق" : "Close"}
+            </Button>
+            <Button 
+              onClick={() => selectedInvoice && handlePrint(selectedInvoice)}
+              className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {t("print")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -439,7 +722,7 @@ function StatCard({ icon, iconBg, label, value, trend, trendUp }: StatCardProps)
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const { t, isRTL } = useTranslation();
+  const { t } = useTranslation();
   const styles: Record<string, string> = {
     paid: "bg-emerald-50 text-emerald-600 border-emerald-100",
     pending: "bg-amber-50 text-amber-600 border-amber-100",
@@ -450,7 +733,7 @@ function StatusBadge({ status }: { status: string }) {
   const normalizedStatus = status.toLowerCase();
   return (
     <span className={cn("inline-flex px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wide", styles[normalizedStatus] || "bg-slate-50 text-slate-500 border-slate-100")}>
-      {t(normalizedStatus as any) || normalizedStatus}
+      {t(normalizedStatus as TranslationKey) || normalizedStatus}
     </span>
   );
 }

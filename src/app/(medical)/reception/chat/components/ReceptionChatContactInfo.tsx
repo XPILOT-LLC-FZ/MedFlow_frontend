@@ -34,7 +34,7 @@ interface ReceptionChatContactInfoProps {
 }
 
 export function ReceptionChatContactInfo({ user, activity, files, onClose }: ReceptionChatContactInfoProps) {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const [activeTab, setActiveTab] = useState("details");
   const [viewingFile, setViewingFile] = useState<{ id: string; name: string; size: string; date: string; fileUrl?: string } | null>(null);
   const [isFetchingUrl, setIsFetchingUrl] = useState(false);

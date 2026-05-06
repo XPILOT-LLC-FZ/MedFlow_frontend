@@ -40,6 +40,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { patientService } from "@/services/patientService";
 import { useToastStore } from "@/stores/useToastStore";
 import type { ApiPatient } from "@/types";
+import { TranslationKey } from "@/lib/i18n";
 
 const getPositionForTime = (timeStr: string) => {
   // Expecting "HH:MM" or "HH:MM AM/PM"
@@ -58,7 +59,7 @@ const getPositionForTime = (timeStr: string) => {
 };
 
 export default function ReceptionSchedulePage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [doctors, setDoctors] = useState<ApiDoctor[]>([]);
@@ -712,7 +713,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                   <label className={cn("text-[13px] font-bold text-slate-500 dark:text-slate-400", isRTL ? "mr-1" : "ml-1")}>{t("type")}</label>
                   <div className="relative group">
                     <div className="h-14 px-5 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between cursor-pointer group-hover:border-blue-500 transition-colors">
-                      <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 capitalize">{t(selectedType.toLowerCase() as any)}</span>
+                      <span className="text-[14px] font-bold text-slate-700 dark:text-slate-200 capitalize">{t(selectedType.toLowerCase() as TranslationKey)}</span>
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     </div>
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden opacity-0 group-hover:opacity-100 transition-all pointer-events-none group-hover:pointer-events-auto">
@@ -722,7 +723,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
                           onClick={() => setSelectedType(type as "CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY")}
                           className="px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-none"
                         >
-                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{t(type.toLowerCase() as any)}</span>
+                          <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 capitalize">{t(type.toLowerCase() as TranslationKey)}</span>
                           {selectedType === type && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                         </div>
                       ))}
@@ -865,7 +866,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className={cn("text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("type")}</label>
-                  <p className="text-[15px] font-bold text-slate-900 dark:text-white capitalize">{t(selectedType.toLowerCase() as any)}</p>
+                  <p className="text-[15px] font-bold text-slate-900 dark:text-white capitalize">{t(selectedType.toLowerCase() as TranslationKey)}</p>
                 </div>
                 <div className="space-y-2">
                   <label className={cn("text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("notes")}</label>
@@ -981,7 +982,7 @@ function ManageAppointmentModal({
                     appointment.status === "COMPLETED" ? "bg-emerald-500" : "bg-rose-500"
                   )} />
                   <span className="text-slate-400 dark:text-slate-500 text-[13px] font-bold uppercase tracking-widest">
-                    {t(appointment.status.toLowerCase() as any)}
+                    {t(appointment.status.toLowerCase() as TranslationKey)}
                   </span>
                 </div>
               </div>

@@ -25,7 +25,6 @@ import {
   X,
   Plus,
   Loader2,
-  Eye,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,18 +32,16 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Select } from "@/components/ui/select";
 import { useToastStore } from "@/stores/useToastStore";
 import { patientService } from "@/services/patientService";
 import { dashboardService } from "@/services/dashboardService";
-import type { ApiPatient, PaginatedPatientsResponse, DashboardStaffSummaryData, DashboardStaffQueueItem } from "@/types";
+import type { ApiPatient, PaginatedPatientsResponse, DashboardStaffSummaryData, CreatePatientPayload } from "@/types";
 import { useTranslation } from "@/hooks/useTranslation";
+import { TranslationKey } from "@/lib/i18n";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 
 export default function ReceptionPatientsPage() {
-  const { t, isRTL, locale } = useTranslation();
+  const { t, isRTL } = useTranslation();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [view, setView] = useState<"list" | "new" | "details">("list");
@@ -454,7 +451,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
         },
       };
 
-      await patientService.create(payload as any);
+      await patientService.create(payload as CreatePatientPayload);
       toast.success(t("patientAddedSuccessfully"));
       onBack();
     } catch (err) {
@@ -752,7 +749,6 @@ interface FormSectionProps {
 }
 
 function FormSection({ title, icon: Icon, children }: FormSectionProps) {
-  const { isRTL } = useTranslation();
   return (
     <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[32px] bg-white overflow-hidden p-8 space-y-8">
       <div className="flex items-center gap-4">
@@ -853,7 +849,6 @@ function SummaryCard({ icon: Icon, label, value, iconBg, iconColor, badge, badge
 }
 
 function TableFilter({ label }: { label: string }) {
-  const { isRTL } = useTranslation();
   return (
     <div className="flex items-center gap-4 px-5 py-3 bg-white border border-slate-100 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors whitespace-nowrap">
       <span className="text-[13px] font-bold text-slate-500">{label}</span>
@@ -995,7 +990,7 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
                   </div>
                   <div className="flex items-center justify-center sm:justify-start gap-4">
                     <span className="text-[11px] md:text-[12px] font-bold text-slate-500">{t("bloodType")}: {patient.bloodType || "N/A"}</span>
-                    <span className="text-[11px] md:text-[12px] font-bold text-slate-500">{t("gender")}: {t(patient.gender?.toLowerCase() as any) || "N/A"}</span>
+                    <span className="text-[11px] md:text-[12px] font-bold text-slate-500">{t("gender")}: {t(patient.gender?.toLowerCase() as TranslationKey) || "N/A"}</span>
                   </div>
                 </div>
               </div>
