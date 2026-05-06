@@ -38,12 +38,12 @@ const toMinutes = (value: string): number | null => {
   const [hoursStr, minutesStr] = time.split(":").map(s => s.trim());
   let hours = Number(hoursStr);
   const minutes = Number(minutesStr);
-  
+
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-  
+
   if (modifier === "PM" && hours < 12) hours += 12;
   if (modifier === "AM" && hours === 12) hours = 0;
-  
+
   return hours * 60 + minutes;
 };
 
@@ -68,8 +68,9 @@ export default function ReceptionDashboard() {
         patientService.getAll({ insuranceStatus: "pending" }),
         fetchAppointments({ date: todayKey })
       ]);
-      
+
       setDashboardData(summary);
+
       const filtered = (patients || []).filter((p: ApiPatient) => {
         let mh = p.medicalHistory;
         // Handle case where medicalHistory might be a string (from some legacy storage)
@@ -127,25 +128,25 @@ export default function ReceptionDashboard() {
 
   const summary = dashboardData?.summaryCards;
   const activityLog = dashboardData?.activityLog || [];
-  
+
   // Use store appointments to ensure patients don't disappear when status changes to IN_PROGRESS
   const todayAppointments = appointments.length > 0 ? appointments : (dashboardData?.queue.upcoming || []);
   const upcoming = dashboardData?.queue.upcoming || [];
 
   const computedAvgWait = React.useMemo(() => {
     if (summary?.averageWaitMinutes && summary.averageWaitMinutes > 0) return summary.averageWaitMinutes;
-    
+
     const waitingPatients = upcoming.filter(a => a.status === "CONFIRMED");
     if (waitingPatients.length === 0) return 0;
-    
+
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    
+
     const total = waitingPatients.reduce((sum, a) => {
       const m = toMinutes(a.time);
       return m === null ? sum : sum + Math.max(0, nowMin - m);
     }, 0);
-    
+
     return Math.round(total / waitingPatients.length);
   }, [summary?.averageWaitMinutes, upcoming]);
 
@@ -216,10 +217,10 @@ export default function ReceptionDashboard() {
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">{t("pendingInsuranceVerification")}</h2>
             <div className="flex items-center gap-4">
               <p className="text-slate-400 text-sm font-medium">{t("reviewInsuranceCards")}</p>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => void refreshDashboard()} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void refreshDashboard()}
                 disabled={isLoading}
                 className="h-7 px-2 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg gap-1.5"
               >
@@ -403,42 +404,42 @@ export default function ReceptionDashboard() {
                         return status === "SCHEDULED" || status === "IN_PROGRESS" || status === "IN-PROGRESS";
                       })
                       .map((apt: any, idx: number) => {
-                      return (
-                        <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
-                                <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.patientName}`} />
-                                <AvatarFallback>P</AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="text-sm font-bold text-slate-800 leading-tight truncate">{apt.patientName}</span>
-                                <span className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
-                                  {apt.patientId ? `#PT-${apt.patientId.slice(-4)}` : "ID: N/A"}
-                                </span>
+                        return (
+                          <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-6 py-5">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
+                                  <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.patientName}`} />
+                                  <AvatarFallback>P</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col overflow-hidden">
+                                  <span className="text-sm font-bold text-slate-800 leading-tight truncate">{apt.patientName}</span>
+                                  <span className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                                    {apt.patientId ? `#PT-${apt.patientId.slice(-4)}` : "ID: N/A"}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-5 text-[13px] font-medium text-slate-500 truncate">{apt.serviceName}</td>
-                          <td className="px-6 py-5 text-[13px] font-bold text-slate-900">{apt.time}</td>
-                          <td className="px-6 py-5">
-                            <StatusBadge 
-                              status={(apt.status as string).toUpperCase().replace("-", "_") as DashboardAppointmentStatus} 
-                              avgTime={summary?.averageWaitMinutes}
-                            />
-                          </td>
-                          <td className={cn("px-6 py-5", isRTL ? "text-left" : "text-right")}>
-                            <ActionButton 
-                              status={(apt.status as string).toUpperCase().replace("-", "_") as DashboardAppointmentStatus} 
-                              patientId={apt.patientId}
-                              aptId={apt.id}
-                              onUpdate={(s) => handleStatusUpdate(apt.id, s)}
-                              loading={processingId === apt.id}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })
+                            </td>
+                            <td className="px-6 py-5 text-[13px] font-medium text-slate-500 truncate">{apt.serviceName}</td>
+                            <td className="px-6 py-5 text-[13px] font-bold text-slate-900">{apt.time}</td>
+                            <td className="px-6 py-5">
+                              <StatusBadge
+                                status={(apt.status as string).toUpperCase().replace("-", "_") as DashboardAppointmentStatus}
+                                avgTime={summary?.averageWaitMinutes}
+                              />
+                            </td>
+                            <td className={cn("px-6 py-5", isRTL ? "text-left" : "text-right")}>
+                              <ActionButton
+                                status={(apt.status as string).toUpperCase().replace("-", "_") as DashboardAppointmentStatus}
+                                patientId={apt.patientId}
+                                aptId={apt.id}
+                                onUpdate={(s) => handleStatusUpdate(apt.id, s)}
+                                loading={processingId === apt.id}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })
                   )}
                 </tbody>
               </table>
@@ -494,65 +495,65 @@ export default function ReceptionDashboard() {
                           return status === "CONFIRMED";
                         })
                         .map((apt: any, i: number) => (
-                        <tr key={apt.id || i} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-4 py-5">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-9 w-9 border-2 border-white shadow-sm shrink-0">
-                                <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.patientName}`} />
-                                <AvatarFallback>P</AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col overflow-hidden">
-                                <span className="text-sm font-bold text-slate-800 leading-tight truncate">{apt.patientName}</span>
-                                <span className="text-[10px] font-bold text-slate-400 mt-0.5 tracking-wider">
-                                  {apt.patientId ? `#PT-${apt.patientId.slice(-4)}` : "ID: N/A"}
-                                </span>
+                          <tr key={apt.id || i} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-4 py-5">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-9 w-9 border-2 border-white shadow-sm shrink-0">
+                                  <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${apt.patientName}`} />
+                                  <AvatarFallback>P</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col overflow-hidden">
+                                  <span className="text-sm font-bold text-slate-800 leading-tight truncate">{apt.patientName}</span>
+                                  <span className="text-[10px] font-bold text-slate-400 mt-0.5 tracking-wider">
+                                    {apt.patientId ? `#PT-${apt.patientId.slice(-4)}` : "ID: N/A"}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-5 text-[13px] font-medium text-slate-400/80 truncate">{apt.doctorName}</td>
-                          <td className="px-4 py-5 text-[13px] font-bold text-slate-500/90 truncate">{apt.time}</td>
-                          <td className="px-4 py-5">
-                            <QueueStatusBadge 
-                              status={(apt.status as string).toUpperCase().replace("-", "_") === "IN_PROGRESS" ? "IN_PROGRESS" : (apt.status as string).toUpperCase().replace("-", "_") === "CONFIRMED" ? "WAITING" : "UPCOMING"} 
-                              avgTime={summary?.averageWaitMinutes}
-                            />
-                          </td>
-                          <td className={cn("px-4 py-5", isRTL ? "text-left" : "text-right")}>
-                            {(apt.status as string).toUpperCase().replace("-", "_") === "SCHEDULED" ? (
-                              <button 
-                                onClick={() => handleStatusUpdate(apt.id, "CONFIRMED")}
-                                disabled={processingId === apt.id}
-                                className={cn("text-[12px] font-bold text-blue-600 hover:text-blue-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
-                              >
-                                {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                                {t("checkIn")}
-                              </button>
-                            ) : (apt.status as string).toUpperCase().replace("-", "_") === "CONFIRMED" ? (
-                              <button 
-                                onClick={() => handleStatusUpdate(apt.id, "IN_PROGRESS")}
-                                disabled={processingId === apt.id}
-                                className={cn("text-[12px] font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
-                              >
-                                {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                                {t("startSession")}
-                              </button>
-                            ) : (apt.status as string).toUpperCase().replace("-", "_") === "IN_PROGRESS" ? (
-                              <button 
-                                onClick={() => handleStatusUpdate(apt.id, "COMPLETED")}
-                                disabled={processingId === apt.id}
-                                className={cn("text-[12px] font-bold text-purple-600 hover:text-purple-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
-                              >
-                                {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
-                                {t("complete")}
-                              </button>
-                            ) : (
-                              <button className="text-[12px] font-bold text-slate-400 hover:text-slate-600 whitespace-nowrap">
-                                {t("viewFile")}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                            </td>
+                            <td className="px-4 py-5 text-[13px] font-medium text-slate-400/80 truncate">{apt.doctorName}</td>
+                            <td className="px-4 py-5 text-[13px] font-bold text-slate-500/90 truncate">{apt.time}</td>
+                            <td className="px-4 py-5">
+                              <QueueStatusBadge
+                                status={(apt.status as string).toUpperCase().replace("-", "_") === "IN_PROGRESS" ? "IN_PROGRESS" : (apt.status as string).toUpperCase().replace("-", "_") === "CONFIRMED" ? "WAITING" : "UPCOMING"}
+                                avgTime={summary?.averageWaitMinutes}
+                              />
+                            </td>
+                            <td className={cn("px-4 py-5", isRTL ? "text-left" : "text-right")}>
+                              {(apt.status as string).toUpperCase().replace("-", "_") === "SCHEDULED" ? (
+                                <button
+                                  onClick={() => handleStatusUpdate(apt.id, "CONFIRMED")}
+                                  disabled={processingId === apt.id}
+                                  className={cn("text-[12px] font-bold text-blue-600 hover:text-blue-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
+                                >
+                                  {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  {t("checkIn")}
+                                </button>
+                              ) : (apt.status as string).toUpperCase().replace("-", "_") === "CONFIRMED" ? (
+                                <button
+                                  onClick={() => handleStatusUpdate(apt.id, "IN_PROGRESS")}
+                                  disabled={processingId === apt.id}
+                                  className={cn("text-[12px] font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
+                                >
+                                  {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  {t("startSession")}
+                                </button>
+                              ) : (apt.status as string).toUpperCase().replace("-", "_") === "IN_PROGRESS" ? (
+                                <button
+                                  onClick={() => handleStatusUpdate(apt.id, "COMPLETED")}
+                                  disabled={processingId === apt.id}
+                                  className={cn("text-[12px] font-bold text-purple-600 hover:text-purple-700 whitespace-nowrap flex items-center gap-1", isRTL ? "justify-start mr-auto" : "justify-end ml-auto")}
+                                >
+                                  {processingId === apt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  {t("complete")}
+                                </button>
+                              ) : (
+                                <button className="text-[12px] font-bold text-slate-400 hover:text-slate-600 whitespace-nowrap">
+                                  {t("viewFile")}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -577,7 +578,7 @@ export default function ReceptionDashboard() {
                     <div className="text-center text-slate-400 text-sm py-4">{t("noRecentActivity")}</div>
                   ) : (
                     activityLog.map((log, idx) => (
-                      <TimelineItem 
+                      <TimelineItem
                         key={idx}
                         time={new Date(log.timestamp).toLocaleTimeString(isRTL ? "ar-EG" : "en-US", { hour: '2-digit', minute: '2-digit' })}
                         title={log.title}
@@ -630,11 +631,11 @@ interface StatCardProps {
 
 function StatCard({ icon: Icon, label, value, trend, badge, color }: StatCardProps) {
   const { isRTL } = useTranslation();
-  const colorMap: Record<string, string> = { 
-    blue: "bg-blue-50 text-blue-600", 
-    orange: "bg-orange-50 text-orange-600", 
-    purple: "bg-purple-50 text-purple-600", 
-    green: "bg-emerald-50 text-emerald-600" 
+  const colorMap: Record<string, string> = {
+    blue: "bg-blue-50 text-blue-600",
+    orange: "bg-orange-50 text-orange-600",
+    purple: "bg-purple-50 text-purple-600",
+    green: "bg-emerald-50 text-emerald-600"
   };
   return (
     <motion.div whileHover={{ y: -4 }} transition={{ duration: 0.2 }}>
@@ -691,10 +692,10 @@ interface StatusBadgeProps {
 
 function StatusBadge({ status, avgTime }: StatusBadgeProps) {
   const { t } = useTranslation();
-  const configs: Record<string, { label: string; color: string }> = { 
-    CONFIRMED: { label: avgTime !== undefined ? `${t("liveQueue")} (${avgTime} ${t("min")})` : t("liveQueue"), color: "bg-amber-50 text-amber-600" }, 
-    IN_PROGRESS: { label: t("inprogress"), color: "bg-blue-50 text-blue-600" }, 
-    SCHEDULED: { label: t("booked"), color: "bg-slate-100 text-slate-500" }, 
+  const configs: Record<string, { label: string; color: string }> = {
+    CONFIRMED: { label: avgTime !== undefined ? `${t("liveQueue")} (${avgTime} ${t("min")})` : t("liveQueue"), color: "bg-amber-50 text-amber-600" },
+    IN_PROGRESS: { label: t("inprogress"), color: "bg-blue-50 text-blue-600" },
+    SCHEDULED: { label: t("booked"), color: "bg-slate-100 text-slate-500" },
     COMPLETED: { label: t("completed"), color: "bg-emerald-50 text-emerald-600" },
     CANCELLED: { label: t("cancelled"), color: "bg-red-50 text-red-600" },
     NO_SHOW: { label: t("cancelled"), color: "bg-red-50 text-red-600" }
@@ -717,8 +718,8 @@ function ActionButton({ status, patientId, aptId, onUpdate, loading }: ActionBut
 
   if (status === "SCHEDULED") {
     return (
-      <Button 
-        variant="link" 
+      <Button
+        variant="link"
         onClick={() => onUpdate?.("CONFIRMED")}
         className={cn("text-blue-600 font-bold hover:no-underline px-0 transition-all", isRTL ? "hover:-translate-x-1" : "hover:translate-x-1")}
       >
@@ -729,8 +730,8 @@ function ActionButton({ status, patientId, aptId, onUpdate, loading }: ActionBut
 
   if (status === "CONFIRMED") {
     return (
-      <Button 
-        variant="link" 
+      <Button
+        variant="link"
         onClick={() => onUpdate?.("IN_PROGRESS")}
         className={cn("text-emerald-600 font-bold hover:no-underline px-0 transition-all", isRTL ? "hover:-translate-x-1" : "hover:translate-x-1")}
       >
@@ -741,8 +742,8 @@ function ActionButton({ status, patientId, aptId, onUpdate, loading }: ActionBut
 
   if (status === "IN_PROGRESS") {
     return (
-      <Button 
-        variant="link" 
+      <Button
+        variant="link"
         onClick={() => onUpdate?.("COMPLETED")}
         className={cn("text-purple-600 font-bold hover:no-underline px-0 transition-all", isRTL ? "hover:-translate-x-1" : "hover:translate-x-1")}
       >
@@ -777,10 +778,10 @@ interface QueueStatusBadgeProps {
 
 function QueueStatusBadge({ status, avgTime }: QueueStatusBadgeProps) {
   const { t, isRTL } = useTranslation();
-  const configs: Record<string, { label: string; color: string }> = { 
-    IN_PROGRESS: { label: isRTL ? "في الجلسة" : "IN-SESSION", color: "bg-blue-50 text-blue-600" }, 
-    WAITING: { label: avgTime !== undefined ? `${t("liveQueue")} (${avgTime} ${t("min")})` : (isRTL ? "قائمة الانتظار" : "LIVE-QUEUE"), color: "bg-amber-50 text-amber-600" }, 
-    UPCOMING: { label: isRTL ? "مجدول" : "BOOKED", color: "bg-slate-50 text-slate-400" } 
+  const configs: Record<string, { label: string; color: string }> = {
+    IN_PROGRESS: { label: isRTL ? "في الجلسة" : "IN-SESSION", color: "bg-blue-50 text-blue-600" },
+    WAITING: { label: avgTime !== undefined ? `${t("liveQueue")} (${avgTime} ${t("min")})` : (isRTL ? "قائمة الانتظار" : "LIVE-QUEUE"), color: "bg-amber-50 text-amber-600" },
+    UPCOMING: { label: isRTL ? "مجدول" : "BOOKED", color: "bg-slate-50 text-slate-400" }
   };
   const config = configs[status] || configs.UPCOMING;
   return <Badge className={cn("rounded-full px-3 py-1 border-none font-bold text-[10px] tracking-tight", config.color)}>{config.label}</Badge>;
