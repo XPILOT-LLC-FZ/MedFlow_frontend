@@ -164,15 +164,26 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   }, [fetchMe, user?.id]);
 
   const getVerifiedInsuranceDiscount = () => {
-    const medicalHistory = (currentPatient?.medicalHistory as Record<string, unknown>) || {};
-    const insuranceDetails = (medicalHistory.insuranceDetails as Record<string, unknown>) || {};
+    // Try to get medicalHistory from currentPatient first, then fallback to user object
+    const rawMedicalHistory = currentPatient?.medicalHistory ?? user?.medicalHistory;
+    
+    if (!rawMedicalHistory) return 0;
+    
+    // Prisma returns Json fields as objects, but we handle stringified fallback for safety
+    const history = typeof rawMedicalHistory === 'string'
+      ? JSON.parse(rawMedicalHistory)
+      : (rawMedicalHistory as Record<string, unknown>) || {};
 
-    if (insuranceDetails.verificationStatus !== "verified") {
+    const insurance = (history.insuranceDetails as Record<string, unknown>) || {};
+    
+    // Case-insensitive check and allow for "Verified" / "verified"
+    const status = String(insurance.verificationStatus || "").toLowerCase();
+    if (status !== "verified") {
       return 0;
     }
 
-    const rawDiscount = Number(insuranceDetails.discountPercent ?? 0);
-    if (!Number.isFinite(rawDiscount)) {
+    const rawDiscount = Number(insurance.discountPercent ?? 0);
+    if (isNaN(rawDiscount) || !Number.isFinite(rawDiscount)) {
       return 0;
     }
 
@@ -200,6 +211,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         branchId: pendingBooking.branchId,
         notes: data.notes,
         redeemPoints: data.redeemPoints,
+        insuranceDiscount: getVerifiedInsuranceDiscount(),
         paymentMethodType: data.paymentMethodType,
       });
 

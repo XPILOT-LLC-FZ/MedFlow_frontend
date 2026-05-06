@@ -39,13 +39,21 @@ export const bookingService = {
   async updateStatus(
     id: string, 
     status: string, 
-    options?: { notes?: string; paymentMethod?: string; amount?: number }
+    options?: { 
+      notes?: string; 
+      paymentMethod?: string; 
+      amount?: number;
+      insuranceDiscount?: number;
+      tax?: number;
+    }
   ): Promise<ApiAppointment> {
     return apiClient.patch(`/appointments/${id}/status`, { 
       status, 
       notes: options?.notes,
       paymentMethod: options?.paymentMethod,
-      amount: options?.amount
+      amount: options?.amount,
+      insuranceDiscount: options?.insuranceDiscount,
+      tax: options?.tax
     });
   },
 

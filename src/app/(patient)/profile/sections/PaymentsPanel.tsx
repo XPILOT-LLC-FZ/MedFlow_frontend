@@ -73,12 +73,14 @@ export default function PaymentsPanel({ patient }: PaymentsPanelProps) {
     }
   };
 
-  const formatPaymentStatus = (status: ApiPatientPaymentHistoryItem['paymentStatus']) => {
+  const formatPaymentStatus = (status: ApiPatientPaymentHistoryItem['paymentStatus'] | 'FAILED') => {
     switch (status) {
       case 'PAID':
         return locale === 'ar' ? 'ناجحة' : 'Successful';
       case 'PENDING':
         return locale === 'ar' ? 'قيد الانتظار' : 'Pending';
+      case 'FAILED':
+        return locale === 'ar' ? 'فاشلة' : 'Failed';
       case 'PARTIAL':
         return locale === 'ar' ? 'جزئية' : 'Partial';
       case 'REFUNDED':

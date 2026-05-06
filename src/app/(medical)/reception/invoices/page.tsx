@@ -203,8 +203,8 @@ export default function InvoiceListPage() {
               <tr>
                 <td>${serviceName}</td>
                 <td style="text-align: center;">1</td>
-                <td style="text-align: ${isRTL ? 'left' : 'right'};">${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</td>
-                <td style="text-align: ${isRTL ? 'left' : 'right'};">${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</td>
+                <td style="text-align: ${isRTL ? 'left' : 'right'};">${(inv.subtotal || inv.totalAmount + (inv.discount || 0)).toLocaleString()} ${isRTL ? "ج.م" : "LE"}</td>
+                <td style="text-align: ${isRTL ? 'left' : 'right'};">${(inv.subtotal || inv.totalAmount + (inv.discount || 0)).toLocaleString()} ${isRTL ? "ج.م" : "LE"}</td>
               </tr>
             </tbody>
           </table>
@@ -212,14 +212,28 @@ export default function InvoiceListPage() {
           <div class="totals">
             <div class="total-row">
               <span style="color: #64748b; font-weight: 600;">${isRTL ? "المجموع الفرعي" : "Subtotal"}</span>
-              <span style="font-weight: 700;">${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
+              <span style="font-weight: 700;">${(inv.subtotal || inv.totalAmount + (inv.discount || 0)).toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
             </div>
+            ${(inv.appointment?.insuranceDiscount ?? 0) > 0 ? `
             <div class="total-row">
-              <span style="color: #64748b; font-weight: 600;">${isRTL ? "الخصم" : "Discount"}</span>
-              <span style="font-weight: 700;">0.00 ${isRTL ? "ج.م" : "LE"}</span>
+              <span style="color: #64748b; font-weight: 600;">${isRTL ? "خصم التأمين" : "Insurance Discount"}</span>
+              <span style="font-weight: 700; color: #ef4444;">-${inv.appointment?.insuranceDiscount?.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
             </div>
+            ` : ""}
+            ${(inv.appointment?.specialDiscount ?? 0) > 0 || (inv.appointment?.pointsRedeemed ?? 0) > 0 ? `
+            <div class="total-row">
+              <span style="color: #64748b; font-weight: 600;">${isRTL ? "نقاط الولاء / خصم خاص" : "Loyalty / Special Discount"}</span>
+              <span style="font-weight: 700; color: #ef4444;">-${(inv.appointment?.specialDiscount || inv.appointment?.pointsRedeemed || 0).toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
+            </div>
+            ` : ""}
+            ${inv.tax > 0 ? `
+            <div class="total-row">
+              <span style="color: #64748b; font-weight: 600;">${isRTL ? "الضريبة" : "Tax"}</span>
+              <span style="font-weight: 700;">+${inv.tax.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
+            </div>
+            ` : ""}
             <div class="total-row grand-total">
-              <span>${isRTL ? "الإجمالي" : "Total"}</span>
+              <span>${isRTL ? "الإجمالي النهائي" : "Final Total"}</span>
               <span>${inv.totalAmount.toLocaleString()} ${isRTL ? "ج.م" : "LE"}</span>
             </div>
           </div>

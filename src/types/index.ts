@@ -301,10 +301,11 @@ export interface Appointment {
   redeemPoints?: boolean;
   amount?: number;
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
-  paymentStatus?: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
+  paymentStatus?: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE" | "FAILED";
   invoiceNumber?: string | null;
   createdByName?: string;
   createdByRole?: "PATIENT" | "RECEPTION" | "STAFF" | "ADMIN";
+  insuranceDiscount?: number;
 }
 
 export interface ApiAppointment {
@@ -352,6 +353,9 @@ export interface ApiAppointment {
   createdById?: string;
   createdByName?: string;
   createdByRole?: "PATIENT" | "RECEPTION" | "STAFF" | "ADMIN";
+  insuranceDiscount?: number;
+  specialDiscount?: number;
+  pointsRedeemed?: number;
 }
 
 export interface ApiInvoice {
@@ -367,12 +371,12 @@ export interface ApiInvoice {
   tax: number;
   totalAmount: number;
   paidAmount?: number;
-  paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
+  paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE" | "FAILED";
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
   notes?: string | null;
   createdAt: string;
   updatedAt?: string;
-  appointment?: Pick<ApiAppointment, "date" | "startTime" | "serviceName" | "type" | "status" | "amount" | "patientName"> | null;
+  appointment?: Pick<ApiAppointment, "date" | "startTime" | "serviceName" | "type" | "status" | "amount" | "patientName" | "insuranceDiscount" | "specialDiscount" | "pointsRedeemed"> | null;
 }
 
 export interface ApiPatientPaymentHistoryItem {
@@ -386,7 +390,7 @@ export interface ApiPatientPaymentHistoryItem {
   discount: number;
   tax: number;
   totalAmount: number;
-  paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE";
+  paymentStatus: "PAID" | "PENDING" | "PARTIAL" | "REFUNDED" | "OVERDUE" | "FAILED";
   paymentMethodType?: "ONSITE_CASH" | "ONSITE_CARD" | "ONLINE_CARD" | "ONLINE_WALLET" | null;
   notes?: string | null;
   createdAt: string;
@@ -974,6 +978,7 @@ export interface PatientListFilters {
   sortOrder?: "asc" | "desc";
   take?: number;
   page?: number;
+  insuranceStatus?: 'unverified' | 'pending' | 'verified' | 'rejected';
 }
 
 export interface PatientsPaginationMeta {

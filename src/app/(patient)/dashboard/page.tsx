@@ -127,11 +127,15 @@ export default function PatientDashboard() {
         ]);
         setPublicDoctors(docsData);
         setServices(servData);
-        if (meData && meData.loyaltyPoints !== undefined && user) {
-          if (user.loyaltyPoints !== meData.loyaltyPoints) {
+        if (meData && user) {
+          const hasPointsChanged = meData.loyaltyPoints !== undefined && user.loyaltyPoints !== meData.loyaltyPoints;
+          const hasHistoryChanged = JSON.stringify(user.medicalHistory) !== JSON.stringify(meData.medicalHistory);
+          
+          if (hasPointsChanged || hasHistoryChanged) {
             useAuthStore.getState().setUser({
               ...user,
-              loyaltyPoints: meData.loyaltyPoints
+              loyaltyPoints: meData.loyaltyPoints ?? user.loyaltyPoints,
+              medicalHistory: meData.medicalHistory || user.medicalHistory
             });
           }
         }
@@ -204,14 +208,7 @@ export default function PatientDashboard() {
 
   const firstName = displayName ? displayName.split(" ")[0] : "";
 
-  const loyaltyPoints = useMemo(() => {
-    if (loyaltyHistory.length > 0) {
-      return loyaltyHistory.reduce((acc, item) => {
-        return item.type === 'EARN' ? acc + Math.abs(item.amount) : acc - Math.abs(item.amount);
-      }, 0);
-    }
-    return user?.loyaltyPoints ?? 0;
-  }, [loyaltyHistory, user?.loyaltyPoints]);
+  const loyaltyPoints = user?.loyaltyPoints ?? 0;
 
   const allUpcomingApts = useMemo(() => {
     const now = Date.now();
