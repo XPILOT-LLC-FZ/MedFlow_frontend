@@ -113,12 +113,20 @@ export default function InsurancePanel({ patient, onBack, onRefresh }: Insurance
 
     setIsSaving(true);
     try {
+      let newStatus = verificationStatus;
+      // If user is saving insurance data and status is unverified/rejected, 
+      // move it to pending so reception can see it.
+      if (newStatus === 'unverified' || newStatus === 'rejected') {
+        newStatus = 'pending';
+        setVerificationStatus('pending');
+      }
+
       const updatedHistory = {
         ...medicalHistory,
         insuranceDetails: {
           ...formData,
           providerContact: finalPhone,
-          verificationStatus: verificationStatus,
+          verificationStatus: newStatus,
           discountPercent,
           discountNote,
         },

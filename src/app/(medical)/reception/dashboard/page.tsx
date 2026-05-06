@@ -14,6 +14,7 @@ import {
   CreditCard,
   CalendarDays,
   Dot,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,24 +58,30 @@ export default function ReceptionDashboard() {
   const [discountInputs, setDiscountInputs] = React.useState<Record<string, number>>({});
   const [discountNotes, setDiscountNotes] = React.useState<Record<string, string>>({});
   const [previewCard, setPreviewCard] = React.useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = React.useState<Date>(new Date());
 
   const refreshDashboard = React.useCallback(async () => {
     try {
       const todayKey = formatDateKey(new Date());
       const [summary, patients] = await Promise.all([
         dashboardService.getStaffSummary({ period: "day" }),
-        patientService.getAll(),
+        patientService.getAll({ insuranceStatus: "pending" }),
         fetchAppointments({ date: todayKey })
       ]);
       
       setDashboardData(summary);
-      
       const filtered = (patients || []).filter((p: ApiPatient) => {
-        const mh = (p.medicalHistory as Record<string, unknown>) || {};
-        const ins = (mh.insuranceDetails as Record<string, unknown>) || {};
+        let mh = p.medicalHistory;
+        // Handle case where medicalHistory might be a string (from some legacy storage)
+        if (typeof mh === "string") {
+          try { mh = JSON.parse(mh); } catch { mh = {}; }
+        }
+        const mhObj = (mh as Record<string, unknown>) || {};
+        const ins = (mhObj.insuranceDetails as Record<string, unknown>) || {};
         return ins.verificationStatus === "pending";
       });
       setPendingPatients(filtered);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
@@ -174,6 +181,12 @@ export default function ReceptionDashboard() {
               {isRTL ? "حركة المرور: طبيعي" : "Live Traffic: Normal"}
             </span>
           </div>
+          <div className="flex items-center gap-1.5 px-4 py-2.5 bg-white border border-slate-100 rounded-2xl shadow-sm">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+              {t("lastUpdated")}: {lastUpdated.toLocaleTimeString(isRTL ? "ar-EG" : "en-US", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -201,7 +214,19 @@ export default function ReceptionDashboard() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-slate-900 tracking-tight">{t("pendingInsuranceVerification")}</h2>
-            <p className="text-slate-400 text-sm font-medium">{t("reviewInsuranceCards")}</p>
+            <div className="flex items-center gap-4">
+              <p className="text-slate-400 text-sm font-medium">{t("reviewInsuranceCards")}</p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => void refreshDashboard()} 
+                disabled={isLoading}
+                className="h-7 px-2 text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg gap-1.5"
+              >
+                <RefreshCw className={cn("h-3 w-3", isLoading && "animate-spin")} />
+                {isLoading ? t("refreshing") : t("refresh")}
+              </Button>
+            </div>
           </div>
           {pendingPatients.length > 0 && (
             <Badge className="bg-amber-50 text-amber-600 border-none font-bold rounded-lg px-2 py-1">

@@ -501,25 +501,40 @@ export function CheckoutDialog({
           <div className="border-t border-slate-100 dark:border-slate-800/60 pt-3 space-y-2 text-xs font-bold">
             <div className="flex justify-between text-slate-600 dark:text-slate-400">
               <span>{t("consultationFee") || "Consultation Fee"}</span>
-              <span className="font-black text-slate-800 dark:text-slate-200">
-                {basePrice} L.E
-              </span>
+              <div className="flex items-center gap-2">
+                {(specialDiscount > 0 || insuranceDiscount > 0 || (redeemPoints && pointsDiscount > 0)) && (
+                  <span className="text-[10px] line-through opacity-50 font-medium">
+                    {basePrice} L.E
+                  </span>
+                )}
+                <span className="font-black text-slate-800 dark:text-slate-200">
+                  {basePrice} L.E
+                </span>
+              </div>
             </div>
-            {specialDiscountAmount > 0 && (
-              <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                <span>{t("specialDiscount") || "Special Discount"} ({specialDiscount}%)</span>
+            {specialDiscount > 0 && (
+              <div className="flex justify-between text-indigo-600 dark:text-indigo-400">
+                <span className="flex items-center gap-1">
+                  {t("specialDiscount") || "Special Discount"} ({specialDiscount}%)
+                </span>
                 <span className="font-black">-{specialDiscountAmount} L.E</span>
               </div>
             )}
-            {insuranceDiscountAmount > 0 && (
+            {insuranceDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                <span>{t("insuranceDiscount") || "Insurance Discount"} ({insuranceDiscount}%)</span>
+                <span className="flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  {t("insuranceDiscount") || "Insurance Discount"} ({insuranceDiscount}%)
+                </span>
                 <span className="font-black">-{insuranceDiscountAmount} L.E</span>
               </div>
             )}
-            {redeemPoints && (
+            {redeemPoints && pointsDiscount > 0 && (
               <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
-                <span>{t("pointsDiscount") || "Points Discount"}</span>
+                <span className="flex items-center gap-1">
+                  <Gift className="h-3 w-3" />
+                  {t("pointsDiscount") || "Points Discount"}
+                </span>
                 <span className="font-black">-{pointsDiscount} L.E</span>
               </div>
             )}

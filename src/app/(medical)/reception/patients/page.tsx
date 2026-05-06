@@ -1088,6 +1088,8 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
   const [patient, setPatient] = useState<ApiPatient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [inputDiscountPercent, setInputDiscountPercent] = useState<number>(20);
+  const [inputDiscountNote, setInputDiscountNote] = useState<string>("");
   const toast = useToastStore();
 
   const fetchDetails = useCallback(async () => {
@@ -1108,13 +1110,22 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
     void fetchDetails();
   }, [fetchDetails]);
 
+  useEffect(() => {
+    if (patient) {
+      const mh = (patient.medicalHistory as Record<string, unknown>) || {};
+      const insurance = (mh.insuranceDetails as Record<string, unknown>) || {};
+      setInputDiscountPercent((insurance.discountPercent as number) || 20);
+      setInputDiscountNote((insurance.discountNote as string) || "Verified via insurance portal");
+    }
+  }, [patient]);
+
   const handleVerifyInsurance = async (status: 'verified' | 'rejected' | 'pending') => {
     try {
       await patientService.verifyInsurance(id, {
         status: status === 'pending' ? 'verified' : status as "verified" | "rejected",
         verifiedBy: "Reception Staff",
-        discountPercent: status === 'verified' ? 20 : 0,
-        discountNote: status === 'verified' ? "Verified via insurance portal" : "Provider rejected coverage"
+        discountPercent: status === 'verified' ? inputDiscountPercent : 0,
+        discountNote: status === 'verified' ? inputDiscountNote : "Provider rejected coverage"
       });
       toast.success(status === 'verified' ? t("insuranceApprovedSuccessfully") : t("insuranceRejectedSuccessfully"));
       void fetchDetails();
@@ -1334,20 +1345,48 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
                   </div>
                   
                   {insurance.verificationStatus !== "verified" ? (
-                    <div className="flex flex-col gap-3 pt-2">
-                      <Button 
-                        onClick={() => handleVerifyInsurance("verified")}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 font-bold text-[13px]"
-                      >
-                        {t("approve")}
-                      </Button>
-                      <Button 
-                        onClick={() => handleVerifyInsurance("rejected")}
-                        variant="outline"
-                        className="w-full border-rose-100 text-rose-500 hover:bg-rose-50 rounded-xl h-11 font-bold text-[13px]"
-                      >
-                        {t("rejected")}
-                      </Button>
+                    <div className="flex flex-col gap-4 pt-2">
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("discountPercent")}</label>
+                          <div className="relative">
+                            <Input 
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={inputDiscountPercent}
+                              onChange={(e) => setInputDiscountPercent(Number(e.target.value))}
+                              className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[13px] font-black pr-8" 
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("notes")}</label>
+                          <Input 
+                            value={inputDiscountNote}
+                            onChange={(e) => setInputDiscountNote(e.target.value)}
+                            placeholder="e.g. Verified via insurance portal"
+                            className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[13px] font-medium" 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <Button 
+                          onClick={() => handleVerifyInsurance("verified")}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 font-bold text-[13px] shadow-lg shadow-emerald-500/10"
+                        >
+                          {t("approve")}
+                        </Button>
+                        <Button 
+                          onClick={() => handleVerifyInsurance("rejected")}
+                          variant="outline"
+                          className="flex-1 border-rose-100 text-rose-500 hover:bg-rose-50 rounded-xl h-11 font-bold text-[13px]"
+                        >
+                          {t("rejected")}
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <button 

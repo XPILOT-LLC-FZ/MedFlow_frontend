@@ -20,6 +20,7 @@ export interface AuthUser {
   passwordUpdatedAt?: string | null;
   loyaltyPoints?: number;
   specialDiscount?: number;
+  medicalHistory?: Record<string, unknown> | null;
   preferences?: UserPreferences;
 }
 
@@ -128,6 +129,7 @@ function mapUser(raw: Record<string, unknown>, fallback?: Partial<SignupData>): 
     passwordUpdatedAt: (raw["passwordUpdatedAt"] as string) ?? (raw["password_updated_at"] as string) ?? null,
     loyaltyPoints: (raw["loyaltyPoints"] as number) ?? 0,
     specialDiscount: (raw["specialDiscount"] as number) ?? (raw["patient"] as Record<string, unknown> | undefined)?.["specialDiscount"] ?? 0,
+    medicalHistory: (raw["medicalHistory"] as Record<string, unknown> | null) ?? (raw["patient"] as Record<string, unknown> | undefined)?.["medicalHistory"] as Record<string, unknown> | null ?? null,
     preferences: (raw["preferences"] as UserPreferences) ?? {},
   };
 }

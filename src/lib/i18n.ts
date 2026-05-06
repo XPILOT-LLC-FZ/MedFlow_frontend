@@ -780,6 +780,7 @@ export const translations = {
     statusUpdated: "Status Updated",
     printStarted: "Print Started",
     description: "Description",
+    refreshing: "Refreshing...",
 
     // Booking Result
     bookingSuccessful: "Booking Successful!",
@@ -1656,6 +1657,7 @@ export const translations = {
     statusUpdated: "تم تحديث الحالة",
     printStarted: "تم بدء الطباعة",
     description: "الوصف",
+    refreshing: "جارٍ التحديث...",
 
     // Booking Result
     bookingSuccessful: "تم الحجز بنجاح!",

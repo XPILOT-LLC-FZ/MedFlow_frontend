@@ -118,6 +118,7 @@ export const mapToLocal = (api: ApiAppointment): Appointment => {
     invoiceNumber: api.invoices && api.invoices.length > 0 ? api.invoices[0].invoiceNumber : null,
     createdByName: api.createdByName,
     createdByRole: (api.createdByRole as unknown as Appointment["createdByRole"]) || undefined,
+    insuranceDiscount: api.insuranceDiscount,
   };
 };
 
@@ -146,6 +147,7 @@ const mapToApi = (local: Partial<Appointment>): Partial<ApiAppointment> => {
   if (local.redeemPoints !== undefined) api.redeemPoints = local.redeemPoints;
   if (local.paymentMethodType) api.paymentMethodType = local.paymentMethodType;
   if (local.mode) api.mode = local.mode as ApiAppointment["mode"];
+  if (local.insuranceDiscount !== undefined) api.insuranceDiscount = local.insuranceDiscount;
 
   // Defaults for creation if missing
   if (!api.durationMinutes) api.durationMinutes = 30;
