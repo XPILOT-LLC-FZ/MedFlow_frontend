@@ -105,19 +105,6 @@ export default function ReceptionTasksPage() {
   const reviewedCount = useMemo(() => tasks.filter((t) => (t.status === "REVIEWED" || t.status === "COMPLETED")).length, [tasks]);
 
   // ── Actions ──────────────────────────────────────────────────
-  const handleMarkAsDone = async (task: ApiReceptionHandoff | ApiQuickTask) => {
-    try {
-      if ('patientName' in task) {
-        await bookingService.markReceptionHandoffReviewed(task.id);
-      } else {
-        await tasksService.update(task.id, { status: "COMPLETED" });
-      }
-      toastSuccess(t("statusUpdatedSuccessfully"));
-      void fetchTasks();
-    } catch {
-      toastError(t("error"));
-    }
-  };
 
   const handleEdit = (task: ApiReceptionHandoff | ApiQuickTask) => {
     if ('patientName' in task) {

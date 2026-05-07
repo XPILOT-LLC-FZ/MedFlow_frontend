@@ -368,13 +368,13 @@ export function RescheduleDialog({
                   onClick={prevMonth}
                   className="h-6 w-6 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   onClick={nextMonth}
                   className="h-6 w-6 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronRight className="h-5 w-5" />
                 </button>
               </div>
             </div>

@@ -586,7 +586,7 @@ function BookAppointmentModal({ isOpen, onClose, onBooked }: { isOpen: boolean; 
         })
         .catch(() => setLoadingSlots(false));
     }
-  }, [selectedDoctor, selectedDate]);
+  }, [selectedDoctor, selectedDate, user?.clinicId]);
 
   const handleBook = async () => {
     if (!selectedPatient || !selectedDoctor || !selectedTime) {
@@ -995,7 +995,7 @@ function AddNewAppointmentView({ onBack }: { onBack: () => void }) {
         })
         .catch(() => setLoadingSlots(false));
     }
-  }, [selectedDoctor, selectedDate]);
+  }, [selectedDoctor, selectedDate, user?.clinicId]);
 
   const handleBook = async () => {
     if (!selectedPatient || !selectedDoctor || !selectedTime) {
@@ -1149,7 +1149,7 @@ function AddNewAppointmentView({ onBack }: { onBack: () => void }) {
                       {["CONSULTATION", "FOLLOW_UP", "PROCEDURE", "EMERGENCY"].map((type) => (
                         <button 
                           key={type}
-                          onClick={() => setSelectedType(type as any)}
+                          onClick={() => setSelectedType(type as "CONSULTATION" | "FOLLOW_UP" | "PROCEDURE" | "EMERGENCY")}
                           className={cn(
                             "h-12 rounded-2xl border text-[12px] font-bold transition-all",
                             selectedType === type 

@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 export interface ChatMessage {
   id: string;
@@ -18,41 +17,36 @@ interface ChatState {
   clearMessages: (patientId: string) => void;
 }
 
-export const useChatStore = create<ChatState>()(
-  persist(
-    (set) => ({
-      messages: [] as ChatMessage[],
+export const useChatStore = create<ChatState>((set) => ({
+  messages: [] as ChatMessage[],
 
-      addMessage: (message) => {
-        const nextMessage: ChatMessage = {
-          ...message,
-          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          timestamp: new Date().toISOString(),
-        };
+  addMessage: (message) => {
+    const nextMessage: ChatMessage = {
+      ...message,
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+    };
 
-        set((state) => ({ messages: [...state.messages, nextMessage] }));
-        return nextMessage;
-      },
+    set((state) => ({ messages: [...state.messages, nextMessage] }));
+    return nextMessage;
+  },
 
-      sendMessage: (patientId: string, text: string): ChatMessage => {
-        const nextMessage: ChatMessage = {
-          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          patientId,
-          sender: "patient",
-          text,
-          timestamp: new Date().toISOString(),
-        };
+  sendMessage: (patientId: string, text: string): ChatMessage => {
+    const nextMessage: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      patientId,
+      sender: "patient",
+      text,
+      timestamp: new Date().toISOString(),
+    };
 
-        set((state) => ({ messages: [...state.messages, nextMessage] }));
-        return nextMessage;
-      },
+    set((state) => ({ messages: [...state.messages, nextMessage] }));
+    return nextMessage;
+  },
 
-      clearMessages: (patientId: string) => {
-        set((state) => ({
-          messages: state.messages.filter((message) => message.patientId !== patientId),
-        }));
-      },
-    }),
-    { name: "clinic-os-chat" }
-  )
-);
+  clearMessages: (patientId: string) => {
+    set((state) => ({
+      messages: state.messages.filter((message) => message.patientId !== patientId),
+    }));
+  },
+}));

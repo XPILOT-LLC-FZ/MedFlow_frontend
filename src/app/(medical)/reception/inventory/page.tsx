@@ -4,17 +4,17 @@ import React, { useState } from "react";
 import {
   Search, Plus, History, ShoppingCart, Filter, MoreVertical,
   Calendar, ArrowUpRight, Minus, RefreshCw, Box, AlertCircle,
-  Clock, Package, CheckCircle2, ChevronRight, ChevronLeft, Users, Dot
+  Clock, Package, ChevronRight, ChevronLeft, Users, Dot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/useTranslation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import Image from "next/image";
 
 export default function ReceptionInventoryPage() {
-  const { t, isRTL } = useTranslation();
-  const [activePage, setActivePage] = useState(1);
+  const { isRTL } = useTranslation();
   const [isAddPurchaseOpen, setIsAddPurchaseOpen] = useState(false);
   const [isRecordUsageOpen, setIsRecordUsageOpen] = useState(false);
   const [isRestockRequestOpen, setIsRestockRequestOpen] = useState(false);
@@ -367,8 +367,8 @@ export default function ReceptionInventoryPage() {
                 <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
                   <td className="px-8 py-6"><input type="checkbox" className="rounded-md border-slate-200" /></td>
                   <td className="px-6 py-6">
-                    <div className="h-14 w-14 rounded-2xl bg-slate-100 overflow-hidden shadow-sm ring-4 ring-white">
-                      <img src={item.photo} alt={item.name} className="h-full w-full object-cover" />
+                    <div className="h-14 w-14 rounded-2xl bg-slate-100 overflow-hidden shadow-sm ring-4 ring-white relative">
+                      <Image src={item.photo} alt={item.name} fill className="object-cover" />
                     </div>
                   </td>
                   <td className="px-6 py-6">
@@ -797,10 +797,11 @@ export default function ReceptionInventoryPage() {
 
               {/* Banner Area */}
               <div className="relative h-32 w-full rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
-                <img 
+                <Image 
                   src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=300&fit=crop" 
                   alt="Storage Room" 
-                  className="w-full h-full object-cover opacity-60"
+                  fill
+                  className="object-cover opacity-60"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent" />
                 <div className={cn("absolute bottom-4 font-black text-white text-[11px] uppercase tracking-[3px]", isRTL ? "right-5" : "left-5")}>

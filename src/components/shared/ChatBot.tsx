@@ -13,10 +13,10 @@ import { useBookingStore } from "@/stores/useBookingStore";
 import { useChatStore, type ChatMessage } from "@/stores/useChatStore";
 import { useStaffStore } from "@/stores/useStaffStore";
 import { useToastStore } from "@/stores/useToastStore";
-import type { Locale } from "@/types";
+import type { Appointment, Locale } from "@/types";
 
 type ChatLocale = Locale | null;
-type QuickReplyType = "specialties" | "doctors" | "slots" | "specialty" | "doctor" | "slot";
+type QuickReplyType = "specialties" | "doctors" | "slots" | "specialty" | "doctor" | "slot" | "mode" | "payment" | "date";
 
 interface QuickReply {
   id: string;
@@ -58,6 +58,15 @@ interface ChatCopy {
   bookingDone: string;
   bookingToast: string;
   specialtyBooked: string;
+  modePrompt: string;
+  paymentPrompt: string;
+  onsite: string;
+  online: string;
+  cash: string;
+  card: string;
+  datePrompt: string;
+  today: string;
+  tomorrow: string;
 }
 
 const COPY: Record<Locale, ChatCopy> = {
@@ -81,12 +90,21 @@ const COPY: Record<Locale, ChatCopy> = {
     noDoctors: "I couldn't find doctors for that specialty yet.",
     noSlots: "I couldn't find available time slots right now. Try another doctor.",
     specialtyPrompt: "Here are the available specialties:",
-    doctorPrompt: "These doctors match your request:",
-    slotPrompt: "Here are the next available time slots:",
+    doctorPrompt: "Here are the doctors for",
+    slotPrompt: "Next available slots for",
     unclear: "I didn't quite catch that. Try one of these suggestions.",
     bookingDone: "Your appointment has been booked successfully.",
     bookingToast: "Appointment booked successfully",
     specialtyBooked: "Booked with",
+    modePrompt: "How would you like to attend?",
+    paymentPrompt: "How would you like to pay?",
+    onsite: "At the clinic",
+    online: "Online Consultation",
+    cash: "Cash at Clinic",
+    card: "Online Payment",
+    datePrompt: "When would you like to visit?",
+    today: "Today",
+    tomorrow: "Tomorrow",
   },
   ar: {
     title: "مساعد MedFlow",
@@ -108,12 +126,21 @@ const COPY: Record<Locale, ChatCopy> = {
     noDoctors: "لسه مفيش أطباء متاحين في التخصص ده.",
     noSlots: "ملقتش مواعيد متاحة دلوقتي. جرّب طبيب تاني.",
     specialtyPrompt: "دي التخصصات المتاحة:",
-    doctorPrompt: "دول الأطباء المناسبين لطلبك:",
-    slotPrompt: "دي أقرب المواعيد المتاحة:",
+    doctorPrompt: "الأطباء المتاحين في تخصص",
+    slotPrompt: "أقرب المواعيد المتاحة مع",
     unclear: "الطلب مش واضح بالكامل. جرّب واحدة من الاقتراحات دي.",
     bookingDone: "تم حجز موعدك بنجاح.",
     bookingToast: "تم حجز الموعد بنجاح",
     specialtyBooked: "تم الحجز مع",
+    modePrompt: "حابب تحضر إزاي؟",
+    paymentPrompt: "حابب تدفع إزاي؟",
+    onsite: "في العيادة",
+    online: "استشارة أونلاين",
+    cash: "كاش في العيادة",
+    card: "دفع أونلاين",
+    datePrompt: "حابب تشرفنا يوم إيه؟",
+    today: "النهاردة",
+    tomorrow: "بكرة",
   },
 };
 
@@ -180,35 +207,35 @@ export function ChatBot({
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
   const { addAppointment } = useBookingStore();
-  const { addMessage, messages } = useChatStore();
-  const { doctors } = useStaffStore();
+  const { addMessage, messages, clearMessages } = useChatStore();
+  const { doctors, fetchDoctors } = useStaffStore();
   const toast = useToastStore();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<string | null>(null);
+  const [, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [slotCache, setSlotCache] = useState<Record<string, string[]>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationLocale = chatLocale ?? "en";
   const copy = COPY[conversationLocale];
   const participantId = user?.id ?? "guest";
-  const bookingDateKey = useMemo(() => {
-    const date = new Date();
-    date.setDate(date.getDate() + 1);
-    return formatDateKey(date);
-  }, []);
 
   const doctorDirectory = useMemo(
     () =>
       doctors.map((member) => ({
-          id: member.id,
-          name: member.fullName,
-          nameAr: member.fullName,
-          specialty: member.specialization ?? "",
-          specialtyAr: member.specialization ?? "",
-          available: member.status === "ACTIVE",
-        })),
+        id: member.id,
+        name: member.fullName,
+        nameAr: member.fullNameAr || member.fullName,
+        specialty: member.specialization ?? "",
+        specialtyAr: member.specialization ?? "",
+        available: member.status === "ACTIVE",
+        branchId: member.branchId,
+      })),
     [doctors]
   );
 
@@ -240,10 +267,8 @@ export function ChatBot({
   const baseQuickReplies = useMemo<QuickReply[]>(
     () => [
       { id: "base-specialties", label: copy.specialties, type: "specialties" },
-      { id: "base-doctors", label: copy.doctors, type: "doctors" },
-      { id: "base-slots", label: copy.timeSlots, type: "slots" },
     ],
-    [copy.doctors, copy.specialties, copy.timeSlots]
+    [copy.specialties]
   );
 
   useEffect(() => {
@@ -293,10 +318,39 @@ export function ChatBot({
     participantMessages.length,
   ]);
 
+  useEffect(() => {
+    if (open && isAuthenticated && doctors.length === 0) {
+      void fetchDoctors({ status: "ACTIVE" });
+    }
+  }, [open, isAuthenticated, doctors.length, fetchDoctors]);
+
+  useEffect(() => {
+    // Clear messages and reset internal state when it's closed
+    if (!open && participantId) {
+      const resetState = () => {
+        clearMessages(participantId);
+        setSelectedSpecialty(null);
+        setSelectedDoctorId(null);
+        setSelectedMode(null);
+        setSelectedPaymentMethod(null);
+        setSelectedSlot(null);
+        setSelectedDate(null);
+        setQuickReplies([]);
+        setInput("");
+      };
+      
+      // Defer state updates to avoid synchronous setState warning in useEffect
+      const timer = setTimeout(resetState, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [open, clearMessages, participantId]);
+
   const getDoctorLabel = (doctorId: string) => {
     const doctor = doctorMap.get(doctorId);
     if (!doctor) return "";
-    return conversationLocale === "ar" ? doctor.nameAr : doctor.name;
+    const name = conversationLocale === "ar" ? doctor.nameAr : doctor.name;
+    const prefix = conversationLocale === "ar" ? "د. " : "Dr. ";
+    return name.startsWith(prefix) ? name : `${prefix}${name}`;
   };
 
   const getSpecialtyLabel = (specialty: string) => {
@@ -311,19 +365,19 @@ export function ChatBot({
         (!specialty || doctor.specialty.toLowerCase() === specialty.toLowerCase())
     );
 
-  const getCachedDoctorSlots = (doctorId: string): string[] =>
-    slotCache[doctorId] ?? [];
+  const getCachedDoctorSlots = (doctorId: string, date: string): string[] =>
+    slotCache[`${doctorId}-${date}`] ?? [];
 
-  const loadDoctorSlots = async (doctorId: string): Promise<string[]> => {
-    const cached = getCachedDoctorSlots(doctorId);
+  const loadDoctorSlots = async (doctorId: string, date: string): Promise<string[]> => {
+    const cached = getCachedDoctorSlots(doctorId, date);
     if (cached.length > 0) {
       return cached;
     }
 
-    const slots = await bookingService.getAvailableSlots(doctorId, bookingDateKey);
+    const slots = await bookingService.getAvailableSlots(doctorId, date);
     setSlotCache((prev) => ({
       ...prev,
-      [doctorId]: slots,
+      [`${doctorId}-${date}`]: slots,
     }));
     return slots;
   };
@@ -349,13 +403,16 @@ export function ChatBot({
     setSelectedSpecialty(null);
     setSelectedDoctorId(null);
     const replies = buildSpecialtyReplies(conversationLocale, specialties);
-    pushBotReply(`${copy.specialtyPrompt}\n${copy.suggestionsTitle}`, replies);
+    pushBotReply(copy.specialtyPrompt, replies);
   };
 
   const showDoctors = (specialty?: string | null) => {
     const doctors = getAvailableDoctors(specialty);
     if (doctors.length === 0) {
-      pushBotReply(copy.noDoctors, baseQuickReplies);
+      const emptyMsg = specialty 
+        ? copy.noDoctors 
+        : (conversationLocale === "ar" ? "ملقتش أطباء متاحين حالياً." : "I couldn't find any available doctors right now.");
+      pushBotReply(emptyMsg, baseQuickReplies);
       return;
     }
 
@@ -367,28 +424,65 @@ export function ChatBot({
     }));
 
     const heading = specialty
-      ? `${copy.doctorPrompt}\n${getSpecialtyLabel(specialty)}`
-      : `${copy.doctorPrompt}\n${copy.suggestionsTitle}`;
+      ? `${copy.doctorPrompt} ${getSpecialtyLabel(specialty)}`
+      : `${copy.doctorPrompt} ${copy.suggestionsTitle}`;
 
     pushBotReply(heading, replies);
   };
 
-  const showSlots = async (doctorId?: string | null) => {
+  const showDates = () => {
+    const today = new Date();
+    const dates: QuickReply[] = [];
+    
+    for (let i = 0; i < 4; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const key = formatDateKey(d);
+      
+      let label = "";
+      if (i === 0) label = copy.today;
+      else if (i === 1) label = copy.tomorrow;
+      else {
+        label = d.toLocaleDateString(conversationLocale === "ar" ? "ar-EG" : "en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+      }
+      
+      dates.push({
+        id: `date-${key}`,
+        label,
+        type: "date",
+        value: key,
+      });
+    }
+    
+    pushBotReply(copy.datePrompt, dates);
+  };
+
+  const showSlots = async (doctorId?: string | null, dateKey?: string | null) => {
     const fallbackDoctor =
       (selectedSpecialty ? getAvailableDoctors(selectedSpecialty)[0] : null) ??
       getAvailableDoctors()[0];
     const doctor = doctorId ? doctorMap.get(doctorId) : fallbackDoctor;
+    const date = dateKey || selectedDate;
 
     if (!doctor) {
       pushBotReply(copy.noDoctors, baseQuickReplies);
       return;
     }
 
+    if (!date) {
+      return showDates();
+    }
+
     setSelectedDoctorId(doctor.id);
+    setSelectedDate(date);
 
     let slots: string[] = [];
     try {
-      slots = await loadDoctorSlots(doctor.id);
+      slots = await loadDoctorSlots(doctor.id, date);
     } catch {
       pushBotReply(copy.noSlots, baseQuickReplies);
       return;
@@ -406,12 +500,30 @@ export function ChatBot({
       value: slot,
     }));
 
-    const heading = `${copy.slotPrompt}\n${getDoctorLabel(doctor.id)}`;
-
+    const heading = `${copy.slotPrompt} ${getDoctorLabel(doctor.id)} - ${date}`;
     pushBotReply(heading, replies);
   };
 
-  const completeBooking = async (slot: string) => {
+  const showModes = () => {
+    const replies: QuickReply[] = [
+      { id: "mode-onsite", label: copy.onsite, type: "mode", value: "ONSITE" },
+      { id: "mode-online", label: copy.online, type: "mode", value: "ONLINE" },
+    ];
+    pushBotReply(copy.modePrompt, replies);
+  };
+
+  const showPaymentMethods = () => {
+    const replies: QuickReply[] = [
+      { id: "pay-cash", label: copy.cash, type: "payment", value: "ONSITE_CASH" },
+      { id: "pay-card", label: copy.card, type: "payment", value: "ONLINE_CARD" },
+    ];
+    pushBotReply(copy.paymentPrompt, replies);
+  };
+
+  const completeBooking = async (paymentMethod: string) => {
+    const slot = selectedSlot;
+    if (!slot) return;
+
     const fallbackDoctor = getAvailableDoctors(selectedSpecialty)[0] ?? getAvailableDoctors()[0];
     const doctor = selectedDoctorId ? doctorMap.get(selectedDoctorId) : fallbackDoctor;
 
@@ -421,28 +533,32 @@ export function ChatBot({
     }
 
     try {
-      const latestSlots = await bookingService.getAvailableSlots(doctor.id, bookingDateKey);
+      if (!selectedDate) return;
+      const latestSlots = await bookingService.getAvailableSlots(doctor.id, selectedDate);
       setSlotCache((prev) => ({
         ...prev,
-        [doctor.id]: latestSlots,
+        [`${doctor.id}-${selectedDate}`]: latestSlots,
       }));
 
       if (!latestSlots.includes(slot)) {
         toast.error(copy.noSlots);
-        await showSlots(doctor.id);
+        await showSlots(doctor.id, selectedDate);
         return;
       }
 
       await addAppointment({
-        patientId: participantId,
+        patientId: user?.role === "PATIENT" ? user.id : undefined,
         patientName: user?.name ?? "Guest Patient",
         doctorId: doctor.id,
         doctorName: doctor.name,
         specialty: doctor.specialty,
-        date: bookingDateKey,
+        branchId: doctor.branchId,
+        date: selectedDate,
         time: slot,
         status: "scheduled",
         type: "Consultation",
+        mode: selectedMode as Appointment["mode"],
+        paymentMethodType: paymentMethod as Appointment["paymentMethodType"],
       });
 
       toast.success(copy.bookingToast);
@@ -452,8 +568,11 @@ export function ChatBot({
       const doctorName = conversationLocale === "ar" ? doctor.nameAr : doctor.name;
       const specialtyName = conversationLocale === "ar" ? doctor.specialtyAr : doctor.specialty;
 
+      const modeLabel = selectedMode === "ONSITE" ? copy.onsite : copy.online;
+      const payLabel = paymentMethod === "ONSITE_CASH" ? copy.cash : copy.card;
+
       pushBotReply(
-        `${copy.bookingDone}\n${copy.specialtyBooked} ${doctorName} (${specialtyName}) - ${slot}`,
+        `${copy.bookingDone}\n${copy.specialtyBooked} ${doctorName} (${specialtyName})\n📅 ${selectedDate} @ ${slot}\n📍 ${modeLabel}\n💳 ${payLabel}`,
         baseQuickReplies
       );
     } catch (error) {
@@ -490,11 +609,27 @@ export function ChatBot({
 
     if (reply.type === "doctor" && reply.value) {
       setSelectedDoctorId(reply.value);
-      void showSlots(reply.value);
+      return showDates();
+    }
+
+    if (reply.type === "date" && reply.value) {
+      setSelectedDate(reply.value);
+      void showSlots(selectedDoctorId, reply.value);
       return;
     }
 
     if (reply.type === "slot" && reply.value) {
+      setSelectedSlot(reply.value);
+      return showModes();
+    }
+
+    if (reply.type === "mode" && reply.value) {
+      setSelectedMode(reply.value);
+      return showPaymentMethods();
+    }
+
+    if (reply.type === "payment" && reply.value) {
+      setSelectedPaymentMethod(reply.value);
       void completeBooking(reply.value);
     }
   };
@@ -548,11 +683,11 @@ export function ChatBot({
       return;
     }
 
-    const cachedSlots = selectedDoctorId ? getCachedDoctorSlots(selectedDoctorId) : [];
+    const cachedSlots = (selectedDoctorId && selectedDate) ? getCachedDoctorSlots(selectedDoctorId, selectedDate) : [];
     const matchedSlot = cachedSlots.find((slot) => normalized.includes(slot.toLowerCase()));
     if (matchedSlot) {
-      void completeBooking(matchedSlot);
-      return;
+      setSelectedSlot(matchedSlot);
+      return showModes();
     }
 
     pushBotReply(`${copy.unclear}\n${copy.suggestionsTitle}`, baseQuickReplies);

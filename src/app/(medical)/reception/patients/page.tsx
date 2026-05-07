@@ -29,7 +29,6 @@ import {
   Mail,
   Heart,
   Droplets,
-  Activity as ActivityIcon,
   Monitor,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,7 +94,7 @@ export default function ReceptionPatientsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, currentPage, toast, t, searchParams]);
+  }, [searchQuery, currentPage, toast, t]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

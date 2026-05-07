@@ -19,7 +19,6 @@ import {
   ChevronDown,
   Info,
   FileText,
-  Repeat2,
   Printer,
   Banknote,
   Wallet,
@@ -30,7 +29,6 @@ import {
   AlertTriangle,
   Check,
   Zap,
-  XCircle,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -574,11 +572,9 @@ function BillingTab({ isRTL, t }: { isRTL: boolean; t: (key: TranslationKey) => 
 
   // Create New Discount State
   const [discountName, setDiscountName] = useState("");
-  const [discountType, setDiscountType] = useState("Percentage");
+  const [discountType] = useState("Percentage");
   const [discountValue, setDiscountValue] = useState("10");
-  const [applyTo, setApplyTo] = useState("Entire clinic");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [applyTo] = useState("Entire clinic");
 
   const handleSave = async () => {
     setIsSaving(true);
