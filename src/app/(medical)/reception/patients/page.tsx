@@ -118,7 +118,7 @@ export default function ReceptionPatientsPage() {
   };
 
   if (view === "new") {
-    return <AddNewPatientView onBack={handleBackToList} />;
+    return <AddNewPatientView onBack={handleBackToList} onSelectPatient={handleSelectPatient} />;
   }
 
   if (view === "details" && selectedPatientId) {
@@ -167,15 +167,15 @@ export default function ReceptionPatientsPage() {
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <SummaryCard icon={Users} label={t("totalPatients")} value={isLoading ? "..." : (meta?.total?.toString() || "0")} iconBg="bg-blue-50" iconColor="text-blue-600" />
-        <SummaryCard 
-          icon={Clock} 
-          label={t("completed")} 
-          value={isLoading ? "..." : (summary?.completed.toString() || "0")} 
-          iconBg="bg-orange-50" 
-          iconColor="text-orange-600" 
-          badge={t("liveUpdates")} 
-          badgeBg="bg-orange-50" 
-          badgeColor="text-orange-500" 
+        <SummaryCard
+          icon={Clock}
+          label={t("completed")}
+          value={isLoading ? "..." : (summary?.completed.toString() || "0")}
+          iconBg="bg-orange-50"
+          iconColor="text-orange-600"
+          badge={t("liveUpdates")}
+          badgeBg="bg-orange-50"
+          badgeColor="text-orange-500"
         />
         <SummaryCard icon={UserCheck} label={t("waiting")} value={isLoading ? "..." : (summary?.scheduledConfirmed.toString() || "0")} iconBg="bg-purple-50" iconColor="text-purple-600" />
         <SummaryCard icon={CreditCard} label={t("dailyRevenue")} value={isLoading ? "..." : `${summary?.todayRevenue?.toLocaleString() || 0} ${isRTL ? "ج.م" : "L.E"}`} iconBg="bg-emerald-50" iconColor="text-emerald-600" />
@@ -189,17 +189,26 @@ export default function ReceptionPatientsPage() {
             <div className="relative w-full max-w-[400px]">
               <Search className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300", isRTL ? "right-4" : "left-4")} />
               <Input
-                placeholder={t("searchPatientsPlaceholder")}
+                placeholder={isRTL ? "ابحث عن المرضى أو المهام..." : "Search tasks or patients..."}
                 className={cn("h-12 rounded-2xl border-slate-100 bg-slate-50/20 focus:ring-blue-600/5 focus:border-blue-200", isRTL ? "pr-11 pl-4" : "pl-11 pr-4")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
-            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1">
-              <TableFilter label={t("all")} />
-              <TableFilter label={t("vipTier")} />
-              <TableFilter label={t("all")} />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="h-10 px-4 bg-white border border-slate-100 rounded-xl flex items-center gap-2 text-[13px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-all min-w-[140px] justify-between">
+                <span>{t("allStates")}</span>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </div>
+              <div className="h-10 px-4 bg-white border border-slate-100 rounded-xl flex items-center gap-2 text-[13px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-all min-w-[140px] justify-between">
+                <span>{t("allDoctors")}</span>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </div>
+              <div className="h-10 px-4 bg-white border border-slate-100 rounded-xl flex items-center gap-2 text-[13px] font-bold text-slate-600 cursor-pointer hover:bg-slate-50 transition-all min-w-[140px] justify-between">
+                <span>{t("allTime")}</span>
+                <ChevronDown className="h-4 w-4 text-slate-400" />
+              </div>
             </div>
           </div>
 
@@ -211,7 +220,8 @@ export default function ReceptionPatientsPage() {
                   <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("patientName")}</th>
                   <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("phoneNumber")}</th>
                   <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("email")}</th>
-                  <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("vipTier")}</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">{t("type")}</th>
+                  <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">{t("status")}</th>
                   <th className="px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("visits")}</th>
                   <th className={cn("px-6 py-5 text-[11px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "text-left" : "text-right")}>{t("actions")}</th>
                 </tr>
@@ -219,68 +229,84 @@ export default function ReceptionPatientsPage() {
               <tbody className="divide-y divide-slate-50">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-medium">{t("loading")}</td>
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-medium">{t("loading")}</td>
                   </tr>
                 ) : patients.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 font-medium">{t("noPatientsFound")}</td>
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-400 font-medium">{t("noPatientsFound")}</td>
                   </tr>
-                ) : (
-                  patients.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-6">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
-                            <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${item.fullName}`} />
-                            <AvatarFallback className="bg-indigo-50 text-indigo-500 font-bold">{item.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="text-[15px] font-bold text-slate-800">{item.fullName}</span>
-                            <span className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">PID: {item.id.slice(-6).toUpperCase()}</span>
+                ) : patients.map((item) => {
+                    const appointment = dashboardData?.queue.upcoming.find(a => a.patientId === item.id);
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-6">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
+                              <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${item.fullName}`} />
+                              <AvatarFallback className="bg-indigo-50 text-indigo-500 font-bold">{item.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-[15px] font-bold text-slate-800">{item.fullName}</span>
+                              <span className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">PID: {item.id.slice(-6).toUpperCase()}</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-6">
-                        <span className="text-[14px] font-bold text-slate-700">{item.phone || "N/A"}</span>
-                      </td>
-                      <td className="px-6 py-6">
-                        <span className="text-[14px] font-medium text-slate-500">{item.email || "N/A"}</span>
-                      </td>
-                      <td className="px-6 py-6">
-                        <Badge className={cn(
-                          "rounded-lg px-2.5 py-1 border-none font-bold text-[10px] uppercase tracking-widest",
-                          item.vipTier === "PLATINUM" ? "bg-indigo-100 text-indigo-600" :
-                          item.vipTier === "GOLD" ? "bg-amber-100 text-amber-600" :
-                          item.vipTier === "SILVER" ? "bg-slate-100 text-slate-600" : "bg-slate-50 text-slate-400"
-                        )}>
-                          {item.vipTier || t("none")}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-6">
-                        <span className="text-[14px] font-bold text-slate-700">{item.totalVisits}</span>
-                      </td>
-                      <td className={cn("px-6 py-6", isRTL ? "text-left" : "text-right")}>
-                        <div className={cn("flex items-center gap-3", isRTL ? "justify-start" : "justify-end")}>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-xl px-4 font-bold text-[11px] h-9 border-slate-100 text-slate-400 hover:bg-slate-50 uppercase tracking-widest"
-                            onClick={() => router.push(`/reception/booking?patientId=${item.id}`)}
-                          >
-                            {t("checkIn")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="rounded-xl px-6 font-bold text-[11px] h-9 bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/10 uppercase tracking-widest"
-                            onClick={() => handleSelectPatient(item.id)}
-                          >
-                            {t("details")}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                        </td>
+                        <td className="px-6 py-6">
+                          <span className="text-[14px] font-bold text-slate-700">{item.phone || "N/A"}</span>
+                        </td>
+                        <td className="px-6 py-6">
+                          <span className="text-[14px] font-medium text-slate-500">{item.email || "N/A"}</span>
+                        </td>
+                        <td className="px-6 py-6 text-center">
+                          <Badge className={cn(
+                            "rounded-lg px-3 py-1 border-none font-black text-[10px] uppercase tracking-wider",
+                            appointment ? "bg-[#EEF2FF] text-[#4F46E5]" : "bg-slate-50 text-slate-300"
+                          )}>
+                            {appointment?.serviceName || "N/A"}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-6 text-center">
+                          <Badge className={cn(
+                            "border-none rounded-full px-4 py-1 font-bold text-[11px] shadow-sm",
+                            !appointment ? "bg-slate-50 text-slate-300" :
+                              appointment.status === "COMPLETED" ? "bg-slate-100 text-slate-400" :
+                                appointment.status === "IN_PROGRESS" ? "bg-orange-50 text-orange-500" :
+                                  appointment.status === "SCHEDULED" ? "bg-indigo-50 text-indigo-400" :
+                                    "bg-blue-50 text-blue-500"
+                          )}>
+                            {appointment ? (
+                              appointment.status === "SCHEDULED" ? "Ready for Checkout" :
+                                appointment.status === "IN_PROGRESS" ? "In Session" :
+                                  appointment.status === "COMPLETED" ? "Done" :
+                                    appointment.status.charAt(0) + appointment.status.slice(1).toLowerCase().replace(/_/g, ' ')
+                            ) : t("noAppointment")}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-6 text-center">
+                          <span className="text-[14px] font-bold text-slate-700">{item.totalVisits}</span>
+                        </td>
+                        <td className={cn("px-6 py-6", isRTL ? "text-left" : "text-right")}>
+                          <div className={cn("flex items-center gap-3", isRTL ? "justify-start" : "justify-end")}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl px-4 font-bold text-[11px] h-9 border-slate-100 text-slate-400 hover:bg-slate-50 uppercase tracking-widest"
+                              onClick={() => router.push(`/reception/booking?patientId=${item.id}`)}
+                            >
+                              {t("checkIn")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="rounded-xl px-6 font-bold text-[11px] h-9 bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/10 uppercase tracking-widest"
+                              onClick={() => handleSelectPatient(item.id)}
+                            >
+                              {t("details")}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
               </tbody>
             </table>
           </div>
@@ -353,7 +379,7 @@ export default function ReceptionPatientsPage() {
                   <span className="text-[13px] font-bold text-slate-400">{t("scheduled")}:</span>
                   <span className="text-[13px] font-bold text-slate-800 font-mono">{nextUp?.time || "--:--"}</span>
                 </div>
-                <Button 
+                <Button
                   onClick={() => router.push("/reception/waiting-room")}
                   disabled={!nextUp}
                   className="w-full bg-[#5046E5] hover:bg-[#4338CA] text-white rounded-2xl h-14 font-bold shadow-lg shadow-indigo-100 text-[15px]"
@@ -373,38 +399,38 @@ export default function ReceptionPatientsPage() {
             <span className="text-[12px] font-bold text-slate-400 tracking-widest uppercase">{occupiedRooms} / {totalRooms} {t("occupied")}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="grid grid-cols-1 gap-4">
-                {dashboardData?.doctorsStatus.slice(0, Math.ceil(totalRooms / 2)).map((doc) => (
-                  <div key={doc.doctorId} className="p-5 bg-slate-50 border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={doc.avatarUrl || ""} />
-                        <AvatarFallback>{doc.fullName.substring(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-[14px] font-bold text-slate-800 truncate max-w-[120px]">{doc.fullName}</span>
-                    </div>
-                    <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", !doc.isAvailable ? "bg-rose-500 shadow-sm" : "bg-blue-500 shadow-sm")} />
+            <div className="grid grid-cols-1 gap-4">
+              {dashboardData?.doctorsStatus.slice(0, Math.ceil(totalRooms / 2)).map((doc) => (
+                <div key={doc.doctorId} className="p-5 bg-slate-50 border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={doc.avatarUrl || ""} />
+                      <AvatarFallback>{doc.fullName.substring(0, 2)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[14px] font-bold text-slate-800 truncate max-w-[120px]">{doc.fullName}</span>
                   </div>
-                ))}
-             </div>
-             <div className="grid grid-cols-1 gap-4">
-                {dashboardData?.doctorsStatus.slice(Math.ceil(totalRooms / 2)).map((doc) => (
-                  <div key={doc.doctorId} className="p-5 bg-slate-50 border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={doc.avatarUrl || ""} />
-                        <AvatarFallback>{doc.fullName.substring(0, 2)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-[14px] font-bold text-slate-800 truncate max-w-[120px]">{doc.fullName}</span>
-                    </div>
-                    <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", !doc.isAvailable ? "bg-rose-500 shadow-sm" : "bg-blue-500 shadow-sm")} />
+                  <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", !doc.isAvailable ? "bg-rose-500 shadow-sm" : "bg-blue-500 shadow-sm")} />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {dashboardData?.doctorsStatus.slice(Math.ceil(totalRooms / 2)).map((doc) => (
+                <div key={doc.doctorId} className="p-5 bg-slate-50 border border-slate-50 rounded-2xl flex items-center justify-between transition-all hover:border-slate-200">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={doc.avatarUrl || ""} />
+                      <AvatarFallback>{doc.fullName.substring(0, 2)}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[14px] font-bold text-slate-800 truncate max-w-[120px]">{doc.fullName}</span>
                   </div>
-                ))}
-             </div>
+                  <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", !doc.isAvailable ? "bg-rose-500 shadow-sm" : "bg-blue-500 shadow-sm")} />
+                </div>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-6 pt-4 border-t border-slate-50">
-             <div className="flex items-center gap-2.5"><div className="h-2.5 w-2.5 rounded-full bg-rose-500" /><span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("occupied")}</span></div>
-             <div className="flex items-center gap-2.5"><div className="h-2.5 w-2.5 rounded-full bg-blue-500" /><span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("available")}</span></div>
+            <div className="flex items-center gap-2.5"><div className="h-2.5 w-2.5 rounded-full bg-rose-500" /><span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("occupied")}</span></div>
+            <div className="flex items-center gap-2.5"><div className="h-2.5 w-2.5 rounded-full bg-blue-500" /><span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("available")}</span></div>
           </div>
         </CardContent>
       </Card>
@@ -414,7 +440,7 @@ export default function ReceptionPatientsPage() {
 
 /* ── Add New Patient View ──────────────────────────────────────── */
 
-function AddNewPatientView({ onBack }: { onBack: () => void }) {
+function AddNewPatientView({ onBack, onSelectPatient }: { onBack: () => void; onSelectPatient: (id: string) => void }) {
   const { t, isRTL } = useTranslation();
   const searchParams = useSearchParams();
   const isFromDashboard = searchParams.get("from") === "dashboard";
@@ -448,19 +474,25 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
 
   // Registration progress tracking
   const step1Complete = !!(formData.firstName && formData.lastName && formData.phone && formData.dateOfBirth && formData.gender);
-  const step2Complete = !!(formData.insuranceMemberId || formData.insurancePolicyNumber); 
+  const step2Complete = !!(formData.insuranceMemberId || formData.insurancePolicyNumber);
   const step3Complete = !!(formData.emergencyContactName && formData.emergencyPhone);
   const currentStep = !step1Complete ? 1 : (!step2Complete ? 2 : (!step3Complete ? 3 : 4));
 
   useEffect(() => {
     const fetchSimilar = async () => {
-      const query = `${formData.firstName} ${formData.lastName}`.trim();
-      if (query.length < 3) {
+      const nameQuery = `${formData.firstName} ${formData.lastName}`.trim();
+      const phoneQuery = formData.phone?.trim();
+      const emailQuery = formData.email?.trim();
+
+      if (nameQuery.length < 3 && !phoneQuery && !emailQuery) {
         setSimilarPatients([]);
         return;
       }
+
       setIsLoadingSimilar(true);
       try {
+        // Prefer searching by specific identifiers if available
+        const query = phoneQuery || emailQuery || nameQuery;
         const res = await patientService.getAll({ search: query });
         setSimilarPatients(res.slice(0, 3));
       } catch (err) {
@@ -471,7 +503,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
     };
     const timer = setTimeout(fetchSimilar, 500);
     return () => clearTimeout(timer);
-  }, [formData.firstName, formData.lastName]);
+  }, [formData.firstName, formData.lastName, formData.phone, formData.email]);
 
   useEffect(() => {
     const fetchDoctors = async () => {
@@ -499,12 +531,22 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
 
     setIsSaving(true);
     try {
+      let dobIso: string | undefined = undefined;
+      if (formData.dateOfBirth) {
+        const dobDate = new Date(formData.dateOfBirth);
+        if (isNaN(dobDate.getTime())) {
+          toast.error(isRTL ? "تاريخ الميلاد غير صالح (YYYY-MM-DD)" : "Invalid Date of Birth format (YYYY-MM-DD)");
+          return;
+        }
+        dobIso = dobDate.toISOString();
+      }
+
       const payload = {
         fullName: `${formData.firstName} ${formData.lastName}`,
         email: formData.email || undefined,
         phone: formData.phone,
         gender: (formData.gender?.toUpperCase() || "OTHER") as "MALE" | "FEMALE" | "OTHER",
-        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
+        dateOfBirth: dobIso,
         vipTier: isVip ? "PLATINUM" : "STANDARD",
         medicalHistory: {
           address: {
@@ -527,33 +569,65 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
         },
       };
 
-      const createdPatient = await patientService.create(payload as CreatePatientPayload);
-      
+      let createdPatient: ApiPatient;
+
+      try {
+        createdPatient = await patientService.create(payload as CreatePatientPayload);
+      } catch (err: unknown) {
+        const error = err as Error;
+        // AUTO-RECOVERY: If patient exists, find them and proceed if we're checking in
+        const message = error.message || "";
+        if (message.toLowerCase().includes("already exists") && isCheckingIn) {
+          const query = formData.phone || formData.email || `${formData.firstName} ${formData.lastName}`;
+          const searchResults = await patientService.getAll({ search: query });
+          const existing = searchResults.find(p =>
+            (formData.phone && p.phone === formData.phone) ||
+            (formData.email && p.email === formData.email)
+          ) || searchResults[0];
+
+          if (existing) {
+            createdPatient = existing;
+            toast.info(isRTL ? "المريض موجود بالفعل. يتم استخدامه للإضافة لقائمة الانتظار..." : "Patient already exists. Using existing record for check-in...");
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
+
       if (isCheckingIn && selectedDoctorId) {
         const doctor = doctors.find(d => d.id === selectedDoctorId);
         const now = new Date();
         const startTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-        
+
         await useBookingStore.getState().addAppointment({
           patientId: createdPatient.id,
           patientName: createdPatient.fullName,
           doctorId: selectedDoctorId,
           doctorName: doctor?.fullName || "Doctor",
+          branchId: doctor?.branchId,
           date: now.toISOString().split('T')[0],
           time: startTime,
           status: "confirmed", // This is the CHECKED-IN status
-          type: "Onsite",
+          type: "CONSULTATION",
           mode: "ONSITE"
         });
-        toast.success(isRTL ? "تم إضافة المريض بنجاح وإضافته لقائمة الانتظار" : "Patient registered and added to queue successfully");
+        toast.success(isRTL ? "تمت إضافة المريض لقائمة الانتظار بنجاح" : "Patient added to queue successfully");
       } else {
         toast.success(t("patientAddedSuccessfully"));
       }
-      
+
       onBack();
-    } catch (err) {
-      console.error("Failed to create patient", err);
-      toast.error(t("failedToAddPatient"));
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error("Failed to save patient", error);
+      const message = error.message || "";
+      if (message.toLowerCase().includes("already exists")) {
+        toast.error(isRTL ? "هذا المريض موجود بالفعل في هذه العيادة" : "A patient with this email/phone already exists in this clinic");
+      } else {
+        toast.error(t("failedToAddPatient"));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -565,11 +639,11 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-[13px] font-bold text-slate-400">
-             <span className="hover:text-blue-600 cursor-pointer transition-colors" onClick={onBack}>
-               {isFromDashboard ? t("dashboard") : t("patient")}
-             </span>
-             {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-             <span className="text-slate-900">{t("addNewPatient")}</span>
+            <span className="hover:text-blue-600 cursor-pointer transition-colors" onClick={onBack}>
+              {isFromDashboard ? t("dashboard") : t("patient")}
+            </span>
+            {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            <span className="text-slate-900">{t("addNewPatient")}</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t("addNewPatient")}</h1>
           <p className="text-slate-400 text-[13px] font-medium">{t("registerNewVisitor")}</p>
@@ -578,11 +652,12 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
           <Button variant="outline" onClick={onBack} disabled={isSaving} className="rounded-xl font-bold text-slate-400 border-slate-100 bg-white hover:bg-slate-50 h-11 px-8">
             {t("cancel")}
           </Button>
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 px-8 font-bold shadow-lg shadow-blue-500/10 flex items-center gap-2"
           >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             {isSaving ? t("saving") : t("savePatient")}
           </Button>
         </div>
@@ -594,74 +669,74 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
           {/* 1. Patient Details */}
           <FormSection title={t("patientDetails")} icon={UserIcon}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <InputField 
-                 label={isRTL ? "الاسم الأول" : "First Name"} 
-                 placeholder={isRTL ? "أدخل الاسم الأول" : "Enter first name"} 
-                 value={formData.firstName} 
-                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} 
-               />
-               <InputField 
-                 label={isRTL ? "اسم العائلة" : "Last Name"} 
-                 placeholder={isRTL ? "أدخل اسم العائلة" : "Enter last name"} 
-                 value={formData.lastName} 
-                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} 
-               />
-               <InputField 
-                 label={t("dateOfBirth")} 
-                 placeholder="YYYY-MM-DD" 
-                 icon={CalendarIcon} 
-                 value={formData.dateOfBirth} 
-                 onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} 
-               />
-               <div className="space-y-2">
-                 <label className={cn("text-[12px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("gender")}</label>
-                 <select
-                   value={formData.gender}
-                   onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                   className={cn("flex h-12 w-full items-center justify-between rounded-[16px] border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600/5 focus:border-blue-200 transition-all", isRTL && "text-right")}
-                 >
-                   <option value="">{isRTL ? "اختر النوع" : "Select Gender"}</option>
-                   <option value="male">{t("male")}</option>
-                   <option value="female">{t("female")}</option>
-                   <option value="other">{t("other")}</option>
-                 </select>
-               </div>
-               <InputField 
-                 label={t("phoneNumber")} 
-                 placeholder="+20 1XX XXX XXXX" 
-                 value={formData.phone} 
-                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
-               />
-               <InputField 
-                 label={t("email")} 
-                 placeholder="patient@example.com" 
-                 value={formData.email} 
-                 onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-               />
+              <InputField
+                label={isRTL ? "الاسم الأول" : "First Name"}
+                placeholder={isRTL ? "أدخل الاسم الأول" : "Enter first name"}
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+              />
+              <InputField
+                label={isRTL ? "اسم العائلة" : "Last Name"}
+                placeholder={isRTL ? "أدخل اسم العائلة" : "Enter last name"}
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+              />
+              <InputField
+                label={t("dateOfBirth")}
+                type="date"
+                placeholder="YYYY-MM-DD"
+                value={formData.dateOfBirth}
+                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+              />
+              <div className="space-y-2">
+                <label className={cn("text-[12px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("gender")}</label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className={cn("flex h-12 w-full items-center justify-between rounded-[16px] border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600/5 focus:border-blue-200 transition-all", isRTL && "text-right")}
+                >
+                  <option value="">{isRTL ? "اختر النوع" : "Select Gender"}</option>
+                  <option value="male">{t("male")}</option>
+                  <option value="female">{t("female")}</option>
+                  <option value="other">{t("other")}</option>
+                </select>
+              </div>
+              <InputField
+                label={t("phoneNumber")}
+                placeholder="+20 1XX XXX XXXX"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+              <InputField
+                label={t("email")}
+                placeholder="patient@example.com"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
             </div>
           </FormSection>
 
           {/* 2. Address */}
           <FormSection title={t("address")} icon={MapPin}>
             <div className="space-y-6">
-              <InputField 
-                label={t("streetAddress")} 
-                placeholder={isRTL ? "عنوان الشارع بالتفصيل" : "123 Medical Plaza"} 
-                value={formData.address} 
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })} 
+              <InputField
+                label={t("streetAddress")}
+                placeholder={isRTL ? "عنوان الشارع بالتفصيل" : "123 Medical Plaza"}
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField 
-                  label={t("city")} 
-                  placeholder={isRTL ? "القاهرة" : "Cairo"} 
-                  value={formData.city} 
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })} 
+                <InputField
+                  label={t("city")}
+                  placeholder={isRTL ? "القاهرة" : "Cairo"}
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 />
-                <InputField 
-                  label={t("zipCode")} 
-                  placeholder="62704" 
-                  value={formData.zipCode} 
-                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })} 
+                <InputField
+                  label={t("zipCode")}
+                  placeholder="62704"
+                  value={formData.zipCode}
+                  onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
                 />
               </div>
             </div>
@@ -671,30 +746,30 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
           <FormSection title={t("insuranceAndCoverage")} icon={ShieldCheck}>
             <div className="space-y-6">
               <div className="space-y-2">
-                 <label className={cn("text-[12px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("insuranceProvider")}</label>
-                 <select
-                   value={formData.insuranceProvider}
-                   onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })}
-                   className={cn("flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all", isRTL && "text-right")}
-                 >
-                   <option value="blue">Blue Shield</option>
-                   <option value="aetna">Aetna</option>
-                   <option value="cigna">Cigna</option>
-                   <option value="other">{t("other")}</option>
-                 </select>
+                <label className={cn("text-[12px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("insuranceProvider")}</label>
+                <select
+                  value={formData.insuranceProvider}
+                  onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })}
+                  className={cn("flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all", isRTL && "text-right")}
+                >
+                  <option value="blue">Blue Shield</option>
+                  <option value="aetna">Aetna</option>
+                  <option value="cigna">Cigna</option>
+                  <option value="other">{t("other")}</option>
+                </select>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <InputField 
-                  label={t("memberId")} 
-                  placeholder="MEMBER-123" 
-                  value={formData.insuranceMemberId} 
-                  onChange={(e) => setFormData({ ...formData, insuranceMemberId: e.target.value })} 
+                <InputField
+                  label={t("memberId")}
+                  placeholder="MEMBER-123"
+                  value={formData.insuranceMemberId}
+                  onChange={(e) => setFormData({ ...formData, insuranceMemberId: e.target.value })}
                 />
-                <InputField 
-                  label={t("policyNumber")} 
-                  placeholder="POL-889" 
-                  value={formData.insurancePolicyNumber} 
-                  onChange={(e) => setFormData({ ...formData, insurancePolicyNumber: e.target.value })} 
+                <InputField
+                  label={t("policyNumber")}
+                  placeholder="POL-889"
+                  value={formData.insurancePolicyNumber}
+                  onChange={(e) => setFormData({ ...formData, insurancePolicyNumber: e.target.value })}
                 />
               </div>
             </div>
@@ -703,11 +778,11 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
           {/* 4. Emergency Contact */}
           <FormSection title={t("emergencyContacts")} icon={ShieldCheck}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <InputField 
-                label={t("contactName")} 
-                placeholder={isRTL ? "اسم جهة الاتصال" : "Jane Doe"} 
-                value={formData.emergencyContactName} 
-                onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })} 
+              <InputField
+                label={t("contactName")}
+                placeholder={isRTL ? "اسم جهة الاتصال" : "Jane Doe"}
+                value={formData.emergencyContactName}
+                onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
               />
               <div className="space-y-2">
                 <label className={cn("text-[12px] font-bold text-slate-400 uppercase tracking-widest", isRTL ? "mr-1" : "ml-1")}>{t("relationship")}</label>
@@ -724,11 +799,11 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                   <option value="other">{t("other")}</option>
                 </select>
               </div>
-              <InputField 
-                label={t("phoneNumber")} 
-                placeholder="+20 1XX XXX XXXX" 
-                value={formData.emergencyPhone} 
-                onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })} 
+              <InputField
+                label={t("phoneNumber")}
+                placeholder="+20 1XX XXX XXXX"
+                value={formData.emergencyPhone}
+                onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
               />
             </div>
           </FormSection>
@@ -752,7 +827,7 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
                   <h4 className="text-[15px] font-bold text-slate-900">{isRTL ? "إضافة لقائمة الانتظار فوراً" : "Add to Queue Immediately"}</h4>
                   <p className="text-[12px] font-medium text-slate-500">{isRTL ? "سيتم تسجيل المريض كوصول (Check-in) فور الحفظ" : "Patient will be checked-in automatically upon saving"}</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsCheckingIn(!isCheckingIn)}
                   className={cn(
                     "relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none",
@@ -809,12 +884,13 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
             >
               {t("cancel")}
             </button>
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="h-12 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px]"
+              className="h-12 px-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/10 text-[13px] flex items-center gap-2"
             >
-              {isSaving ? t("creating") : t("savePatient")}
+              {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSaving ? t("saving") : t("savePatient")}
             </Button>
           </div>
         </div>
@@ -823,107 +899,108 @@ function AddNewPatientView({ onBack }: { onBack: () => void }) {
         <div className="xl:col-span-3 space-y-8">
           {/* QUICK TAGS */}
           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[24px] bg-white overflow-hidden p-6 space-y-6">
-             <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-widest">{t("quickTags")}</h3>
-             <div className="flex flex-wrap gap-2">
-                <Badge 
-                  onClick={() => setIsVip(!isVip)}
-                  className={cn(
-                    "border-none rounded-lg px-3 py-1.5 font-bold text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all",
-                    isVip ? "bg-[#FFFBEB] text-[#D97706] scale-105" : "bg-slate-50 text-slate-400 hover:bg-slate-100"
-                  )}
-                >
-                  <Star className={cn("h-3 w-3", isVip && "fill-current")} /> VIP
-                </Badge>
-                <Badge 
-                  onClick={() => setIsWalkIn(!isWalkIn)}
-                  className={cn(
-                    "border-none rounded-lg px-3 py-1.5 font-bold text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all",
-                    isWalkIn ? "bg-[#ECFDF5] text-[#059669] scale-105" : "bg-slate-50 text-slate-400 hover:bg-slate-100"
-                  )}
-                >
-                  <Activity className="h-3 w-3" /> {t("walkIn")}
-                </Badge>
-                <button className="h-8 px-3 rounded-lg border border-slate-100 text-[11px] font-bold text-slate-400 flex items-center gap-1.5 hover:bg-slate-50 transition-all">
-                  <Plus className="h-3 w-3" /> {t("addTag")}
-                </button>
-             </div>
+            <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-widest">{t("quickTags")}</h3>
+            <div className="flex flex-wrap gap-2">
+              <Badge
+                onClick={() => setIsVip(!isVip)}
+                className={cn(
+                  "border-none rounded-lg px-3 py-1.5 font-bold text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all",
+                  isVip ? "bg-[#FFFBEB] text-[#D97706] scale-105" : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+                )}
+              >
+                <Star className={cn("h-3 w-3", isVip && "fill-current")} /> VIP
+              </Badge>
+              <Badge
+                onClick={() => setIsWalkIn(!isWalkIn)}
+                className={cn(
+                  "border-none rounded-lg px-3 py-1.5 font-bold text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all",
+                  isWalkIn ? "bg-[#ECFDF5] text-[#059669] scale-105" : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+                )}
+              >
+                <Activity className="h-3 w-3" /> {t("walkIn")}
+              </Badge>
+              <button className="h-8 px-3 rounded-lg border border-slate-100 text-[11px] font-bold text-slate-400 flex items-center gap-1.5 hover:bg-slate-50 transition-all">
+                <Plus className="h-3 w-3" /> {t("addTag")}
+              </button>
+            </div>
           </Card>
 
           {/* SIMILAR RECORDS */}
           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[24px] bg-white overflow-hidden p-6 space-y-6">
-             <div className="space-y-1">
-               <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-widest">{t("similarRecords", { count: similarPatients.length })}</h3>
-               <p className="text-[10px] font-bold text-slate-400 leading-tight">
-                 {isLoadingSimilar ? t("checkingForExistingPatients") : (similarPatients.length > 0 ? t("potentialMatchesFound") : t("noMatchesFound"))}
-               </p>
-             </div>
-             
-             <div className="space-y-3">
-                {similarPatients.length === 0 ? (
-                  <div className="p-8 border-2 border-dashed border-slate-50 rounded-[20px] flex flex-col items-center justify-center text-center space-y-2 opacity-50">
-                    <Users className="h-6 w-6 text-slate-300" />
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("noMatches")}</p>
-                  </div>
-                ) : (
-                  similarPatients.map((p, idx) => (
-                    <div 
-                      key={p.id} 
-                      className={cn(
-                        "p-4 border rounded-[20px] flex items-center justify-between cursor-pointer transition-all hover:shadow-md",
-                        idx === 0 ? "bg-amber-50/50 border-amber-200" : "bg-slate-50/50 border-slate-100"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                          <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${p.fullName}`} />
-                          <AvatarFallback className="bg-blue-600 text-white text-[12px] font-bold">{p.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-[13px] font-bold text-slate-900 leading-tight">{p.fullName}</span>
-                          <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase">DOB: {p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString() : "N/A"}</span>
-                        </div>
+            <div className="space-y-1">
+              <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-widest">{t("similarRecords", { count: similarPatients.length })}</h3>
+              <p className="text-[10px] font-bold text-slate-400 leading-tight">
+                {isLoadingSimilar ? t("checkingForExistingPatients") : (similarPatients.length > 0 ? t("potentialMatchesFound") : t("noMatchesFound"))}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {similarPatients.length === 0 ? (
+                <div className="p-8 border-2 border-dashed border-slate-50 rounded-[20px] flex flex-col items-center justify-center text-center space-y-2 opacity-50">
+                  <Users className="h-6 w-6 text-slate-300" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t("noMatches")}</p>
+                </div>
+              ) : (
+                similarPatients.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    onClick={() => onSelectPatient(p.id)}
+                    className={cn(
+                      "p-4 border rounded-[20px] flex items-center justify-between cursor-pointer transition-all hover:shadow-md hover:bg-blue-50/50",
+                      idx === 0 ? "bg-amber-50/50 border-amber-200" : "bg-slate-50/50 border-slate-100"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                        <AvatarImage src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${p.fullName}`} />
+                        <AvatarFallback className="bg-blue-600 text-white text-[12px] font-bold">{p.fullName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-slate-900 leading-tight">{p.fullName}</span>
+                        <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase">DOB: {p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString() : "N/A"}</span>
                       </div>
-                      <span className={cn("text-[11px] font-black", idx === 0 ? "text-[#D97706]" : "text-slate-300")}>
-                        {90 - (idx * 20)}% match
-                      </span>
                     </div>
-                  ))
-                )}
-             </div>
-             <p className="text-[10px] font-medium text-slate-400 text-center leading-relaxed italic px-2">
-               {t("returningPatientInstruction")}
-             </p>
+                    <span className={cn("text-[11px] font-black", idx === 0 ? "text-[#D97706]" : "text-slate-300")}>
+                      {90 - (idx * 20)}% match
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-[10px] font-medium text-slate-400 text-center leading-relaxed italic px-2">
+              {t("returningPatientInstruction")}
+            </p>
           </Card>
 
           {/* REGISTRATION PROGRESS */}
           <Card className="border-none shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-[24px] bg-white overflow-hidden p-6 space-y-6">
-             <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-widest">{t("registrationProgress")}</h3>
-             <div className="space-y-6 pl-1">
-                <ProgressItem 
-                  active={currentStep === 1} 
-                  completed={step1Complete} 
-                  label={t("personalDetails")} 
-                  number={1} 
-                />
-                <ProgressItem 
-                  active={currentStep === 2} 
-                  completed={step2Complete} 
-                  label={t("insuranceAndCoverage")} 
-                  number={2} 
-                />
-                <ProgressItem 
-                  active={currentStep === 3} 
-                  completed={step3Complete} 
-                  label={t("emergencyContacts")} 
-                  number={3} 
-                />
-                <ProgressItem 
-                  active={currentStep === 4} 
-                  completed={false} 
-                  label={t("confirmation")} 
-                  number={4} 
-                />
-             </div>
+            <h3 className="text-[11px] font-black text-slate-300 uppercase tracking-widest">{t("registrationProgress")}</h3>
+            <div className="space-y-6 pl-1">
+              <ProgressItem
+                active={currentStep === 1}
+                completed={step1Complete}
+                label={t("personalDetails")}
+                number={1}
+              />
+              <ProgressItem
+                active={currentStep === 2}
+                completed={step2Complete}
+                label={t("insuranceAndCoverage")}
+                number={2}
+              />
+              <ProgressItem
+                active={currentStep === 3}
+                completed={step3Complete}
+                label={t("emergencyContacts")}
+                number={3}
+              />
+              <ProgressItem
+                active={currentStep === 4}
+                completed={false}
+                label={t("confirmation")}
+                number={4}
+              />
+            </div>
           </Card>
         </div>
       </div>
@@ -956,20 +1033,22 @@ interface InputFieldProps {
   placeholder: string;
   icon?: React.ElementType;
   value?: string;
+  type?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-function InputField({ label, placeholder, icon: Icon, value, onChange }: InputFieldProps) {
+function InputField({ label, placeholder, icon: Icon, value, type = "text", onChange }: InputFieldProps) {
   const { isRTL } = useTranslation();
   return (
     <div className="space-y-2.5">
       <label className={cn("text-[11px] font-black text-slate-400 uppercase tracking-[0.1em]", isRTL ? "mr-1" : "ml-1")}>{label}</label>
       <div className={cn("relative", isRTL && "text-right")}>
-        <Input 
-          placeholder={placeholder} 
+        <Input
+          type={type}
+          placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className={cn("h-12 rounded-[16px] border-slate-100 bg-slate-50/50 focus:ring-blue-600/5 focus:border-blue-200 transition-all text-sm font-bold text-slate-700 placeholder:text-slate-300", isRTL && "text-right")} 
+          className={cn("h-12 rounded-[16px] border-slate-100 bg-slate-50/50 focus:ring-blue-600/5 focus:border-blue-200 transition-all text-sm font-bold text-slate-700 placeholder:text-slate-300", isRTL && "text-right")}
         />
         {Icon && <Icon className={cn("absolute top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300", isRTL ? "left-4" : "right-4")} />}
       </div>
@@ -987,16 +1066,16 @@ interface ProgressItemProps {
 function ProgressItem({ label, number, active, completed }: ProgressItemProps) {
   return (
     <div className="flex items-center gap-4 group">
-       <div className={cn(
-         "h-8 w-8 rounded-full flex items-center justify-center text-[13px] font-black transition-all",
-         completed ? "bg-emerald-500 text-white" : (active ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" : "bg-slate-50 text-slate-300")
-       )}>
-         {completed ? <CheckCircle2 className="h-5 w-5" /> : number}
-       </div>
-       <span className={cn(
-         "text-[13px] font-bold transition-colors",
-         completed || active ? "text-slate-800" : "text-slate-300"
-       )}>{label}</span>
+      <div className={cn(
+        "h-8 w-8 rounded-full flex items-center justify-center text-[13px] font-black transition-all",
+        completed ? "bg-emerald-500 text-white" : (active ? "bg-blue-600 text-white shadow-lg shadow-blue-500/10" : "bg-slate-50 text-slate-300")
+      )}>
+        {completed ? <CheckCircle2 className="h-5 w-5" /> : number}
+      </div>
+      <span className={cn(
+        "text-[13px] font-bold transition-colors",
+        completed || active ? "text-slate-800" : "text-slate-300"
+      )}>{label}</span>
     </div>
   );
 }
@@ -1157,11 +1236,11 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-[13px] font-bold text-slate-400">
-             <span className="hover:text-blue-600 cursor-pointer transition-colors" onClick={onBack}>
-               {isFromDashboard ? t("dashboard") : t("patient")}
-             </span>
-             {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-             <span className="text-slate-900">{t("patientDetails")}</span>
+            <span className="hover:text-blue-600 cursor-pointer transition-colors" onClick={onBack}>
+              {isFromDashboard ? t("dashboard") : t("patient")}
+            </span>
+            {isRTL ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            <span className="text-slate-900">{t("patientDetails")}</span>
           </div>
           <h1 className="text-[22px] font-bold text-slate-900">{t("patientDetails")}</h1>
           <p className="text-slate-400 text-[13px] font-medium">{t("managePatientRecords")}</p>
@@ -1305,10 +1384,10 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
                 <Badge className={cn(
                   "rounded-full px-4 py-1.5 border-none font-black text-[10px] uppercase tracking-widest flex items-center gap-1.5",
                   insurance.verificationStatus === "verified" ? "bg-emerald-50 text-emerald-600" :
-                  insurance.verificationStatus === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"
+                    insurance.verificationStatus === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"
                 )}>
-                  {insurance.verificationStatus === "verified" ? <CheckCircle2 className="h-3.5 w-3.5" /> : 
-                   insurance.verificationStatus === "rejected" ? <X className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                  {insurance.verificationStatus === "verified" ? <CheckCircle2 className="h-3.5 w-3.5" /> :
+                    insurance.verificationStatus === "rejected" ? <X className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
                   {String(insurance.verificationStatus || t("pending")).toUpperCase()}
                 </Badge>
               </div>
@@ -1343,43 +1422,43 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
                       &quot;{String(insurance.discountNote || t("none"))}&quot;
                     </p>
                   </div>
-                  
+
                   {insurance.verificationStatus !== "verified" ? (
                     <div className="flex flex-col gap-4 pt-2">
                       <div className="space-y-3">
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("discountPercent")}</label>
                           <div className="relative">
-                            <Input 
+                            <Input
                               type="number"
                               min="0"
                               max="100"
                               value={inputDiscountPercent}
                               onChange={(e) => setInputDiscountPercent(Number(e.target.value))}
-                              className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[13px] font-black pr-8" 
+                              className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[13px] font-black pr-8"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
                           </div>
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t("notes")}</label>
-                          <Input 
+                          <Input
                             value={inputDiscountNote}
                             onChange={(e) => setInputDiscountNote(e.target.value)}
                             placeholder="e.g. Verified via insurance portal"
-                            className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[13px] font-medium" 
+                            className="h-10 rounded-xl border-slate-100 bg-slate-50 text-[13px] font-medium"
                           />
                         </div>
                       </div>
 
                       <div className="flex gap-3">
-                        <Button 
+                        <Button
                           onClick={() => handleVerifyInsurance("verified")}
                           className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 font-bold text-[13px] shadow-lg shadow-emerald-500/10"
                         >
                           {t("approve")}
                         </Button>
-                        <Button 
+                        <Button
                           onClick={() => handleVerifyInsurance("rejected")}
                           variant="outline"
                           className="flex-1 border-rose-100 text-rose-500 hover:bg-rose-50 rounded-xl h-11 font-bold text-[13px]"
@@ -1389,7 +1468,7 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
                       </div>
                     </div>
                   ) : (
-                    <button 
+                    <button
                       onClick={() => handleVerifyInsurance("pending")}
                       className="text-[13px] font-bold text-blue-600 hover:text-blue-700 transition-colors underline underline-offset-2"
                     >
@@ -1409,29 +1488,29 @@ function PatientDetailsView({ id, onBack }: { id: string; onBack: () => void }) 
             <CardContent className="p-8 space-y-8">
               <h3 className="text-[16px] font-bold text-slate-900">{t("vitalsTrend")}</h3>
               <div className="space-y-4">
-                <VitalRow 
-                  icon={Heart} 
-                  label={t("heartRate")} 
-                  value={vitals.heartRate || "72"} 
-                  unit="BPM" 
-                  color="text-[#3b82f6]" 
-                  bgColor="bg-[#eff6ff]" 
+                <VitalRow
+                  icon={Heart}
+                  label={t("heartRate")}
+                  value={vitals.heartRate || "72"}
+                  unit="BPM"
+                  color="text-[#3b82f6]"
+                  bgColor="bg-[#eff6ff]"
                 />
-                <VitalRow 
-                  icon={Monitor} 
-                  label={t("bloodPressure")} 
-                  value={vitals.bp || "128/82"} 
-                  unit="mmHg" 
-                  color="text-[#6366f1]" 
-                  bgColor="bg-[#eef2ff]" 
+                <VitalRow
+                  icon={Monitor}
+                  label={t("bloodPressure")}
+                  value={vitals.bp || "128/82"}
+                  unit="mmHg"
+                  color="text-[#6366f1]"
+                  bgColor="bg-[#eef2ff]"
                 />
-                <VitalRow 
-                  icon={Droplets} 
-                  label={isRTL ? "السكر" : "Glucose"} 
-                  value={vitals.glucose || "94"} 
-                  unit="mg/dL" 
-                  color="text-[#d97706]" 
-                  bgColor="bg-[#fffbeb]" 
+                <VitalRow
+                  icon={Droplets}
+                  label={isRTL ? "السكر" : "Glucose"}
+                  value={vitals.glucose || "94"}
+                  unit="mg/dL"
+                  color="text-[#d97706]"
+                  bgColor="bg-[#fffbeb]"
                 />
               </div>
             </CardContent>
@@ -1532,12 +1611,12 @@ function AddEmergencyContactModal({ onClose }: { onClose: () => void }) {
           <div className="space-y-1.5">
             <label className="text-[13px] font-bold text-slate-700">{t("relationship")}</label>
             <select className={cn("flex h-12 w-full items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-2 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-600/5 transition-all", isRTL && "text-right")}>
-                  <option value="spouse">{isRTL ? "زوج/زوجة" : "Spouse"}</option>
-                  <option value="parent">{isRTL ? "أب/أم" : "Parent"}</option>
-                  <option value="sibling">{isRTL ? "أخ/أخت" : "Sibling"}</option>
-                  <option value="child">{isRTL ? "ابن/ابنة" : "Child"}</option>
-                  <option value="friend">{isRTL ? "صديق" : "Friend"}</option>
-                  <option value="other">{t("other")}</option>
+              <option value="spouse">{isRTL ? "زوج/زوجة" : "Spouse"}</option>
+              <option value="parent">{isRTL ? "أب/أم" : "Parent"}</option>
+              <option value="sibling">{isRTL ? "أخ/أخت" : "Sibling"}</option>
+              <option value="child">{isRTL ? "ابن/ابنة" : "Child"}</option>
+              <option value="friend">{isRTL ? "صديق" : "Friend"}</option>
+              <option value="other">{t("other")}</option>
             </select>
           </div>
           <div className="space-y-1.5">

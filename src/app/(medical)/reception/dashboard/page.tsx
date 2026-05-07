@@ -110,7 +110,7 @@ export default function ReceptionDashboard() {
     setProcessingId(apptId);
     try {
       const status = nextStatus.toUpperCase().replace("-", "_") as Appointment["status"];
-      await updateAppointment(apptId, { status: status.toLowerCase().replace("_", "-") as any });
+      await updateAppointment(apptId, { status: status.toLowerCase().replace("_", "-") as Appointment["status"] });
       toast.success(`${t("appointmentStatusUpdated")}: ${t(status.toLowerCase().replace("_", "-") as TranslationKey)}`);
       void refreshDashboard();
     } catch {
@@ -388,7 +388,7 @@ export default function ReceptionDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {todayAppointments.filter((apt: any) => {
+                  {todayAppointments.filter((apt: Appointment | DashboardStaffQueueItem) => {
                     const status = (apt.status as string).toUpperCase();
                     return status === "SCHEDULED" || status === "IN_PROGRESS" || status === "IN-PROGRESS";
                   }).length === 0 ? (
@@ -399,11 +399,11 @@ export default function ReceptionDashboard() {
                     </tr>
                   ) : (
                     todayAppointments
-                      .filter((apt: any) => {
+                      .filter((apt: Appointment | DashboardStaffQueueItem) => {
                         const status = (apt.status as string).toUpperCase();
                         return status === "SCHEDULED" || status === "IN_PROGRESS" || status === "IN-PROGRESS";
                       })
-                      .map((apt: any, idx: number) => {
+                      .map((apt: Appointment | DashboardStaffQueueItem, idx: number) => {
                         return (
                           <tr key={apt.id || idx} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-6 py-5">
@@ -479,7 +479,7 @@ export default function ReceptionDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {todayAppointments.filter((apt: any) => {
+                    {todayAppointments.filter((apt: Appointment | DashboardStaffQueueItem) => {
                       const status = (apt.status as string).toUpperCase();
                       return status === "CONFIRMED";
                     }).length === 0 ? (
@@ -490,11 +490,11 @@ export default function ReceptionDashboard() {
                       </tr>
                     ) : (
                       todayAppointments
-                        .filter((apt: any) => {
+                        .filter((apt: Appointment | DashboardStaffQueueItem) => {
                           const status = (apt.status as string).toUpperCase();
                           return status === "CONFIRMED";
                         })
-                        .map((apt: any, i: number) => (
+                        .map((apt: Appointment | DashboardStaffQueueItem, i: number) => (
                           <tr key={apt.id || i} className="hover:bg-slate-50/50 transition-colors group">
                             <td className="px-4 py-5">
                               <div className="flex items-center gap-2">
