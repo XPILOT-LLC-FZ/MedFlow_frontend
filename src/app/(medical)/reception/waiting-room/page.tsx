@@ -98,7 +98,7 @@ export default function QueueManagementPage() {
   );
 
   const completed = useMemo(
-    () => appointments.filter((a) => a.status === "completed" && a.paymentStatus?.toUpperCase() !== "PAID"),
+    () => appointments.filter((a) => a.status === "completed" && (a.paymentStatus as string)?.toUpperCase() !== "PAID"),
     [appointments]
   );
 

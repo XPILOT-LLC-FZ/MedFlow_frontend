@@ -878,6 +878,12 @@ export const translations = {
     markAsCompleted: "Mark as Completed",
     dismissDetails: "Dismiss Details",
     complete: "Complete",
+    allTime: "All Time",
+    pay: "Pay",
+    records: "Records",
+    loadingAppointments: "Loading appointments...",
+    noDataFound: "No data found",
+    noAppointment: "No Appointment",
   },
   ar: {
     // Nav & Common
@@ -1758,6 +1764,12 @@ export const translations = {
     markAsCompleted: "تحديد كمكتمل",
     dismissDetails: "إغلاق التفاصيل",
     complete: "إكمال",
+    allTime: "كل الأوقات",
+    pay: "دفع",
+    records: "سجلات",
+    loadingAppointments: "جاري تحميل المواعيد...",
+    noDataFound: "لم يتم العثور على بيانات",
+    noAppointment: "لا يوجد موعد",
   },
 } as const;
 
